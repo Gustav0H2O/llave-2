@@ -88,6 +88,106 @@ describe('Business API (cuentas de taller)', () => {
     const r = await c1.get('/api/auth/me');
     assert.equal(r.status, 200);
     assert.equal(r.body.name, 'Taller A');
+    // Estas dos columnas se añaden por migración dentro de createApp. Si la
+    // migración no corre, la consulta revienta y la petición se cuelga sin
+    // responder — que es exactamente como se rompió una vez.
+    assert.equal(r.body.email_verified, false);
+    assert.equal(r.body.phone, null);
+  });
+
+  it('guarda el teléfono del taller normalizado', async () => {
+    const r = await c1.put('/api/auth/profile', { name: 'Taller A', phone: '+58 412 123 4567' });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.phone, '+584121234567');
+  });
+
+  it('rechaza un teléfono inválido', async () => {
+    const r = await c1.put('/api/auth/profile', { name: 'Taller A', phone: '123' });
+    assert.equal(r.status, 400);
+  });
+
+  it('verifica el correo con el enlace y el token es de un solo uso', async () => {
+    // Sin RESEND_API_KEY el servidor devuelve el enlace en la respuesta
+    const envio = await c1.post('/api/auth/verify/send', {});
+    assert.equal(envio.status, 200);
+    assert.ok(envio.body.link, 'debe devolver el enlace cuando no hay proveedor de correo');
+
+    // La respuesta es un 302: el resultado va en la cabecera Location, no en el
+    // cuerpo (que llega vacío). Por eso aquí se usa fetch directo y no el
+    // cliente con cookies, que solo devuelve status y body.
+    const seguir = (token) => fetch(
+      `http://127.0.0.1:${ctx.port}/api/auth/verify?token=${encodeURIComponent(token)}`,
+      { redirect: 'manual' }
+    );
+
+    const token = new URL(envio.body.link).searchParams.get('token');
+    const ok = await seguir(token);
+    assert.equal(ok.status, 302);
+    assert.match(ok.headers.get('location'), /verificado=1/);
+
+    const me = await c1.get('/api/auth/me');
+    assert.equal(me.body.email_verified, true);
+
+    const repe = await seguir(token);
+    assert.match(repe.headers.get('location'), /verificado=invalido/);
+  });
+
+  it('rechaza un token de verificación inventado', async () => {
+    const r = await fetch(`http://127.0.0.1:${ctx.port}/api/auth/verify?token=noexiste`, { redirect: 'manual' });
+    assert.match(r.headers.get('location'), /verificado=invalido/);
+  });
+
+  it('el perfil solo es público cuando se publica, y el slug se acuña una vez', async () => {
+    const privado = await c1.put('/api/auth/profile', { name: 'Taller A', is_public: false });
+    assert.equal(privado.body.is_public, false);
+    assert.equal(privado.body.slug, null);
+
+    const publicado = await c1.put('/api/auth/profile', { name: 'Taller A', city: 'Barcelona', is_public: true });
+    assert.equal(publicado.body.is_public, true);
+    assert.equal(publicado.body.slug, 'taller-a');
+
+    // Renombrar NO debe mover el slug: rompería los enlaces ya compartidos
+    const renombrado = await c1.put('/api/auth/profile', { name: 'Taller A Renombrado', is_public: true });
+    assert.equal(renombrado.body.slug, 'taller-a');
+  });
+
+  it('un perfil despublicado deja de responder pero conserva su slug', async () => {
+    await c1.put('/api/auth/profile', { name: 'Taller A', is_public: true });
+    assert.equal((await c1.get('/api/workshops/taller-a')).status, 200);
+
+    const oculto = await c1.put('/api/auth/profile', { name: 'Taller A', is_public: false });
+    assert.equal(oculto.body.slug, 'taller-a');
+    assert.equal((await c1.get('/api/workshops/taller-a')).status, 404);
+
+    await c1.put('/api/auth/profile', { name: 'Taller A', is_public: true });
+  });
+
+  it('acepta reseñas, calcula el promedio y limita una por dispositivo', async () => {
+    const r1 = await c2.post('/api/workshops/taller-a/reviews', { author: 'Luis', rating: 5, comment: 'Excelente', device_id: 'disp-1' });
+    assert.equal(r1.status, 201);
+    const r2 = await c2.post('/api/workshops/taller-a/reviews', { author: 'Carmen', rating: 4, device_id: 'disp-2' });
+    assert.equal(r2.status, 201);
+    assert.equal(r2.body.total, 2);
+    assert.equal(r2.body.promedio, 4.5);
+
+    const dup = await c2.post('/api/workshops/taller-a/reviews', { author: 'Luis otra vez', rating: 1, device_id: 'disp-1' });
+    assert.equal(dup.status, 409);
+  });
+
+  it('rechaza calificaciones fuera de 1..5 en vez de recortarlas', async () => {
+    // `toInt` recorta al rango; si la reseña lo usara, un 9 entraría como 5 y
+    // ensuciaría el promedio sin avisar a nadie.
+    const alta = await c2.post('/api/workshops/taller-a/reviews', { author: 'X', rating: 9, device_id: 'disp-9' });
+    assert.equal(alta.status, 400);
+    const cero = await c2.post('/api/workshops/taller-a/reviews', { author: 'Y', rating: 0, device_id: 'disp-0' });
+    assert.equal(cero.status, 400);
+  });
+
+  it('el directorio solo lista talleres publicados', async () => {
+    const r = await c2.get('/api/workshops');
+    assert.equal(r.status, 200);
+    assert.ok(r.body.some(w => w.slug === 'taller-a'));
+    assert.ok(r.body.every(w => typeof w.slug === 'string'));
   });
 
   it('rutas de negocio requieren sesión (401 sin cookie)', async () => {

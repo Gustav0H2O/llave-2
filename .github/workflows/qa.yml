@@ -1,0 +1,53 @@
+name: Calidad
+
+# Puerta de calidad del proyecto. Lo que corre aquí es EXACTAMENTE lo mismo que
+# `npm run verify` en local, para que nadie descubra en CI una regla que no
+# podía ver en su máquina.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verificar:
+    name: Restricciones, pruebas y métricas
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # Las pruebas usan bases en MEMORIA y el adaptador en modo 'local', así que
+      # no hace falta ninguna credencial: CI nunca toca la base de producción.
+      - name: Restricciones del proyecto
+        run: node scripts/guard.js
+
+      - name: Pruebas
+        run: npm test
+
+      - name: Métricas y presupuestos
+        run: node scripts/metrics.js
+
+      - name: Publicar el informe de calidad
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-de-calidad
+          path: |
+            quality/REPORT.md
+            quality/history.ndjson
+          retention-days: 30
+
+      - name: Resumen en la página de la ejecución
+        if: always()
+        run: cat quality/REPORT.md >> "$GITHUB_STEP_SUMMARY" || true

@@ -1,0 +1,1487 @@
+
+===== PAGINA 1 =====
+FUELTECH MASTER
+Informe de
+producto y
+mercado 2026
+Auditoría completa de la plataforma, análisis del nicho de módulos y
+pilas de gasolina en Latinoamérica, y un catálogo de 312 ideas de
+funcionalidades, micro apps, secciones y mejoras priorizadas.
+DOCUMENTO PRODUCTO ALCANCE FECHA
+Análisis estratégico fueltechmaster.com LatAm · Aftermarket Agosto 2026
+FuelTech Master · Informe de Producto y Mercado 2026 1 / 50
+===== PAGINA 2 =====
+Índice
+01 Resumen ejecutivo Las 12 conclusiones y las 10 apuestas
+02 Auditoría del producto actual Qué existe hoy, medido: 79 rutas, 38 herramientas, 208
+vehículos
+03 Diagnóstico: fortalezas y grietas Lo defendible, lo frágil y lo que sobra
+04 El mercado y el nicho Tamaño, estructura y los seis dolores reales del taller
+05 Competencia y hueco de mercado Alldata, Identifix, Pitz, TallerOS, apps OBD2
+06 Qué busca el mecánico Intenciones de búsqueda, WhatsApp, TikTok, Facebook,
+YouTube
+07 Estrategia: los tres círculos Consulta gratis → Taller → Red
+08 Catálogo de ideas — 312 propuestas 18 bloques, de datos a monetización
+09 Priorización y hoja de ruta Quick wins, 90 días, 6 meses, 12 meses
+10 Métricas, riesgos y fuentes Qué medir, qué no hacer, de dónde salió todo
+Cómo leer el catálogo de ideas
+Cada idea lleva dos indicadores. Esfuerzo es tiempo de construcción para una persona: S menos de un día, M de dos
+días a una semana, L más de una semana o requiere datos/terceros. Impacto es efecto esperado sobre retención,
+adquisición o ingreso: ALTO MEDIO BAJO . Las ideas de impacto bajo no son ideas malas: muchas son detalles de
+oficio que hacen que un mecánico confíe.
+Advertencia metodológica — léela
+Las cifras de mercado y las tendencias de este informe salen de fuentes públicas consultadas en agosto de 2026
+(listadas en §10). No hay datos propios de analítica de FuelTech en este documento: el sitio cuenta visitas, pero
+no se dispone aquí de un panel con búsquedas fallidas, embudos ni cohortes. Varias recomendaciones del bloque
+Q existen precisamente para cerrar ese hueco. Donde afirmo volumen o intención de búsqueda sin cifra exacta, es
+inferencia razonada a partir de los títulos y preguntas frecuentes que dominan los resultados del sector, no una
+medición. Trátalo como hipótesis a validar, no como hecho.
+FuelTech Master · Informe de Producto y Mercado 2026 2 / 50
+===== PAGINA 3 =====
+01
+Resumen ejecutivo
+FuelTech Master no es «una web de un taller». Es, medido contra su propio código, una plataforma técnica
+de 79 rutas de API, 38 herramientas y un catálogo de 208 vehículos con reglas de dominio verificadas y
+407 pruebas en verde. El problema no es de construcción: es de foco, datos y distribución.
+Las doce conclusiones
+# CONCLUSIÓN
+1 Tu activo real no es el software, es la regla del banco. «TBI 60–70 PSI», «Vortec 90 exactos», «familia Yaris 38/44» es
+conocimiento de taller que nadie más tiene indexado en español. Un competidor con más dinero puede copiar la interfaz en
+una semana; no puede copiar el banco de pruebas del dueño.
+2 El 50% del catálogo va marcado como ESTIMADO. 104 de 208 vehículos. Es honesto y correcto mostrarlo, pero es también
+el techo de credibilidad del producto. Convertir estimados en verificados es la inversión con mejor retorno de todo el
+proyecto.
+3 Hay 38 herramientas y ninguna jerarquía de valor. El mecánico no sabe cuál abrir primero. Una parrilla de 38 tarjetas
+iguales es un menú de restaurante de 12 páginas: paraliza.
+4 El nicho es estrechísimo y eso es una ventaja, no un problema. «Bombas de gasolina» es lo bastante específico para ganar
+en buscadores y lo bastante universal para que ningún taller pueda ignorarlo. El error sería diluirlo en «software de gestión de
+talleres», donde hay veinte competidores capitalizados.
+5 La competencia directa en información técnica cuesta 179 USD/mes o no publica precio. Identifix arranca en ~179
+USD/usuario/mes; Alldata ni siquiera lista tarifas. Ese hueco de precio en LatAm está vacío.
+6 La competencia de gestión ya llegó con capital. Pitz levantó 2,1 MUSD (luego 5 MUSD) para IA de diagnóstico por voz e
+imagen con WhatsApp nativo y marketplace de refacciones; opera en México y Brasil y apunta a miles de talleres. Competir de
+frente en gestión genérica es perder.
+7 WhatsApp es el sistema operativo del taller latinoamericano. Cotizar, aprobar, avisar y cobrar pasan por ahí. Toda función
+que no termine en un mensaje de WhatsApp bien redactado está a medio construir.
+8 El taller no compra software: compra tiempo y compra no-equivocarse. El argumento de venta no es «gestiona tu taller»,
+es «no vuelvas a pedir la pila equivocada» y «cobra la garantía que hoy te comes».
+9 Falta el circuito de retorno de datos. Cada mecánico que mide una presión real en su banco es una fuente. Hoy esa
+medición se pierde. Capturarla convierte a los usuarios en el motor del catálogo — y en el foso defensivo.
+10 El SEO está bien montado pero infra-alimentado. 9 guías y ~208 fichas de vehículo es un buen inicio; el sector se gana con
+cientos de páginas de intención específica («qué pila le va a un Aveo 2010»).
+11 No hay monetización activa. AdSense está cableado pero desactivado, no hay planes, no hay cobro. Un producto sin precio
+no recibe señales de valor.
+12 La calidad de ingeniería es una ventaja competitiva desaprovechada como narrativa. 407 pruebas, 100% de cobertura en
+reglas de taller, 18 restricciones automáticas. Eso, contado bien, es marketing de confianza: «este dato lo protege una prueba».
+Las diez apuestas (si solo pudieras hacer diez cosas)
+FuelTech Master · Informe de Producto y Mercado 2026 3 / 50
+===== PAGINA 4 =====
+# APUESTA POR QUÉ ESF.
+1 Modo Banco de Pruebas Convertir la app en el registro oficial de cada prueba de pila: entra la medición, M
+sale un veredicto y un comprobante para el cliente. Es lo único que ningún
+competidor puede replicar sin un taller detrás.
+2 Aporte de datos del mecánico Botón «yo medí esto» en cada ficha estimada, con moderación. Baja el 50% de M
+estimados y crea comunidad al mismo tiempo.
+3 Salida a WhatsApp en todo Cada resultado (ficha, diagnóstico, cotización, garantía) genera un mensaje listo S
+para pegar. Fricción cero.
+4 Buscador único por Una sola caja que entienda «aveo 2010», un VIN o «bomba jetta a4». Hoy hay 38 M
+matrícula/VIN/modelo puertas y ninguna principal.
+5 Certificado de instalación y PDF con fotos, presiones antes/después y sello del taller. Resuelve el conflicto #1 M
+garantía del gremio: la garantía de la bomba.
+6 Generador de contenido para De cada ficha o diagnóstico, una imagen 9:16 lista para TikTok/Reels con la marca M
+redes del taller. Distribución gratis.
+7 Programa de páginas de Plantilla que genere «Qué bomba lleva el {modelo} {año}» para todo el catálogo, M
+intención con datos reales, no relleno.
+8 Plan Taller de pago Gratis la consulta técnica; de pago la gestión, los documentos con marca y el L
+histórico. Precio anclado muy por debajo de Identifix.
+9 Analítica de búsquedas fallidas Registrar qué se buscó y no se encontró. Es la lista de compras del catálogo, S
+escrita por los usuarios.
+10 Resolver las 5 deudas de datos El L200 contradictorio es un dato que puede hacer que alguien pida el módulo S
+equivocado. Es deuda con consecuencia física.
+FuelTech Master · Informe de Producto y Mercado 2026 4 / 50
+===== PAGINA 5 =====
+02
+Auditoría del producto actual
+Todo lo de esta sección está medido sobre el repositorio, no estimado.
+79 38 208 33
+RUTAS DE API HERRAMIENTAS VEHÍCULOS MARCAS
+407 100 24 10
+%
+PRUEBAS EN VERDE COBERTURA DE REGLAS TABLAS EN BASE PILAS EN CATÁLOGO
+2.1 Arquitectura
+Express 4 sirviendo HTML renderizado en servidor + un frontend React 18 por UMD con htm , sin paso de compilación.
+Base de datos por adaptador: SQLite local, Turso en producción, PostgreSQL soportado. Helmet con CSP de hashes
+autocalculados, límite de peticiones, sesiones propias, PWA con service worker, visor 3D con Three.js y chat con Gemini.
+Lo que esta arquitectura te regala Lo que te cobra
+Despliegue en segundos, sin cadena de microapps.js pesa 184 KB y app.js 110 KB:
+compilación que se rompa. se descargan enteros aunque el mecánico abra
+HTML servido = indexable de verdad, no SPA una sola herramienta.
+vacía. server-pg.js tiene 181 KB en un archivo.
+Un solo proceso: barato de hospedar. Funciona, pero cada cambio obliga a navegar un
+monolito.
+Portabilidad de base: puedes cambiar de
+proveedor sin reescribir. Sin compilación no hay división por rutas ni
+carga diferida sencilla.
+2.2 Las 38 herramientas, por familia
+FAMILIA N.º HERRAMIENTAS
+Consulta 10 Catálogo de Combustible · Buscador DTC · Torques de Apriete · Bujías y Calibración · Cross-Reference ·
+Conversor de Unidades · Decodificador VIN · Fusibles y Relés · Medidas de Llanta · Plan de Mantenimiento
+Diagnóstico 11 Mi Carro No Enciende · Batería y Carga · Diagnóstico Rápido de PSI · Diagnóstico por Síntomas ·
+Calculadoras Técnicas · Identificador con IA · Registro de Presión · Prueba de Regulador · Ajustes de
+Combustible (STFT/LTFT) · Prueba de Compresión · Pinouts OBD-II
+Taller 11 Órdenes de Trabajo · Inventario · Clientes · Notas de Entrega/Presupuestos · Notas del Mecánico · Cierre
+de Caja · Inspección de Recepción · Cotizador Rápido · Agenda de Citas · Tiempos de Mano de Obra · Mi
+Taller
+Comunidad 3 Foro Técnico · Conectar Cliente ↔ Mecánico · Mercado de Autos
+Aprende 3 Guías de Diagnóstico · Glosario Técnico · Sincronización / Kit de Tiempo
+FuelTech Master · Informe de Producto y Mercado 2026 5 / 50
+===== PAGINA 6 =====
+Observación clave sobre esta tabla
+Ocho herramientas exigen sesión ( orders, inventory, clients, notes, cash, documents, pressure,
+profile ) y treinta no. Eso significa que casi el 80% del producto es utilizable sin registrarse. Excelente para
+adquisición, terrible para retención: un usuario sin cuenta no deja rastro, no recibe avisos y no vuelve por
+costumbre. El objetivo no es cerrar herramientas, es dar razones para crear cuenta: guardar historial, sincronizar
+entre teléfono y computadora, poner el logo del taller en los documentos.
+2.3 Superficie pública e indexable
+RUTA QUÉ PUBLICA VOLUMEN
+/ Portada con video, losa explicativa y acceso a las herramientas 1
+/vehiculos · Ficha técnica por vehículo: presión, ubicación del módulo, pilas compatibles ~208
+/vehiculo/:slug
+/guias · /guia/:slug Guías de diagnóstico con JSON-LD y preguntas frecuentes 9
+/taller/:slug Perfil público de taller con reseñas variable
+Legales Acerca de, contacto, privacidad, términos 4
+Técnicas sitemap.xml , robots.txt , ads.txt , healthz , imágenes Open Graph pre- —
+generadas
+Las nueve guías cubren: síntomas de bomba fallando · cómo medir presión · presión baja · presión alta · regulador ·
+voltaje del circuito · GDI vs MFI · cómo cambiar la pila · qué pila le queda a mi carro. Están bien elegidas: coinciden casi
+punto por punto con las preguntas que dominan los resultados de búsqueda del sector. El problema es la cantidad, no la
+puntería.
+2.4 Aparato de calidad
+Es, con diferencia, lo más inusual del proyecto para su tamaño: 18 reglas de restricción estática, siete robots de prueba
+masiva (aislamiento entre talleres, fuzz con ~2.900 cargas hostiles, recorrido de todo el sitemap, jornada completa
+simulada, interfaz en navegador real con contraste y objetivos táctiles), presupuestos de tamaño de archivo y latencia, y
+un trinquete que impide que las métricas empeoren.
+Esto no es sobre-ingeniería: es el argumento de venta. En un rubro donde publicar «60 PSI» en vez de «90 PSI»
+hace que un motor no encienda, poder decir «cada dato del catálogo está cubierto por una prueba y una regla
+que impide publicarlo sin fuente» es una promesa que Alldata no hace y que ningún blog de refacciones puede
+hacer. Conviértelo en una página pública: Cómo verificamos cada dato.
+FuelTech Master · Informe de Producto y Mercado 2026 6 / 50
+===== PAGINA 7 =====
+03
+Diagnóstico: fortalezas y grietas
+3.1 Fortalezas defendibles
+FORTALEZA POR QUÉ ES DEFENDIBLE
+Reglas de taller propietarias Salieron de un banco de pruebas real. La distinción TBI/MFI/Vortec/GDI con umbrales y
+consecuencias («por debajo de 60 PSI los poppets no abren») no está en ningún catálogo comercial
+en español.
+Vocabulario del gremio «Pila», «módulo», «riel», «flauta», «banco». El producto habla como habla el taller. Los
+competidores traducen del inglés y suenan a manual.
+Honestidad de datos El aviso ⚠ ESTIMADO en 104 fichas es contraintuitivo comercialmente y brillante en confianza.
+Ningún competidor admite dudar.
+Especificidad del nicho Ser «los de las bombas» es memorable. «Los de gestión de talleres» no lo es.
+Coste de operación bajísimo Un proceso, sin compilación, base serverless. Puedes ser gratis para el mecánico durante años sin
+quemar capital, cosa que una startup con inversores no puede.
+Rigor verificable 407 pruebas y 18 restricciones. Es una barrera de calidad, no solo de funciones.
+3.2 Grietas — ordenadas por gravedad
+# GRIETA CONSECUENCIA Y ARREGLO
+1 Contradicciones de datos El Mitsubishi L200 2010-2015 devuelve dos despieces incompatibles (con retorno y sin retorno).
+sin resolver Un mecánico pide el módulo equivocado. Arreglo: cerrar las cinco deudas del informe de
+calidad; es trabajo de una tarde con el dueño delante.
+2 Mitad del catálogo Techo de credibilidad. Arreglo: campaña de verificación + aportes de la comunidad + prioridad
+estimado por vehículos más consultados.
+3 Sin jerarquía de entrada 38 tarjetas equivalentes. El usuario nuevo no sabe qué es esto. Arreglo: una caja de búsqueda
+dominante y las herramientas como respuesta, no como menú.
+4 Sin bucle de retención Nada trae de vuelta al mecánico mañana. Arreglo: historial, recordatorios de garantía, resumen
+semanal, notificaciones push.
+5 Sin modelo de ingreso AdSense apagado, sin planes. Arreglo: §8 bloque M.
+6 Catálogo de vehículos 157 MFI, 47 GDI, 3 Vortec y 1 solo TBI, cuando el parque latinoamericano viejo está lleno de TBI
+sesgado y es donde más se equivoca la gente. Arreglo: ampliar TBI y Vortec, que son justo donde las
+reglas propias brillan.
+7 Peso de descarga ~430 KB de JS/HTML antes de ver nada, en un taller con señal mala. Arreglo: división por
+herramienta, aunque sea manual.
+8 Comunidad vacía Foro, mercado y conexión cliente-mecánico existen pero sin masa crítica se ven abandonados y
+restan confianza. Arreglo: ocultarlos hasta tener semilla, o sembrarlos con contenido real del
+taller.
+9 Herramientas duplicadas Cotizador Rápido vs. Notas de Entrega vs. Órdenes de Trabajo se solapan; Calculadoras vs.
+Conversor también. Arreglo: fusionar y reducir de 38 a ~28 con más profundidad cada una.
+FuelTech Master · Informe de Producto y Mercado 2026 7 / 50
+===== PAGINA 8 =====
+# GRIETA CONSECUENCIA Y ARREGLO
+10 Sin instrumentación de No sabes qué herramienta se usa. Estás decidiendo a ciegas. Arreglo: bloque Q, es lo más
+producto barato del informe.
+La grieta que no es técnica
+El producto hoy sirve a tres públicos a la vez —el mecánico que consulta, el taller que gestiona y el dueño del
+carro que busca en Google— y no le dice a ninguno «esto es para ti». Un mecánico que entra buscando la presión
+de un Aveo se encuentra un mercado de autos usados y un cierre de caja. La solución no es quitar funciones: es
+rutas de entrada distintas según quién llega, y §7 propone exactamente eso.
+FuelTech Master · Informe de Producto y Mercado 2026 8 / 50
+===== PAGINA 9 =====
+04
+El mercado y el nicho
+4.1 Tamaño y estructura
+Solo en México se contabilizan más de 240.000 unidades económicas de talleres formales, y la digitalización
+avanza a ritmos muy distintos, con el segmento independiente claramente rezagado.
+El mercado SaaS B2B en LatAm crece ~25% anual y supera los 10.000 MUSD en 2026, pero los sectores operativos
+—como el automotriz— están subatendidos. Es literalmente el hueco donde estás parado.
+La fabricación de autopartes en la región proyecta un crecimiento anual compuesto del 4,8% hasta 2035.
+La falsificación de autopartes es endémica: en un solo operativo en Bogotá se incautaron 7.966 piezas falsas, con
+bombas de gasolina y de agua entre las categorías afectadas.
+Qué significa el dato de las falsificaciones para FuelTech
+Es la oportunidad de producto más grande y menos obvia del informe. Si el mercado está inundado de pilas falsas,
+el mecánico necesita una forma de saber si la pieza que le vendieron es la que dice ser: caudal real medido en
+banco, amperaje de consumo, presión de corte, fotos de empaque legítimo, listado de vendedores confiables.
+FuelTech ya mide caudal (LPH), amperaje y presión en su catálogo de pilas. Convertir eso en un verificador de
+autenticidad es una función que nadie ofrece en español y que ataca un dolor con consecuencia económica
+directa. Ver ideas 41–48.
+4.2 Los seis dolores reales del taller latinoamericano
+PUERTA DE
+# DOLOR QUÉ SE DOCUMENTA
+ENTRADA
+1 Equivocarse de pieza Pedir el módulo o la pila equivocada cuesta el flete, el tiempo y a veces Catálogo + reglas.
+el cliente. En sistemas TBI ofrecer una pila de alta ahoga el motor; en Es tu núcleo.
+Vortec, una de baja hace que el motor ni encienda.
+2 Cotizar y no cerrar Un taller pequeño pierde cotizaciones por no responder a tiempo; Cotizador → mensaje
+digitalizar órdenes y cotizaciones por WhatsApp sube la tasa de de WhatsApp en un
+aprobación desde el primer mes. toque.
+3 La garantía Es el conflicto clásico con la bomba: el cliente vuelve, culpa a la pieza, y Certificado de
+el taller no tiene con qué demostrar que instaló bien y que el problema instalación con fotos
+era otro (filtro tapado, tanque sucio, voltaje bajo). y presiones.
+4 Márgenes y costes Presión sobre márgenes e incremento de costes aparecen entre las Cierre de caja +
+alertas principales del sector, junto con la necesidad de nuevas rentabilidad por
+inversiones en diagnóstico y software. trabajo.
+5 Falta de personal Escasez de profesionales y ausencia de relevo generacional: cada vez Formación dentro del
+calificado menos jóvenes se forman, y los tiempos de espera se disparan. producto: el aprendiz
+aprende usando la
+app.
+6 Fidelizar frente a las La fidelización es el principal reto del taller independiente frente a las Recordatorios,
+cadenas cadenas; la digitalización permite pasar de gestión reactiva a proactiva. historial del vehículo,
+perfil público.
+4.3 El nicho específico: por qué «bombas» es el ángulo correcto
+FuelTech Master · Informe de Producto y Mercado 2026 9 / 50
+===== PAGINA 10 =====
+Es una falla de alta frecuencia y alto drama. La bomba Es donde más se equivoca el gremio. Presión de banco
+de gasolina produce el síntoma que más asusta: el carro no vs. presión de riel, con o sin regulador, con o sin retorno,
+enciende. Los contenidos que dominan la búsqueda del GDI de baja vs. alta. Son distinciones que un mecánico
+sector describen exactamente eso —arranque difícil, general no domina y un catálogo genérico no explica.
+pérdida de potencia en subida, jaloneo al acelerar,
+Es un puente natural a todo lo demás. Quien entra por la
+zumbido desde el tanque, apagones intermitentes—, y
+bomba se queda por el filtro, los inyectores, el regulador,
+todos terminan en la misma pregunta: ¿es la bomba o no?
+el tanque, el relé, el cableado y la ECU. El sistema de
+Es una pieza cara para el bolsillo latinoamericano. combustible completo es un negocio de información
+Nadie cambia una bomba «por si acaso». Se busca, se mucho mayor que la pila sola.
+pregunta, se compara. Eso genera búsqueda de alta
+intención.
+Definición de posicionamiento recomendada
+«FuelTech Master es la referencia técnica del sistema de combustible para el mecánico hispanohablante: qué
+presión debe dar, qué pila le va, cómo probarlo y cómo demostrar que quedó bien. Gratis para consultar, de pago
+para trabajar.»
+FuelTech Master · Informe de Producto y Mercado 2026 10 / 50
+===== PAGINA 11 =====
+05
+Competencia y hueco de mercado
+COMPETIDOR CATEGORÍA FORTALEZA / DEBILIDAD FRENTE A TI PRECIO
+ALLDATA Info técnica Datos de fábrica, cobertura enorme. Debilidad: caro, no publica precio, No público
+OEM orientado a EE.UU., interfaz pesada, poco adaptado al parque
+latinoamericano viejo. Usuarios se quejan de que «los precios no paran
+de subir».
+Mitchell 1 Info + gestión Estándar de la industria en EE.UU. Debilidad: mismo problema de precio No público
+y de mercado; en español es marginal.
+Identifix Direct-Hit Diagnóstico Su gran valor son los arreglos confirmados por otros técnicos: ~179
+por exactamente el modelo de «datos de la comunidad» que tú puedes USD/mes
+experiencia replicar en tu nicho. Debilidad: ~179 USD/mes por usuario.
+Pitz IA + gestión El competidor más peligroso: 2,1 MUSD levantados (y una ronda SaaS +
+LatAm posterior mayor), diagnóstico por voz e imagen en español, WhatsApp comisión
+nativo, marketplace de refacciones que aporta ~35% de sus ingresos vía
+comisiones del 15-25%. Opera en México y Brasil. Debilidad: amplitud sin
+profundidad: no tiene reglas de banco por sistema de inyección.
+TallerOS, Appli-Car, Gestión de Docenas de opciones regionales. Appli-Car arranca en ~19.990 CLP/mes ≈20–60
+TallerFlow, taller con órdenes digitales, cotizaciones por WhatsApp e inventario. USD/mes
+Reparan2, Debilidad: son ERP; ninguno sabe de presiones ni de pilas.
+Winmotor…
+Apps OBD2 Escáner de Millones de instalaciones, leen códigos y datos en vivo con un adaptador Gratis /
+(Torque, Car bolsillo ELM327 barato. Debilidad: te dan el código, no el veredicto. Nadie te freemium
+Scanner, inCarDoc) dice «con este P0087 y esta presión, tu pila está muerta».
+Blogs y catálogos Contenido Dominan la búsqueda informativa («síntomas de bomba fallando»). —
+de fabricante Debilidad: genéricos, sin datos por modelo, sin herramienta. El lector
+queda igual de perdido.
+Grupos de Comunidad Donde realmente pregunta el mecánico latinoamericano hoy. Debilidad: Gratis
+Facebook / respuestas no verificadas, imposible de buscar, el conocimiento se
+YouTube pierde en el muro.
+5.1 El hueco, dicho en una frase
+Los caros saben mucho de todo pero no hablan tu idioma ni conocen tu parque vehicular. Los baratos gestionan el
+taller pero no saben nada de mecánica. Las apps OBD2 leen códigos pero no dan veredictos. Los grupos de
+Facebook saben del parque real pero no se pueden buscar y no verifican nada. FuelTech puede ser el único que
+sabe mucho de una cosa, en el idioma y con el parque correctos, con veredicto y con prueba.
+5.2 Reglas de compromiso frente a Pitz
+▸ No compitas en marketplace de refacciones. Requiere capital de inventario y logística. Compite en decidir qué pieza
+pedir, y monetiza enviando ese tráfico cualificado a quien sí vende.
+▸ No compitas en «IA para todo». Compite en IA que aplica tus reglas: una IA que sabe que un Vortec necesita 90 PSI
+exactos vale más que una que improvisa.
+FuelTech Master · Informe de Producto y Mercado 2026 11 / 50
+===== PAGINA 12 =====
+▸ Compite en profundidad y en confianza. Ellos irán a lo ancho. Tú puedes ser insustituible en el sistema de
+combustible y ganar el «top of mind» del gremio en ese terreno.
+▸ Compite en precio con ventaja estructural. Tu coste de operación es cercano a cero; puedes sostener un plan
+gratuito potente durante años.
+FuelTech Master · Informe de Producto y Mercado 2026 12 / 50
+===== PAGINA 13 =====
+06
+Qué busca el mecánico
+6.1 Las siete familias de intención de búsqueda
+Reconstruidas a partir de los contenidos que dominan los resultados del sector. Cada familia debería tener una respuesta
+específica en el producto.
+FAMILIA CÓMO SE ESCRIBE REALMENTE QUÉ DEBERÍA DEVOLVER FUELTECH
+Síntoma → causa «síntomas de bomba de gasolina Árbol de decisión con pruebas ordenadas por coste, no una lista de
+fallando», «mi carro jalonea al causas.
+acelerar», «el carro se apaga y
+prende»
+Medición → «cuánta presión debe dar la Introduce tu medida y el sistema: BIEN / MAL / SOSPECHOSO, con
+veredicto bomba», «45 psi es normal», la causa más probable. Ya existe (Diagnóstico Rápido de PSI). Debería
+«presión de combustible baja ser la portada.
+causas»
+Compatibilidad «qué bomba lleva el aveo 2010», Ficha con OEM, alternativas, caudal, amperaje y advertencia si es
+«pila de gasolina jetta a4», «bomba estimado.
+universal para…»
+Procedimiento «cómo cambiar la bomba de Paso a paso con torques, herramientas y trampas del modelo
+gasolina», «cómo medir presión sin concreto.
+manómetro», «cómo sacar el
+tanque»
+Código de falla «P0087», «P0171 y P0174 juntos», Código → causas por probabilidad → prueba concreta → veredicto.
+«código de bomba de gasolina» Conectado al catálogo.
+Precio «cuánto cuesta cambiar la bomba Rango por país y por modelo, más el desglose mano de obra vs.
+de gasolina», «precio bomba de pieza. Alto volumen, cero cobertura hoy.
+gasolina»
+Diferenciación «bomba original vs genérica», Comparativa por caudal, amperaje, presión y garantía. Ataca la
+«airtex vs bosch», «cómo saber si falsificación.
+mi bomba es original»
+6.2 Dónde vive el mecánico latinoamericano en internet
+WhatsApp — el sistema operativo Facebook — el foro real
+Cotiza, aprueba, manda fotos del daño, pide la Comunidades como CAM (Comunidad Automotriz
+pieza al refaccionario, cobra. Existen ya plataformas México) concentran miles de técnicos preguntando
+que venden exclusivamente «cotizar por y respondiendo. Es donde se resuelven las dudas
+WhatsApp» y chatbots que agendan citas y hoy. Implicación: no intentes reemplazarlo de
+presupuestan 24/7. Implicación: cada pantalla de golpe con un foro vacío; sé la respuesta que se pega
+FuelTech necesita un botón que produzca un en el grupo. Cada ficha debe tener una imagen
+mensaje redactado, con los datos, la marca del compartible que rinda bien en un muro.
+taller y un enlace.
+FuelTech Master · Informe de Producto y Mercado 2026 13 / 50
+===== PAGINA 14 =====
+TikTok / Reels — la vitrina YouTube — la escuela
+El contenido que funciona: reparaciones grabadas, Es donde el mecánico aprende el procedimiento
+avisos sobre «reparaciones fantasma», herramientas largo. Implicación: tú no compites con el video;
+nuevas (endoscopios, cámaras de tanque), humor complementas. Sé la chuleta que se abre en el
+de taller y marketing para talleres celular mientras el video corre en la laptop: torques,
+(#MarketingAutomotriz, #TallerMecánico). Los presiones, pinouts, orden de pasos.
+clientes ven el taller en redes antes de visitarlo.
+Implicación: dale al taller material listo para
+publicar.
+6.3 Tendencias que marcan el producto en 2026
+TENDENCIA CONSECUENCIA DIRECTA PARA FUELTECH
+IA de diagnóstico por voz e Se está volviendo la expectativa base. Ya tienes «Identificador con IA»; hace falta voz (manos sucias)
+imagen y foto de la pieza o del manómetro.
+Todo en la nube y en el El dueño supervisa desde casa, el técnico actualiza desde debajo del capó. Refuerza tu apuesta
+celular PWA.
+Del taller reactivo al Recordatorios, mantenimiento predictivo y avisos antes de que el cliente llame.
+proactivo
+Electrificación e híbridos Crece la demanda de formación específica. Ojo: el eléctrico no lleva bomba, pero el híbrido sí, y con
+particularidades. Es una vertical de contenido con poca competencia en español.
+Escasez de técnicos y falta de El producto que enseña mientras se usa gana. Cada herramienta debe explicar el porqué, no solo
+relevo dar el número.
+Facturación electrónica En varios países la factura digital deja de ser opcional. Si FuelTech emite documentos, tendrá que
+obligatoria mirar esto por país.
+FuelTech Master · Informe de Producto y Mercado 2026 14 / 50
+===== PAGINA 15 =====
+07
+Estrategia: los tres círculos
+Un solo producto, tres puertas. Cada círculo alimenta al siguiente: la consulta gratuita trae gente, el taller la
+retiene y la red la vuelve difícil de abandonar.
+CÓMO GANA
+CÍRCULO PARA QUIÉN QUÉ CONTIENE
+DINERO
+1 · CONSULTA Mecánico con el Catálogo de vehículos, presiones, pilas compatibles, DTC, Publicidad
+GRATIS carro arriba, ahora diagnóstico por síntoma, calculadoras, guías. Sin registro, rápido, contextual,
+mismo. Y el dueño funciona sin señal. afiliación a
+del carro que llega refaccionarios,
+por Google. captación para
+el círculo 2.
+2 · TALLER El taller como Órdenes, clientes, inventario, caja, documentos con logo, Suscripción
+DE PAGO negocio. certificados de garantía, historial por vehículo, multiusuario, mensual baja,
+respaldos. por taller y no
+por usuario.
+3 · RED El gremio completo. Aportes de mediciones, casos resueltos, reputación técnica, perfil Perfil
+EFECTO DE público del taller, conexión con clientes, alertas de piezas falsas. destacado,
+RED verificación,
+comisión de
+derivación,
+datos
+agregados.
+7.1 La regla que ordena todas las decisiones
+Si una función ayuda a decidir si una bomba sirve o se devuelve, es prioridad uno. Si ayuda al taller a cobrar
+por ese trabajo, es prioridad dos. Si ayuda a otro taller a hacerlo mejor, es prioridad tres. Todo lo demás
+espera. Esta regla, aplicada con disciplina, descarta por sí sola el mercado de autos usados, buena parte del
+módulo de agenda y varias calculadoras genéricas — y libera el tiempo para construir lo que sí te hace único.
+7.2 Arquitectura de entrada propuesta
+QUIEN LLEGA LO PRIMERO QUE VE SIGUIENTE PASO DESEADO
+Mecánico con prisa Una caja: «¿Qué carro Ficha completa en menos de 3 segundos → guarda medición → crea
+tienes en la rampa?» cuenta.
+Mecánico investigando Guía o herramienta de Prueba paso a paso → veredicto → certificado.
+diagnóstico
+Dueño del carro (desde Guía en lenguaje llano + Buscar taller cercano en el directorio → contacto por WhatsApp.
+Google) «esto te va a costar entre
+X e Y»
+Dueño de taller Demostración del panel Prueba gratuita del plan Taller.
+con datos de ejemplo
+FuelTech Master · Informe de Producto y Mercado 2026 15 / 50
+===== PAGINA 16 =====
+QUIEN LLEGA LO PRIMERO QUE VE SIGUIENTE PASO DESEADO
+Refaccionario / Página comercial de datos Acuerdo de listado o publicidad.
+distribuidor y catálogo
+FuelTech Master · Informe de Producto y Mercado 2026 16 / 50
+===== PAGINA 17 =====
+08
+Catálogo de ideas — 312 propuestas
+Dieciocho bloques. No es una lista de deseos: cada idea nace de algo concreto de las secciones anteriores —
+una grieta del producto, un dolor documentado del taller o una intención de búsqueda real.
+BLQ BLOQUE IDEAS FOCO
+A Núcleo de datos y catálogo técnico 1–40 El foso defensivo
+B Autenticidad de la pieza 41–48 Anti-falsificación
+C Diagnóstico, medición y veredicto 49–78 El acto central
+D Micro apps de consulta rápida 79–108 Uso diario
+E Gestión del taller 109–136 Ingreso recurrente
+F Garantía, confianza y documentos 137–152 El dolor #3
+G Cliente final / dueño del carro 153–170 Tráfico y derivación
+H Comunidad y red del gremio 171–190 Efecto de red
+I Contenido y posicionamiento 191–212 Adquisición orgánica
+J Redes sociales y crecimiento 213–230 Distribución
+K IA aplicada al taller 231–248 Diferenciación 2026
+L Hardware e integraciones 249–260 Datos que nadie más tiene
+M Monetización 261–276 Sostenibilidad
+N Experiencia de taller real 277–290 Manos sucias, luz fuerte
+O Rendimiento, offline y PWA 291–298 Señal mala
+P Formación y relevo generacional 299–306 Dolor #5
+Q Instrumentación y datos de producto 307–312 Dejar de decidir a ciegas
+FuelTech Master · Informe de Producto y Mercado 2026 17 / 50
+===== PAGINA 18 =====
+BLOQUE A · IDEAS 1–40
+Núcleo de datos y catálogo técnico
+Este bloque es el más importante del informe. Todo lo demás es interfaz alrededor de estos datos; si el catálogo es
+superficial, ninguna función lo salva.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+1 Cerrar las 5 deudas de datos L200 contradictorio, Kwid y Duster duplicados, Tracker solapado, AIRTEX S ALTO
+huérfana. Son datos que hoy pueden hacer que alguien pida la pieza
+equivocada. Una sesión con el dueño del taller lo resuelve.
+2 Campaña «de estimado a Lista priorizada de los 104 vehículos estimados, ordenada por consultas M ALTO
+verificado» recibidas. Verificar los 20 primeros cambia la percepción del catálogo
+entero.
+3 Aporte de medición del Botón «Yo medí esto» en cada ficha: PSI de banco, PSI de riel, condición M ALTO
+mecánico de prueba, foto del manómetro. Entra a cola de moderación. Es tu
+Identifix, gratis.
+4 Nivel de confianza por dato No solo «verificado / estimado»: manual de fábrica · banco propio · N S ALTO
+mediciones de la comunidad · estimado por familia. Con el conteo
+visible.
+5 Ampliar cobertura TBI Hay un vehículo TBI en 208. El parque viejo latinoamericano está lleno: M ALTO
+Chevy, Corsa, Blazer, Silverado, Ford F-150 90s, Luv. Es donde la regla
+propia (60–70 PSI) más valor aporta.
+6 Ampliar cobertura Tres vehículos. Es el sistema con la regla más quirúrgica que tienes (90 M ALTO
+Vortec/CSFI PSI exactos, poppets que no abren). Cada Vortec añadido es una
+consulta que hoy pierdes.
+7 Cobertura de camionetas de Hilux, Ranger, D-Max, NP300, Saveiro, Frontier. Son las que más facturan M ALTO
+trabajo al taller porque no pueden estar paradas.
+8 Cobertura de motos e La moto de reparto es un mercado enorme en LatAm y su bomba se L MEDIO
+híbridos ignora en todos los catálogos. El híbrido sí lleva bomba, con
+particularidades poco documentadas en español.
+9 Ficha de la pila mucho más Hoy hay 10 pilas. Cada una debería llevar: caudal LPH a 3/6/9 bar, M ALTO
+profunda amperaje en vacío y en carga, presión de corte, tipo de turbina,
+conector, diámetro, altura, temperatura máxima, vida útil esperada.
+10 Catálogo de módulos El mecánico rara vez compra la pila sola: compra el módulo. Despiece L ALTO
+completos con canasta, flotador, aforador, filtro de malla, venturi, tapa y sellos.
+11 Catálogo de aforadores y Falla clásica que se confunde con la bomba: el tablero marca mal. M MEDIO
+flotadores Resistencia en ohmios de vacío a lleno por modelo.
+12 Catálogo de reguladores de Con presión nominal, tipo (retorno / sin retorno / en el módulo / en el M ALTO
+presión riel) y prueba de vacío asociada.
+13 Catálogo de filtros de Interno vs. externo, roscas, micraje, intervalo de cambio. El filtro tapado M ALTO
+combustible es la causa que más se confunde con bomba muerta.
+14 Catálogo de relés y fusibles Número de relé, posición en la caja, amperaje del fusible y su ubicación M ALTO
+del circuito exacta por modelo. Reduce el «no es la bomba, era el relé».
+FuelTech Master · Informe de Producto y Mercado 2026 18 / 50
+===== PAGINA 19 =====
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+15 Diagramas de conectores Ya tienes GROUP_CONNECTOR. Falta el dibujo: pines, colores de cable, L ALTO
+por familia función de cada uno. Es de lo más buscado y menos disponible.
+16 Ubicación del acceso al Ya está el dato por zona; falta la imagen: bajo el asiento trasero, en la M ALTO
+módulo, con foto cajuela, tras la alfombra, o «hay que bajar el tanque». Ahorra media hora
+de trabajo.
+17 Aviso de «hay que bajar el Bandera roja con el tiempo extra estimado y las cosas que hay que S ALTO
+tanque» desconectar. Cambia el precio de la cotización.
+18 Equivalencias entre marcas Bosch ↔ Airtex ↔ Delphi ↔ Walbro ↔ Denso ↔ genéricos. La búsqueda L ALTO
+de pila de referencias cruzadas es una de las tareas más repetidas del
+refaccionario y del mecánico.
+19 Buscador inverso por Entra un número impreso en la pila vieja → sale a qué carros va y qué M ALTO
+número de parte equivalentes existen. Intención altísima, casi sin competencia en español.
+20 Buscador por medidas Cuando no hay número: diámetro, largo, tipo de conector y salida. «Se M MEDIO
+físicas parece a esta» resuelto por filtros.
+21 Decodificador VIN real Hoy es básico (año y fabricante). Con la tabla de códigos de motor por L ALTO
+marca puede devolver la ficha exacta sin preguntar nada más.
+22 Alias y nombres locales de El mismo carro es Aveo, Sail, Sonic o Optra según el país. Sin alias, la S ALTO
+modelo búsqueda falla y el usuario cree que no está.
+23 Búsqueda tolerante a «jeta», «tsuru», «hylux», «corola» deben encontrar el carro. Distancia de S ALTO
+errores edición sobre marca y modelo.
+24 Historial de cambios del Registro público de qué dato cambió, cuándo y con qué fuente. M MEDIO
+catálogo Convierte el rigor interno en confianza visible.
+25 Citar la fuente en la ficha «Manual de servicio Toyota 1NZ-FE, pág. 12» o «banco FuelTech, 3 S ALTO
+mediciones». Es el detalle que separa un catálogo de un blog.
+26 Reportar dato erróneo Un toque en la ficha, con campo para la medida correcta y la fuente. S ALTO
+Cierra el círculo de calidad.
+27 Panel de moderación de Cola con comparación contra el dato actual, mediana de la comunidad y M MEDIO
+aportes detección de valores fuera de rango.
+28 Importación masiva asistida Ya existe /api/admin/vehicles/import . Falta una interfaz con vista M MEDIO
+previa, validación contra las reglas de dominio y marcado automático de
+estimados.
+29 Detector automático de Regla que, al guardar, avise si el nuevo rango de años solapa a otro del S ALTO
+contradicciones mismo modelo con datos distintos. Habría cazado el L200 antes de
+publicarse.
+30 Presiones por condición de No es un número: es llave en ON, en ralentí, acelerando, con vacío M ALTO
+prueba desconectado y presión residual tras 10 minutos. Cinco valores por
+vehículo, no uno.
+31 Presión residual y caída La prueba que más descarta bombas buenas: cuánto puede caer en 10 S ALTO
+aceptable minutos antes de considerarse fuga. Casi nadie publica este umbral.
+FuelTech Master · Informe de Producto y Mercado 2026 19 / 50
+===== PAGINA 20 =====
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+32 Consumo eléctrico esperado Amperaje normal de la bomba por modelo. Una bomba que consume M ALTO
+de más está agonizando aunque dé presión: dato de diagnóstico
+avanzado que te distingue.
+33 Caudal mínimo por La prueba de volumen que complementa la de presión. Con el tiempo M ALTO
+litro/minuto de llenado esperado por modelo.
+34 Compatibilidad con etanol y Brasil con E27, Argentina, Colombia. Las bombas no son iguales y las M MEDIO
+calidad de combustible fallas por combustible adulterado son un tema regional grande.
+35 Notas de conversión a Muy frecuente en LatAm y afecta la vida de la bomba (trabaja con poco S MEDIO
+GNV/GLP combustible y se recalienta). Nadie lo documenta.
+36 Fallas típicas por modelo Campo libre curado: «en este modelo casi siempre es el conector que se M ALTO
+quema, no la bomba». El conocimiento más valioso y el menos escrito.
+37 Boletines técnicos del Recopilación de TSB relevantes al sistema de combustible por modelo, L MEDIO
+fabricante resumidos en español.
+38 Exportación del catálogo Ya existe /api/catalog/export . Formalizarlo como producto de S MEDIO
+para socios datos para refaccionarios (ver bloque M).
+39 Versionado del catálogo «Catálogo v2026.3». Permite citar una versión en un peritaje o en una S BAJO
+garantía.
+40 Cobertura por país Decir abiertamente «cubrimos bien México y Venezuela, poco S MEDIO
+declarada Argentina» genera más confianza que fingir cobertura total, y orienta
+dónde crecer.
+FuelTech Master · Informe de Producto y Mercado 2026 20 / 50
+===== PAGINA 21 =====
+BLOQUE B · IDEAS 41–48
+Autenticidad de la pieza
+Un bloque corto y con una tesis única: en un mercado con miles de autopartes falsificadas incautadas en un solo
+operativo, saber si la pieza es real vale tanto como saber cuál pedir. Ningún competidor lo cubre.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+41 Prueba de autenticidad en Introduce presión de corte, amperaje y caudal medidos; el sistema los M ALTO
+banco compara con la especificación de la marca declarada y dice si es
+plausible. Una «Bosch» que consume el doble y da la mitad de caudal no
+es Bosch.
+42 Galería de empaques Fotos comparadas de caja original vs. falsificación conocida por marca: M ALTO
+legítimos tipografía, holograma, código, calidad de impresión.
+43 Señales físicas de clonación Peso, acabado de la turbina, tipo de conector, rebabas de plástico, imán. S ALTO
+Lista de verificación de 60 segundos antes de instalar.
+44 Reporte comunitario de lote «Compré este número en tal ciudad y era falso». Agregado y anónimo, M MEDIO
+falso con umbral de reportes antes de mostrarse.
+45 Índice de fiabilidad por Tasa de devolución y de falla temprana reportada por los talleres L ALTO
+marca usuarios. Con el tiempo, es el dato más citado del sector.
+46 Verificador de código del Enlace directo al verificador oficial de cada marca cuando existe, dentro S MEDIO
+fabricante de la ficha.
+47 Directorio de proveedores Refaccionarios validados por los talleres de la red, por ciudad. M ALTO
+confiables Monetizable y valioso.
+48 Guía «cómo reclamar una Qué documentar, a quién acudir por país, plantilla de reclamo. S MEDIO
+pieza falsa» Contenido de utilidad pura que genera enlaces y reputación.
+FuelTech Master · Informe de Producto y Mercado 2026 21 / 50
+===== PAGINA 22 =====
+BLOQUE C · IDEAS 49–78
+Diagnóstico, medición y veredicto
+El acto central del producto: el mecánico tiene un número y necesita saber qué significa. Hoy existe «Diagnóstico Rápido
+de PSI»; debería ser el corazón visible de FuelTech, no una tarjeta entre 38.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+49 Modo Banco de Pruebas La apuesta #1 del informe. Flujo guiado de prueba de pila sola: M ALTO
+identifica, mide en seco, mide con carga, registra amperaje y caudal, y
+emite veredicto + comprobante. Convierte el banco físico del taller en
+datos.
+50 Veredicto con grados, no SIRVE · SIRVE CON RESERVA · NO SIRVE · NO CONCLUYENTE. La cuarta S ALTO
+binario opción es la más honesta y la que más se necesita.
+51 Explicación del porqué del «90 PSI en banco pero 40 en riel: la pila está bien, el problema está S ALTO
+veredicto aguas abajo — filtro, regulador o línea». Enseña mientras diagnostica.
+52 Árbol de decisión del El definitivo, en un solo lugar: sin presión → ¿zumba la bomba? → ¿llega M ALTO
+sistema de combustible voltaje? → ¿relé? → ¿fusible? → ¿inercia? → ¿bomba? Cada rama con su
+prueba y su costo.
+53 Ordenar las pruebas por Primero lo gratis (escuchar el zumbido), luego lo barato (fusible, relé), al S ALTO
+costo final lo caro (bajar el tanque). Ahorro directo al cliente.
+54 Prueba sin manómetro Muchísimos talleres pequeños no tienen manómetro. Métodos S ALTO
+alternativos: zumbido, tiempo de cebado, prueba de caudal en botella,
+caída de RPM. Alta demanda, cero cobertura.
+55 Caída de voltaje en el La causa más subestimada de «bomba débil». Guía de medición punto a S ALTO
+circuito punto con valores máximos aceptables.
+56 Prueba de tierra del módulo Falla clásica y barata que se confunde con bomba muerta. Merece S MEDIO
+herramienta propia.
+57 Diagnóstico por DTC con Ya existe buscador DTC. Falta cruzarlo: P0087 + presión medida + M ALTO
+veredicto sistema = causa probable ordenada. Ahí está la diferencia con cualquier
+app OBD2.
+58 Combinaciones de códigos P0171+P0174 juntos significan algo distinto que por separado. Tabla de M ALTO
+combinaciones frecuentes con interpretación.
+59 Interpretación de datos en Qué debería marcar el sensor de presión de riel, el ancho de pulso de M ALTO
+vivo inyector y el ciclo de trabajo de la bomba. La lectura sin referencia no
+sirve.
+60 Ajustes de combustible con Existe la herramienta STFT/LTFT. Añadir: qué significa en ralentí vs. en S ALTO
+contexto carga, y cuándo apunta a la bomba en vez de a una fuga de aire.
+61 Diagnóstico diferencial Tabla lado a lado: bomba, filtro, regulador, inyectores, sensor CKP, S ALTO
+bomba vs. otros bobina, relé. Con el síntoma que los distingue. Evita cambios
+innecesarios.
+62 «No es la bomba» Micro app deliberadamente contraria: lista las 12 fallas que se S ALTO
+confunden con bomba. Publicar esto genera una confianza enorme en el
+gremio.
+FuelTech Master · Informe de Producto y Mercado 2026 22 / 50
+===== PAGINA 23 =====
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+63 Diagnóstico por audio Grabar el zumbido del tanque y compararlo con muestras de referencia. L MEDIO
+Efecto «wow» real y técnicamente viable con análisis de frecuencia
+básico.
+64 Lectura de manómetro por Fotografía la carátula y la IA lee el valor y lo registra. Elimina teclear con M MEDIO
+foto guantes.
+65 Historial de presión por Existe «Registro de Presión». Falta gráfica de evolución: la misma bomba S ALTO
+vehículo medida en dos visitas cuenta una historia.
+66 Comparar contra la mediana «Tu medición de 47 PSI está por debajo de las 23 mediciones registradas M ALTO
+de la comunidad para este modelo (mediana 54)». Poderosísimo y solo posible con datos
+propios.
+67 Diagnóstico de tanque Óxido, agua, sedimento. Es la causa #1 de que una bomba nueva muera S ALTO
+contaminado en tres meses — y de que el taller pierda la garantía.
+68 Protocolo de limpieza de Paso a paso, con criterios de cuándo se limpia y cuándo se cambia. S MEDIO
+tanque Servicio adicional que el taller puede cobrar.
+69 Calculadora de vida útil Kilometraje, calidad de combustible, historial de circular en reserva, M MEDIO
+restante amperaje actual → estimación de vida restante. Argumento de venta
+preventiva.
+70 Diagnóstico de arranque en Síntoma específico y muy frecuente (presión residual que se pierde). S MEDIO
+caliente Merece flujo propio.
+71 Prueba del sistema GDI de Baja en el tanque, alta mecánica en el motor. Con 47 vehículos GDI en M ALTO
+dos etapas catálogo, este flujo es obligatorio y hoy no existe separado.
+72 Prueba de inyectores Caída de presión por inyector, balance de cilindros. Cierra el sistema M MEDIO
+asociada completo.
+73 Registro fotográfico del Cada paso permite adjuntar foto. Alimenta el certificado de garantía del S ALTO
+diagnóstico bloque F.
+74 Segunda opinión de la Publicar un diagnóstico anonimizado y pedir opinión a otros técnicos. Es M ALTO
+comunidad el modelo Identifix, pero gratis y en español.
+75 Casos resueltos buscables Diagnósticos cerrados, anonimizados y etiquetados por modelo y M ALTO
+síntoma. Con el tiempo es el activo más valioso de todos.
+76 Modo aprendiz El mismo flujo pero explicando cada paso con más detalle y M MEDIO
+preguntando el porqué. Ataca directamente el dolor del relevo
+generacional.
+77 Temporizador de prueba Cuentas atrás para las pruebas que requieren tiempo (presión residual a S MEDIO
+10 min, fuga parásita a 40 min). Detalle pequeño, uso constante.
+78 Hoja de diagnóstico Una hoja en blanco con los campos del protocolo, para el taller que aún S MEDIO
+imprimible trabaja en papel y luego captura. Puente a la digitalización.
+FuelTech Master · Informe de Producto y Mercado 2026 23 / 50
+===== PAGINA 24 =====
+BLOQUE D · IDEAS 79–108
+Micro apps de consulta rápida
+Herramientas que se abren treinta segundos y se cierran. Su función estratégica es crear el hábito diario que hoy falta.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+79 Buscador universal único Una caja que acepte modelo, año, VIN, número de parte, código DTC o M ALTO
+síntoma y decida sola qué mostrar. Es la mejora de interfaz más
+importante del producto.
+80 Últimos 5 vehículos El mecánico vuelve al mismo carro varias veces al día. Acceso S ALTO
+consultados instantáneo, sin cuenta.
+81 Favoritos y listas propias «Los carros que más entran a mi taller». Razón concreta para crear S MEDIO
+cuenta.
+82 Comparador de dos Lado a lado: presiones, módulo, pila, acceso. Útil para decidir si una S MEDIO
+vehículos pieza sirve para ambos.
+83 Calculadora de caída de Presión inicial, tiempo, presión final → veredicto de fuga y dónde S ALTO
+presión buscarla.
+84 Calculadora de caudal Volumen recogido en un tiempo dado → LPH → comparación con la S ALTO
+especificación del modelo.
+85 Ley de Ohm aplicada al Con valores típicos precargados del circuito de bomba, no una S MEDIO
+circuito calculadora genérica.
+86 Calculadora de calibre de Para cuando hay que reparar el arnés del módulo: amperaje + longitud S MEDIO
+cable → calibre mínimo.
+87 Conversor con favoritos fijos PSI↔Bar↔kPa arriba de todo, siempre. Es la conversión que se hace 20 S MEDIO
+veces al día.
+88 Tabla de torques del módulo Anillo de retención, tapa, abrazaderas, tornillos del tanque. Específica, S ALTO
+no genérica.
+89 Guía de herramientas Por modelo: llave de anillo del módulo, extractor, medidas de dado. S ALTO
+necesarias Evita empezar el trabajo y descubrir que falta algo.
+90 Checklist de seguridad Despresurizar, desconectar batería, extintor, ventilación, no fumar. S ALTO
+Obligatorio y hoy ausente.
+91 Capacidad y nivel de tanque Capacidad por modelo + advertencia de cuánto combustible sacar S MEDIO
+antes de abrir.
+92 Tiempo estimado del Por modelo y por zona de acceso. Alimenta el cotizador y evita S ALTO
+trabajo prometer mal.
+93 Calculadora de precio de Mano de obra + pieza + consumibles + margen, con memoria de las S ALTO
+trabajo tarifas del taller.
+94 Conversor de moneda con En economías con tipo de cambio volátil, cotizar en dos monedas es S MEDIO
+tasa manual rutina. Detalle que se agradece muchísimo.
+95 Linterna y lupa Encender el flash y ampliar la cámara para leer un número borroso en la S MEDIO
+pila. Trivial de implementar, usadísimo.
+FuelTech Master · Informe de Producto y Mercado 2026 24 / 50
+===== PAGINA 25 =====
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+96 Lector de número de parte OCR sobre la etiqueta de la bomba vieja → búsqueda inversa (idea 19). M ALTO
+por cámara Elimina teclear caracteres confusos.
+97 Bloc de notas por vehículo Dictar en vez de escribir. Manos sucias es la condición por defecto del S ALTO
+con voz usuario.
+98 Contador de pruebas del día Pequeño marcador de cuántos diagnósticos hiciste. Refuerza el hábito. S BAJO
+99 Códigos por marca (no solo Los P1xxx del fabricante son los que nadie encuentra gratis. L ALTO
+genéricos) Diferenciación fuerte.
+100 Procedimientos de reinicio y Tras cambiar la bomba: borrar adaptaciones, cebar el sistema, S ALTO
+aprendizaje reaprender ralentí. Se olvida y genera regresos.
+101 Ubicación de conectores y Dónde clavar la punta del multímetro, por modelo. Existe el pinout M ALTO
+puntos de prueba OBD-II; falta el del circuito de bomba.
+102 Colores de cable por Convenciones de color por marca. Ahorra tiempo y evita quemar M MEDIO
+fabricante módulos.
+103 Interruptor de inercia: Fallo tonto y frecuente en Ford y otras. Un dato que resuelve una visita S MEDIO
+dónde está entera.
+104 Procedimiento de purga y Por sistema. Un cebado mal hecho hace pensar que la bomba nueva S ALTO
+cebado vino mala.
+105 Consumibles y sellos Lista de juntas, anillos y abrazaderas por modelo, para pedirlos junto S ALTO
+necesarios con la bomba en un solo viaje.
+106 Buscar por síntoma en «Prende y se apaga», «no jala en subida». Mapeo de frases coloquiales a M ALTO
+lenguaje natural diagnósticos.
+107 Fusión de herramientas Cotizador + Notas de entrega + Órdenes son tres puertas al mismo M ALTO
+duplicadas flujo. Calculadoras + Conversor también. Reducir de 38 a ~28 con más
+profundidad cada una.
+108 Herramientas ordenadas por Que la parrilla se reordene sola según lo que ese usuario abre. Requiere S MEDIO
+uso real la instrumentación del bloque Q.
+FuelTech Master · Informe de Producto y Mercado 2026 25 / 50
+===== PAGINA 26 =====
+BLOQUE E · IDEAS 109–136
+Gestión del taller
+Aquí ya hay mucho construido (órdenes, inventario, clientes, caja, documentos). El objetivo de este bloque no es competir
+con los ERP de taller: es hacer que la gestión sea la consecuencia natural del diagnóstico, no un módulo aparte.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+109 Del diagnóstico a la orden El veredicto genera la orden de trabajo con las piezas ya cargadas. Hoy M ALTO
+en un toque son dos mundos separados; unirlos es la ventaja que ningún ERP tiene.
+110 Estados de orden con aviso Recibido → diagnosticando → esperando aprobación → esperando M ALTO
+al cliente pieza → en reparación → listo. Cada cambio dispara un mensaje de
+WhatsApp.
+111 Aprobación de presupuesto El cliente abre un enlace, ve fotos y desglose, y aprueba o rechaza. M ALTO
+por enlace Queda registrado con fecha. Elimina el «yo nunca autoricé eso».
+112 Aprobación parcial por El cliente acepta la bomba y el filtro pero no las bujías. Realista, y sube M ALTO
+renglón la tasa de cierre.
+113 Trabajos extra descubiertos Flujo específico para cuando aparece una avería adicional a mitad del M ALTO
+trabajo: foto, explicación, precio, aprobación. Es el momento de mayor
+fricción con el cliente.
+114 Inventario con alerta y Ya hay mínimos. Falta: «con el consumo de los últimos 60 días te M MEDIO
+sugerencia de pedido quedan 9 días de stock».
+115 Inventario ligado al catálogo Que una pieza del inventario apunte a la pila del catálogo y así sepa M ALTO
+sola a qué carros sirve. Convierte el stock muerto en oportunidad de
+venta.
+116 «Tengo esta pieza para tu Al consultar una ficha, si el taller tiene esa pila en stock, se avisa. Cruza S ALTO
+carro» catálogo e inventario en el momento exacto.
+117 Rentabilidad por orden de Ingreso menos pieza menos horas. Muchos talleres no saben qué M ALTO
+trabajo trabajos les dan pérdida. Ataca el dolor de márgenes.
+118 Rentabilidad por tipo de «Cambiar bombas te deja 34% de margen; el servicio menor, 12%». M ALTO
+trabajo Cambia decisiones de negocio.
+119 Tablero del dueño Vista de una pantalla: coches en taller, pendientes de aprobar, cobros M ALTO
+del día, alertas de stock. Para el dueño que supervisa desde casa.
+120 Multiusuario con roles Dueño, técnico, recepción. Hoy la cuenta es del taller entero. Sin esto no L ALTO
+se puede vender a talleres de más de dos personas.
+121 Trabajo asignado por Quién hizo qué, cuánto tardó, cuántos regresos tuvo. Base para M MEDIO
+técnico comisiones y para mejorar.
+122 Control de tiempo real vs. Cronómetro por trabajo comparado con el tiempo de referencia. M MEDIO
+estimado Corrige cotizaciones futuras.
+123 Caja con arqueo y turnos Existe el cierre de caja. Falta apertura, arqueo por turno y diferencia. Es M MEDIO
+donde se detectan las fugas.
+FuelTech Master · Informe de Producto y Mercado 2026 26 / 50
+===== PAGINA 27 =====
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+124 Cuentas por cobrar Clientes que deben, con antigüedad de la deuda y recordatorio M ALTO
+automático. Problema universal del taller.
+125 Métodos de pago mixtos Efectivo, transferencia, divisa, pago móvil, a crédito. La realidad S MEDIO
+latinoamericana rara vez es un solo medio.
+126 Historial completo del Todo lo que se le ha hecho a esa placa, con quién y cuándo. Es lo que M ALTO
+vehículo hace que el cliente vuelva a ti y no al de enfrente.
+127 Ficha de cliente con Ya existe. Falta: notas de trato, historial de pagos, preferencia de S MEDIO
+vehículos contacto y cumpleaños del negocio.
+128 Recordatorio de servicio A los X km o Y meses, mensaje automático. Es el paso de taller reactivo M ALTO
+a proactivo, la tendencia que marca el sector.
+129 Recuperación de clientes Lista de quienes no vuelven hace 8 meses, con mensaje sugerido. S ALTO
+dormidos Ingreso inmediato con cero inversión.
+130 Inspección multipunto con Existe el checklist. Falta que produzca un informe visual con semáforo M ALTO
+fotos que se manda al cliente: es la técnica que más venta adicional genera en
+el sector.
+131 Firma del cliente en pantalla Recepción y entrega firmadas con el dedo. Cierra disputas por daños S ALTO
+previos.
+132 Estado de recepción del Fotos de los cuatro costados, nivel de combustible, kilometraje, objetos S ALTO
+vehículo dentro. Protege al taller.
+133 Agenda con capacidad real La agenda hoy es una lista. Debería saber cuántas rampas y cuántos M MEDIO
+técnicos hay, y avisar de sobrecarga.
+134 Respaldo y exportación de Existe /api/backup . Hacerlo visible y programable: un taller no confía S ALTO
+todo en un sistema del que no puede sacar sus datos.
+135 Importación desde Excel Casi todo taller viene de una hoja de cálculo. Sin puente de entrada, no M ALTO
+migra.
+136 Modo un-solo-mecánico Perfil simplificado que esconde inventario, roles y caja para el técnico S ALTO
+que trabaja solo — que es la mayoría del mercado.
+FuelTech Master · Informe de Producto y Mercado 2026 27 / 50
+===== PAGINA 28 =====
+BLOQUE F · IDEAS 137–152
+Garantía, confianza y documentos
+El dolor #3 del taller, y el más específico de este nicho: la bomba se garantiza y el cliente vuelve reclamando. Quien
+resuelva esto se gana al gremio entero. Es, además, el bloque con más potencial de convertir usuarios gratuitos en
+usuarios de pago.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+137 Certificado de instalación PDF con: vehículo, pieza instalada con número de parte, presión antes y M ALTO
+después, voltaje del circuito, estado del tanque y del filtro, fotos, fecha,
+kilometraje y sello del taller. La función más vendible del informe.
+138 Certificado con código Cada certificado tiene un código y una página pública donde se M ALTO
+verificable comprueba. Hace del documento algo que el cliente respeta.
+139 Registro de condiciones de Qué cubre y qué no (tanque sucio, combustible adulterado, circular en S ALTO
+garantía reserva), firmado por el cliente al momento. Corta el 80% de las
+disputas.
+140 Control de garantías Qué piezas instaladas siguen en garantía, de qué proveedor y hasta M ALTO
+vigentes cuándo. El taller que no lleva esto se come reposiciones que debía
+cobrar al distribuidor.
+141 Reclamo de garantía al Expediente listo para presentar al refaccionario: certificado, fotos, M ALTO
+proveedor mediciones. Recupera dinero real.
+142 Alerta de garantía por Aviso 15 días antes. Permite revisar preventivamente y quedar bien. S MEDIO
+vencer
+143 Índice de regresos del taller Cuántos trabajos vuelven. Métrica incómoda y valiosísima para mejorar. M MEDIO
+144 Documentos con marca del Logo, colores, datos fiscales, pie de página. Es la razón #1 por la que un S ALTO
+taller taller paga un plan.
+145 Plantillas de documento Presupuesto, orden, nota de entrega, recibo, garantía, peritaje. Con M MEDIO
+configurables numeración propia.
+146 Envío del documento por PDF + mensaje redactado, en un toque. No basta con generar el PDF: S ALTO
+WhatsApp hay que entregarlo donde vive el cliente.
+147 Facturación electrónica por En varios países ya es obligatoria. Investigar antes de prometer: es un L MEDIO
+país requisito legal, no una función.
+148 Informe pericial de bomba Documento técnico para seguros o disputas: por qué esta bomba falló. M MEDIO
+Servicio premium con precio propio.
+149 Comparativa antes/después Gráfico de presión antes y después del cambio en el certificado. Vale S ALTO
+visual más que mil explicaciones al cliente.
+150 Explicación para el cliente, Cada certificado incluye un párrafo sin jerga: «su bomba entregaba 32 S ALTO
+en llano PSI y su carro necesita 50; por eso jaloneaba». Reduce la desconfianza.
+151 Solicitud de reseña tras la Mensaje automático con enlace a Google Business. Las reseñas son el S ALTO
+entrega factor de mayor peso en el posicionamiento local.
+FuelTech Master · Informe de Producto y Mercado 2026 28 / 50
+===== PAGINA 29 =====
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+152 Sello «Taller verificado Distintivo para el taller que documenta sus trabajos con certificados. S ALTO
+FuelTech» Imagen para pegar en la puerta y en redes. Marketing gratuito, en las
+dos direcciones.
+FuelTech Master · Informe de Producto y Mercado 2026 29 / 50
+===== PAGINA 30 =====
+BLOQUE G · IDEAS 153–170
+Cliente final / dueño del carro
+Un público que ya llega al sitio por búsquedas informativas y hoy no tiene un camino propio. Bien tratado, es la fuente de
+tráfico más barata y el motor del directorio de talleres.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+153 «¿Es mi bomba?» — versión Cuestionario de 6 preguntas sin jerga que devuelve una probabilidad y M ALTO
+para dueños qué pedirle al taller. Alta intención, muy compartible.
+154 Estimador de precio de Rango por país y modelo: pieza + mano de obra. Es de las búsquedas M ALTO
+reparación de mayor volumen del sector y hoy no tienes nada.
+155 «¿Me están cobrando de Compara el presupuesto que le dieron contra el rango de referencia. M ALTO
+más?» Contenido con enorme potencial viral y muy defendible si los datos son
+honestos.
+156 Glosario para el dueño Traducción de lo que le dijo el mecánico: «módulo», «riel», «marranito», S MEDIO
+«se ahogó».
+157 Preguntas para hacerle a tu Lista que empodera sin enfrentar. Genera confianza en el gremio serio, S MEDIO
+mecánico que es el que quieres.
+158 Verificador de certificado El dueño pone el código de su certificado y comprueba que el trabajo S MEDIO
+está registrado. Cierra el círculo de la idea 138.
+159 Directorio de talleres por Existe /taller/:slug . Falta el índice navegable por ciudad y M ALTO
+ciudad especialidad, que es lo indexable.
+160 Buscar taller cercano Existe /api/connect . Falta que sea la salida natural de toda guía: S ALTO
+«¿no lo haces tú? estos talleres sí».
+161 Contacto directo por Con el mensaje pre-redactado incluyendo el modelo y el síntoma. S ALTO
+WhatsApp al taller Conversión mucho mayor que un teléfono suelto.
+162 Reseñas verificadas por Solo puede reseñar quien tiene un certificado de ese taller. Ataca el M ALTO
+trabajo problema de reseñas falsas, y es un diferenciador real frente a Google.
+163 Cuaderno del carro El dueño guarda su historial de mantenimiento. Sube el valor de reventa M MEDIO
+y lo ata al producto.
+164 Recordatorios de Filtro de combustible, bujías, aceite. Cada recordatorio es una visita M MEDIO
+mantenimiento al dueño potencial para el taller que lo atiende.
+165 Qué hacer si te quedas Guía de emergencia: cómo confirmar si es la bomba en la carretera, qué S MEDIO
+varado golpear al tanque, cómo llegar al taller. Contenido de altísima utilidad.
+166 Cómo alargar la vida de tu No circular en reserva, cambiar el filtro, evitar gasolineras dudosas. S MEDIO
+bomba Contenido preventivo muy compartido.
+167 Señales de que te hicieron Contenido incómodo pero honesto. El gremio serio lo agradece porque S MEDIO
+un mal trabajo expulsa al chapucero.
+168 Comparador de Pega dos presupuestos y ve las diferencias línea por línea. M BAJO
+presupuestos
+FuelTech Master · Informe de Producto y Mercado 2026 30 / 50
+===== PAGINA 31 =====
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+169 Modo «no soy mecánico» Interruptor global que cambia el lenguaje de toda la app. Un solo M MEDIO
+producto, dos vocabularios.
+170 Derivación medida al taller Registrar cuántos contactos genera FuelTech a cada taller. Es la base de S ALTO
+la monetización por derivación del bloque M.
+FuelTech Master · Informe de Producto y Mercado 2026 31 / 50
+===== PAGINA 32 =====
+BLOQUE H · IDEAS 171–190
+Comunidad y red del gremio
+Antes de leer este bloque: hoy existen un foro, un mercado de autos y un conector cliente-mecánico, y los tres
+están vacíos. Una comunidad vacía resta credibilidad. La recomendación es ocultar o despriorizar el foro y el
+mercado de autos hasta tener semilla real, y concentrar el esfuerzo comunitario en lo único que sí tiene
+combustible desde el día uno: los datos que aporta cada mecánico al medir.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+171 Muro de mediciones «Hace 2 h alguien midió un Spark 2013 en Maracay: 52 PSI». Prueba de S ALTO
+recientes vida, contenido infinito y cero moderación.
+172 Reputación por aporte Puntos por medición aceptada, no por comentar. Premia el dato, no el M ALTO
+verificado ruido.
+173 Perfil técnico público Especialidades, años de oficio, marcas dominadas, aportes al catálogo. M MEDIO
+Un currículum del gremio que hoy no existe.
+174 Preguntas atadas a un En vez de un foro genérico, cada ficha tiene su hilo. Ya existe S ALTO
+vehículo /api/vehicles/:id/comments : es la base perfecta y está
+infrautilizada.
+175 Respuesta marcada como Con el aval de quien preguntó. Es lo que hace buscable el conocimiento. S ALTO
+solución
+176 Insignia de experto por «Especialista Toyota» ganado por aportes acertados. Motivación fuerte y M MEDIO
+marca gratis.
+177 Red de préstamo de «¿Quién tiene el extractor del módulo del Corolla en Valencia?». M MEDIO
+herramienta Necesidad real, resuelve algo que hoy se pregunta por WhatsApp a
+ciegas.
+178 Bolsa de piezas entre «Tengo esta bomba nueva sin usar, la cambio o la vendo». Mucho más M ALTO
+talleres útil que un mercado de autos.
+179 Derivación entre talleres «Este trabajo no lo hago, ¿quién lo toma?». Crea dependencia mutua: el M ALTO
+efecto de red más fuerte posible.
+180 Alertas de estafa y de lote Aviso rápido al gremio de una ciudad. Utilidad inmediata que hace que S ALTO
+defectuoso la gente entre a diario.
+181 Ranking de aportantes por Competencia sana y visible. Barato de construir y sorprendentemente S MEDIO
+país eficaz.
+182 Mapa de talleres de la red Densidad por ciudad. Además de útil, es una imagen que se comparte M MEDIO
+sola.
+183 Grupo de compra conjunta Varios talleres piden el mismo lote y negocian precio. Beneficio L MEDIO
+económico directo por pertenecer.
+184 Caso del mes El diagnóstico más difícil resuelto, contado por su autor. Contenido, S MEDIO
+reconocimiento y enseñanza a la vez.
+FuelTech Master · Informe de Producto y Mercado 2026 32 / 50
+===== PAGINA 33 =====
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+185 Retos técnicos semanales «Este carro llegó así, ¿qué harías?». Gamificación con propósito M MEDIO
+formativo.
+186 Encuestas rápidas al gremio «¿Cuánto cobras por cambiar una bomba?». Genera un dato de S ALTO
+mercado que luego alimenta la idea 154.
+187 Moderación con criterio Que las reglas del dominio marquen automáticamente respuestas M ALTO
+técnico peligrosas («ponle una de alta a ese TBI»).
+188 Presencia donde ya está el Publicar respuestas útiles en los grupos grandes de Facebook enlazando S ALTO
+gremio a la ficha correspondiente. Adquisición manual, alta conversión.
+189 Invitación entre mecánicos Un mecánico invita a otro y ambos ganan algo (mes de plan, insignia). S MEDIO
+Crecimiento por el canal donde ya se hablan.
+190 Retirar el mercado de autos No aporta al posicionamiento, compite con gigantes y diluye el S MEDIO
+mensaje. Liberar ese esfuerzo hacia el bloque B o F rinde mucho más.
+FuelTech Master · Informe de Producto y Mercado 2026 33 / 50
+===== PAGINA 34 =====
+BLOQUE I · IDEAS 191–212
+Contenido y posicionamiento
+El canal de adquisición más barato y el que mejor encaja con la arquitectura actual (HTML servido, sitemap, JSON-LD,
+imágenes Open Graph pre-generadas). Hoy hay 9 guías y ~208 fichas; el potencial es de miles de páginas de intención
+específica.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+191 Página por vehículo × «Qué bomba lleva el {modelo} {año}», «cuánta presión debe dar el M ALTO
+pregunta {modelo}», «dónde está la bomba del {modelo}». Con 208 vehículos × 4
+preguntas son ~800 páginas de intención exacta, generadas de datos
+reales.
+192 Regla anti-relleno Solo publicar la página si hay dato verificado suficiente. Mil páginas S ALTO
+vacías hunden un dominio; doscientas buenas lo levantan.
+193 Página por código DTC Cada código con causas, prueba y veredicto. Los DTC tienen búsqueda M ALTO
+constante y perenne.
+194 Página por número de parte «AIRTEX E8213: a qué carros va». Búsqueda de bajísimo volumen M ALTO
+individual pero enorme en conjunto, y de intención comercial altísima.
+195 Página por síntoma «Mi carro jalonea al acelerar», «pierde fuerza en subida», «no arranca en M ALTO
+caliente». En el lenguaje del dueño, no del manual.
+196 Página por ciudad «Cambio de bomba de gasolina en Maracay». Combina el directorio de M ALTO
+talleres con la intención local.
+197 Ampliar de 9 a 60 guías Sistema de combustible completo: filtro, riel, inyectores, tanque, relé, L ALTO
+cableado, cebado, adaptaciones, GNV, etanol, GDI, híbridos.
+198 Guías con datos, no con Cada guía debe llevar una tabla del catálogo dentro. Es lo que te separa S ALTO
+opiniones de los cien blogs que dicen lo mismo.
+199 Preguntas frecuentes con Ya usas JSON-LD; extenderlo a fichas y páginas de síntoma para ganar S ALTO
+marcado resultados enriquecidos.
+200 Marcado de producto y de Para las fichas de pila y los perfiles de taller. Mejora clics sin escribir S MEDIO
+reseña contenido nuevo.
+201 Enlazado interno agresivo De guía a ficha, de ficha a pila, de pila a equivalencias, de DTC a S ALTO
+diagnóstico. Hoy el sitio es una constelación de islas.
+202 Contenido en formato de Los buscadores con IA citan a quien responde en dos líneas y luego S ALTO
+respuesta directa desarrolla. Reescribir las entradillas con ese patrón.
+203 Tabla maestra de presiones Una sola página con todas las presiones de todos los modelos, S ALTO
+ordenable y filtrable. Es el tipo de recurso que la gente guarda y enlaza.
+204 Calculadora incrustable Un widget que otros sitios puedan poner en su web, con enlace de M MEDIO
+vuelta. Enlaces ganados sin pedirlos.
+205 Informe anual del sistema Con los datos agregados de la comunidad: qué modelos fallan más, qué M ALTO
+de combustible marcas duran más. Contenido que la prensa del sector cita.
+FuelTech Master · Informe de Producto y Mercado 2026 34 / 50
+===== PAGINA 35 =====
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+206 Página «Cómo verificamos Contar el aparato de calidad: 407 pruebas, reglas del banco, marcado de S ALTO
+cada dato» estimados. Es confianza convertida en contenido.
+207 Fichas descargables en PDF Para imprimir y pegar en el banco. Genera menciones y uso fuera de S MEDIO
+línea.
+208 Contenido por país Adaptar nombres de modelo, monedas y normativa. Un Aveo en México M ALTO
+no se llama igual en Chile.
+209 Versión en portugués Brasil es el mercado automotriz más grande de la región y el sistema L ALTO
+con etanol tiene particularidades. Es duplicar el mercado direccionable.
+210 Boletín técnico por correo Un dato útil por semana. El canal más barato para retener al mecánico S ALTO
+que no vuelve solo.
+211 Registro público de cambios «Esta semana añadimos 14 vehículos y verificamos 9». Demuestra que el S MEDIO
+proyecto está vivo, cosa que importa mucho al decidir confiar.
+212 Vigilancia de búsquedas sin Cada búsqueda fallida es una página que falta. Es la mejor lista editorial S ALTO
+resultado posible, escrita por los usuarios.
+FuelTech Master · Informe de Producto y Mercado 2026 35 / 50
+===== PAGINA 36 =====
+BLOQUE J · IDEAS 213–230
+Redes sociales y crecimiento
+La tesis de este bloque: no publiques tú, haz que publiquen ellos. El taller ya sabe que sus clientes lo miran en redes
+antes de visitarlo; dale material listo con tu marca discreta al pie y tendrás miles de cuentas distribuyendo por ti.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+213 Generador de imagen 9:16 De cualquier ficha o diagnóstico, una imagen vertical lista para M ALTO
+historia/Reel/TikTok con el logo del taller. Ya generas imágenes Open
+Graph: la maquinaria existe.
+214 Tarjeta de «antes y después» Gráfico limpio con las dos mediciones. Es contenido que se explica solo S ALTO
+de presión y demuestra trabajo bien hecho.
+215 Plantillas de publicación Diez formatos rellenables: dato del día, mito derribado, herramienta que M ALTO
+para el taller usamos, cliente satisfecho, promoción.
+216 Guiones de video de 30 Escritos, con el texto exacto a decir. El mecánico sabe reparar, no S ALTO
+segundos guionizar. Es el cuello de botella real.
+217 Serie «Mitos de la bomba de Contenido con formato repetible: «no, llenar el tanque no enfría la S ALTO
+gasolina» bomba… bueno, en parte sí, y te explico». Perfecto para formato corto.
+218 Serie «Reparación El género que ya funciona en TikTok del sector: piezas cambiadas sin S ALTO
+fantasma» necesidad. Alto enganche y alinea con tu honestidad de datos.
+219 Serie «El banco no miente» Video de la prueba real en el banco del taller, con el número en S ALTO
+pantalla. Es tu activo diferencial hecho contenido.
+220 Reto «adivina la falla» Se publica el síntoma, se responde al día siguiente. Formato probado S MEDIO
+para comentarios.
+221 Micrositio del taller Que el perfil público del taller se vea impecable al compartirse en M ALTO
+compartible WhatsApp e Instagram. Es su carta de presentación.
+222 Código QR del taller Para el mostrador, el uniforme y la factura. Lleva a su perfil, a reseñas y a S MEDIO
+WhatsApp.
+223 Kit de marca para el taller Logo en varios formatos, cartel imprimible, imagen de portada, firma de S MEDIO
+correo. Regalo que genera lealtad enorme.
+224 Marca de agua discreta «Diagnóstico verificado con FuelTech» al pie de cada imagen. S ALTO
+Distribución silenciosa a escala.
+225 Programa de talleres 10 a 20 talleres con acceso completo gratis a cambio de contenido y S ALTO
+embajadores retroalimentación. Es tu comité de producto y tu equipo de marketing.
+226 Colaboración con canales de Los canales de mecánica en español tienen audiencias enormes y poca M ALTO
+YouTube herramienta que recomendar. Es la vía más rápida a masa crítica.
+227 Presencia en ferias del Automechanika y equivalentes regionales. Un evento bien trabajado L MEDIO
+sector equivale a meses de adquisición digital en este rubro.
+228 Alianza con distribuidores Que el catálogo se use como herramienta de venta del refaccionario. M ALTO
+de bombas Distribución B2B natural.
+FuelTech Master · Informe de Producto y Mercado 2026 36 / 50
+===== PAGINA 37 =====
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+229 Calendario editorial ligado Cada vehículo nuevo verificado es una publicación. El contenido sale del S MEDIO
+al catálogo trabajo, no aparte de él.
+230 Medir qué contenido trae Enlaces marcados por pieza de contenido. Sin esto, invertir en redes es S ALTO
+talleres apostar.
+FuelTech Master · Informe de Producto y Mercado 2026 37 / 50
+===== PAGINA 38 =====
+BLOQUE K · IDEAS 231–248
+IA aplicada al taller
+Principio rector: la IA aquí no debe inventar datos técnicos — eso contradice la regla fundacional del proyecto.
+Debe entender la pregunta, aplicar tus reglas y explicar el resultado. La diferencia entre una IA que improvisa
+una presión y una que consulta lib/domain.js y luego la explica es la diferencia entre un motor arruinado y un
+cliente satisfecho.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+231 IA anclada al catálogo Que el chat responda solo con datos del catálogo y las reglas de M ALTO
+dominio, y diga «no lo tengo» cuando no lo tiene. Vale más un «no sé»
+que un número inventado.
+232 Entrada por voz Manos sucias es la condición por defecto. Es la función de IA con mayor M ALTO
+impacto práctico y ya es expectativa de mercado en LatAm.
+233 Respuesta por voz Que lea el resultado en voz alta mientras el mecánico tiene las manos S ALTO
+dentro del motor. Cierra el círculo del uso sin pantalla.
+234 Identificación de pieza por Ya existe «Identificador con IA» por descripción. Añadir imagen: M ALTO
+foto fotografía la bomba vieja y devuelve candidatos del catálogo.
+235 Lectura de etiqueta por foto OCR del número de parte, marca y especificaciones impresas. Alimenta M ALTO
+la búsqueda inversa.
+236 Lectura del manómetro Foto de la carátula → valor registrado. Elimina el paso más molesto del M MEDIO
+flujo de medición.
+237 Redactor de mensaje al Convierte el diagnóstico técnico en un mensaje amable, claro y sin S ALTO
+cliente jerga, listo para WhatsApp. Uso diario garantizado.
+238 Redactor de presupuesto De una nota de voz («cambio de bomba, filtro y limpieza de tanque al M ALTO
+Corolla de la señora») a un presupuesto estructurado.
+239 Resumidor de nota de voz a El mecánico dicta lo que hizo y sale la orden con piezas y tiempos. M ALTO
+orden Ataca directamente el rechazo a «llenar formularios».
+240 Traductor de jerga regional «Marranito», «chicharra», «pila», «bomba», «gasolinera»: el mismo S ALTO
+concepto con diez nombres. La IA normaliza la entrada antes de buscar.
+241 Explicador de códigos en No la definición genérica del código, sino qué significa en ese carro, con M ALTO
+contexto esa presión medida.
+242 Verificador de coherencia Si el mecánico registra 95 PSI en banco y concluye «bomba mala» en un M ALTO
+del diagnóstico MFI, la IA pregunta por qué. Segunda opinión automática.
+243 Asistente de aprendiz Modo conversacional que enseña mientras acompaña el trabajo. Ataca M MEDIO
+el dolor del relevo generacional con lo que ya tienes.
+244 Extractor de datos de Sube un PDF de manual de servicio y la IA propone filas de catálogo, M ALTO
+manuales marcadas para revisión humana. Acelera la verificación (idea 2) diez
+veces.
+FuelTech Master · Informe de Producto y Mercado 2026 38 / 50
+===== PAGINA 39 =====
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+245 Detector de aportes Revisa las mediciones enviadas por la comunidad contra rangos S MEDIO
+sospechosos plausibles antes de la moderación humana.
+246 Buscador semántico interno Que «no jala en subida» encuentre la guía correcta aunque esas M ALTO
+palabras no aparezcan en ella.
+247 Límite de uso y coste La IA cuesta por llamada. Cuota por usuario, respuestas cacheadas para S ALTO
+controlado preguntas repetidas y modelo pequeño para tareas simples.
+248 Aviso visible de que Y de que el dato técnico viene del catálogo verificado, no del modelo. S ALTO
+responde una IA Coherente con la ética de datos del proyecto.
+FuelTech Master · Informe de Producto y Mercado 2026 39 / 50
+===== PAGINA 40 =====
+BLOQUE L · IDEAS 249–260
+Hardware e integraciones
+El camino hacia datos que ningún competidor de software puede obtener. No requiere fabricar nada: basta con
+conectarse a lo que el taller ya tiene.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+249 Conexión con adaptador Los ELM327 cuestan poco y ya están en el bolsillo de medio gremio. L ALTO
+OBD2 Bluetooth Leer códigos y datos en vivo y cruzarlos con tus reglas es el salto
+cualitativo más grande disponible.
+250 Importar captura de escáner Alternativa barata: que el mecánico suba la foto o el archivo de su M ALTO
+escáner y la app lo interprete. Sin desarrollo de bluetooth.
+251 Manómetro con registro Integración con manómetros que registran. Nicho, pero el taller que lo L MEDIO
+digital tiene es exactamente tu cliente ideal.
+252 Banco de pruebas Proyecto mayor: un banco con sensor de presión y caudal que envíe L ALTO
+instrumentado datos a FuelTech. Convierte cada taller en una estación de medición de
+la red.
+253 Impresión térmica de Muchos talleres tienen impresora térmica de 58 mm. Formato de ticket S MEDIO
+recibos para orden y recibo.
+254 Etiquetas con QR para Pegar un QR en la bomba desmontada para no confundir piezas entre S MEDIO
+piezas carros. Problema real de taller ocupado.
+255 Lector de códigos de barras Para el inventario, usando la cámara del teléfono. Elimina la captura M ALTO
+manual que hace que nadie mantenga el inventario al día.
+256 API pública documentada Para que refaccionarios y ERP integren tu catálogo. Convierte el dato en M ALTO
+producto y en canal.
+257 Integración con pasarelas de Cobro por enlace desde la orden de trabajo, con los medios de cada L MEDIO
+pago locales país.
+258 Conexión con WhatsApp El salto de «abrir WhatsApp con texto» a mensajería real con estados y L ALTO
+Business API respuestas. Es lo que hace Pitz y define la expectativa del mercado.
+259 Exportación a contabilidad Formatos que acepten los contadores locales. Detalle aburrido que M MEDIO
+decide compras.
+260 Aplicación de escritorio La misma PWA instalada, con acceso directo. El taller con computadora S MEDIO
+ligera en recepción trabaja mejor así.
+FuelTech Master · Informe de Producto y Mercado 2026 40 / 50
+===== PAGINA 41 =====
+BLOQUE M · IDEAS 261–276
+Monetización
+Hoy no hay ningún ingreso activo. La recomendación estratégica: que lo gratuito sea generoso de verdad —la consulta
+técnica completa— y que se pague por trabajar con ello, no por consultarlo. Con tu estructura de costes puedes sostener
+esa generosidad durante años; una startup con inversores, no.
+Modelo recomendado
+PRECIO
+PLAN INCLUYE
+ORIENTATIVO
+Mecánico 0 Catálogo completo, diagnósticos, calculadoras, guías, historial de 30 días, 3 documentos al mes
+GRATIS con marca FuelTech.
+Taller ≈8–15 Todo lo anterior + documentos ilimitados con su logo, certificados de garantía, clientes,
+USD/mes inventario, caja, historial completo, respaldo, 3 usuarios.
+por taller
+Taller Pro ≈25–35 Multiusuario sin límite, rentabilidad, API, perfil destacado en el directorio, soporte prioritario,
+USD/mes verificación de autenticidad de piezas.
+Socios a convenir Refaccionarios y distribuidores: acceso a datos, listado destacado, publicidad contextual,
+derivaciones medidas.
+Precios de anclaje: Identifix ronda los 179 USD/mes por usuario; los ERP regionales de taller se mueven en torno a 20–60 USD/mes. Situarse por
+debajo del ERP y muy por debajo de la información técnica es defendible porque tu coste marginal es casi cero.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+261 Publicar los planes aunque Una página de precios genera señales de valor y conversaciones. S ALTO
+no cobres aún Puedes lanzarla con «gratis durante la beta».
+262 Marca de agua en el plan Los documentos gratuitos llevan «Generado con FuelTech». Quitarla es S ALTO
+gratuito el motivo de pago más antiguo y más efectivo que existe.
+263 Precio por taller, no por Un taller de cinco personas no va a pagar cinco licencias. Es la diferencia S ALTO
+usuario entre vender y no vender en este mercado.
+264 Pago anual con descuento En economías inflacionarias, cobrar el año por adelantado protege al S MEDIO
+fuerte cliente y a ti. Suele funcionar mejor que en otros mercados.
+265 Medios de pago locales Transferencia, pago móvil, efectivo por corresponsal. Exigir tarjeta M ALTO
+internacional deja fuera a la mayoría del mercado objetivo.
+266 Prueba sin tarjeta 30 días completos sin pedir datos de pago. La fricción de la tarjeta mata S ALTO
+la conversión en este segmento.
+267 Publicidad contextual, con AdSense está cableado y apagado. Si se activa, que sea solo en páginas S MEDIO
+criterio informativas para dueños de carro, nunca dentro de las herramientas de
+diagnóstico: un anuncio junto a una presión crítica destruye la
+percepción de rigor.
+268 Afiliación con refaccionarios «Consigue esta pila» con enlace medido. Ingreso alineado: solo ganas si M ALTO
+el mecánico encontró lo que necesitaba.
+FuelTech Master · Informe de Producto y Mercado 2026 41 / 50
+===== PAGINA 42 =====
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+269 Listado destacado de El refaccionario paga por aparecer primero en su ciudad. Modelo M ALTO
+proveedores probado y fácil de operar.
+270 Derivación de cliente a taller Cobrar por contacto cualificado entregado. Requiere primero medir M ALTO
+(idea 170) y demostrar el valor.
+271 Licencia de datos del Vender acceso al catálogo estructurado a distribuidores y plataformas. M ALTO
+catálogo Es el activo más monetizable a largo plazo.
+272 Informe de mercado anual Datos agregados de fallas y marcas para fabricantes y distribuidores. M MEDIO
+de pago Margen altísimo, esfuerzo bajo una vez hay volumen.
+273 Certificación de taller de Cuota anual por el sello verificado, con auditoría ligera de sus M MEDIO
+pago certificados emitidos.
+274 Cursos de pago Formación en sistema de combustible y en híbridos, donde la demanda L MEDIO
+de capacitación es explícita y creciente.
+275 Marca blanca para Un fabricante de bombas quiere su propia versión del catálogo para sus L MEDIO
+distribuidores clientes. Contrato grande, esfuerzo moderado.
+276 Nunca cobrar por el dato de Regla ética y comercial: la presión correcta de un vehículo jamás debe S ALTO
+seguridad estar detrás de un muro de pago. Es lo que te hace confiable y es tu
+mejor publicidad.
+FuelTech Master · Informe de Producto y Mercado 2026 42 / 50
+===== PAGINA 43 =====
+BLOQUE N · IDEAS 277–290
+Experiencia de taller real
+El sistema de diseño ya reconoce el contexto —«mecánicos consultando specs bajo presión de tiempo, en talleres con luz
+ambiental fuerte»— y eso se nota. Este bloque lleva ese principio hasta el final.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+277 Modo guantes Objetivos táctiles gigantes, menos elementos por pantalla, sin gestos M ALTO
+finos. Un interruptor que cambia toda la app.
+278 Modo sol directo Contraste máximo, blanco puro sobre negro puro. Bajo el mediodía S ALTO
+ningún gris se lee.
+279 Números grandes de verdad La presión y el veredicto deben leerse a distancia de brazo, desde S ALTO
+debajo del carro. Hoy compiten en tamaño con etiquetas.
+280 Pantalla siempre encendida Durante una prueba, que el teléfono no se bloquee. Detalle mínimo, S ALTO
+frustración máxima cuando falta.
+281 Uso con una sola mano Controles principales en la mitad inferior de la pantalla. La otra mano M ALTO
+sostiene el manómetro.
+282 Confirmación por vibración En un taller ruidoso no se oye nada; la vibración confirma que se S MEDIO
+guardó.
+283 Teclado numérico grande Para introducir PSI y voltajes, con incrementos por botón además de S ALTO
+teclado.
+284 Nada de formularios largos Un dato por pantalla en los flujos de medición. El formulario de 12 M ALTO
+campos es donde se abandona.
+285 Guardado automático Perder un diagnóstico a medias por una llamada entrante es motivo S ALTO
+permanente suficiente para desinstalar.
+286 Deshacer siempre disponible Con las manos sucias se toca lo que no era. Confirmaciones destructivas S MEDIO
+y deshacer.
+287 Atajo desde la pantalla de Accesos directos de la PWA a «buscar vehículo» y «nueva medición» sin S MEDIO
+inicio abrir la app entera.
+288 Onboarding de 20 segundos Tres pantallas: qué carro, qué mediste, qué significa. Nadie lee un S ALTO
+tutorial en un taller.
+289 Accesibilidad real Ya se auditan contraste y objetivos táctiles con un robot. Extenderlo a M MEDIO
+lectores de pantalla y navegación por teclado en las herramientas.
+290 Reducir de 38 tarjetas a 6 Buscar · Diagnosticar · Medir · Cotizar · Mi taller · Aprender. Las 38 M ALTO
+accesos herramientas siguen ahí, pero organizadas por intención, no por
+inventario.
+FuelTech Master · Informe de Producto y Mercado 2026 43 / 50
+===== PAGINA 44 =====
+BLOQUE O · IDEAS 291–298
+Rendimiento, offline y PWA
+Contexto real: sótanos, talleres con paredes de bloque, datos móviles caros y teléfonos de gama baja. Hoy se descargan
+~430 KB de JS y HTML antes de ver nada.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+291 Cargar cada micro app por microapps.js pesa 184 KB para abrir una sola herramienta. Dividirlo, M ALTO
+separado aunque sea manualmente sin compilador, es la mejora de rendimiento
+más grande disponible.
+292 Catálogo consultable sin Guardar en el dispositivo los vehículos consultados y los favoritos. Es la M ALTO
+conexión promesa más valiosa que puedes hacerle a un taller con mala señal.
+293 Cola de sincronización Medir sin señal y que se sincronice al recuperarla. Sin esto, el registro de M ALTO
+presión no se usa en el sótano.
+294 Descarga del catálogo por «Descargar todo Toyota» para trabajar sin datos. Función que se aprecia M ALTO
+marca enormemente y casi nadie ofrece.
+295 Modo ahorro de datos Sin video de portada, sin 3D, sin imágenes pesadas. Los datos móviles S MEDIO
+son caros en buena parte de la región.
+296 El visor 3D bajo demanda Three.js son 35 KB más los modelos. Cargarlo solo si se toca, no de S MEDIO
+entrada.
+297 Notificaciones push Recordatorios de garantía, aprobaciones pendientes, respuestas de la M ALTO
+comunidad. La PWA ya está montada; es el canal de retorno que falta.
+298 Presupuesto de rendimiento Ya hay presupuestos de tamaño de archivo. Añadir tiempo hasta S MEDIO
+en móvil real interactivo en un teléfono de gama baja con red lenta.
+BLOQUE P · IDEAS 299–306
+Formación y relevo generacional
+Responde al dolor #5: escasez de técnicos, ausencia de jóvenes y necesidad urgente de capacitación en híbridos y
+electrónica.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+299 Curso «Sistema de Diez lecciones cortas usando las herramientas de la app como práctica. M ALTO
+combustible de cero» Formación que además enseña tu producto.
+300 Evaluación con certificado El aprendiz demuestra que sabe. Un certificado con valor de gremio, no M MEDIO
+académico, y muy compartible en redes.
+301 Ruta de aprendizaje por Ayudante → mecánico → diagnosticador. Con lo que hay que dominar M MEDIO
+niveles en cada uno.
+302 Módulo de híbridos Precauciones de alto voltaje y particularidades de su sistema de M MEDIO
+combustible. Demanda creciente y competencia escasa en español.
+303 Micro-lecciones dentro de la «¿Por qué el Vortec necesita 90 PSI?» como nota expandible. Enseñar en S ALTO
+herramienta el momento del uso, no en un curso aparte.
+FuelTech Master · Informe de Producto y Mercado 2026 44 / 50
+===== PAGINA 45 =====
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+304 Glosario con audio Para quien lee poco. Es una realidad del gremio que conviene atender S MEDIO
+sin condescendencia.
+305 Programa para escuelas Cuentas gratuitas para institutos. Los estudiantes de hoy son los talleres S ALTO
+técnicas de mañana, y llegan ya acostumbrados a tu herramienta.
+306 Manual del taller ordenado Contenido de gestión: cómo cobrar, cómo tratar al cliente difícil, cómo M MEDIO
+llevar garantías. El taller pequeño lo necesita tanto como la técnica.
+BLOQUE Q · IDEAS 307–312
+Instrumentación y datos de producto
+El bloque más barato del informe y el que más decisiones futuras mejora. Ahora mismo estás construyendo a ciegas.
+# IDEA QUÉ ES Y POR QUÉ ESF. IMP.
+307 Registrar búsquedas sin La lista de compras del catálogo, escrita por los usuarios. Es la idea de S ALTO
+resultado mejor relación valor/esfuerzo de todo el documento.
+308 Uso por herramienta Cuáles de las 38 se abren y cuáles no. Base para fusionar, mejorar o S ALTO
+retirar sin adivinar.
+309 Embudo de registro Dónde se cae la gente al crear cuenta. Con 8 herramientas que exigen S ALTO
+sesión, este embudo decide la retención.
+310 Vehículos más consultados Ordena la campaña de verificación (idea 2) y el contenido (bloque I). Sin S ALTO
+este dato ambas cosas son intuición.
+311 Retención por cohorte De los que entraron este mes, cuántos vuelven a la semana. La única M ALTO
+métrica que dice si el producto sirve.
+312 Panel de una sola pantalla Diez números que resumen la salud del producto, revisados cada lunes. S MEDIO
+Sin ritual, la analítica se instala y se olvida.
+FuelTech Master · Informe de Producto y Mercado 2026 45 / 50
+===== PAGINA 46 =====
+09
+Priorización y hoja de ruta
+9.1 Quick wins — cosas de menos de un día
+Si tienes una tarde libre, empieza por aquí. Ninguna requiere decisión estratégica y todas mueven una aguja.
+IDEA QUÉ POR QUÉ AHORA
+307 Registrar búsquedas sin resultado Dos horas de trabajo y te da la lista editorial y de catálogo de los próximos seis
+meses.
+1 Cerrar las 5 deudas de datos Es lo único del informe que puede causar un daño físico si se queda como está.
+23 · 22 Búsqueda tolerante + alias de Gente que hoy cree que su carro no está en el catálogo, y sí está.
+modelo
+80 Últimos 5 vehículos consultados Media hora. Cambia el uso diario.
+3 · 146 Salida a WhatsApp en ficha y Un botón por pantalla, en el canal donde vive todo el negocio.
+documentos
+280 · Pantalla siempre encendida + Dos detalles que separan «app bonita» de «herramienta de taller».
+279 números grandes
+206 Página «Cómo verificamos cada Ya tienes todo escrito en AGENTS.md. Es traducirlo al público.
+dato»
+29 Detector de contradicciones al Una regla más del guard. Impide que vuelva a pasar lo del L200.
+guardar
+62 Micro app «No es la bomba» Contenido y herramienta a la vez, con lo que ya sabes.
+261 Publicar la página de precios Aunque todo siga gratis en beta. Empieza a recibir señales.
+9.2 Matriz de decisión
+IMPACTO ALTO IMPACTO MEDIO O BAJO
+Esfuerzo bajo 1, 3, 4, 17, 22, 23, 25, 26, 29, 31, 43, 50, 51, 53, 54, 55, 61, 62, 67, 73, 35, 39, 56, 68, 70, 77, 78, 85, 86, 87,
+HAZLO YA 80, 83, 84, 88, 89, 90, 92, 93, 100, 104, 105, 116, 129, 131, 132, 134, 91, 94, 95, 98, 103, 125, 127, 142,
+139, 144, 146, 149, 150, 151, 152, 160, 161, 171, 174, 175, 180, 188, 156, 157, 158, 165, 166, 167, 181,
+192, 198, 199, 201, 202, 203, 206, 210, 212, 214, 216, 217, 218, 219, 184, 186, 189, 190, 200, 207, 211,
+224, 225, 233, 237, 240, 247, 248, 261, 262, 263, 266, 276, 278, 279, 222, 223, 229, 245, 253, 254, 260,
+280, 283, 285, 288, 295, 296, 303, 305, 307, 308, 309, 310 282, 286, 287, 298, 304, 312
+Esfuerzo medio 2, 5, 6, 7, 9, 12, 13, 14, 16, 19, 27, 30, 32, 33, 36, 41, 42, 47, 49, 52, 57, 11, 20, 28, 34, 40, 44, 46, 48, 63, 64,
+PLANIFICA 58, 59, 60, 66, 71, 74, 75, 79, 96, 101, 106, 107, 109, 110, 111, 112, 69, 72, 76, 82, 102, 108, 114, 121,
+113, 115, 117, 118, 119, 124, 126, 128, 130, 135, 136, 137, 138, 140, 122, 123, 133, 143, 145, 148, 163,
+141, 159, 162, 170, 172, 178, 179, 187, 191, 193, 194, 195, 196, 205, 164, 168, 169, 173, 176, 177, 182,
+208, 213, 215, 221, 226, 228, 230, 231, 232, 234, 235, 238, 239, 241, 185, 204, 220, 236, 243, 251, 259,
+242, 244, 246, 250, 255, 256, 265, 268, 269, 270, 271, 277, 281, 284, 264, 272, 273, 289, 300, 301, 302
+290, 291, 292, 293, 294, 297, 299, 306, 311
+Esfuerzo alto 10, 15, 18, 21, 45, 99, 120, 197, 209, 249, 252, 258 8, 37, 65*, 147, 183, 227, 257, 274,
+APUESTA O 275
+DESCARTA
+FuelTech Master · Informe de Producto y Mercado 2026 46 / 50
+===== PAGINA 47 =====
+Las ideas no listadas aquí cambian de casilla según con qué se combinen. El asterisco marca ideas cuyo esfuerzo depende de si ya existe la base de
+datos necesaria.
+9.3 Hoja de ruta sugerida
+Fase 1 — Primeros 90 días · «Que el dato sea impecable y el uso, diario»
+▸ Datos: cerrar las 5 deudas (1), instrumentar búsquedas fallidas (307), verificar los 20 vehículos más consultados
+(2, 310), ampliar TBI y Vortec (5, 6), detector de contradicciones (29).
+▸ Producto: buscador universal (79), últimos consultados (80), búsqueda tolerante y alias (22, 23), salida a
+WhatsApp en todo (146), reducir a seis accesos (290).
+▸ Diferenciación: Modo Banco de Pruebas (49) y veredicto explicado (50, 51).
+▸ Contenido: página de verificación (206), 10 guías nuevas (197 parcial), tabla maestra de presiones (203).
+▸ Negocio: publicar precios en beta (261), programa de embajadores (225).
+Cómo sabrás que funcionó: el porcentaje de fichas estimadas baja de 50% a menos de 35%, y hay al menos 20
+talleres usando la app cada semana.
+Fase 2 — Meses 4 a 6 · «Que el taller no pueda trabajar sin ella»
+▸ Garantía: certificado de instalación con código verificable (137, 138, 139), control de garantías (140, 141), sello
+de taller verificado (152).
+▸ Gestión: diagnóstico → orden en un toque (109), aprobación por enlace (111, 112), documentos con marca
+(144), inspección con fotos (130).
+▸ Comunidad: aporte de mediciones (3) con moderación (27, 245), muro de mediciones (171), preguntas por
+vehículo (174, 175).
+▸ Crecimiento: generador de imágenes 9:16 (213), páginas de intención por vehículo (191, 192), colaboración
+con canales de YouTube (226).
+▸ Negocio: activar el plan Taller con pago local (263, 265, 266).
+Cómo sabrás que funcionó: hay talleres que pagan, y hay certificados emitidos que un cliente final ha verificado.
+Fase 3 — Meses 7 a 12 · «Que la red valga más que el producto»
+▸ Datos de red: comparar contra la mediana de la comunidad (66), índice de fiabilidad por marca (45), informe
+anual del sector (205, 272).
+▸ Autenticidad: bloque B completo — es la vertical con menos competencia de todo el informe.
+▸ IA: voz de entrada y salida (232, 233), foto de pieza y etiqueta (234, 235), redactor de mensajes (237, 238).
+▸ Escala: multiusuario con roles (120), API pública (256), portugués (209), catálogo sin conexión (292, 294).
+▸ Hardware: explorar OBD2 (249) o el atajo barato de importar capturas (250).
+Cómo sabrás que funcionó: un taller nuevo se registra porque otro taller se lo recomendó, no porque lo
+encontró en Google.
+9.4 Lo que recomiendo NO hacer
+NO HAGAS POR QUÉ
+Mercado de autos usados Compites con gigantes, no aporta a tu posicionamiento y diluye el mensaje. Retíralo (idea 190).
+FuelTech Master · Informe de Producto y Mercado 2026 47 / 50
+===== PAGINA 48 =====
+NO HAGAS POR QUÉ
+Foro genérico abierto Un foro vacío resta credibilidad. Sustitúyelo por preguntas atadas a cada vehículo (174).
+Marketplace de refacciones Requiere inventario, logística y capital. Monetiza la derivación, no la venta.
+propio
+Competir en «gestión de Veinte competidores, varios capitalizados. Gana en el sistema de combustible y deja que la gestión
+taller» genérica sea la consecuencia.
+Cobrar por el dato técnico Destruiría lo único que te hace confiable ante el gremio.
+Añadir la herramienta 39, 40 El problema del producto no es que falten herramientas: es que hay 38 sin jerarquía. Profundiza
+y 41 antes de ampliar.
+Bajar un presupuesto de El aparato de calidad es el activo que sostiene la promesa comercial. Romperlo por velocidad es
+calidad para ir más rápido venderse la ventaja.
+FuelTech Master · Informe de Producto y Mercado 2026 48 / 50
+===== PAGINA 49 =====
+10
+Métricas, riesgos y fuentes
+10.1 Los diez números a vigilar
+# MÉTRICA POR QUÉ IMPORTA
+1 % de fichas verificadas Es tu calidad hecha número. Hoy 50%. Objetivo a 12 meses: 80%.
+2 Búsquedas sin resultado por Mide el hueco entre lo que se pide y lo que tienes.
+semana
+3 Diagnósticos completados El acto central. Si no crece, nada más importa.
+4 Mediciones aportadas por la Mide si el foso defensivo se está construyendo solo.
+comunidad
+5 Talleres activos semanales Retención real, no registros acumulados.
+6 Certificados emitidos El indicador que mejor predice la disposición a pagar.
+7 Mensajes de WhatsApp generados Mide si el producto entró de verdad en el flujo de trabajo.
+8 Tráfico orgánico a fichas de Salud del canal de adquisición más barato.
+vehículo
+9 Conversión de gratis a pago La sanidad del modelo de negocio en un número.
+10 Talleres traídos por otro taller Si esto crece, ganaste: el efecto de red se encendió.
+10.2 Riesgos
+RIESGO MITIGACIÓN
+Un dato equivocado Es el riesgo existencial del proyecto. El marcado de estimados, las pruebas y el guard ya lo atacan; añade
+daña un motor el detector de contradicciones (29) y la cita de fuente visible (25). Nunca relajes esto por velocidad.
+Competidor capitalizado No compitas en amplitud. Profundidad en sistema de combustible + confianza + precio sostenible.
+(Pitz y similares)
+Dependencia de una El conocimiento del dueño del taller es el activo. Capturarlo en el catálogo y en las reglas es también un
+sola persona seguro.
+Comunidad que no No dependas de ella para el valor base: la app debe servir con cero usuarios más.
+arranca
+Coste de la IA Cuota por usuario, caché de respuestas y modelo pequeño donde alcance (247).
+Crecimiento del vehículo A largo plazo reduce el mercado de bombas. Mitigación: híbridos ahora, y ampliar hacia el sistema de
+eléctrico combustible completo antes que hacia el eléctrico.
+Piratería del catálogo Si publicas todo, te copian. Mitigación: el valor no está en la tabla sino en la actualización continua, la
+comunidad y la herramienta.
+10.3 Fuentes consultadas
+Consultadas en agosto de 2026. La auditoría del producto (§2 y §3) proviene del repositorio y de quality/REPORT.md , no de estas fuentes.
+FuelTech Master · Informe de Producto y Mercado 2026 49 / 50
+===== PAGINA 50 =====
+Mercado, digitalización y software de taller
+T21 — Digitalización pendiente en talleres mecánicos abre espacio a nuevas plataformas
+Infobae — Automechanika 2026: las claves de la transformación del sector mecánico
+Winmotor Cloud — Software taller mecánico 2026: guía
+Reparan2 — Software de gestión para talleres mecánicos: guía completa 2026
+TallERP — Cómo elegir el mejor software para taller mecánico en 2026
+Startupeable — Guía de SaaS en Latinoamérica
+Competencia
+El Ecosistema Startup — Pitz levanta 2,1 MUSD: IA para talleres mecánicos en LatAm
+Expansión — Pitz y su asistente de IA «Chalán» para talleres
+Cluster Industrial — Pitz lanza su marketplace inteligente de autopartes
+Clayton Notes — ALLDATA vs. Mitchell vs. Identifix: comparativa
+Jayda AI — 7 mejores alternativas a ALLDATA para talleres independientes (2026)
+G2 — Identifix: precios
+Appli-Car — Software para talleres mecánicos pequeños en Chile
+Google Play — Car Scanner ELM OBD2
+Comportamiento del mecánico, WhatsApp y redes
+Factor AI — Cómo cotizar por WhatsApp en tu taller mecánico (2026)
+TallerFlow — Cotizaciones online para taller mecánico
+Xora AI — Chatbot de WhatsApp para talleres mecánicos 2026
+TallerOS — Cómo lidiar con clientes difíciles en tu taller
+TikTok — Marketing para taller mecánico (contenidos del nicho)
+Facebook — CAM, Comunidad Automotriz México
+Daniel Founder — SEO para talleres mecánicos 2026: guía para Google Maps
+Guillermo Suils — SEO local para talleres mecánicos
+Técnica del nicho, autopartes y formación
+GMB — Bomba de gasolina: cómo saber si tiene una avería y cómo comprobarlo
+GMB — Verificar la bomba, explicárselo al cliente y garantías
+EuroTaller — Cómo saber cuándo falla la bomba de gasolina
+Informes de Expertos — Mercado latinoamericano de autopartes 2026-2035
+Infobae — Incautación de autopartes falsificadas en Bogotá
+Suplifai — Cross-reference de autopartes: bases de datos y método
+Autopos — «Cada vez hay menos jóvenes interesados en formarse»
+0223 — «Si no incorporamos gente joven, el oficio se va perdiendo»
+Autosoporte — Formación en vehículos híbridos y eléctricos en LatAm
+Capacítate para el Empleo — Mecánico automotriz
+Una última cosa
+De las 312 ideas de este documento, si tuviera que apostar todo a una sería la número 3: el botón «yo medí
+esto». Es barata, encaja con lo que ya construiste, resuelve el problema del 50% de datos estimados, crea
+comunidad sin necesitar un foro, y produce un activo —mediciones reales de bombas reales en el parque vehicular
+latinoamericano— que ni Alldata ni Pitz ni nadie con dinero puede comprar. Todo lo demás en este informe es una
+forma de ayudar a que esa idea funcione.
+FuelTech Master · Informe de Producto y Mercado 2026 50 / 50

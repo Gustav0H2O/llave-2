@@ -1,0 +1,57 @@
+{
+  "_lee_esto_primero": [
+    "Presupuestos de calidad del proyecto. scripts/metrics.js los verifica y falla",
+    "cuando se rompen; test/qa/perf.test.js usa la sección 'latencia_ms'.",
+    "",
+    "Reglas de uso (para humanos y para IA):",
+    "  1. Un número de aquí se SUBE solo con una razón escrita en el commit.",
+    "     Subir el presupuesto para que pase el build es hacer trampa: primero",
+    "     averigua por qué se rompió.",
+    "  2. Si mejoras una métrica, BAJA su presupuesto en el mismo commit para",
+    "     que la mejora no se pierda después.",
+    "  3. Los presupuestos de latencia se midieron sobre SQLite en memoria y",
+    "     tienen ~15x de holgura sobre la medición real (2-5 ms), para absorber",
+    "     el ruido de una máquina ocupada sin dejar pasar una regresión de orden",
+    "     de magnitud."
+  ],
+
+  "latencia_ms": {
+    "/healthz": 60,
+    "/api/meta": 60,
+    "/api/vehicles": 80,
+    "/api/vehicles?q=nissan": 80,
+    "/api/vehicles?limit=100": 100,
+    "/api/vehicles/1": 80,
+    "/api/modules": 80,
+    "/api/pumps": 60,
+    "/api/workshops": 60
+  },
+
+  "tamano_kb": {
+    "_comentario": "El frontend se sirve sin build step: cada KB es descarga real en el celular del mecánico, muchas veces con datos móviles en el taller.",
+    "public/app.js": 130,
+    "public/microapps.js": 200,
+    "public/index.html": 140,
+    "public/three3d.js": 45,
+    "public/sw.js": 8,
+    "server-pg.js": 200
+  },
+
+  "cobertura_minima_pct": {
+    "_comentario": "Cobertura de líneas de los módulos puros. lib/ tiene que estar cerca del 100% porque son las reglas del taller; el resto se mide pero no se exige tan alto.",
+    "lib/domain.js": 90,
+    "lib/pure.js": 95,
+    "lib/catalog.js": 80
+  },
+
+  "limites": {
+    "_comentario": "Topes estructurales. Sirven para que el proyecto no se degrade en silencio.",
+    "max_lineas_por_archivo": 3000,
+    "max_deuda_conocida": 5,
+    "min_pruebas_totales": 380,
+    "min_rutas_api_probadas_pct": 100,
+    "max_rutas_api_sin_proteger": 24,
+    "max_vehiculos_sin_verificar_pct": 60,
+    "max_duracion_suite_seg": 120
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "_lee_esto_primero": [
+    "Deuda conocida y ACEPTADA a propósito. No es una lista de deseos: es la única",
+    "puerta por la que una violación de regla puede pasar sin romper el build.",
+    "",
+    "Reglas de uso (para humanos y para IA):",
+    "  1. Nada entra aquí sin 'razon' y 'decidir' escritos por una persona.",
+    "  2. Esta lista SOLO puede encoger. scripts/metrics.js falla si crece.",
+    "  3. Arreglar el problema y borrar su entrada es siempre preferible a dejarla.",
+    "  4. Si vas a agregar una entrada, primero pregunta al dueño del proyecto."
+  ],
+  "catalogo_duplicados": [
+    {
+      "clave": "Renault|Kwid|2019|2024|MFI",
+      "razon": "Dos filas del mismo vehículo con el mismo sistema de inyección y la misma presión (43-51 PSI); solo cambia el texto del motor ('1.0L L4' vs '1.0L L3'). El Kwid es tricilíndrico, así que la fila 'L4' parece un error de captura. Producen módulos distintos (FTM-REN-xxx duplicado) y el buscador devuelve el mismo auto dos veces.",
+      "decidir": "PENDIENTE — el dueño del taller debe confirmar cuál fila se borra. Detectado el 2026-08-11.",
+      "detectado": "2026-08-11"
+    }
+  ],
+  "catalogo_solapes": [
+    {
+      "clave": "Renault|Duster|MFI",
+      "razon": "Dos filas con años solapados (2012-2019 '2.0L L4' verificada y 2013-2023 '1.6L / 2.0L L4' estimada). Un Duster 2015 devuelve dos fichas. Como ambas son MFI acaban con la misma presión (50-60), así que el daño es duplicado en el buscador, no contradicción.",
+      "decidir": "PENDIENTE — probablemente hay que recortar la fila estimada a 2020-2023. Detectado el 2026-08-11.",
+      "detectado": "2026-08-11"
+    },
+    {
+      "clave": "Mitsubishi|L200|MFI",
+      "razon": "GRAVE: 2008-2015 (retorno=0) y 2010-2023 (retorno=1) se solapan en 2010-2015 y SE CONTRADICEN. Al diferir el retorno, generan arquetipos de módulo distintos (module_returnless vs hanger_return): un L200 2012 muestra dos despieces incompatibles y el mecánico no sabe cuál pedir.",
+      "decidir": "PENDIENTE — hay que confirmar en qué año el L200 pasó a sistema con retorno y cortar los rangos ahí. Detectado el 2026-08-11.",
+      "detectado": "2026-08-11"
+    },
+    {
+      "clave": "Chevrolet|Tracker|GDI",
+      "razon": "2021-2024 (58-68 PSI) y 2020-2024 (55-72 PSI) se solapan casi por completo y declaran presiones distintas para el mismo auto. Ambas son estimadas.",
+      "decidir": "PENDIENTE — fusionar en una sola fila con la presión correcta de manual. Detectado el 2026-08-11.",
+      "detectado": "2026-08-11"
+    }
+  ],
+  "pilas_huerfanas": [
+    {
+      "clave": "AIRTEX E8213 (universal)",
+      "razon": "Está definida en PUMPS (100 PSI, 8 A, 125 LPH, turbina de alta) pero ninguna clase de CLASS_PUMPS la referencia, así que nunca se ofrece a ningún vehículo. O se enlaza a MFI_STD como alternativa universal, o se borra de PUMPS.",
+      "decidir": "PENDIENTE — el dueño del taller decide si la vende. Detectado el 2026-08-11.",
+      "detectado": "2026-08-11"
+    }
+  ],
+  "notas": {
+    "Chevrolet|Onix|2020|2024": "NO es duplicado: son dos variantes reales del mismo auto (MFI 1.0L Turbo/1.2L y GDI 1.0L L3 Turbo) con presiones distintas. Por eso la regla de unicidad incluye el tipo de inyección."
+  }
+}

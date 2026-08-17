@@ -39,8 +39,15 @@ if (USE_TURSO) {
   console.log('📦 Conectado a SQLite (Local)');
 }
 
-function parseQuery(sql, params) {
-  if (!USE_PG) return { sql, params };
+/* Traducción de parámetros al dialecto de PostgreSQL: los `?` posicionales y
+   los `@nombre` con nombre se convierten en $1, $2, $3…
+
+   Es una función PURA y se exporta aparte a propósito: parseQuery corta antes
+   cuando el backend no es PG, así que sin esto la traducción no se puede probar
+   sin levantar un PostgreSQL de verdad. Un error aquí no da síntoma en SQLite
+   ni en Turso — solo en producción sobre PG, escribiendo valores en la columna
+   equivocada. Cubierta por test/unit/db-adapter.test.js. */
+function toPgQuery(sql, params) {
   if (!params) return { sql, arr: [] };
 
   if (Array.isArray(params) || typeof params !== 'object') {
@@ -58,6 +65,11 @@ function parseQuery(sql, params) {
   });
 
   return { sql: pgSql, arr };
+}
+
+function parseQuery(sql, params) {
+  if (!USE_PG) return { sql, params };
+  return toPgQuery(sql, params);
 }
 
 class DBAdapter {
@@ -196,4 +208,4 @@ class DBAdapter {
 const db = new DBAdapter(sqliteDb);
 const statsDb = new DBAdapter(sqliteStats);
 
-module.exports = { db, statsDb, pgPool, tursoClient, USE_TURSO, USE_PG, DBAdapter };
+module.exports = { db, statsDb, pgPool, tursoClient, USE_TURSO, USE_PG, DBAdapter, parseQuery, toPgQuery };

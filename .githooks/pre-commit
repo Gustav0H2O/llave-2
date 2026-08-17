@@ -1,0 +1,32 @@
+#!/bin/sh
+# ============================================================================
+# Hook pre-commit — última barrera antes de que algo entre al historial.
+#
+# Corre las restricciones (rápido) y las pruebas. Las métricas NO se corren
+# aquí: tardan y su sitio es CI, no el momento de hacer commit.
+#
+# Se activa con:   git config core.hooksPath .githooks
+# Se salta con:    git commit --no-verify   (solo si sabes lo que haces)
+# ============================================================================
+
+set -e
+
+echo ""
+echo "🛡️  pre-commit: restricciones del proyecto…"
+if ! node scripts/guard.js; then
+  echo ""
+  echo "❌ Commit detenido: hay violaciones de las reglas del proyecto."
+  echo "   Cada una explica el daño real que causa. Ver AGENTS.md."
+  exit 1
+fi
+
+echo "🧪 pre-commit: pruebas…"
+if ! node --test test/api.test.js test/business.test.js test/unit/*.test.js test/qa/*.test.js > /dev/null 2>&1; then
+  echo ""
+  echo "❌ Commit detenido: hay pruebas fallando."
+  echo "   Corre 'npm run verify' para ver el detalle."
+  exit 1
+fi
+
+echo "✅ pre-commit: todo en verde."
+echo ""

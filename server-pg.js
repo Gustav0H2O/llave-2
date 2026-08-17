@@ -50,19 +50,14 @@ const verifyAdminToken = (token) => {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 };
 
-/* ---------- Saneo estricto de parámetros ----------
-   better-sqlite3 lanza si se le pasa NaN como parámetro → un query malicioso
-   como ?limit=abc tiraba un 500. Todo entero externo pasa por aquí. */
-const toInt = (v, min, max) => {
-  const n = Number.parseInt(v, 10);
-  return Number.isSafeInteger(n) ? Math.min(Math.max(n, min), max) : null;
-};
-
-const psiToBar = (psi) => psi == null ? null : +(psi * 0.0689476).toFixed(2);
-
-/* Saneo de parámetros de texto/número para rutas de negocio */
-const str = (x, max = 500) => (typeof x === 'string' ? x.trim().slice(0, max) : '');
-const num = (x) => (Number.isFinite(Number(x)) && x !== '' && x !== null ? Number(x) : null);
+/* ---------- Helpers puros ----------
+   Definición única en lib/pure.js, cubiertos por test/unit/pure.test.js.
+   NO los redefinas aquí: dos copias de `esc` o de `toInt` que se separen es
+   exactamente como aparece un XSS o un 500 por NaN. */
+const {
+  toInt, psiToBar, str, num,
+  esc, slugify, vehicleSlug, vehicleIdFromSlug, haceSlug,
+} = require('./lib/pure');
 
 /* Crea y configura la aplicación Express.
    Recibe instancias de Database (better-sqlite3) para fueltech y stats.
@@ -72,6 +67,34 @@ async function createApp(dbOverride, statsOverride) {
   // las conexiones reales del módulo ./db (SQLite local o PostgreSQL según DATABASE_URL).
   const db = dbOverride || defaultDb;
   const statsDb = statsOverride || defaultStatsDb;
+
+  /* Columnas de `workshops` añadidas después del esquema original (teléfono del
+     taller y verificación de correo). Van aquí y no en el arranque del proceso
+     porque los tests montan la app con `createApp` sobre una base recién creada
+     desde schema.sql: si la migración vive fuera, /api/auth/me consulta columnas
+     que no existen, la promesa revienta sin respuesta y la petición se cuelga.
+     Una por una con try/catch: "ADD COLUMN IF NOT EXISTS" existe en PostgreSQL
+     pero no en SQLite/libSQL, y aquí corren los tres. Es idempotente. */
+  for (const col of [
+    `ALTER TABLE workshops ADD COLUMN phone TEXT`,
+    `ALTER TABLE workshops ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE workshops ADD COLUMN verify_token_hash TEXT`,
+    `ALTER TABLE workshops ADD COLUMN verify_expires_at TEXT`,
+    `ALTER TABLE workshops ADD COLUMN slug TEXT`,
+    `ALTER TABLE workshops ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE workshops ADD COLUMN bio TEXT`,
+    `ALTER TABLE workshops ADD COLUMN city TEXT`,
+    `ALTER TABLE workshops ADD COLUMN services TEXT`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_ws_slug ON workshops(slug)`,
+    `CREATE TABLE IF NOT EXISTS workshop_reviews (
+       id INTEGER PRIMARY KEY, workshop_id INTEGER NOT NULL,
+       author TEXT NOT NULL, rating INTEGER NOT NULL, comment TEXT,
+       author_hash TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+       UNIQUE (workshop_id, author_hash))`,
+    `CREATE INDEX IF NOT EXISTS idx_reviews_ws ON workshop_reviews(workshop_id)`,
+  ]) {
+    try { await db.exec(col); } catch (e) { /* la columna/tabla ya existe */ }
+  }
 
   const visitSalt = process.env.VISIT_SALT || crypto.randomBytes(32).toString('hex');
   // OJO: `await x.get(...)?.value` lee .value sobre la PROMESA (siempre undefined).
@@ -83,6 +106,37 @@ async function createApp(dbOverride, statsOverride) {
 
   const app = express();
   app.disable('x-powered-by');
+
+  /* ---------- Red de seguridad para handlers async ----------
+     Express 4 NO captura las promesas rechazadas de un handler `async`. Sin
+     esto, cualquier error dentro de una ruta async (una consulta que lanza, un
+     parámetro null que llega a la base, un TypeError) deja la petición COLGADA
+     para siempre: el cliente espera hasta el timeout, no se registra nada y el
+     manejador de errores del final nunca se entera.
+
+     Era un bug real: GET /api/modules/abc no respondía nunca, porque toInt()
+     devuelve null y better-sqlite3 lanza "Too few parameter values".
+
+     Aquí se envuelve cada handler que se registre a partir de este punto para
+     que un rechazo termine en next(err) y salga como respuesta de error.
+     Los middlewares de error (arity 4) se dejan intactos: Express los reconoce
+     por fn.length === 4 y envolverlos los rompería. */
+  const envolver = (fn) => {
+    if (typeof fn !== 'function' || fn.length === 4) return fn;
+    const envuelto = (req, res, next) => {
+      let r;
+      try { r = fn(req, res, next); } catch (e) { return next(e); }
+      if (r && typeof r.then === 'function') r.catch(next);
+      return r;
+    };
+    // Preservar el nombre ayuda a leer los stack traces.
+    Object.defineProperty(envuelto, 'name', { value: fn.name || 'handler' });
+    return envuelto;
+  };
+  for (const metodo of ['get', 'post', 'put', 'patch', 'delete', 'all', 'use']) {
+    const original = app[metodo].bind(app);
+    app[metodo] = (...args) => original(...args.map(envolver));
+  }
 
   // Nonce por petición: permite <script> inline en las páginas renderizadas por el
   // servidor (JSON-LD para SEO) sin abrir la CSP con 'unsafe-inline'.
@@ -202,11 +256,7 @@ async function createApp(dbOverride, statsOverride) {
      indexable por vehículo con <title>, meta, canonical, Open Graph, datos
      estructurados (JSON-LD) y contenido rastreable — todo sin build step. */
   const INDEX_HTML = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const slugify = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-  const vehicleSlug = (v) => `${slugify(v.brand)}-${slugify(v.model)}-${v.year_from}-${v.year_to}-${v.id}`;
+  /* esc / slugify / vehicleSlug viven en lib/pure.js (importados arriba). */
 
   // Logotipo de marca para las páginas renderizadas en servidor (SEO/legales/guías).
   // Las clases on-dark/on-light las resuelve el CSS de index.html según el tema,
@@ -270,7 +320,10 @@ async function createApp(dbOverride, statsOverride) {
   }
 
   // Registro de búsquedas SIN resultado → hoja de ruta de datos guiada por demanda real.
-  statsDb.exec(`CREATE TABLE IF NOT EXISTS missing_searches (
+  // El await NO es decorativo: statsDb.exec devuelve una promesa y sin esperarla
+  // el error de creación se pierde como rechazo sin capturar, y la primera
+  // escritura puede llegar antes de que exista la tabla.
+  await statsDb.exec(`CREATE TABLE IF NOT EXISTS missing_searches (
     day TEXT NOT NULL, q TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (day, q))`);
   const bumpMissing = { run: async (p1, p2) => statsDb.run(`INSERT INTO missing_searches (day, q, count) VALUES (?, ?, 1)
@@ -296,7 +349,7 @@ async function createApp(dbOverride, statsOverride) {
   });
 
   app.get('/vehiculo/:slug', async (req, res, next) => {
-    const id = toInt(String(req.params.slug).split('-').pop(), 1, 1e9);
+    const id = vehicleIdFromSlug(req.params.slug);
     if (id === null) return next();
     const v = await vehicleForPage.get(id);
     if (!v) return next();
@@ -352,6 +405,89 @@ async function createApp(dbOverride, statsOverride) {
       ogImage: ogForVehicle(v.id),
       jsonLd: { '@context': 'https://schema.org', '@type': 'FAQPage', inLanguage: 'es',
         mainEntity: faq.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) }
+    }));
+  });
+
+  /* Perfil público del taller renderizado en servidor.
+     Es LA página que se comparte por WhatsApp, así que el contenido tiene que
+     estar en el HTML: el previsualizador del chat no ejecuta JavaScript y una
+     SPA vacía se vería como un enlace pelado. La app React se monta encima
+     igual, este contenido solo vive hasta que arranca. */
+  app.get('/taller/:slug', async (req, res) => {
+    const slug = String(req.params.slug || '').slice(0, 60);
+    const ws = await db.get(
+      `SELECT id, name, phone, city, bio, services, email_verified FROM workshops WHERE slug = ? AND is_public = 1`, slug);
+    /* No hay catch-all de SPA en esta app: sin esto, un enlace viejo o un perfil
+       despublicado caía en el 404 crudo de Express, sin marca ni salida. Se
+       conserva el código 404 (el enlace de verdad ya no existe) pero con página
+       propia — importa porque estos enlaces circulan por WhatsApp y sobreviven
+       a que el taller decida ocultarse. */
+    if (!ws) {
+      res.status(404).set('Cache-Control', 'no-store');
+      return res.type('html').send(renderShell({
+        title: 'Perfil no disponible | FuelTech Master',
+        description: 'Este perfil de taller no existe o ya no está publicado.',
+        canonicalPath: '/', nonce: res.locals.cspNonce,
+        rootContent: `<main style="max-width:620px;margin:0 auto;padding:60px 22px;color:var(--text);font-family:Montserrat,system-ui,sans-serif">
+          ${BRAND_LOCKUP}
+          <h1 style="font-size:22px;margin-bottom:10px">Este perfil no está disponible</h1>
+          <p style="color:var(--text-alt);line-height:1.7">El taller que buscas no existe o dejó de publicar su perfil. El enlace puede ser antiguo.</p>
+          <p style="margin-top:24px"><a href="/" style="color:var(--accent);font-weight:700">Ir a FuelTech Master →</a></p>
+        </main>`,
+      }));
+    }
+
+    const r = await db.get('SELECT COUNT(*) c, AVG(rating) a FROM workshop_reviews WHERE workshop_id = ?', ws.id);
+    const total = Number(r?.c || 0);
+    const promedio = total ? Math.round(Number(r.a) * 10) / 10 : null;
+    const reseñas = await db.all(
+      `SELECT author, rating, comment FROM workshop_reviews WHERE workshop_id = ? ORDER BY id DESC LIMIT 10`, ws.id);
+
+    const estrellas = (n) => '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.round(n));
+    const servicios = (ws.services || '').split(',').map(s => s.trim()).filter(Boolean);
+    const resumen = total
+      ? `${promedio} de 5 en ${total} ${total === 1 ? 'reseña' : 'reseñas'}`
+      : 'Aún sin reseñas';
+
+    const rootContent = `<main style="max-width:760px;margin:0 auto;padding:40px 22px;color:var(--text);font-family:Montserrat,system-ui,sans-serif">
+      ${BRAND_LOCKUP}
+      <h1 style="font-size:26px;margin-bottom:6px">${esc(ws.name)}</h1>
+      <p style="color:var(--accent);font-weight:700;letter-spacing:1px">${estrellas(promedio || 0)} <span style="color:var(--text-alt);font-weight:500">${esc(resumen)}</span></p>
+      ${ws.city ? `<p style="color:var(--text-alt);margin-top:8px">📍 ${esc(ws.city)}</p>` : ''}
+      ${ws.bio ? `<p style="color:var(--text-alt);line-height:1.7;margin-top:14px">${esc(ws.bio)}</p>` : ''}
+      ${servicios.length ? `<p style="margin-top:14px;color:var(--text-alt)"><strong style="color:var(--text)">Servicios:</strong> ${servicios.map(esc).join(' · ')}</p>` : ''}
+      ${ws.phone ? `<p style="margin-top:18px"><a href="https://wa.me/${esc(String(ws.phone).replace(/\D/g, ''))}" style="color:var(--accent);font-weight:700">Escribir por WhatsApp</a></p>` : ''}
+      ${reseñas.length ? `<h2 style="font-size:16px;margin-top:28px">Reseñas</h2>${reseñas.map(x => `
+        <blockquote style="border-left:3px solid var(--accent-dim);padding:8px 0 8px 14px;margin:12px 0">
+          <strong style="color:var(--text)">${esc(x.author)}</strong>
+          <span style="color:var(--accent)"> ${estrellas(x.rating)}</span>
+          ${x.comment ? `<p style="color:var(--text-alt);margin-top:4px;line-height:1.6">${esc(x.comment)}</p>` : ''}
+        </blockquote>`).join('')}` : ''}
+      <p style="margin-top:30px"><a href="/" style="color:var(--accent)">← Volver a FuelTech Master</a></p>
+    </main>`;
+
+    res.set('Cache-Control', 'public, max-age=120');
+    res.type('html').send(renderShell({
+      title: `${ws.name}${ws.city ? ' — ' + ws.city : ''} | Taller en FuelTech Master`,
+      description: ws.bio
+        ? String(ws.bio).slice(0, 160)
+        : `Perfil de ${ws.name}${ws.city ? ' en ' + ws.city : ''}. ${resumen}.`,
+      canonicalPath: '/taller/' + slug,
+      rootContent, nonce: res.locals.cspNonce,
+      jsonLd: {
+        '@context': 'https://schema.org', '@type': 'AutoRepair',
+        name: ws.name,
+        ...(ws.city ? { address: { '@type': 'PostalAddress', addressLocality: ws.city } } : {}),
+        ...(ws.phone ? { telephone: ws.phone } : {}),
+        ...(ws.bio ? { description: ws.bio } : {}),
+        url: BASE_URL + '/taller/' + slug,
+        ...(total ? {
+          aggregateRating: {
+            '@type': 'AggregateRating', ratingValue: promedio, reviewCount: total,
+            bestRating: 5, worstRating: 1,
+          }
+        } : {}),
+      },
     }));
   });
 
@@ -829,9 +965,12 @@ async function createApp(dbOverride, statsOverride) {
   app.get('/sitemap.xml', async (req, res) => {
     const rows = await db.all(`SELECT v.id, b.name AS brand, v.model, v.year_from, v.year_to
       FROM vehicles v JOIN brands b ON b.id = v.brand_id`);
+    // Los perfiles publicados también se indexan: es contenido propio con reseñas
+    const talleres = await db.all(`SELECT slug FROM workshops WHERE is_public = 1 AND slug IS NOT NULL`);
     const locs = [`${BASE_URL}/`, `${BASE_URL}/vehiculos`, `${BASE_URL}/guias`,
       ...PAGES.map(pg => `${BASE_URL}/${pg.slug}`),
       ...GUIDES.map(g => `${BASE_URL}/guia/${g.slug}`),
+      ...talleres.map(t => `${BASE_URL}/taller/${t.slug}`),
       ...rows.map(v => `${BASE_URL}/vehiculo/${vehicleSlug(v)}`)];
     res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(
       `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
@@ -1058,7 +1197,11 @@ async function createApp(dbOverride, statsOverride) {
   });
 
   app.get('/api/modules/:id', async (req, res) => {
-    const m = await db.get(`SELECT * FROM fuel_modules WHERE id = ?`, toInt(req.params.id, 1, 1e9));
+    // El id se valida ANTES de tocar la base: toInt devuelve null para basura
+    // y pasarle null a un `?` hace que better-sqlite3 lance.
+    const id = toInt(req.params.id, 1, 1e9);
+    if (id === null) return res.status(404).json({ error: 'Módulo no encontrado' });
+    const m = await db.get(`SELECT * FROM fuel_modules WHERE id = ?`, id);
     if (!m) return res.status(404).json({ error: 'Módulo no encontrado' });
     res.json({ ...m, regulated_bar: psiToBar(m.regulated_psi) });
   });
@@ -1077,7 +1220,9 @@ async function createApp(dbOverride, statsOverride) {
   });
 
   app.get('/api/pumps/:id', async (req, res) => {
-    const p = await db.get(`SELECT * FROM fuel_pumps WHERE id = ?`, toInt(req.params.id, 1, 1e9));
+    const id = toInt(req.params.id, 1, 1e9);
+    if (id === null) return res.status(404).json({ error: 'Pila no encontrada' });
+    const p = await db.get(`SELECT * FROM fuel_pumps WHERE id = ?`, id);
     if (!p) return res.status(404).json({ error: 'Pila no encontrada' });
     res.json({ ...p, max_bar_direct: psiToBar(p.max_psi_direct) });
   });
@@ -1086,7 +1231,7 @@ async function createApp(dbOverride, statsOverride) {
   const CHAT_DAILY_LIMIT = 3;
 
   // Asegurar tabla de límites por dispositivo
-  statsDb.exec(`
+  await statsDb.exec(`
     CREATE TABLE IF NOT EXISTS chat_limits (
       day        TEXT NOT NULL,
       device_id  TEXT NOT NULL,
@@ -1254,6 +1399,9 @@ ${dbContext}`;
 
   app.get('/api/admin/vehicles/:id', requireAdmin, async (req, res) => {
     const id = toInt(req.params.id, 1, 1e9);
+    // toInt devuelve null para un id no numérico, y pasar null a un `?` hace
+    // que better-sqlite3 lance ("Too few parameter values were provided").
+    if (id === null) return res.status(404).json({ error: 'No encontrado' });
     const vehicle = await db.get('SELECT * FROM vehicles WHERE id = ?', id);
     if (!vehicle) return res.status(404).json({ error: 'No encontrado' });
     const link = await db.get('SELECT * FROM vehicle_modules WHERE vehicle_id = ?', id);
@@ -1341,7 +1489,9 @@ ${dbContext}`;
   app.post('/api/admin/vehicles', requireAdmin, async (req, res) => {
     try {
       const d = buildPayload(req.body);
-      const id = createVehicle(d);
+      // El await NO es opcional: createVehicle es async, y sin esperarlo `id`
+      // es una promesa que se serializa como {} y el panel recibe {"id":{}}.
+      const id = await createVehicle(d);
       metaCache = null; pumpsCache = null;
       res.json({ id });
     } catch (e) { res.status(400).json({ error: e.message || 'Datos inválidos (¿código de módulo duplicado?)' }); }
@@ -1352,7 +1502,11 @@ ${dbContext}`;
     if (!await db.get('SELECT 1 FROM vehicles WHERE id = ?', id)) return res.status(404).json({ error: 'No encontrado' });
     try {
       const d = buildPayload(req.body);
-      updateVehicle(id, d);
+      // El await NO es opcional: updateVehicle es async. Sin esperarlo se
+      // respondía 200 antes de que la edición terminara, y si la transacción
+      // fallaba el rechazo quedaba sin capturar (Node aborta el proceso ante
+      // un unhandled rejection: una edición mal hecha tumbaba el servidor).
+      await updateVehicle(id, d);
       metaCache = null; pumpsCache = null;
       res.json({ id });
     } catch (e) { res.status(400).json({ error: e.message || 'Datos inválidos' }); }
@@ -1378,7 +1532,15 @@ ${dbContext}`;
 
   app.post('/api/admin/vehicles/:id/verify', requireAdmin, async (req, res) => {
     const id = toInt(req.params.id, 1, 1e9);
-    const info = await db.run('UPDATE vehicles SET data_verified = ? WHERE id = ?', req.body?.data_verified ? 1 : 0, id);
+    if (id === null) return res.status(404).json({ error: 'No encontrado' });
+    // OJO: db.run(sql, params) recibe DOS argumentos. Antes se llamaba con tres
+    // —run(sql, valor, id)— y el id se descartaba en silencio: la consulta se
+    // quedaba sin su segundo parámetro y marcar un vehículo como verificado
+    // fallaba siempre. Los parámetros van en un array.
+    const info = await db.run(
+      'UPDATE vehicles SET data_verified = ? WHERE id = ?',
+      [req.body?.data_verified ? 1 : 0, id]
+    );
     if (!info.changes) return res.status(404).json({ error: 'No encontrado' });
     res.json({ ok: true });
   });
@@ -1565,9 +1727,211 @@ ${dbContext}`;
   });
 
   app.get('/api/auth/me', requireWorkshop, async (req, res) => {
-    const ws = await db.get('SELECT id, name, email FROM workshops WHERE id = ?', req.workshopId);
+    const ws = await db.get(`SELECT ${CAMPOS_PERFIL} FROM workshops WHERE id = ?`, req.workshopId);
     if (!ws) return res.status(401).json({ error: 'Cuenta no encontrada' });
-    res.set('Cache-Control', 'no-store').json(ws);
+    res.set('Cache-Control', 'no-store').json(normalizaPerfil(ws));
+  });
+
+  /* ---- Perfil del taller ---- */
+  const CAMPOS_PERFIL = 'id, name, email, email_verified, phone, slug, is_public, bio, city, services';
+  const normalizaPerfil = (ws) => ws && ({
+    ...ws,
+    email_verified: Number(ws.email_verified) === 1,
+    is_public: Number(ws.is_public) === 1,
+  });
+
+  /* haceSlug vive en lib/pure.js. Si el slug choca con otro taller, se le
+     añade un sufijo numérico. */
+  async function slugLibre(base, workshopId) {
+    const raiz = base || 'taller';
+    for (let i = 0; i < 50; i++) {
+      const intento = i === 0 ? raiz : `${raiz}-${i + 1}`;
+      const choca = await db.get('SELECT id FROM workshops WHERE slug = ? AND id <> ?', [intento, workshopId]);
+      if (!choca) return intento;
+    }
+    return `${raiz}-${Date.now().toString(36)}`;
+  }
+
+  app.put('/api/auth/profile', requireWorkshop, async (req, res) => {
+    const b = req.body || {};
+    const name = str(b.name, 120);
+    // Se guarda solo dígitos con prefijo internacional: es lo que espera wa.me
+    const phone = str(b.phone, 24).replace(/[^\d+]/g, '');
+    if (!name) return res.status(400).json({ error: 'El nombre del taller no puede quedar vacío' });
+    if (phone && !/^\+?\d{7,15}$/.test(phone)) {
+      return res.status(400).json({ error: 'Teléfono inválido: usa el formato internacional, por ejemplo +584121234567' });
+    }
+    const bio = str(b.bio, 600);
+    const city = str(b.city, 80);
+    const services = str(b.services, 300);
+    const quierePublico = b.is_public === true || b.is_public === 1;
+
+    const actual = await db.get('SELECT slug FROM workshops WHERE id = ?', req.workshopId);
+    let slug = actual?.slug || null;
+    // El slug se acuña la primera vez que se publica y NO se vuelve a tocar:
+    // cambiarlo rompería todos los enlaces ya compartidos por WhatsApp.
+    if (quierePublico && !slug) slug = await slugLibre(haceSlug(name), req.workshopId);
+
+    await db.run(
+      `UPDATE workshops SET name = ?, phone = ?, bio = ?, city = ?, services = ?, is_public = ?, slug = ? WHERE id = ?`,
+      [name, phone || null, bio || null, city || null, services || null, quierePublico ? 1 : 0, slug, req.workshopId]
+    );
+    const ws = await db.get(`SELECT ${CAMPOS_PERFIL} FROM workshops WHERE id = ?`, req.workshopId);
+    res.set('Cache-Control', 'no-store').json(normalizaPerfil(ws));
+  });
+
+  /* ================================================================
+     Perfil público del taller y reputación
+     ================================================================ */
+  const resumenReseñas = async (workshopId) => {
+    const r = await db.get(
+      'SELECT COUNT(*) c, AVG(rating) a FROM workshop_reviews WHERE workshop_id = ?', workshopId);
+    const n = Number(r?.c || 0);
+    return { total: n, promedio: n ? Math.round(Number(r.a) * 10) / 10 : null };
+  };
+
+  app.get('/api/workshops/:slug', async (req, res) => {
+    const slug = str(req.params.slug, 60);
+    const ws = await db.get(
+      `SELECT id, name, phone, city, bio, services, email_verified, created_at
+         FROM workshops WHERE slug = ? AND is_public = 1`, slug);
+    if (!ws) return res.status(404).json({ error: 'Perfil no encontrado o no publicado' });
+    const reviews = await db.all(
+      `SELECT author, rating, comment, created_at FROM workshop_reviews
+        WHERE workshop_id = ? ORDER BY id DESC LIMIT 50`, ws.id);
+    const { total, promedio } = await resumenReseñas(ws.id);
+    // el id interno no sale: fuera se identifica por slug
+    const { id, ...publico } = ws;
+    res.set('Cache-Control', 'public, max-age=60').json({
+      ...publico, slug,
+      email_verified: Number(ws.email_verified) === 1,
+      reseñas: reviews, total, promedio,
+    });
+  });
+
+  const reviewLimiter = rateLimit({ windowMs: 3600_000, limit: 10, standardHeaders: true, legacyHeaders: false });
+
+  app.post('/api/workshops/:slug/reviews', reviewLimiter, async (req, res) => {
+    const slug = str(req.params.slug, 60);
+    const ws = await db.get('SELECT id FROM workshops WHERE slug = ? AND is_public = 1', slug);
+    if (!ws) return res.status(404).json({ error: 'Perfil no encontrado o no publicado' });
+
+    const author = str(req.body?.author, 60);
+    const comment = str(req.body?.comment, 600);
+    /* OJO: `toInt` RECORTA al rango en vez de rechazar (es lo que quieren los
+       filtros del catálogo). Aquí eso convertiría un 9 en un 5 sin avisar y
+       ensuciaría el promedio, así que la calificación se valida a mano. */
+    const rating = Number.parseInt(req.body?.rating, 10);
+    const device = str(req.body?.device_id, 64);
+    if (!author) return res.status(400).json({ error: 'Pon tu nombre' });
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'La calificación va de 1 a 5' });
+    }
+    if (!device) return res.status(400).json({ error: 'Falta el identificador del dispositivo' });
+
+    /* Una reseña por dispositivo y taller. No es identificación: es un hash con
+       sal del servidor, irreversible, y solo sirve para chocar contra la clave
+       única. Sin esto una sola persona puede inflar o hundir un perfil. */
+    const author_hash = crypto.createHmac('sha256', visitSalt).update(`${device}|${ws.id}`).digest('hex');
+    const previa = await db.get('SELECT id FROM workshop_reviews WHERE workshop_id = ? AND author_hash = ?', [ws.id, author_hash]);
+    if (previa) return res.status(409).json({ error: 'Ya dejaste una reseña en este taller' });
+
+    await db.run(
+      'INSERT INTO workshop_reviews (workshop_id, author, rating, comment, author_hash) VALUES (?, ?, ?, ?, ?)',
+      [ws.id, author, rating, comment || null, author_hash]
+    );
+    const resumen = await resumenReseñas(ws.id);
+    res.status(201).json({ ok: true, ...resumen });
+  });
+
+  /* Directorio de talleres publicados: alimenta "Conectar cliente ↔ mecánico" */
+  app.get('/api/workshops', async (req, res) => {
+    const ciudad = str(req.query.city, 80);
+    const filas = await db.all(
+      `SELECT w.slug, w.name, w.city, w.services, w.phone,
+              COUNT(r.id) total, AVG(r.rating) promedio
+         FROM workshops w LEFT JOIN workshop_reviews r ON r.workshop_id = w.id
+        WHERE w.is_public = 1 ${ciudad ? 'AND LOWER(w.city) LIKE ?' : ''}
+        GROUP BY w.id ORDER BY w.name`,
+      ciudad ? [`%${ciudad.toLowerCase()}%`] : []
+    );
+    res.set('Cache-Control', 'public, max-age=120').json(filas.map(f => ({
+      ...f, total: Number(f.total || 0),
+      promedio: f.total ? Math.round(Number(f.promedio) * 10) / 10 : null,
+    })));
+  });
+
+  /* ================================================================
+     Verificación de correo
+     ----------------------------------------------------------------
+     El envío va por HTTP a Resend si hay RESEND_API_KEY, para no meter
+     una dependencia SMTP nueva (fetch ya viene en Node 18+). Sin clave
+     configurada NO se traga el fallo en silencio: devuelve el enlace en
+     la respuesta y lo escribe en el log, para que la verificación siga
+     siendo usable en desarrollo y el fallo de configuración se vea.
+     ================================================================ */
+  const VERIFY_TTL_MS = 24 * 3600e3;
+  // El nombre del taller lo escribe el usuario, así que va escapado antes de
+  // entrar en el HTML del correo. Se usa el esc() de lib/pure.js: tener dos
+  // funciones de escape es tener una que algún día se queda atrás.
+  const escMail = esc;
+
+  async function enviarCorreo(to, subject, html) {
+    const key = process.env.RESEND_API_KEY;
+    const from = process.env.MAIL_FROM || 'FuelTech Master <onboarding@resend.dev>';
+    if (!key) return { enviado: false, motivo: 'RESEND_API_KEY no configurada' };
+    try {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to, subject, html }),
+      });
+      if (!r.ok) return { enviado: false, motivo: `Resend respondió ${r.status}` };
+      return { enviado: true };
+    } catch (e) {
+      return { enviado: false, motivo: e.message };
+    }
+  }
+
+  app.post('/api/auth/verify/send', authLimiter, requireWorkshop, async (req, res) => {
+    const ws = await db.get('SELECT id, email, name, email_verified FROM workshops WHERE id = ?', req.workshopId);
+    if (!ws) return res.status(401).json({ error: 'Cuenta no encontrada' });
+    if (Number(ws.email_verified) === 1) return res.json({ ok: true, ya: true });
+
+    const token = crypto.randomBytes(32).toString('base64url');
+    await db.run('UPDATE workshops SET verify_token_hash = ?, verify_expires_at = ? WHERE id = ?',
+      [hashToken(token), new Date(Date.now() + VERIFY_TTL_MS).toISOString(), ws.id]);
+
+    const link = `${BASE_URL}/api/auth/verify?token=${encodeURIComponent(token)}`;
+    const r = await enviarCorreo(ws.email, 'Confirma tu correo — FuelTech Master',
+      `<p>Hola ${escMail(ws.name)},</p>
+       <p>Confirma este correo para asegurar tu cuenta de FuelTech Master. El enlace vence en 24 horas.</p>
+       <p><a href="${link}">Confirmar mi correo</a></p>
+       <p style="color:#666;font-size:12px">Si no creaste esta cuenta, ignora este mensaje.</p>`);
+
+    if (!r.enviado) {
+      console.warn(`[verify] no se pudo enviar el correo (${r.motivo}). Enlace para ${ws.email}: ${link}`);
+      // En producción no se filtra el enlace en la respuesta; en local sí, o no
+      // habría forma de probar el flujo sin proveedor de correo configurado.
+      return res.status(200).json({
+        ok: false,
+        motivo: r.motivo,
+        link: process.env.NODE_ENV === 'production' ? undefined : link,
+      });
+    }
+    res.json({ ok: true });
+  });
+
+  app.get('/api/auth/verify', async (req, res) => {
+    const token = typeof req.query.token === 'string' ? req.query.token : '';
+    if (!token) return res.redirect('/?verificado=falta-token');
+    const ws = await db.get('SELECT id, verify_expires_at FROM workshops WHERE verify_token_hash = ?', hashToken(token));
+    if (!ws) return res.redirect('/?verificado=invalido');
+    if (new Date(ws.verify_expires_at).getTime() < Date.now()) {
+      return res.redirect('/?verificado=vencido');
+    }
+    await db.run('UPDATE workshops SET email_verified = 1, verify_token_hash = NULL, verify_expires_at = NULL WHERE id = ?', ws.id);
+    res.redirect('/?verificado=1');
   });
 
   /* ---- Inventario ---- */
@@ -1775,7 +2139,7 @@ ${dbContext}`;
     const photos = await db.all('SELECT id, caption, created_at FROM work_order_photos WHERE order_id=? AND workshop_id=?', [id, req.workshopId]);
     const total = items.reduce((s, i) => s + (Number(i.line_total) || 0), 0);
     if (Math.abs(total - (order.total || 0)) > 0.001) {
-      await db.run('UPDATE work_orders SET total=? WHERE id=?', [total, id]);
+      await db.run('UPDATE work_orders SET total=? WHERE id=? AND workshop_id=?', [total, id, req.workshopId]);
       order.total = total;
     }
     res.set('Cache-Control', 'no-store').json({ ...order, items, photos });
@@ -1916,7 +2280,7 @@ ${dbContext}`;
         await db.run(`INSERT INTO document_items (workshop_id, document_id, item_id, descr, qty, unit_price, line_total)
           VALUES (?, ?, ?, ?, ?, ?, ?)`, [req.workshopId, did, toInt(it.item_id, 1, 1e9), descr, qty, unit_price, line_total]);
       }
-      await db.run('UPDATE documents SET total=? WHERE id=?', [+total.toFixed(2), did]);
+      await db.run('UPDATE documents SET total=? WHERE id=? AND workshop_id=?', [+total.toFixed(2), did, req.workshopId]);
       await db.exec('COMMIT');
       res.status(201).json({ id: did, number });
     } catch (e) { await db.exec('ROLLBACK'); throw e; }
@@ -1953,11 +2317,11 @@ ${dbContext}`;
     const id = toInt(req.params.id, 1, 1e9);
     const doc = await db.get('SELECT * FROM documents WHERE id=? AND workshop_id=?', [id, req.workshopId]);
     if (!doc) return res.status(404).json({ error: 'No encontrado' });
-    const items = await db.all('SELECT * FROM document_items WHERE document_id=?', [id]);
-    const client = doc.client_id ? await db.get('SELECT * FROM clients WHERE id=?', [doc.client_id]) : null;
+    const items = await db.all('SELECT * FROM document_items WHERE document_id=? AND workshop_id=?', [id, req.workshopId]);
+    const client = doc.client_id ? await db.get('SELECT * FROM clients WHERE id=? AND workshop_id=?', [doc.client_id, req.workshopId]) : null;
     const ws = await db.get('SELECT name FROM workshops WHERE id=?', req.workshopId);
     const kindLabel = doc.kind === 'entrega' ? 'NOTA DE ENTREGA' : 'PRESUPUESTO';
-    const escv = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const escv = esc; // definición única en lib/pure.js
     const rowsHtml = items.map((i, idx) => `<tr>
       <td>${idx + 1}</td><td>${escv(i.descr)}</td><td>${i.qty}</td>
       <td>$${Number(i.unit_price || 0).toFixed(2)}</td><td>$${Number(i.line_total || 0).toFixed(2)}</td>
@@ -2135,9 +2499,23 @@ ${dbContext}`;
     const data = req.body?.data;
     if (!data || typeof data !== 'object') return res.status(400).json({ error: 'Respaldo inválido' });
     const ws = req.workshopId;
-    const T = ['inventory', 'moves', 'clients', 'vehicles', 'orders', 'orderItems', 'orderPhotos', 'documents', 'docItems', 'diagnostics', 'notes', 'cash'];
+
+    /* OJO — estos son los nombres REALES de las tablas, no las claves del JSON
+       del respaldo. Antes se borraba usando las claves ('inventory', 'moves',
+       'orders'…), que no son tablas: el DELETE lanzaba "no such table", la
+       transacción se revertía y restaurar un respaldo NUNCA funcionaba.
+
+       El orden importa: primero los hijos y después los padres, o las llaves
+       foráneas rechazan el borrado. */
+    const TABLAS_EN_ORDEN_DE_BORRADO = [
+      'document_items', 'documents',
+      'work_order_photos', 'work_order_items', 'work_orders',
+      'client_vehicles', 'clients',
+      'inventory_moves', 'inventory_items',
+      'diagnostics', 'workshop_notes', 'cash_moves',
+    ];
     await db.exec('BEGIN'); try {
-      for (const t of T) await db.run(`DELETE FROM ${t} WHERE workshop_id=?`, [ws]);
+      for (const t of TABLAS_EN_ORDEN_DE_BORRADO) await db.run(`DELETE FROM ${t} WHERE workshop_id=?`, [ws]);
       const ins = async (t, cols, row) => db.insertReturningId(
         `INSERT INTO ${t} (workshop_id, ${cols.join(', ')}) VALUES (${['?', ...cols.map(() => '?')].join(', ')})`,
         [ws, ...cols.map(c => row[c] ?? null)]);
@@ -2206,7 +2584,27 @@ ${dbContext}`;
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'No encontrado' }));
 
+  /* Manejador de errores final.
+
+     OJO — antes esto devolvía 500 para TODO, incluido lo que es culpa del
+     cliente: un JSON mal formado o un cuerpo mayor al límite de 20 kB salían
+     como "Error interno". Eso miente al cliente, ensucia el log y, sobre todo,
+     esconde los 500 de verdad entre ruido. Los errores que express y
+     body-parser ya clasifican como 4xx se respetan; solo lo que no tiene
+     clasificación se trata como fallo del servidor. */
   app.use((err, req, res, next) => {
+    const status = Number(err.status || err.statusCode) || 0;
+    const esDelCliente = status >= 400 && status < 500;
+
+    if (esDelCliente) {
+      const mensaje = err.type === 'entity.too.large'
+        ? 'El contenido enviado es demasiado grande'
+        : err.type === 'entity.parse.failed'
+          ? 'JSON mal formado'
+          : 'Petición inválida';
+      return res.status(status).json({ error: mensaje });
+    }
+
     console.error('Error interno:', err.message || err);
     res.status(500).json({ error: 'Error interno' });
   });
@@ -2246,7 +2644,7 @@ if (require.main === module) {
         );
       `);
       await statsDb.run(`DELETE FROM visit_days WHERE day < date('now', '-90 days')`);
-      
+
       const app = await createApp();
       const PORT = process.env.PORT || 3000;
       const server = app.listen(PORT, () => console.log(`FuelTech Master corriendo en http://localhost:${PORT}`));
@@ -2259,4 +2657,6 @@ if (require.main === module) {
   })();
 }
 
+/* Se re-exportan toInt/psiToBar por compatibilidad con las pruebas existentes;
+   la definición vive en lib/pure.js. */
 module.exports = { createApp, toInt, psiToBar };

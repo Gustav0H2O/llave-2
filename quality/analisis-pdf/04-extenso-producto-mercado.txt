@@ -1,0 +1,437 @@
+
+===== PAGINA 1 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+FUELTECH MASTER
+Reporte Extenso de Producto, Mercado y
+Estrategia
+Auditoría del nicho de módulos y pilas (bombas) de gasolina en Latinoamérica, análisis
+de interés, necesidades, herramientas, experiencias, redes sociales, internet y
+tendencias 2026.
+DOCUMENTO Análisis estratégico y de producto
+ALCANCE Latinoamérica · Aftermarket automotriz
+ENFOQUE Sistema de combustible · Bombas de gasolina
+BASE FuelTech Master · fueltechmaster.com
+FECHA Agosto 2026
+Sobre este reporte: integra la auditoría del producto FuelTech Master con el análisis del repositorio del proyecto, la
+carpeta “bombas de gasolina” y la investigación web de agosto de 2026. Las cifras de mercado provienen de fuentes
+públicas; las recomendaciones de producto son priorizables según impacto y esfuerzo.
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 1
+===== PAGINA 2 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+1. Resumen ejecutivo
+FuelTech Master no es una simple web de taller: medido sobre su propio código, es una plataforma técnica
+con 79 rutas de API, 38 herramientas, un catálogo de 208 vehículos, 33 marcas, 10 pilas y reglas de dominio
+verificadas por 407 pruebas. El problema central no es de construcción, sino de foco, datos, jerarquía y
+distribución.
+El activo verdaderamente defendible es el conocimiento del banco de pruebas: los umbrales propios «TBI
+60–70 PSI», «Vortec 90 exactos», «familia Yaris 38/44 PSI» y las consecuencias de equivocarse. Un
+competidor capitalizado puede copiar una interfaz, pero no puede replicar ese conocimiento de taller capturado
+en reglas.
+Las doce conclusiones clave del material de origen se resumen en cinco movimientos: cerrar las deudas de
+datos, convertir el diagnóstico en el acto central, hacer de WhatsApp la salida natural de cada función,
+monetizar por trabajar (no por consultar) y activar el circuito de datos de la comunidad.
+Las diez apuestas prioritarias
+Apuesta Qué es y por qué importa
+1 Modo Banco de Pruebas Registro oficial de cada prueba de pila con veredicto y comprobante.
+2 Aporte de datos del Botón «yo medí esto» en fichas estimadas, con moderación.
+mecánico
+3 Salida a WhatsApp en todo Cada ficha, diagnóstico, cotización y garantía genera mensaje listo.
+4 Buscador único universal Matrícula/VIN/modelo/síntoma en una sola caja.
+5 Certificado de instalación y PDF con fotos, presiones antes/después y sello del taller.
+garantía
+6 Generador de contenido Imagen 9:16 lista para TikTok/Reels con marca del taller.
+para redes
+7 Programa de páginas de Plantilla «qué bomba lleva el {modelo} {año}» con datos reales.
+intención
+8 Plan Taller de pago Consulta gratuita; gestión, marca e histórico de pago.
+9 Analítica de búsquedas La lista de compras del catálogo escrita por usuarios.
+fallidas
+10 Resolver las 5 deudas de Evita que un mecánico pida el módulo equivocado.
+datos
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 2
+===== PAGINA 3 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+2. Auditoría del producto actual
+El proyecto está bien construido: Express 4 con HTML renderizado en servidor, React 18 por UMD con htm sin
+paso de compilación, adaptador de base SQLite/Turso/PostgreSQL, Helmet con CSP, PWA, visor 3D con
+Three.js y chat con Gemini. Su fortaleza operativa es un coste de operación cercano a cero y portabilidad de
+base.
+Lo que regala vs. lo que cobra
+Lo que la arquitectura regala Lo que la arquitectura cobra
+Despliegue rápido, sin compilación que se rompa microapps.js pesa 184 KB y app.js 110 KB; se descargan enteros
+HTML servido: indexable de verdad, no SPA vacía server-pg.js acumula 181 KB en un archivo monolito
+Un solo proceso, barato de hospedar Sin división por rutas ni carga diferida sencilla
+Portabilidad de base entre proveedores Cada cambio obliga a navegar un monolito
+Las 38 herramientas, por familia
+Familia Herramientas
+Consulta (10) Catálogo de Combustible · Buscador DTC · Torques de Apriete · Bujías · Cross-Reference ·
+Conversor · Decodificador VIN · Fusibles y Relés · Medidas de Llanta · Plan de Mantenimiento
+Diagnóstico (11) Mi Carro No Enciende · Batería y Carga · Diagnóstico Rápido de PSI · Diagnóstico por Síntomas ·
+Calculadoras Técnicas · Identificador con IA · Registro de Presión · Prueba de Regulador ·
+STFT/LTFT · Prueba de Compresión · Pinouts OBD-II
+Taller (11) Órdenes de Trabajo · Inventario · Clientes · Notas de Entrega/Presupuestos · Notas del Mecánico ·
+Cierre de Caja · Inspección de Recepción · Cotizador Rápido · Agenda de Citas · Tiempos de
+Mano de Obra · Mi Taller
+Comunidad (3) Foro Técnico · Conectar Cliente « Mecánico · Mercado de Autos
+Aprende (3) Guías de Diagnóstico · Glosario Técnico · Sincronización / Kit de Tiempo
+Solo 8 herramientas exigen sesión (orders, inventory, clients, notes, cash, documents, pressure, profile); 30
+funcionan sin registro. Eso es excelente para adquisición y débil para retención. El objetivo no es cerrar
+herramientas, sino dar razones para crear cuenta: guardar historial, sincronizar entre dispositivos y poner el
+logo del taller en los documentos.
+Superficie pública e indexable
+(cid:127) Portada con video, losa explicativa y acceso a herramientas.
+(cid:127) ~208 fichas técnicas por vehículo con presión, ubicación del módulo y pilas compatibles.
+(cid:127) 9 guías de diagnóstico con JSON-LD y preguntas frecuentes.
+(cid:127) Perfiles públicos de taller (/taller/:slug) y 4 páginas legales.
+(cid:127) sitemap.xml, robots.txt, ads.txt, healthz e imágenes Open Graph pre-generadas.
+Aparato de calidad
+Es lo más inusual del proyecto para su tamaño: 18 reglas de restricción estática, siete robots de prueba
+masiva, presupuestos de tamaño y latencia, y un trinquete que impide empeorar métricas. No es
+sobre-ingeniería: es el argumento de venta. En un rubro donde publicar «60 PSI» en vez de «90 PSI» hace
+que un motor no encienda, poder afirmar que cada dato está cubierto por una prueba es una promesa que los
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 3
+===== PAGINA 4 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+competidores no hacen.
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 4
+===== PAGINA 5 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+3. Diagnóstico: fortalezas y grietas
+Fortalezas defendibles
+Fortaleza Por qué es defendible
+Reglas de taller propietarias Salen de un banco de pruebas real; no están en catálogos comerciales en español.
+Vocabulario del gremio «Pila», «módulo», «riel», «flauta», «banco». El producto habla como el taller.
+Honestidad de datos El aviso n ESTIMADO en 104 fichas es contraintuitivo comercialmente y brillante en
+confianza.
+Especificidad del nicho Ser «los de las bombas» es memorable; «los de gestión de talleres» no.
+Coste de operación bajísimo Un proceso, sin compilación, base serverless: se puede ser gratis durante años.
+Rigor verificable 407 pruebas y 18 restricciones como barrera de calidad.
+Grietas ordenadas por gravedad
+N.º Grieta Consecuencia
+1 Contradicciones de datos El L200 2010-2015 devuelve dos despieces incompatibles (con retorno y sin
+retorno).
+2 Mitad del catálogo estimado 104 de 208 vehículos marcados como estimados: techo de credibilidad.
+3 Sin jerarquía de entrada 38 tarjetas equivalentes paralizan al usuario nuevo.
+4 Sin bucle de retención Nada trae de vuelta al mecánico mañana.
+5 Sin modelo de ingreso AdSense apagado, sin planes ni cobro.
+6 Catálogo sesgado 157 MFI, 47 GDI, 3 Vortec y solo 1 TBI; el parque viejo está lleno de TBI.
+7 Peso de descarga ~430 KB de JS/HTML antes de ver nada, en talleres con señal mala.
+8 Comunidad vacía Foro, mercado y conexión existen pero sin masa crítica restan confianza.
+9 Herramientas duplicadas Cotizador, notas de entrega y órdenes se solapan; calculadoras y conversor
+también.
+10 Sin instrumentación No se sabe qué herramienta se usa; se decide a ciegas.
+La grieta no técnica más importante: el producto sirve a tres públicos a la vez —mecánico que consulta, taller
+que gestiona y dueño del carro que llega por Google— y no le dice a ninguno «esto es para ti». La solución
+son rutas de entrada distintas según quién llega.
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 5
+===== PAGINA 6 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+4. El mercado y el nicho
+Tamaño y estructura
+El informe de origen señala que solo en México se contabilizan más de 240.000 unidades económicas de
+talleres formales, con el segmento independiente claramente rezagado en digitalización. El mercado SaaS
+B2B latinoamericano crece ~25% anual y supera los 10.000 MUSD en 2026, pero los sectores operativos
+como el automotriz están subatendidos.
+La búsqueda web complementa la foto. El mercado de bombas de transferencia de combustible automotriz se
+valoró en torno a 18.900 MUSD en 2025 y se proyecta con CAGR de 6,2% hacia 2035; el de bombas de
+alimentación de combustible se estima en 4.900 MUSD en 2025 con CAGR de 5,1%. Aunque son cortes
+globales distintos, confirman que la categoría es grande, madura y creciente.
+Dato clave: falsificación
+La falsificación de autopartes es endémica en la región. En un solo operativo en Bogotá se incautaron 7.966
+piezas falsas, con bombas de gasolina y de agua entre las categorías afectadas. Esto convierte la autenticidad
+de la pieza en una oportunidad de producto grande y poco obvia: caudal medido en banco, amperaje de
+consumo, presión de corte, fotos de empaque legítimo y listado de vendedores confiables.
+Los seis dolores reales del taller
+N.º Dolor Qué se documenta
+1 Equivocarse de pieza Pedir el módulo o la pila equivocada cuesta flete, tiempo y a veces el cliente.
+2 Cotizar y no cerrar Un taller pequeño pierde cotizaciones por no responder a tiempo por WhatsApp.
+3 La garantía El cliente vuelve culpando a la pieza; el taller no tiene cómo demostrar que
+instaló bien.
+4 Márgenes y costes Presión sobre márgenes y necesidad de inversión en diagnóstico y software.
+5 Falta de personal calificado Escasez de profesionales y ausencia de relevo generacional.
+6 Fidelizar frente a las cadenas El taller independiente necesita pasar de gestión reactiva a proactiva.
+Por qué «bombas» es el ángulo correcto
+(cid:127) Falla de alta frecuencia y alto drama: produce el síntoma que más asusta («el carro no enciende»).
+(cid:127) Donde más se equivoca el gremio: presión de banco vs. riel, con o sin regulador, con o sin retorno, GDI de
+baja vs. alta.
+(cid:127) Pieza cara para el bolsillo latinoamericano: nadie cambia una bomba «por si acaso»; se busca, se
+pregunta y se compara.
+(cid:127) Puente natural a todo el sistema de combustible: filtro, inyectores, regulador, tanque, relé, cableado y
+ECU.
+Posicionamiento recomendado: «FuelTech Master es la referencia técnica del sistema de combustible para el
+mecánico hispanohablante: qué presión debe dar, qué pila le va, cómo probarlo y cómo demostrar que quedó
+bien. Gratis para consultar, de pago para trabajar.»
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 6
+===== PAGINA 7 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+5. Competencia y hueco de mercado
+Competidor Categoría Fortaleza / debilidad frente a FuelTech Precio
+ALLDATA Info técnica OEM Datos de fábrica, cobertura enorme; caro, no No público
+publica precio, orientado a EE.UU., interfaz
+pesada.
+Mitchell 1 Info + gestión Estándar de industria en EE.UU.; mismo No público
+problema de precio y mercado, marginal en
+español.
+Identifix Direct-Hit Diagnóstico por Arreglos confirmados por técnicos; modelo ~179
+experiencia replicable en el nicho, pero caro. USD/mes/usuario
+Pitz IA + gestión LatAm El competidor más peligroso: diagnóstico por SaaS + comisión
+voz e imagen, WhatsApp nativo, marketplace.
+Amplitud sin profundidad de banco.
+TallerOS, Appli-Car, Gestión de taller Muchas opciones regionales; son ERP y »20–60 USD/mes
+TallerFlow, Reparan2, ninguno sabe de presiones ni de pilas.
+Winmotor
+Apps OBD2 (Torque, Escáner de bolsillo Millones de instalaciones; dan el código, no el Gratis / freemium
+Car Scanner, inCarDoc) veredicto.
+Blogs y catálogos de Contenido Dominan la búsqueda informativa; genéricos, —
+fabricante sin datos por modelo ni herramienta.
+Grupos de Facebook / Comunidad Donde realmente pregunta el mecánico hoy; Gratis
+YouTube respuestas no verificadas e imposibles de
+buscar.
+El hueco, en una frase: los caros saben mucho de todo pero no hablan tu idioma ni conocen tu parque
+vehicular; los baratos gestionan el taller pero no saben mecánica; las apps OBD2 leen códigos pero no dan
+veredicto; los grupos de Facebook saben del parque real pero no se pueden buscar ni verificar. FuelTech
+puede ser el único que sabe mucho de una cosa, en el idioma y con el parque correctos, con veredicto y con
+prueba.
+Reglas frente a Pitz
+(cid:127) No competir en marketplace de refacciones: requiere capital de inventario y logística.
+(cid:127) No competir en «IA para todo»: competir en IA que aplica reglas propias de banco.
+(cid:127) Competir en profundidad y confianza dentro del sistema de combustible.
+(cid:127) Competir en precio con ventaja estructural: coste operativo cercano a cero.
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 7
+===== PAGINA 8 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+6. Qué busca el mecánico: interés, intención y canales
+Las siete familias de intención de búsqueda
+Familia Cómo se busca Qué debe devolver FuelTech
+Síntoma fi causa «síntomas de bomba de gasolina fallando», Árbol de decisión con pruebas ordenadas por coste.
+«mi carro jalonea», «se apaga y prende»
+Medición fi «cuánta presión debe dar la bomba», «45 psi Introducir medida y obtener BIEN / MAL /
+veredicto es normal», «presión baja causas» SOSPECHOSO con causa probable.
+Compatibilidad «qué bomba lleva el aveo 2010», «pila jetta Ficha con OEM, alternativas, caudal, amperaje y aviso
+a4», «bomba universal» si es estimado.
+Procedimiento «cómo cambiar la bomba», «cómo medir Paso a paso con torques, herramientas y trampas del
+presión sin manómetro», «cómo sacar el modelo.
+tanque»
+Código de falla «P0087», «P0171 y P0174 juntos», «código Código fi causas por probabilidad fi prueba fi
+bomba de gasolina» veredicto.
+Precio «cuánto cuesta cambiar la bomba», «precio Rango por país y modelo, desglose mano de obra vs.
+bomba de gasolina» pieza.
+Diferenciación «bomba original vs genérica», «airtex vs Comparativa por caudal, amperaje, presión y garantía.
+bosch», «cómo saber si es original»
+Dónde vive el mecánico latinoamericano en internet
+WhatsApp es el sistema operativo del taller: cotiza, aprueba, manda fotos, pide piezas y cobra. Cada pantalla
+de FuelTech necesita un botón que produzca un mensaje redactado con datos, marca del taller y enlace.
+Facebook es el foro real: comunidades como CAM (Comunidad Automotriz México) concentran miles de
+técnicos. La estrategia no es reemplazar el grupo, sino ser la respuesta que se pega en él, con una imagen
+compartible que rinda bien en un muro.
+TikTok y Reels son la vitrina: reparaciones grabadas, avisos sobre «reparaciones fantasma», herramientas
+nuevas, humor de taller y marketing. El taller debe recibir material listo para publicar.
+YouTube es la escuela: donde el mecánico aprende el procedimiento largo. FuelTech no compite con el video;
+lo complementa como chuleta de torques, presiones, pinouts y orden de pasos abierta en el celular.
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 8
+===== PAGINA 9 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+7. Tendencias 2026 y su impacto
+Tendencia Consecuencia directa
+IA de diagnóstico por voz e Se vuelve expectativa base. Ya hay «Identificador con IA»; falta voz para manos sucias
+imagen y foto de la pieza o manómetro.
+Todo en la nube y el celular El dueño supervisa desde casa; el técnico actualiza desde debajo del capó. Refuerza la
+apuesta PWA.
+Taller reactivo fi proactivo Recordatorios, mantenimiento predictivo y avisos antes de que el cliente llame.
+Electrificación e híbridos El eléctrico no lleva bomba, pero el híbrido sí, con particularidades poco documentadas
+en español.
+Escasez de técnicos y relevo El producto que enseña mientras se usa gana; cada herramienta debe explicar el
+porqué.
+Facturación electrónica Si FuelTech emite documentos, debe mirar la normativa por país.
+obligatoria
+Falsificación y verificación de Crece la demanda de saber si una bomba es original o falsa antes de instalarla.
+piezas
+Software localizado para LATAM El mercado penaliza el software pensado para España o EE.UU.; premia WhatsApp,
+precios por taller y pagos locales.
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 9
+===== PAGINA 10 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+8. Necesidades, herramientas, funcionalidades y experiencias
+El análisis integra las necesidades del nicho en seis capas: datos, diagnóstico, gestión, garantía,
+comunidad/redes y experiencia de taller real. Cada capa responde a un dolor documentado o a una intención
+de búsqueda específica.
+8.1 Núcleo de datos y catálogo técnico
+(cid:127) Cerrar las 5 deudas de datos: L200 contradictorio, Kwid y Duster duplicados, Tracker solapado y AIRTEX
+huérfana.
+(cid:127) Convertir estimados en verificados, priorizando los vehículos más consultados.
+(cid:127) Ampliar TBI y Vortec/CSFI, donde las reglas propias más valor aportan.
+(cid:127) Añadir camionetas de trabajo, motos de reparto e híbridos.
+(cid:127) Fichas de pila profundas: caudal a 3/6/9 bar, amperaje en vacío/carga, presión de corte, tipo de turbina,
+conectores, dimensiones y vida útil.
+(cid:127) Catálogos de módulos, aforadores/flotadores, reguladores, filtros, relés y fusibles.
+(cid:127) Diagramas de conectores, ubicación con foto, avisos de «hay que bajar el tanque» y equivalencias entre
+marcas.
+(cid:127) Buscador inverso por número de parte, por medidas físicas, alias locales y búsqueda tolerante a errores.
+(cid:127) Niveles de confianza por dato, cita de fuente, historial de cambios y reporte de errores.
+8.2 Autenticidad de la pieza
+(cid:127) Prueba de autenticidad en banco comparando presión de corte, amperaje y caudal contra la marca
+declarada.
+(cid:127) Galería de empaques legítimos y señales físicas de clonación (peso, acabado, conector, rebabas).
+(cid:127) Reporte comunitario de lotes falsos e índice de fiabilidad por marca.
+(cid:127) Verificador de código del fabricante y directorio de proveedores confiables.
+8.3 Diagnóstico, medición y veredicto
+(cid:127) Modo Banco de Pruebas como acto central: medir en seco, con carga, registrar amperaje/caudal y emitir
+comprobante.
+(cid:127) Veredicto con grados: SIRVE · SIRVE CON RESERVA · NO SIRVE · NO CONCLUYENTE.
+(cid:127) Explicación del porqué, árbol de decisión del sistema de combustible y pruebas ordenadas por coste.
+(cid:127) Prueba sin manómetro, caída de voltaje en el circuito, prueba de tierra, diagnóstico por DTC con veredicto.
+(cid:127) Historial de presión por vehículo, comparación contra la mediana de la comunidad y diagnóstico de tanque
+contaminado.
+(cid:127) Prueba del sistema GDI en dos etapas, prueba de inyectores y registro fotográfico del diagnóstico.
+8.4 Micro apps de consulta rápida
+(cid:127) Buscador universal único que acepte modelo, año, VIN, número de parte, DTC o síntoma.
+(cid:127) Últimos 5 vehículos consultados, favoritos, comparador de vehículos y calculadoras específicas.
+(cid:127) Calculadoras de caída de presión, caudal, Ley de Ohm del circuito y calibre de cable.
+(cid:127) Tabla de torques, guía de herramientas, checklist de seguridad, capacidad de tanque y tiempo estimado.
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 10
+===== PAGINA 11 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+(cid:127) Lector de número de parte por cámara, notas por voz, códigos por marca y procedimientos de
+reinicio/aprendizaje.
+8.5 Gestión del taller
+(cid:127) Del diagnóstico a la orden en un toque, con piezas ya cargadas.
+(cid:127) Estados de orden con aviso al cliente por WhatsApp y aprobación de presupuesto por enlace.
+(cid:127) Inventario con alerta de stock, ligado al catálogo, y «tengo esta pieza para tu carro».
+(cid:127) Rentabilidad por orden y por tipo de trabajo, tablero del dueño, multiusuario con roles.
+(cid:127) Cuentas por cobrar, métodos de pago mixtos, historial completo del vehículo y recordatorios.
+(cid:127) Inspección multipunto con fotos, firma en pantalla, agenda con capacidad real y respaldo exportable.
+8.6 Garantía, confianza y documentos
+(cid:127) Certificado de instalación en PDF con presiones antes/después, voltaje, estado del tanque, fotos y sello del
+taller.
+(cid:127) Certificado con código verificable, registro de condiciones de garantía y control de garantías vigentes.
+(cid:127) Reclamo de garantía al proveedor, alertas de vencimiento y documentos con marca del taller.
+(cid:127) Envío por WhatsApp, explicación al cliente en lenguaje llano y solicitud de reseña tras la entrega.
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 11
+===== PAGINA 12 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+9. Redes sociales y crecimiento
+La tesis es que no se debe publicar solo: hay que hacer que publiquen los talleres. El taller ya sabe que sus
+clientes lo miran en redes antes de visitarlo; dándole material listo con marca discreta al pie, FuelTech logra
+que miles de cuentas distribuyan por él.
+(cid:127) Generador de imagen 9:16 desde cualquier ficha o diagnóstico, con logo del taller.
+(cid:127) Tarjeta de «antes y después» de presión: contenido que se explica solo.
+(cid:127) Plantillas de publicación rellenables y guiones de video de 30 segundos.
+(cid:127) Series repetibles: «Mitos de la bomba», «Reparación fantasma» y «El banco no miente».
+(cid:127) Reto «adivina la falla» para generar comentarios.
+(cid:127) Micrositio del taller compartible, código QR, kit de marca y marca de agua discreta.
+(cid:127) Programa de talleres embajadores, colaboración con canales de YouTube y presencia en ferias.
+(cid:127) Alianza con distribuidores de bombas para usar el catálogo como herramienta de venta.
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 12
+===== PAGINA 13 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+10. Herramientas, funcionalidades y experiencia de taller real
+Qué se necesita en general
+El producto debe dejar de ser una parrilla de 38 tarjetas y convertirse en una herramienta de decisión. La regla
+que ordena todo: si una función ayuda a decidir si una bomba sirve o se devuelve, es prioridad uno; si ayuda al
+taller a cobrar por ese trabajo, prioridad dos; si ayuda a otro taller a hacerlo mejor, prioridad tres. Todo lo
+demás espera.
+(cid:127) Reducir la entrada de 38 tarjetas a seis accesos: Buscar · Diagnosticar · Medir · Cotizar · Mi taller ·
+Aprender.
+(cid:127) Hacer que el diagnóstico rápido de PSI sea la portada, no una tarjeta entre 38.
+(cid:127) Salida a WhatsApp en cada resultado: ficha, diagnóstico, cotización y garantía.
+(cid:127) Añadir buscador universal y eliminar fricción entre diagnóstico y orden.
+Experiencia de taller real
+(cid:127) Modo guantes: objetivos táctiles gigantes, menos elementos por pantalla, sin gestos finos.
+(cid:127) Modo sol directo: contraste máximo, blanco puro sobre negro puro.
+(cid:127) Números grandes de verdad: presión y veredicto legibles a distancia de brazo.
+(cid:127) Pantalla siempre encendida durante pruebas y confirmación por vibración.
+(cid:127) Teclado numérico grande, un dato por pantalla, guardado automático y deshacer.
+(cid:127) Atajos desde la pantalla de inicio y onboarding de 20 segundos.
+Rendimiento, offline y PWA
+(cid:127) Cargar cada micro app por separado para reducir los ~430 KB iniciales.
+(cid:127) Catálogo consultable sin conexión, cola de sincronización y descarga por marca.
+(cid:127) Modo ahorro de datos, visor 3D bajo demanda y notificaciones push.
+IA aplicada al taller
+Principio rector: la IA no debe inventar datos técnicos. Debe entender la pregunta, aplicar las reglas del
+dominio y explicar el resultado. Una IA que consulta lib/domain.js y luego explica vale más que una que
+improvisa una presión.
+(cid:127) IA anclada al catálogo, que diga «no lo tengo» antes que inventar un número.
+(cid:127) Entrada y respuesta por voz para manos sucias.
+(cid:127) Identificación de pieza por foto, lectura de etiqueta y lectura del manómetro.
+(cid:127) Redactor de mensaje al cliente y de presupuesto desde nota de voz.
+(cid:127) Traductor de jerga regional, explicador de códigos en contexto y verificador de coherencia.
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 13
+===== PAGINA 14 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+11. Monetización y hoja de ruta
+Modelo recomendado
+Plan Precio orientativo Qué incluye
+Mecánico (gratis) 0 Catálogo completo, diagnósticos, calculadoras, guías, historial de 30
+días, 3 documentos al mes con marca FuelTech.
+Taller »8–15 USD/mes por Todo lo anterior + documentos ilimitados con su logo, certificados de
+taller garantía, clientes, inventario, caja, historial completo, respaldo y 3
+usuarios.
+Taller Pro »25–35 USD/mes por Multiusuario sin límite, rentabilidad, API, perfil destacado, soporte
+taller prioritario y verificación de autenticidad.
+Socios A convenir Refaccionarios y distribuidores: acceso a datos, listado destacado,
+publicidad contextual y derivaciones medidas.
+Precios de anclaje: Identifix ronda 179 USD/mes por usuario y los ERP regionales de taller 20–60 USD/mes.
+Situarse por debajo del ERP y muy por debajo de la información técnica es defendible porque el coste
+marginal de FuelTech es casi cero. La regla ética y comercial es no cobrar jamás por el dato de seguridad: la
+presión correcta de un vehículo no debe estar detrás de un muro de pago.
+Hoja de ruta sugerida
+Fase 1 (90 días): cerrar deudas de datos, instrumentar búsquedas fallidas, verificar los 20 vehículos más
+consultados, ampliar TBI y Vortec, añadir buscador universal, salida a WhatsApp, modo banco de pruebas y
+página de precios en beta. Indicador: bajar fichas estimadas de 50% a menos de 35% y lograr 20 talleres
+activos semanales.
+Fase 2 (meses 4–6): certificado de instalación verificable, control de garantías, diagnósticofiorden en un
+toque, aprobación por enlace, aporte de mediciones de la comunidad, generador de imágenes 9:16 y
+activación del plan Taller con pagos locales. Indicador: talleres que pagan y certificados emitidos verificados
+por un cliente final.
+Fase 3 (meses 7–12): comparar contra la mediana de la comunidad, índice de fiabilidad por marca, bloque
+completo de autenticidad, IA de voz y foto, multiusuario con roles, API pública, portugués y catálogo sin
+conexión. Indicador: un taller nuevo llega porque otro taller lo recomendó.
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 14
+===== PAGINA 15 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+12. Métricas, riesgos y lo que NO hacer
+Los diez números a vigilar
+N.º Métrica Por qué importa
+1 % de fichas verificadas Calidad hecha número. Hoy 50%; objetivo a 12 meses: 80%.
+2 Búsquedas sin resultado por semana Mide el hueco entre lo que se pide y lo que se tiene.
+3 Diagnósticos completados El acto central; si no crece, nada más importa.
+4 Mediciones aportadas por la comunidad Mide si el foso defensivo se construye solo.
+5 Talleres activos semanales Retención real, no registros acumulados.
+6 Certificados emitidos El indicador que mejor predice disposición a pagar.
+7 Mensajes de WhatsApp generados Mide si el producto entró en el flujo de trabajo.
+8 Tráfico orgánico a fichas Salud del canal de adquisición más barato.
+9 Conversión de gratis a pago Sanidad del modelo de negocio.
+10 Talleres traídos por otro taller Si crece, el efecto de red se encendió.
+Riesgos principales
+(cid:127) Un dato equivocado daña un motor: riesgo existencial; mantener marcado de estimados, pruebas y
+detector de contradicciones.
+(cid:127) Competidor capitalizado: no competir en amplitud, sino en profundidad, confianza y precio sostenible.
+(cid:127) Dependencia de una sola persona: capturar el conocimiento en catálogo y reglas.
+(cid:127) Comunidad que no arranca: el valor base debe funcionar con cero usuarios más.
+(cid:127) Coste de la IA: cuota por usuario, caché de respuestas y modelo pequeño donde alcance.
+(cid:127) Crecimiento del vehículo eléctrico: híbridos ahora y sistema de combustible completo antes que eléctrico.
+(cid:127) Piratería del catálogo: el valor está en la actualización continua, la comunidad y la herramienta.
+Lo que recomiendo NO hacer
+(cid:127) No construir un mercado de autos usados: compite con gigantes y diluye el mensaje.
+(cid:127) No mantener un foro genérico abierto vacío: sustituirlo por preguntas atadas a cada vehículo.
+(cid:127) No crear un marketplace propio de refacciones: requiere inventario, logística y capital.
+(cid:127) No competir en gestión de taller genérica: ganar en sistema de combustible.
+(cid:127) No cobrar por el dato técnico de seguridad: destruiría la confianza.
+(cid:127) No bajar la calidad para ir más rápido: el rigor es el argumento de venta.
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 15
+===== PAGINA 16 =====
+FUELTECH MASTER Informe de Producto, Mercado y Estrategia · 2026
+13. Conclusión y apuesta única
+FuelTech Master está en una posición poco común: tiene un activo técnico defendible, un nicho específico con
+intención de búsqueda alta, una estructura de costes casi nula y un hueco de precio claro frente a Identifix,
+ALLDATA y Mitchell. Lo que le falta no es más software, sino foco: hacer del diagnóstico de la bomba el centro
+visible, cerrar los datos que hoy pueden inducir a error y activar el circuito por el que cada mecánico aporta la
+medición que convierte el catálogo en un foso defensivo.
+De todas las ideas disponibles, la apuesta más fuerte es el botón «yo medí esto». Es barato, encaja con lo ya
+construido, ataca directamente el 50% de datos estimados, crea comunidad sin necesidad de un foro genérico
+y produce un activo —mediciones reales de bombas reales en el parque latinoamericano— que ningún
+competidor capitalizado puede comprar. Todo lo demás es una forma de ayudar a que esa idea funcione.
+Posicionamiento final: FuelTech Master es la referencia técnica del sistema de combustible para el mecánico
+hispanohablante. Gratis para consultar, de pago para trabajar, y construida sobre datos que se verifican, no que se
+inventan.
+Nicho: módulos y pilas (bombas) de gasolina en Latinoamérica Página 16

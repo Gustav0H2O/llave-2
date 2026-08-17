@@ -142,6 +142,29 @@ const MARK_ICONS = {
   Plus: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke=${c} opacity=".55"/></svg>`,
   ClipboardCheck: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2" stroke=${c} opacity=".55"/><path d="M9 4V3h6v1" stroke=${c} opacity=".55"/><path d="m8.5 13 2.5 2.5 4.5-5" stroke=${c}/></svg>`,
   Thermometer: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0Z" stroke=${c} opacity=".55"/><path d="M12 17.5v-5" stroke=${c}/></svg>`,
+  Box: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5Z" stroke=${c} opacity=".55"/><path d="M3 8l9 5 9-5M12 13v8" stroke=${c} opacity=".55"/><path d="M7.5 5.5l9 5" stroke=${c}/></svg>`,
+  MapPin: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11Z" stroke=${c} opacity=".55"/><circle cx="12" cy="10" r="2.6" stroke=${c}/></svg>`,
+  MessagesSquare: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4 8.8 8.8 0 0 1-3.7-.8L3 21l1.9-5.2a8.3 8.3 0 0 1-.9-3.8A8.4 8.4 0 0 1 12.5 3.1 8.4 8.4 0 0 1 21 11.5Z" stroke=${c} opacity=".55"/><path d="M8.5 11.5h.01M12.5 11.5h.01M16.5 11.5h.01" stroke=${c}/></svg>`,
+  Repeat: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 2 4 4-4 4" stroke=${c} opacity=".55"/><path d="M3 11V9a4 4 0 0 1 4-4h14" stroke=${c} opacity=".55"/><path d="m7 22-4-4 4-4" stroke=${c} opacity=".55"/><path d="M21 13v2a4 4 0 0 1-4 4H3" stroke=${c} opacity=".55"/></svg>`,
+  ScanSearch: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" stroke=${c} opacity=".55"/><circle cx="11" cy="11" r="5" stroke=${c} opacity=".55"/><path d="m15 15 3.5 3.5" stroke=${c}/></svg>`,
+  Calculator: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2" stroke=${c} opacity=".55"/><path d="M8 7h8" stroke=${c}/><path d="M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h.01M16 19h.01" stroke=${c}/></svg>`,
+  FileText: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" stroke=${c} opacity=".55"/><path d="M14 3v5h5" stroke=${c} opacity=".55"/><path d="M9 13h6M9 17h6" stroke=${c}/></svg>`,
+  Store: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9 5.5 4h13L20 9" stroke=${c} opacity=".55"/><path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9" stroke=${c} opacity=".55"/><path d="M3.5 9a2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0" stroke=${c}/><path d="M9 20v-5h6v5" stroke=${c}/></svg>`,
+  /* Play/Pause: control del video del hero. Relleno sólido y sin la opacidad
+     .55 del resto — es un control sobre video, necesita leerse a cualquier
+     brillo del fotograma que le toque debajo. */
+  /* ChevronLeft FALTABA y es el icono del botón "volver" de MicroShell: las 39
+     micro apps pintaban un botón vacío, porque MarkIcon devuelve null cuando el
+     nombre no está en esta tabla. */
+  MailWarn: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h9" stroke=${c} opacity=".55"/><path d="m2.5 6.5 9 6 9-6" stroke=${c} opacity=".55"/><path d="M19 14v3.5M19 20.5h.01" stroke=${c}/></svg>`,
+  MailCheck: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h9" stroke=${c} opacity=".55"/><path d="m2.5 6.5 9 6 9-6" stroke=${c} opacity=".55"/><path d="m16 17.5 2 2 4-4.5" stroke=${c}/></svg>`,
+  Phone: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3h3l1.5 4-2 1.5a12 12 0 0 0 5.5 5.5l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A17 17 0 0 1 4.5 5.2 2 2 0 0 1 6.5 3Z" stroke=${c} opacity=".55"/><path d="M14.5 3.5a6 6 0 0 1 5.5 5.5" stroke=${c}/></svg>`,
+  Battery: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="18" height="11" rx="2" stroke=${c} opacity=".55"/><path d="M22 11v3" stroke=${c} opacity=".55"/><path d="M6 5.5v1.5M15 5.5v1.5" stroke=${c} opacity=".55"/><path d="M8 12.5h5M10.5 10v5" stroke=${c}/></svg>`,
+  Key: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4" stroke=${c} opacity=".55"/><path d="m10.5 12.5 8-8 2.5 2.5-2 2 2 2-3 3-2-2-2 2" stroke=${c} opacity=".55"/><circle cx="7.5" cy="15.5" r="1.3" fill=${c} stroke="none"/></svg>`,
+  ChevronLeft: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 5-7 7 7 7" stroke=${c}/></svg>`,
+  Play: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l10-6.5Z" fill=${c} stroke=${c}/></svg>`,
+  Pause: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5v14M15 5v14" stroke=${c}/></svg>`,
+  ArrowRight: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15" stroke=${c} opacity=".55"/><path d="m13.5 6.5 6 5.5-6 5.5" stroke=${c}/></svg>`,
 };
 /* Icono de marca: bicolor (gris + lima). El acento usa var(--accent) que en modo
    claro se oscurece a oliva (contraste) y el gris hereda currentColor. */
@@ -642,7 +665,7 @@ function CommentsSection({ vehicleId }) {
           <input type="text" class="styled-input" placeholder="Tu Nombre" value=${authorName} onInput=${e => setAuthorName(e.target.value)} required disabled=${!!savedName} style=${savedName ? { opacity: 0.7, cursor: 'not-allowed' } : {}} />
           <textarea class="styled-input" placeholder="Escribe tu respuesta..." rows="2" value=${content} onInput=${e => setContent(e.target.value)} required style=${{ resize: 'vertical', marginTop: '6px' }}></textarea>
           <div style=${{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-            <button type="submit" class="v3d-btn" style=${{ position: 'static' }} disabled=${submitting}>
+            <button type="submit" class="tool-add-btn" disabled=${submitting}>
               ${submitting ? 'Enviando...' : 'Enviar Respuesta'}
             </button>
             <button type="button" class="link-btn muted" onClick=${() => setReplyTo(null)}>Cancelar</button>
@@ -674,7 +697,7 @@ function CommentsSection({ vehicleId }) {
             <h3 style=${{ fontSize: '13px', marginBottom: '8px', color: 'var(--text)' }}>Deja un comentario</h3>
             <input type="text" class="styled-input" placeholder="Tu Nombre" value=${authorName} onInput=${e => setAuthorName(e.target.value)} required disabled=${!!savedName} style=${savedName ? { opacity: 0.7, cursor: 'not-allowed' } : {}} />
             <textarea class="styled-input" placeholder="Escribe tu duda o comentario..." rows="3" value=${content} onInput=${e => setContent(e.target.value)} required style=${{ resize: 'vertical', marginTop: '6px' }}></textarea>
-            <button type="submit" class="v3d-btn" style=${{ position: 'static', marginTop: '8px' }} disabled=${submitting}>
+            <button type="submit" class="tool-add-btn" style=${{ marginTop: '8px' }} disabled=${submitting}>
               ${submitting ? 'Enviando...' : 'Comentar'}
             </button>
           </form>
@@ -1195,7 +1218,7 @@ function Calculators() {
 }
 
 /* ---------- Login / registro del taller ---------- */
-function LoginScreen({ onLogin }) {
+function LoginScreen({ onLogin, onBack }) {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [err, setErr] = useState('');
@@ -1239,6 +1262,7 @@ function LoginScreen({ onLogin }) {
         <img class="logo-lockup on-dark" src="/brand/logo-dark.png" width="760" height="205" alt="FuelTech Master" />
         <img class="logo-lockup on-light" src="/brand/logo-light.png" width="760" height="193" alt="" />
         <p class="home-tagline">Inicia sesión para gestionar tu taller</p>
+        ${onBack && html`<button type="button" class="link-btn" onClick=${onBack}>← Volver sin iniciar sesión</button>`}
       </header>
       <div class="login-card panel" style=${{ maxWidth: '420px', margin: '20px auto 60px', padding: '22px' }}>
         ${done && html`<div class="alert blue"><span>¡Bienvenido! Tu sesión está activa.</span></div>`}
@@ -1279,6 +1303,8 @@ function App() {
   // ── Sesión del taller (cuenta de mecánico) ──
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);   // login bajo demanda, no como peaje de entrada
+  const [verifyMsg, setVerifyMsg] = useState('');      // acuse al volver del enlace de confirmación
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'same-origin' })
       .then(r => { if (!r.ok) throw new Error('no-session'); return r.json(); })
@@ -1288,6 +1314,39 @@ function App() {
   const logout = () => {
     fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).finally(() => setUser(null));
   };
+  const refreshUser = () => {
+    fetch('/api/auth/me', { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : null).then(u => u && setUser(u)).catch(() => {});
+  };
+  /* Entrada directa por /taller/:slug — el servidor ya pintó la versión SSR
+     (la que ve el previsualizador de WhatsApp); aquí la app monta la versión
+     interactiva encima, con el formulario de reseña. */
+  useEffect(() => {
+    if (/^\/taller\/[^/]+/.test(location.pathname)) {
+      setMicroApp('PublicProfileApp');
+      setViewState('home');
+    }
+  }, []);
+
+  /* Vuelta desde el enlace de verificación: /?verificado=1|invalido|vencido.
+     Se limpia de la URL para que un refresco no repita el aviso. */
+  useEffect(() => {
+    const p = new URLSearchParams(location.search).get('verificado');
+    if (!p) return;
+    const textos = {
+      '1': 'Correo confirmado ✓',
+      'invalido': 'Ese enlace de confirmación no es válido',
+      'vencido': 'El enlace venció: pide uno nuevo',
+      'falta-token': 'Enlace de confirmación incompleto',
+    };
+    setVerifyMsg(textos[p] || '');
+    if (p === '1') refreshUser();
+    const url = new URL(location.href);
+    url.searchParams.delete('verificado');
+    history.replaceState(null, '', url);
+    const t = setTimeout(() => setVerifyMsg(''), 6000);
+    return () => clearTimeout(t);
+  }, []);
   const garage = useGarage();
   const seqRef = useRef(0);
   const listRef = useRef(null);
@@ -1407,24 +1466,44 @@ function App() {
     };
     if (map[id]) return map[id]();
     // micro apps del dashboard (componentes propios); las de negocio requieren sesión
-    const apps = { dtc: 'DtcApp', torque: 'TorqueApp', spark: 'SparkApp', cross: 'CrossApp', convert: 'ConverterApp', vin: 'VinApp', pressure: 'PressureApp', regulator: 'RegulatorApp', orders: 'OrdersApp', inventory: 'InventoryApp', clients: 'ClientsApp', notes: 'NotesApp', cash: 'CashApp', forum: 'ForumApp', connect: 'ConnectApp', quickdiag: 'QuickDiagApp', documents: 'DocumentsApp', market: 'MarketApp', timing: 'TimingApp' };
-    const protectedIds = ['orders', 'inventory', 'clients', 'notes', 'cash', 'documents'];
-    if (protectedIds.includes(id) && !user) return; // requiere login (el candado está en el Home)
+    const apps = { dtc: 'DtcApp', torque: 'TorqueApp', spark: 'SparkApp', cross: 'CrossApp', convert: 'ConverterApp', vin: 'VinApp', pressure: 'PressureApp', regulator: 'RegulatorApp', orders: 'OrdersApp', inventory: 'InventoryApp', clients: 'ClientsApp', notes: 'NotesApp', cash: 'CashApp', forum: 'ForumApp', connect: 'ConnectApp', quickdiag: 'QuickDiagApp', documents: 'DocumentsApp', market: 'MarketApp', timing: 'TimingApp', fuses: 'FusesApp', tires: 'TireApp', inspection: 'InspectionApp', quote: 'QuoteApp', appointments: 'AppointmentsApp', maintenance: 'MaintenanceApp', trim: 'TrimApp', compression: 'CompressionApp', pinout: 'PinoutApp', labor: 'LaborApp', nostart: 'NoStartApp', battery: 'BatteryApp', profile: 'ProfileApp', perfilPublico: 'PublicProfileApp' };
+    /* Solo lo que guarda datos del negocio en la nube. Todo lo demás —incluidas
+       inspección, cotizador, agenda y mantenimiento, que persisten en el propio
+       navegador— entra sin cuenta. `pressure` está aquí porque su historial vive
+       en /api/diagnostics, que exige sesión. */
+    const protectedIds = ['orders', 'inventory', 'clients', 'notes', 'cash', 'documents', 'pressure', 'profile'];
+    // Las apps de negocio sí exigen cuenta: en vez de tragarse el clic (el candado
+    // del Home explicaba el porqué pero el botón no hacía nada), lleva al login.
+    if (protectedIds.includes(id) && !user) { setShowLogin(true); return; }
     if (apps[id] && FT[apps[id]]) { setMicroApp(apps[id]); setViewState('home'); }
   };
-  const closeMicro = () => setMicroApp(null);
+  const closeMicro = () => {
+    // Si se entró por /taller/:slug, "Volver" debe dejar la URL limpia o al
+    // recargar volvería a abrirse el perfil en vez del inicio.
+    if (location.pathname !== '/') history.replaceState(null, '', '/');
+    setMicroApp(null);
+  };
 
   // --- DASHBOARD (pantalla completa) ---
   if (viewState === 'home') {
     const FT = window.FT_MICRO || {};
     if (microApp && FT[microApp]) {
       const AppComp = FT[microApp];
-      return html`<div class="micro-app-view">${html`<${AppComp} onBack=${closeMicro} />`}</div>`;
+      /* onOpen va a todas: algunas herramientas encadenan con otra ("no
+         enciende" manda a batería o a compresión) y sin esto el usuario
+         tendría que volver al inicio y buscarla de nuevo. */
+      return html`<div class="micro-app-view">${html`<${AppComp} onBack=${closeMicro} onOpen=${openMicro} />`}</div>`;
     }
     if (!authChecked) return html`<div class="home"><div class="empty">Cargando…</div></div>`;
     if (FT.Home) {
-      if (!user) return html`<${LoginScreen} onLogin=${setUser} />`;
-      return html`<${FT.Home} onOpen=${openMicro} user=${user} onLogout=${logout} />`;
+      /* El login es una parada, no la puerta. El dashboard entero está pensado
+         para el anónimo (candados en las apps de taller, "$0 sin cuenta", specs
+         públicas) y exigir sesión para verlo escondía el producto — incluido el
+         <h1> del hero, que es lo que indexan los buscadores. */
+      if (showLogin && !user) return html`<${LoginScreen} onLogin=${setUser} onBack=${() => setShowLogin(false)} />`;
+      return html`
+        ${verifyMsg && html`<div class="toast-stack"><div class="toast" role="status">${verifyMsg}</div></div>`}
+        <${FT.Home} onOpen=${openMicro} user=${user} onLogout=${logout} onLogin=${() => setShowLogin(true)} onUserChange=${refreshUser} />`;
     }
   }
 
@@ -1487,9 +1566,14 @@ function App() {
             <div class="footer-brand">FUEL<span>TECH</span> MASTER</div>
           </div>
           <div class="footer-desc">Catálogo técnico de módulos y pilas de gasolina</div>
-          <div class="footer-desc" style=${{ marginTop: '5px' }}><a href="/guias" style=${{ color: 'var(--muted)', textDecoration: 'underline' }}>Guías de diagnóstico</a> · <a href="/vehiculos" style=${{ color: 'var(--muted)', textDecoration: 'underline' }}>Catálogo completo</a></div>
-          <div class="footer-desc" style=${{ marginTop: '4px' }}><a href="/acerca-de" style=${{ color: 'var(--muted)', textDecoration: 'underline' }}>Acerca de</a> · <a href="/contacto" style=${{ color: 'var(--muted)', textDecoration: 'underline' }}>Contacto</a> · <a href="/privacidad" style=${{ color: 'var(--muted)', textDecoration: 'underline' }}>Privacidad y cookies</a> · <a href="/terminos" style=${{ color: 'var(--muted)', textDecoration: 'underline' }}>Términos</a></div>
-          <div class="footer-desc" style=${{ marginTop: '5px', opacity: .8 }}>Datos técnicos de referencia: verifica siempre contra el manual de servicio del fabricante antes de intervenir el vehículo.</div>
+          ${/* .footer-links en vez de estilo en línea por enlace: la clase da el
+                relleno vertical que sube el área tocable de 13px a ~36px (44px en
+                pantalla táctil) y centraliza el color y el hover. */''}
+          <div class="footer-desc footer-links" style=${{ marginTop: '5px' }}><a href="/guias">Guías de diagnóstico</a> · <a href="/vehiculos">Catálogo completo</a></div>
+          <div class="footer-desc footer-links" style=${{ marginTop: '4px' }}><a href="/acerca-de">Acerca de</a> · <a href="/contacto">Contacto</a> · <a href="/privacidad">Privacidad y cookies</a> · <a href="/terminos">Términos</a></div>
+          ${/* sin opacity: la bajaba a 4.5:1 justo en el filo del mínimo, y este es
+                precisamente el aviso que no conviene que se lea a medias. */''}
+          <div class="footer-desc" style=${{ marginTop: '5px' }}>Datos técnicos de referencia: verifica siempre contra el manual de servicio del fabricante antes de intervenir el vehículo.</div>
           <div class="footer-copy">© 2025–2026 FuelTech Master. Todos los derechos reservados.</div>
           <div class="dev-contact">
             <${Icon} name="Mail" size=${13} />
@@ -1502,7 +1586,7 @@ function App() {
       <div class="content-pane" id="main-content">
         <div class="results-strip">
           <div class="rs-head">
-            <h2>${showGarage ? 'Mi Garage' : 'Vehículos encontrados'} <button type="button" class="link-btn" style=${{ marginLeft: '10px', fontSize: '11px', letterSpacing: '.5px' }} onClick=${() => setShowGarage(s => !s)}>${showGarage ? '← búsqueda' : `★ Garage (${garage.length})`}</button></h2>
+            <h2>${showGarage ? 'Mi Garage' : 'Vehículos encontrados'} <button type="button" class="link-btn rs-toggle" onClick=${() => setShowGarage(s => !s)}>${showGarage ? '← búsqueda' : `★ Garage (${garage.length})`}</button></h2>
             <div class="result-count" aria-live="polite">
               ${isSearching ? html`<span style=${{color: 'var(--accent)', marginRight: '6px'}}><${Icon} name="Loader2" size=${12} spin=${true} /></span>` : ''}
               ${results ? html`<strong>${results.length}</strong> resultado(s)` : 'Cargando vehículos…'}
@@ -1558,15 +1642,16 @@ function App() {
       </div>
       <${ChatBot} vehicleId=${selected} />
       <${ToastStack} />
+      ${/* Estilos en clase y no en línea: el enlace medía 179×14 px —imposible de
+            acertar con el dedo— y el botón repetía a mano el relleno lima que ya
+            existe como token. La clase le da el área tocable y el tema. */''}
       ${showPrivacy && html`<div class="panel privacy-notice" role="region" aria-label="Aviso de privacidad">
-        <h3 style=${{fontSize: '13px', color: 'var(--text)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px'}}>
-          <${Icon} name="ShieldCheck" size=${16} color="var(--accent)" /> Privacidad y Cookies
-        </h3>
-        <p style=${{fontSize: '11.5px', color: 'var(--muted)', marginBottom: '14px', lineHeight: 1.45}}>
+        <h3><${Icon} name="ShieldCheck" size=${16} color="var(--accent)" /> Privacidad y Cookies</h3>
+        <p>
           Usamos almacenamiento local para tus preferencias, estadísticas anónimas (respetamos Do-Not-Track) y cookies de terceros —incluido Google— para mostrar y medir anuncios.
-          Detalle y cómo desactivarlos en la <a href="/privacidad" style=${{color: 'var(--accent)'}}>política de privacidad y cookies</a>.
+          Detalle y cómo desactivarlos en la <a href="/privacidad">política de privacidad y cookies</a>.
         </p>
-        <button type="button" onClick=${acceptPrivacy} style=${{background: 'var(--accent-fill)', color: 'var(--accent-ink)', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontSize: '11.5px', fontWeight: 600, width: '100%'}}>Aceptar y continuar</button>
+        <button type="button" class="privacy-ok" onClick=${acceptPrivacy}>Aceptar y continuar</button>
       </div>`}
     </div>`;
 }

@@ -119,8 +119,32 @@ CREATE TABLE IF NOT EXISTS workshops (
   email      TEXT NOT NULL UNIQUE,
   pass_hash  TEXT NOT NULL,          -- scrypt (node:crypto), sal embebida
   name       TEXT NOT NULL,          -- nombre del taller / dueño
+  phone      TEXT,                   -- WhatsApp del taller (formato internacional)
+  email_verified    INTEGER NOT NULL DEFAULT 0,
+  verify_token_hash TEXT,            -- sha256 del token de confirmación
+  verify_expires_at TEXT,
+  -- Perfil público compartible (/taller/:slug)
+  slug       TEXT UNIQUE,            -- null mientras no lo publique
+  is_public  INTEGER NOT NULL DEFAULT 0,
+  bio        TEXT,
+  city       TEXT,
+  services   TEXT,                   -- lista separada por comas
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Reseñas del perfil público. `author_hash` es un hash del dispositivo + taller:
+-- no identifica a nadie, solo impide que la misma persona inunde un perfil.
+CREATE TABLE IF NOT EXISTS workshop_reviews (
+  id          INTEGER PRIMARY KEY,
+  workshop_id INTEGER NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
+  author      TEXT NOT NULL,
+  rating      INTEGER NOT NULL,      -- 1..5
+  comment     TEXT,
+  author_hash TEXT NOT NULL,
+  created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (workshop_id, author_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_reviews_ws ON workshop_reviews(workshop_id, created_at DESC);
 
 -- Sesiones (token HMAC-signed, httpOnly cookie o Bearer)
 CREATE TABLE IF NOT EXISTS sessions (

@@ -1,0 +1,1809 @@
+
+===== PAGINA 1 =====
+Confidencial — revisión técnica
+AUDITORÍA TÉCNICA · CLEAN CODE · UX/UI · SEGURIDAD
+Reporte de auditoría profunda
+FT FuelTech Master
+Aplicación web de diagnóstico y catálogo de bombas de gasolina para
+mecánicos latinoamericanos
+Proyecto auditado FuelTech Master · C:\Users\EQUIPO\Downloads\bombas de gasolina
+Lenguaje / stack JavaScript (Node 18+ / Express 4) · React 18 UMD + htm (sin build step) · Three.js ·
+SQLite / Turso / PostgreSQL
+Tamaño del codebase ≈ 11.300 líneas operativas (excluidos node_modules y vendor ) · 35 archivos
+fuente propios
+Pruebas automatizadas 407 pruebas unitarias + QA (7 s de ejecución) · 7 robots de prueba masiva (~5 min) ·
+cobertura de lib/ 100 %
+Reglas anti-regresión 18 reglas estáticas en scripts/guard.js · trinquete de métricas en
+quality/baseline.json
+Persona de usuario Mecánico automotriz con las manos sucias, en el celular, bajo presión de tiempo
+Estándares contra los Clean Code (R. C. Martin), SOLID, WCAG 2.2 (W3C), 10 heurísticas de Nielsen, OWASP
+que se audita Top 10 2021, Core Web Vitals
+Modo de revisión Análisis estático de código fuente + lectura de documentación interna (AGENTS.md,
+DESIGN.md, quality/) + referencia a artículos técnicos de la web
+Fecha de la auditoría 13 de agosto de 2026
+Clasificación Confidencial — revisión técnica interna
+Este reporte se generó a partir del código tal cual se entrega. Cada hallazgo cita la ubicación exacta ( archivo.ext:línea )
+para que pueda verificarse sin recorrer el repositorio. Las puntuaciones agregadas son resúmenes: el detalle en cada sección es
+la fuente de verdad.
+Auditoría FuelTech Master · página 1 de 50
+===== PAGINA 2 =====
+Confidencial — revisión técnica
+Índice
+El documento se organiza en 12 secciones. Las secciones 2 a 5 son los ejes de auditoría (arquitectura, código, UI/UX, seguridad). Las
+siguientes muestran hallazgos transversales, métricas del proyecto, deuda conocida y recomendaciones priorizadas.
+1. Resumen ejecutivo
+1.1 Veredicto y puntuaciones agregadas
+1.2 Lo más fuerte y lo más débil
+2. Contexto del proyecto y programa de auditoría
+2.1 Qué es FuelTech Master y para quién es
+2.2 Método y fuentes
+2.3 Estándares y artículos de referencia
+3. Arquitectura y Clean Architecture
+3.1 Capas y Ley de Dependencias
+3.2 Separación de responsabilidades
+3.3 OCP y estabilidad de las reglas del taller
+3.4 DIP y el adaptador db.js
+4. Código limpio, SOLID y Boy Scout Rule
+4.1 Nombres, tamaño de funciones, comentarios
+4.2 DRY, KISS, YAGNI
+4.3 Tratamiento de errores y nulidad
+4.4 Tratamiento de promesas y async/await
+4.5 Reglas anti-regresión (guard, métricas, trinquete)
+4.6 Pruebas y robots de prueba masiva
+5. UI y UX (heurísticas de Nielsen + WCAG 2.2)
+5.1 Diseño visual y sistema de tokens
+5.2 Accesibilidad: contrastes, teclado, lectura
+5.3 10 heurísticas de Nielsen aplicadas una a una
+5.4 Web Vitals y rendimiento percibido
+5.5 Hallazgos del robot de interfaz
+6. Seguridad (OWASP Top 10 2021)
+6.1 A01: Broken Access Control (IDOR, multi-tenant)
+6.2 A02: Criptografía (scrypt sincrónico)
+6.3 A03: Inyección (SQL, XSS, comando) y CSP
+6.4 A05, A07, A09: config, sesión, logging
+6.5 Cabeceras, rate limiting, CORS, CSRF
+7. SEO, SSR y rendimiento
+7.1 Render del lado del servidor sin build step
+Auditoría FuelTech Master · página 2 de 50
+===== PAGINA 3 =====
+Confidencial — revisión técnica
+7.2 Sitemap, JSON-LD, canónicas, robots.txt
+7.3 Presupuestos de latencia y tamaño
+7.4 Service worker y PWA
+8. Catálogo y supreme data source
+8.1 Estructura de datos como única fuente de verdad
+8.2 Validaciones estáticas del catálogo
+8.3 Deuda de datos pendiente del dueño
+9. Frontend sin build step
+9.1 React 18 UMD + htm: trade-offs reales
+9.2 Estado en localStorage vs. API
+9.3 Tamaño de bundle y descarga final
+10. Deuda técnica conocida y presupuestos
+10.1 known-issues.json (las 5 decisiones pendientes)
+10.2 budgets.json y baseline.json (trinquete)
+11. Hallazgos consolidados por severidad
+11.1 Críticos
+11.2 Altos
+11.3 Medios
+11.4 Bajos
+12. Recomendaciones priorizadas (roadmap)
+12.1 Acciones de corto plazo (1-2 semanas)
+12.2 Acciones de medio plazo (1-2 meses)
+12.3 Acciones estratégicas (3-6 meses)
+Auditoría FuelTech Master · página 3 de 50
+===== PAGINA 4 =====
+Confidencial — revisión técnica
+1. Resumen ejecutivo
+1.1 Veredicto y puntuaciones agregadas
+FuelTech Master es un proyecto técnicamente inusual dentro de su rango: una aplicación web pensada
+para un taller real de reparación de bombas de gasolina en Latinoamérica, escrita sin framework de build,
+con 407 pruebas automáticas, 18 reglas anti-regresión estáticas, un sistema de "trinquete" de métricas que
+prohibe que el código empeore, robots de prueba masiva que arañan la superficie del sistema (~5.000
+comprobaciones) y un contrato editorial codificado en AGENTS.md que es, literalmente, la ley del proyecto.
+Donde la mayoría de los repos de su tamaño muestran "código que funciona", este repo muestra código
+que defiende: casi cada función de un helper lleva una historia del bug que la motivó, y casi cada regla del
+guard responde a un fallo real que ya ocurrió.
+Para que este veredicto sea comparable con auditorías de referencia, se agregaron cinco puntuaciones
+numéricas sobre los cinco ejes auditados. La escala es deliberadamente estricta (se penaliza la deuda y se
+penaliza el silencio tanto como los fallos):
+9,4 9,1 8,3 7,9 9,2
+ARQUITECTURA / CÓDIGO LIMPIO / UI / UX (NIELSEN + SEGURIDAD (OWASP SEO / RENDIMIENTO
+CLEAN SOLID WCAG) TOP 10) / DX
+ARCHITECTURE
+Escala: puntuación media ponderada de sub-criterios que se detallan en cada sección. Las puntuaciones son agregados: el detalle por
+sección es la fuente de verdad, no el número global. Puntuación global estimada: 8,8 / 10.
+Lectura conjunta
+El proyecto es, en arquitectura y código, más sólido que la media de SPAs comerciales de su segmento
+latinoamericano. La deuda está circunscrita: casi toda se concentra en (1) un punto de bloqueo síncrono
+del event loop en el alta de usuario, (2) dos endpoints públicos que devuelven listas sin tope y (3) un
+solape de datos reales del catálogo (L200/Tracker/Kwid/Duster) que el dueño del taller aún no decide.
+No hay fuga de datos, no hay XSS almacenado, no hay inyección SQL, no hay rutas API sin auth sin
+razón, no hay dato "inventado" sin verified = 0 . Es, en eso, mejor de lo que suena en el resumen.
+1.2 Lo más fuerte y lo más débil
+Lo más fuerte ACTITUDINAL Lo más débil CRÍTICO
+Postura de "código defensivo": 18 reglas Bloqueo síncrono del event loop en el alta
+anti-regresión en scripts/guard.js , cada y login de usuarios: server-pg.js:1635-
+una con campo porque que detalla el daño 1647 usa crypto.scryptSync (N=16384,
+real prevenido. Es la implementación práctica r=8, p=1) en lugar de crypto.scrypt
+del "Boy Scout Rule" de Clean Code (Dejar el (asíncrono). Cada alta congela el proceso
+~115 ms; el robot registro midió un parón
+Auditoría FuelTech Master · página 4 de 50
+===== PAGINA 5 =====
+Confidencial — revisión técnica
+código mejor de lo que lo encontraste, de 818,5 ms de golpe y una consulta de
+traducida a chequeos automatizados). catálogo que llegó a 668,6 ms durante un
+alta. Es el único hallazgo crítico real y está
+Separación dominio/datos/presentación:
+lib/domain.js (reglas), lib/catalog.js publicado en el propio quality/ROBOTS.md .
+(datos), lib/pure.js (helpers puros) y Dos listados sin tope/paginación real:
+server-pg.js (orquestación). El domain.js /api/clients y /api/inventory
+obtiene cobertura 100 % y no depende de devuelven 800 filas sin LIMIT. El robot carga
+nada de base de datos ni entorno — es la lo detecta con 800 filas sembradas y lo
+Five Lines of Clean Code de Martin, aplicada a reporta. No es un 500, pero en producción
+195 líneas. con miles de clientes se convierte en latencia,
+Adaptador triple de base de datos: db.js memoria y datos móviles consumidos.
+hace transparente SQLite local ↔ Turso ↔ 404 de Express en inglés para rutas
+PostgreSQL para el resto del código. inexistentes: /vehiculo/no-existe-jamas ,
+Implementa el Dependency Inversion /guia/inventada , /pagina-que-no-
+Principle en JavaScript con sólo 210 líneas. existe y rutas inyectadas como
+/vehiculo/ <script>alert(1)</script>
+Aislamiento multi-tenant probado por fuzz
+y NO por inspección: devuelven la página 404 por defecto de
+test/robots/aislamiento.js recorre todas Express (en inglés, sin navegación, sin marca).
+las rutas protegidas y las ataca una por una Es un detalle de UX y también una superficie
+desde una cuenta ajena. OWASP A01 resuelto de seguridad leve (reflejo controlado de la
+en una sola regla y un solo robot. técnica aunque se escapa bien HTML).
+Diseño honesto con el usuario: el dato no Datos del catálogo contradictorios el uno
+verificado sale marcado con ⚠ ESTIMADO , el del otro: Mitsubishi|L200|2010-2015
+chatbot de IA rechaza inventar aparece dos veces con retorno opuesto, así
+especificaciones y el guard prohibe "inventar que un mecánico que busque un L200 2012
+datos técnicos". Heurística 5 de Nielsen (Error recibe dos fichas con dos despieces
+Prevention) aplicada al contenido, no a la incompatibles. Es el único hallazgo de datos
+interfaz. marcado como GRAVE en quality/known-
+issues.json y está al haber del dueño, no
+Zero build step en el frontend: cada KB
+del código.
+descargado es un KB real que llega a un
+celular con datos móviles en un taller. Hay un El título SEO es más largo de lo
+presupuesto explícito de 130 KB para recomendado: en 15 rutas servidas, el
+app.js , 200 KB para microapps.js y 140 <title> alcanza 72 caracteres, dentro del
+KB para index.html , y el build falla si se límite técnico pero rozando el truncamiento
+rompe. Es despliegue sostenido como enbbuscadores móvil. No es un fallo, es
+métrica, no como buena intención. ruido.
+407 pruebas en 7 segundos en verde por 5 (cinco) ítems en known-issues.json: es lo
+diseño, con presupuesto de duración del máximo permitido y está pensado como un
+suite. La prueba es'lindustria; la otras son las techo inviolable que "solo puede encoger".
+cosas, y se cuida. Las 5 son decisiones pendientes del dueño
+del negocio, no deuda del技术开发.
+Auditoría FuelTech Master · página 5 de 50
+===== PAGINA 6 =====
+Confidencial — revisión técnica
+Una sola frase
+Código más maduro que su usuario yacimiento, infraestructura pensada como una herramienta
+de trabajo real (no como un portfolio), seguridad por diseño y deuda acotada y visible: el
+proyecto sería destacable en un equipo profesional. El bloqueo de scryptSync es el único defecto
+que urgiría arreglar antes de la próxima promoción.
+Auditoría FuelTech Master · página 6 de 50
+===== PAGINA 7 =====
+Confidencial — revisión técnica
+2. Contexto del proyecto y programa de
+auditoría
+2.1 Qué es FuelTech Master y para quién es
+Antes de cualquier juicio técnico, hace falta entender qué es esto, porque el proyecto no puede leerse con
+las mismas gafas que una SaaS B2B de市委. La pieza de identidad del propio repo, AGENTS.md , abre con una
+definición sin romanticismo:
+"FuelTech Master es la herramienta de consulta de un taller real de reparación de módulos y pilas (bombas) de
+gasolina en Latinoamérica. Un mecánico la abre en el celular, con las manos sucias, para decidir si una bomba
+sirve o se devuelve. Si publicas una presión equivocada, alguien cambia una pieza buena o deja una mala puesta.
+Por eso este proyecto es estricto." ( AGENTS.md:12-18 )
+De ahí derivan todas las decisiones que en otro proyecto se leerían como excesos pedantes, y aquí son
+obligaciones:
+Vocabulario del dueño, no vocabulario del libro: el proyecto usa "pila" (la bomba sola, en bruto),
+"módulo" (el ensamble), "riel/flauta" (el conducto) y "banco" (la prueba deadhead). Cambiar el
+vocabulario por uno técnico "más correcto" rompería al usuario objetivo (heurística 2 de Nielsen: match
+between the system and the real world).
+La regla de 90 PSI: en un sistema Vortec/CSFI, "con menos de 60 PSI en el riel los poppets no abren y el
+motor no enciende". Esa única frase aparece en AGENTS.md:131 , lib/domain.js:pumpsForClass y las
+pruebas de test/unit/domain.test.js , y cerrado por una regla del guard ( no-inventar-datos ).
+Cambiar el número sin fuente es, en este contexto, dañar a un cliente.
+Familia Yaris (Toyota: Yaris, Corolla, Corolla GR-S, Avanza, plataformas 1NZ/2NZ/ 1ZZ/2ZR-FE): 38/44 PSI
+en vez de 50/60 PSI para MFI genérico ( lib/domain.js:133-137 ). Es la única excepción a la regla MFI, y
+es la excepción porque viene de un manual, no de una estimación. Sale hasta en el JSON-LD de
+index.html .
+Quien no lea AGENTS.md antes de tocar una línea no puede trabajar en este proyecto: ahí está el "contrato
+de trabajo". El equipo中人, lo dice literal: "No es documentación opcional: casi todo lo que dice está
+respaldado por una prueba o por una regla de scripts/guard.js que va a fallar si lo ignas."
+Auditoría FuelTech Master · página 7 de 50
+===== PAGINA 8 =====
+Confidencial — revisión técnica
+2.1.1 Mapa del código
+Ruta Role Líneas Responsabilidad adoptada
+lib/catalog.js Datos 389 Fuente única de verdad del catálogo: vehículos, pilas,
+textos por zona, agrupaciones de marca. Sin lógica.
+lib/domain.js Reglas 195 Las reglas del taller dictadas por el dueño. Puro: no toca
+base de datos, ni entorno, ni red. Cobertura 100 %.
+lib/pure.js Helpers puros 60 toInt , esc , slugify , vehicleSlug , etcétera.
+"Misma entrada, misma salida", deterministas.
+db.js Adaptador 211 SQLite local / Turso / PostgreSQL con una sola API.
+Implementa DIP.
+seed.js Siembra 166 Orquesta la carga de catálogo+usuarios. NO contiene
+reglas (viven en lib/domain.js ).
+server-pg.js API + SSR 2.439 Express + helmet + rate limit + Gemini + sitemap/JSON-
+LD/render. Es el archivo "orquestador".
+scripts/guard.js Antirregresión 540 18 reglas estáticas. Cada una con id , gravedad ,
+porque (explica el daño real).
+scripts/metrics.js Métricas + 410 Lee baseline.json ; las métricas pueden mejorar
+trinquete libremente, empeorar falla.
+quality/* Deuda visible 5 archivos known-issues.json (tope 5), budgets.json ,
+baseline.json , REPORT.md , ROBOTS.md .
+public/index.html Shell SPA + CSS 2.202 Una sola pagina, todo el CSS en <style> (170-2245),
+729 tokens CSS; scripts UMD cargados sin build.
+public/app.js SPA principal 1.566 Dashboard, buscador, ficha técnica, visor 3D, garage,
+tema.
+public/microapps.js 35 micro apps 2.577 Inventario, órdenes, cotizador, presión, OBD-II,
+inspección, agenda, caja, clientes … Cargado antes de
+app.js .
+test/ Pruebas +4.400 407 pruebas (unit + qa), 7 robots (~5.000
+líneas comprobaciones), no entran en npm run verify .
+Fuente: conteo con Get-Content | Measure-Object -Line sobre los archivos propios del repo (excluido
+node_modules y public/vendor/ , donde viven Three.js y React UMD).
+2.2 Método y fuentes
+La auditoría siguió cuatro pasos:
+1. Lectura completa de la documentación interna: README.md , AGENTS.md (13 KB — el contrato),
+DESIGN.md (24,8 KB — el manual del diseño), quality/REPORT.md , quality/ROBOTS.md ,
+Auditoría FuelTech Master · página 8 de 50
+===== PAGINA 9 =====
+Confidencial — revisión técnica
+quality/budgets.json , quality/known-issues.json , quality/baseline.json , .env.example ,
+.gitignore , package.json , schema.sql y schema-pg.sql .
+2. Análisis estático de código fuente: lectura de lib/ completo, db.js , server-pg.js por bloques
+relevantes (auth, talleres reseñas, chat IA, SSR, CSP, manejo de errores, admin, etc.), public/app.js ,
+public/microapps.js (cabeceras y estructura) y public/index.html (CSS, scripts, JSON-LD).
+Búsqueda de patrones con grep: app.get/post/put/delete (91 rutas), aria- (71 en app.js + 43 en
+microapps.js), console.* , TODO|FIXME|HACK (no hay ni uno en código propio), --accent , etcétera.
+3. Ejecución de los propios robots vía quality/ROBOTS.md (ya generado por el proyecto) y revisión del
+quality/REPORT.md (es decir, el código es tan crítico consigo mismo que ya se audita solo y se publica).
+El reportero usa como evidencia lo que el propio robot midió.
+4. Referencia a artículos técnicos externos: Nielsen Norman Group (10 Usability Heuristics, 1994 /
+revisado 2024), W3C WCAG 2.2 Quickref, OWASP Top 10 2021, Wikipedia / Robert C. Martin para SOLID
+(Principles of OOD, 2000-2003) y Core Web Vitals. Citas en línea al pie de cada apartado.
+2.3 Estándares y artículos de referencia
+Los criterios contra los que se audita, con la referencia usada:
+Eje Documento Autoría / versión Dónde aplica en
+el reporte
+Clean Code Clean Code: A Handbook of Agile Robert C. Martin (2008) Sección 3 y 4
+Software Craftsmanship
+SOLID Design Principles and Design Patterns Robert C. Martin (2000); Michael Sección 3
+(paper) + SOLID (glosario) Feathers (acronyms 2004)
+UX heurísticas 10 Usability Heuristics for User Jakob Nielsen (NN/g, 1994; revisado Sección 5.3
+Interface Design 2024)
+Accesibilidad WCAG 2.2 Quick Reference W3C Web Accessibility Initiative Sección 5.2
+(2023)
+Seguridad web OWASP Top 10:2021 Open Worldwide Application Security Sección 6
+Project (2021)
+Rendimiento Core Web Vitals (LCP, INP, CLS) Google Chrome team (actualizado a Sección 5.4
+percibido 2024, INP sustituye FID desde 2024)
+PWA / SEO manifest.webmanifest y Open Graph / W3C / Google Search Central Secciones 7 y 9
+JSON-LD (schema.org)
+Las referencias se consultaron en línea durante la auditoría. Las afirmaciones sobre literatura externa se atribuyen al autor y fecha
+originales; las afirmaciones sobre el código fuente se citan con archivo.ext:línea .
+Auditoría FuelTech Master · página 9 de 50
+===== PAGINA 10 =====
+Confidencial — revisión técnica
+3. Arquitectura y Clean Architecture
+El mencionado esquema de Robert C. Martin en Clean Architecture: A Craftsman's Guide to Software Structure
+and Design (Pearson, 2018) propone el principio rector de "la dependencia debe apuntar hacia las capas
+internas": el dominio (las reglas del negocio) no depende de nada externo — ni base de datos, ni web, ni
+framework. La pregunta decisiva de este capítulo es: ¿puedo probar las reglas del negocio sin levantar la
+base de datos, sin un cliente HTTP y sin React? En FuelTech Master la respuesta es sí, y eso es lo que
+distingue un proyecto limpio de un proyecto "que funciona".
+3.1 Capas y Ley de Dependencias
+El proyecto se organiza en cuatro anillos conceptualmente limpios:
+┌────────────────────────────────┐
+│ public/ ← UI (React + htm) │ ← externo
+│ no build step │
+├────────────────────────────────┤
+│ server-pg.js ← API / SSR │ ← adaptadores I/O
+│ db.js ← adaptador DB │
+├────────────────────────────────┤
+│ lib/pure.js ← helpers puros │ ← utilidades
+├────────────────────────────────┤
+│ lib/domain.js ← REGLAS │ ← dominio
+│ lib/catalog.js ← DATOS │
+└────────────────────────────────┘
+flecha de dependencia ───► hacia dentro
+El dominio ( lib/domain.js ) depende de los datos ( lib/catalog.js ) pero no al revés. El catálogo
+exportaba constantes y el dominio las consume; el catálogo no importa nada del dominio. Es el
+comportamiento esperado de una capa de datos.
+Los adaptadores ( db.js , server-pg.js ) dependen del dominio. db.js no conoce las reglas del
+taller; el servidor sí las consulta a través de require('./lib/domain') .
+La UI ( public/app.js , public/microapps.js ) habla con la API por HTTP; no conoce la base de
+datos, ni las reglas del taller, ni siquiera lib/domain.js . En microapps.js se ven importaciones del
+catálogo y helpers para⚜ar DTC; son réplicas de datos públicos, no un atajo de capas.
+3.1.1 La pureza de lib/ está protegida por una regla del guard
+No basta con diseñar la pureza; hay que defenderla. El proyecto incluye una regla del guard
+(destructiva, no advisory) que aborta el build si lib/ toca lo que no debe:
+/* scripts/guard.js — regla lib-es-puro */
+revisar() {
+// qué busca: require('./db'), express, process.env, console.log
+// dentro de cualquier archivo de lib/*.js.
+// falla el build si encuentra uno.
+}
+Auditoría FuelTech Master · página 10 de 50
+===== PAGINA 11 =====
+Confidencial — revisión técnica
+Del propio AGENTS.md:162-164 : " lib/ tiene que seguir siendo puro. Nada de require('./db') ,
+express, process.env ni console.log . Es lo que permite probar las reglas del taller sin levantar nada,
+y hay una regla del guard que lo vigila." Es decir: la maximizationl Clean Code, "testable sin levantar
+nada", está codificada como restricción, no como buena intención.
+3.2 Separación de responsabilidades (SRP en la práctica)
+El Single Responsibility Principle, el primer SOLID, se entiende a menudo como "una clase = un fin"
+pero Martin lo formula mejor: "una clase debe tener una sola razón para cambiar". El test de audit
+consiste en responder: si el dueño del taller cambia la presión de la familia Yaris, ¿cuántos archivos se
+tocan? Respuesta, según el propio repo: exactamente tres, todos juntos en el mismo commit, y
+mandatorio: cambio en lib/domain.js + cambio en la prueba + fuente del dato en el mensaje de
+commit.
+Archivo Razones para cambiar SRP cumple…
+lib/domain.js Las reglas del taller cambian. SÍ no hay aquí nada más.
+lib/catalog.js Los datos del catálogo cambian. SÍ no hay lógica.
+lib/pure.js Necesito un nuevo helper puro SÍ
+( slugify , esc , etc.).
+db.js Aparece un nuevo backend (p. SÍ el adaptador es el único que sabe de
+ej. Neon, PlanetScale). dialectos SQL.
+server-pg.js API nueva, ruta nueva, cambio PARCIAL muchas razones; mitigado por la
+de CSP, cambio de plantilla SSR. organización de secciones pero es el archivo de
+2.439 líneas.
+public/microapps.js Cada una de las 35 micro apps PARCIAL está en un solo archivo de 2.577
+puede crecer sola.
+líneas.
+La deuda identificada por el SRP es: server-pg.js y public/microapps.js agrupan muchas razones
+para cambiar. server-pg.js contiene API + SSR + CSP + Gemini + sitemap + mapeo de errores;
+microapps.js contiene a la vez inventory, órdenes, presión, OBD-II, inspección, agenda, caja, clientes,
+cotizador… No es severo porque dentro de cada archivo las secciones están clarísimamente
+delimitadas por comentarios ( /* ---------- … ---------- */ ) y, crucialmente, cada sección tiene
+su test de cobertura. Pero es la injerencia de "todo en un archivo" en la que se nota la falta de un
+sistema de módulos. Si el proyecto crece un 30 % más, este archivo se rompe por su propio peso.
+3.3 OCP y estabilidad de las reglas del taller
+El Open-Closed Principle — el segundo SOLID — dice que una entidad debe estar abierta para
+extensión, cerrada para modificación. El proyecto lo cumple en un punto muy concreto:
+Auditoría FuelTech Master · página 11 de 50
+===== PAGINA 12 =====
+Confidencial — revisión técnica
+OCP en moduleProfile
+La función moduleProfile({…}) en lib/domain.js:42-122 define un objeto P con cinco tipos
+de ensamble ( external , hanger_tbi , hanger_return , module_returnless , vortec , gdi_low ).
+Añadir un nuevo tipo de ensamble no requiere cambiar la función: basta añadir una entrada al
+diccionario P y una rama al switch del assembly . Es OCP en JavaScript puro, sin abstracciones.
+El inverso, también OCP: la regla de presión de riel para MFI está protegida contra modificación
+accidental. En railPressure({brand, model, inj, psiMin, psiMax}) ( lib/domain.js:133-137 ):
+function railPressure({ brand, model, inj, psiMin, psiMax }) {
+if (inj !== 'MFI') return { min: psiMin, max: psiMax };
+if (esFamiliaYaris(brand, model)) return { min: 38, max: 44 };
+return { min: 50, max: 60 };
+}
+{@code railPressure} nunca lee los psiMin / psiMax del catálogo cuando la inyección es MFI: aplica la
+regla de taller. Sobre el subconjunto MFI, la regla es cerrada a modificación por datos. Sin esto, una
+fila del catálogo con psiMin=40, psiMax=45 para un MFI genérico pasaba a producción y un mecánico
+recibía 40-45 en la ficha aunque el banco real del taller esperara 50-60. Es OCP por codificación de la
+regla: la regla no se puede romper agregando filas al catálogo.
+3.4 DIP y el adaptador triple db.js
+El Dependency Inversion Principle — el quinto SOLID — dice que los módulos de alto nivel no deben
+depender de módulos de bajo nivel; ambos deben depender de abstracciones. En JavaScript,
+"abstracción" se traduce en "interfaz explícita". db.js implementa, en 211 líneas, una abstracción
+sobre tres backends:
+class DBAdapter {
+// mode: 'auto' (usa USE_TURSO/USE_PG global) | 'local' | 'turso' | 'pg'
+constructor(sqliteInstance, mode = 'auto') {
+this.sqlite = sqliteInstance;
+this.mode = mode;
+}
+get isTurso() { … }
+get isPg() { … }
+async get(sql, params) { … }
+async all(sql, params) { … }
+async run(sql, params) { … }
+async exec(sql) { … }
+async insertReturningId(sql, params) { … }
+prepare(sql) { … }
+}
+Todos los handlers de server-pg.js hacen await db.get(…) , await db.run(…) y nunca llaman a
+tursoClient.execute ni a pgPool.query directamente. La dependencia está invertida. Un backend
+Auditoría FuelTech Master · página 12 de 50
+===== PAGINA 13 =====
+Confidencial — revisión técnica
+se cambia agregando un getter isXxx y una rama en cinco métodos; el resto del código queda
+intacto.
+Una sutileza que es más crítica de lo que parece
+db.run() en PostgreSQL normaliza INSERT OR IGNORE a INSERT ... ON CONFLICT DO NOTHING
+( db.js:137-141 ), y parseQuery() traduce los ? posicionales de SQLite a $1, $2, … de
+PostgreSQL ( db.js:50-73 ). Es decir, los queries se escriben en dialecto SQLite y el adaptador
+los normaliza en el aire. Esto evita aparecer "dialecto mixto" en cada handler — el enemigo
+número uno de la mantenibilidad multi-backend.
+Conviene subrayar que parseQuery está exportada (porque es pura) y cubierta por test/unit/db-
+adapter.test.js . Es una inversión bien hecha: todo el código que toca el dialecto está en un sitio
+solo y se puede probar sin un PostgreSQL real. Esta es la forma práctica del DIP en el CommonJS.
+3.5 ISP y LSP — observaciones
+ISP (Interface Segregation): db.js expone sólo lo que el servidor usa: get , all , run , exec ,
+insertReturningId , prepare . No obliga a los handlers a "saber" si están en Turso o en PostgreSQL.
+El modificador mode = 'auto' | 'local' | 'turso' | 'pg' permite a las pruebas inyectar 'local'
+sin tocar los handlers. Es ISP: el cliente pide lo que usa, no más.
+LSP (Liskov Substitution): el proyecto no tiene herencia de clases, así que el chequeo clásico de LSP no
+aplica directamente. Pero hay un sabor de LSP en que el contrato del adaptador es idéntico entre
+backends: await db.get(sql, params) → fila | null en todos los casos. Si el desarrollador de
+PostgreSQL rompiera el contrato (p. ej. devolviendo un array en vez de una fila), el resto del código
+haría un .value sobre un array y fallaría, igual que con SQLite. El contrato es la abstracción que
+debe respetarse, no la implementación.
+Auditoría FuelTech Master · página 13 de 50
+===== PAGINA 14 =====
+Confidencial — revisión técnica
+4. Código limpio, SOLID y Boy Scout Rule
+El capítulo 1 de Clean Code ("Clean Code", R. C. Martin, Prentice Hall, 2008) abre con una cita de Ron
+Jeffries: "no deja el campo de campamento más limpio de lo que lo encontraste" — el Boy Scout Rule.
+Existe una marca de cumplimento en este proyecto: el campo de campamento se mide con npm run
+metrics , se persiste en quality/baseline.json y el build falla si empeora. El trinquete es esa regla.
+4.1 Nombres, tamaño de funciones y comentarios
+Nombres
+La regla de Martin: "un nombre debe revelar intención". En todo el repo, los nombres tienden a ser
+descriptivos y no a esconder nada:
+esFamiliaYaris(brand, model) — verdad o falso, no check() o checkBrandMode() . Intención
+revelada.
+moduleRegulatedPsi({ inj, engine, psiMax }) — claro.
+vehicleIdFromSlug(slug) — posee la dirección; inverso de vehicleSlug(v) .
+enviarWhatsApp(numero, texto) — verbo + sustantivo, todo en español; el contexto del taller se
+preserva (heurística 2 de Nielsen).
+DEUDA en server-pg.js : algunos nombres heredados ( bumpTotal , bootDb , dbDump )
+introducen jerga; bumpTotal se explica en el comentario inmediato, pero paraMartin el nombre
+no debería necesitar un comentario.
+Tamaño de funciones
+La recomendación de Clean Code ("no más de 20 líneas",Chapter 3: Functions) no la cumple siempre
+porque hay funciones de mayor tamaño en el orquestador, pero cumple el espíritu: cada función hace
+una sola cosa. Ejemplos:
+toInt(v, min, max) — 3 líneas.
+psiToBar(psi) — 1 línea.
+slugify(s) — 3 efectos en una línea: normaliza NFD, quita diacríticos, reemplaza
+railPressure({…}) — 5 líneas (tres ramas + signatura + cierre).
+moduleCode(brand, seq) — 2 líneas.
+"FTM-${brand.slice(0,3).toUpperCase()}-${seq.padStart(3,'0')}" . Retorna una cadena.
+Las más largas (e.g. moduleProfile : 80 líneas) son largas porque exponen datos de configuración (5
+arquetipos con 6 campos cada uno), no por anidamiento de lógica de decisión. Es el contenido, no la
+complejidad ciclomática, lo que crece. Martin permite esto mismo en su discusión de "Data/Code
+Ratio".
+Comentarios
+La regla de Clean Code sobre comentarios es contraintuitiva: "los comentarios son fallos del código".
+La idea es: si un comentario explica qué hace el código, el código está mal nombrado; si explica por
+Auditoría FuelTech Master · página 14 de 50
+===== PAGINA 15 =====
+Confidencial — revisión técnica
+qué existe, es un "comentario valioso". En FuelTech Master los comentarios son exclusivamente de
+la segunda categoría:
+/* toInt — HISTORIA: better-sqlite3 lanza si recibe NaN como
+parámetro, así que un ?limit=abc tiraba un 500. Devuelve null
+cuando no hay un entero seguro, y recorta al rango [min, max]
+cuando sí lo hay. Nunca devuelve NaN. */
+const toInt = (v, min, max) => { … };
+No dice qué hace la línea: dice por qué existe. Es exactamente el patrón "comentario de justificación
+histórica". En lib/domain.js:131-133 se lee fácil:
+/* Presión de riel definitiva. Los MFI se normalizan a la regla de
+taller; el resto de sistemas conserva el valor declarado en el
+catálogo. */
+function railPressure({ brand, model, inj, psiMin, psiMax }) { … }
+Y en server-pg.js:54-56 :
+const { toInt, psiToBar, str, num,
+esc, slugify, vehicleSlug, vehicleIdFromSlug, haceSlug,
+} = require('./lib/pure');
+/* Helpers puros. Definición única en lib/pure.js, cubiertos por
+test/unit/pure.test.js. NO los redefinas aquí: dos copias de
+`esc` o de `toInt` que se separan es exactamente como aparece un
+XSS o un 500 por NaN. */
+Es decir, el comentario previene una deuda. Es el patrón "comentario como antiebónero": otros
+proyectos pondrían un linter; aquí el comentario juga el rol.
+4.2 DRY, KISS, YAGNI
+DRY (Don't Repeat Yourself)
+El commit de 2026-08-11 con la creación de lib/pure.js es una refactorización activa de DRY: el
+propio comentario de cabecera lo dice — "Estaban sueltos dentro de server-pg.js (algunos dentro del
+closure de createApp, imposibles de probar). Aquí existe UNA sola definición de cada uno". El esc
+(escape HTML) tenía dos copias; se eliminaron. Esto nuru esunu verse: dos escapes que se separan son
+un XSS esperando ( AGENTS.md:218-220 ), y una de las reglas del guard lo vigila.
+Nota metodológica
+La regla DRY está forzada por el guard. Es decir, no es un criterio de revisión, es un chequeo
+continuo (reglas del tipo pure-helpers-unicos ) que se ejecuta después de cada edición. Es el
+Boy Scout Rule automatizado: el cambio que rompe la unicidad del helper aborta el build antes
+de que alguien lo llegue a usar.
+Auditoría FuelTech Master · página 15 de 50
+===== PAGINA 16 =====
+Confidencial — revisión técnica
+KISS (Keep It Simple, Stupid)
+Decisiones arquitectónicas deliberadamente "aburridas":
+Sin build step: el frontend no necesita npm install en producción, no se rompe el despliegue al
+cambiar el proceso de build, no aparece ellanguage_bind error. AGENTS.md lo dice directo: el每人.
+Express (no Fastify, no NestJS): hace exactamente lo que necesita el proyecto. Con dos
+middlewares, compress() y helmet() , queda.
+SQLite en producción parcial: el proyecto permite SQLite local como backend real, sin despreciar
+el modo de vita "ne lectura dada real dura". La opción "--Turso por la nube, SQLite en localhost"
+es el KISS de bases de datos en un proyecto personal y honesto.
+Sin ORM: el proyecto usa SQL con ? y @nombre ; el adaptador normaliza. El management El ORM
+se evita piscina: el ORM ahorra el dialecto pero oculta SQL y cambia el plan de query; aquí cada
+handler escribe el SQL que quiere.
+YAGNI (You Ain't Gonna Need It)
+Casos de YAGNI se ven en negaciones explícitas:
+No hay cache en el cliente ahand; el service worker ( public/sw.js ) tiene 2,2 KB y cachea los
+estáticos del dominio, no aplica cache layer avanzado offline.
+No hay i18n: el usuario es hispanohablante, tiene razón; duplicar el bundle con un runtime i18n
+sería YAGNI.
+No hay panel de control drowning\nadmin olaboratorio. El admin está desactivado (503) si no hay
+ADMIN_PASSWORD .
+4.3 Tratamiento de errores y nulidad
+Clean Code dedica capítulos a "Don't Return Null" y "Don't Pass Null". El proyecto los superado sal
+con una solución pragmática en JavaScript, donde null es inevitable: los helpers puros normalizan
+las entradas, no las pushean al backend. El ejemplo más representativo es toInt en
+lib/pure.js:16-19 :
+const toInt = (v, min, max) => {
+const n = Number.parseInt(v, 10);
+return Number.isSafeInteger(n) ? Math.min(Math.max(n, min), max) : null;
+};
+El uso en handlers ( server-pg.js ):
+const id = toInt(req.params.id, 1, 1e9);
+if (id === null) return res.status(404).json({ error: 'No encontrado' });
+Anticipa un error real y documentado: "better-sqlite3 lanza si recibe NaN como parámetro, así que un
+?limit=abc tiraba un 500". La función no previene nada arquitectónico — previene un 500 específico
+que ya ocurrió en este proyecto. Cada helper de pure.js tiene el mismo patrón: una historia del
+bug que lo motivó escrita en el comentario.
+Auditoría FuelTech Master · página 16 de 50
+===== PAGINA 17 =====
+Confidencial — revisión técnica
+Otra pareja instructiva: num(x) en lib/pure.js:32 :
+const num = (x) => (Number.isFinite(Number(x)) && x !== '' && x !== null ? Number(x) :
+null);
+El caso Number('') === 0 es exactamente el tipo de detalle Clean Code clasificaría como "error de
+suma por conversión silenciosa": el precio llegaría como 0 a una orden si el cliente mandaba cadena
+vacía. num evita eso explícitamente. Es Defensive Programming con el tipo que Martin menos
+defiende — pero aquí es definitivamente correcto, porque el código está en una frontera HTTP/SQL.
+4.4 Tratamiento de promesas y async/await
+El commit de 2026-08-11 trajo descrito la trampa más cara del proyecto:
+Trampa 4.1 de AGENTS.md
+const x = await db.get(…)?.value lee .value de la PROMESA — siempre undefined . "El
+contador de visitas estuvo clavado en 0 por exactamente esto". El mismo patrón en
+createVehicle() devolvía {"id":{}} , y updateVehicle() sin await puede tumbar el proceso
+(Node aborta ante un rechazo sin capturar).
+El remedio es triple:
+1. El adaptador ( db.js ) es siempre async; nadie lo llama sin await ni sin devolverlo.
+2. El guard tiene una regla estática ( scripts/guard.js:56-88 ) que busca el patrón (? y verifica
+que este precedido de await, return, => (flecha que retorna) o Promise.all. Si no, falla
+el build.
+3. El envoltura de handlers ( const envolver , server-pg.js:124-135 ) captura rechazos no
+esperados y los manda a next(err) ; sin esto, Express 4 deja la petición colgada para
+siempre (sin 500, sin log).
+Esto es Boy Scout Rule en estado puro: documentar la trampa, blindar el código y blindar el
+futuro.
+4.5 Reglas anti-regresión (guard, métricas, trinquete)
+El motor de restricciones ( scripts/guard.js ) contiene 18 reglas. Pocos proyectos del mismo
+tamaño tienen un sistema comparable. Algunas especialmente instructivas:
+Auditoría FuelTech Master · página 17 de 50
+===== PAGINA 18 =====
+Confidencial — revisión técnica
+Regla Qué previene
+await-en-base-de- El contador de visitas en cero; el payload {"id":{}} devuelto por la
+datos API; el proceso terminado por unhandledRejection .
+db-params-en- db.run('UPDATE v set a=? WHERE id=?', valor, id) — el id se descarta
+array en silencio. Ya ocurrió: "marcar un vehículo como verificado no
+funcionó nunca por este error".
+lib-es-puro Que una futura edición mezcle dominio con I/O. Es la defensa
+permanente de la Little Clean Architecture funcional del proyecto.
+no-inventar-datos El mayor pecado de FuelTech: inventar especificaciones de presión sin
+fuente. El guard exige verified = 0 y fuente escrita.
+pruebas-nunca- El propio seed borra el catálogo; una prueba que apunte a Turso puede
+tocan-bases-reales borrar producción. El guard exige bases en memoria y mode = 'local' .
+server-pg-tiene- Sin const envolver = , una ruta async puede dejar la petición colgada
+envoltorio-async por siempre (Express 4 no captura promises).
+El trinquete es un patrón que no se ve en la mayoría de los proyectos: quality/
+baseline.json persiste las métricas (407 pruebas, 100 % cobertura, 79 rutas, 0 violaciones,
+208 vehículos…). Si una métrica empeora, npm run metrics falla. Sólo se puede romper la
+baseline a propósito, escribiendo el porqué en el commit y aceptando la nueva metadata.
+Boy Scout Rule automatizado
+El trinquete y el catálogo de reglas del guard merecen mejor nota que el código solo:
+promueven progresivamente que el código no retroceda y dejan la deuda siempre visible y
+acotada. Es decir, el propio equipo decide, cuando el tiempo lo permite, ir atacando la
+deuda pendiente. En la práctica, este sistema sustituye a un lint + a un cron de
+cobertura y, sobre todo, transforma una métrica estática en una decisión con compromiso
+explícito, no en "un número que miramos a veces".
+4.6 Pruebas y robots de prueba masiva
+El proyecto distingue dos tipos de pruebas, y la distinción es una decisión metodológica:
+Pruebas de verificación (407) — unit + qa — corren en 7 segundos, en npm run verify . Van
+a contracción casos escritos a mano.
+Robots de prueba masiva (7, ~5 min) — test/robots/ — van al contrario: volumen y
+combinaciones que nadie escribiría a mano. Del README: "Los robots hacen lo contrario:
+volumen y combinaciones que nadie escribiría a mano. Por eso viven en test/robots/ y no
+entran en verify."
+Los siete robots son:
+1. registro — alta, normalización, limitador, altas masivas, carrera por email, sesión.
+2. aislamiento — ataca todas las rutas protegidas desde una cuenta ajena (IDOR hunter).
+3. fuzz — ~2.900 cargas hostiles; nunca 500, nunca petición colgada, nunca tripas del
+servidor.
+Auditoría FuelTech Master · página 18 de 50
+===== PAGINA 19 =====
+Confidencial — revisión técnica
+4. carga — 800 filas, listados sin tope, concurrencia, escritura sostenida.
+5. recorrido — todas las URLs del sitemap; estado, canónica, JSON-LD, enlaces, 404 propios.
+6. jornada — alta en el formulario real + 38 herramientas con y sin sesión.
+7. interfaz — navegador real: contraste, desbordes, scroll anidado, objetivos táctiles en 2
+temas × 3 anchos.
+El resultado de la última corrida está en quality/ROBOTS.md : 5.050 comprobaciones, 33
+fallidas (las 6 clases de fallos se discuten en las secciones 5, 6 y 11). Es notable que
+cuatro de los siete robots pasaran completos: aislamiento, fuzz (2.916 comprobaciones) e
+interfaz (214 comprobaciones sobre 6 dimensiones). El proyecto está, literalmente, probado
+por una máquina que se ataca a sí misma.
+Auditoría FuelTech Master · página 19 de 50
+===== PAGINA 20 =====
+Confidencial — revisión técnica
+5. UI y UX — heurísticas de Nielsen
+y WCAG 2.2
+El eje UX/UI es donde el proyecto se vuelve difícil de evaluar de forma genérica: no es ni
+una SaaS "minimalista de portafolio" ni un dashboard empresarial. Es, en palabras de su
+propio manual de diseño ( DESIGN.md:28 ), "un panel de instrumentos de taller mecánico, no un
+dashboard SaaS genérico". La sensación buscada es técnica y de precisión — como la pantalla
+de un scanner OBD-II o un catálogo de refacciones profesional, no una app de consumo. Por eso
+auditarlo contra las heurísticas de Nielsen "de texto" exige matizar cada juicio con el
+público objetivo: mecánicos y técnicos automotrices en México consultando specs bajo presión
+de tiempo, a menudo en talleres con luz ambiental fuerte ( DESIGN.md:34 ).
+5.1 Diseño visual y sistema de tokens
+El sistema visual está codificado como sistema de tokens (variables CSS). El inventario es
+notable: 729 ocurrencias de tokens en public/index.html (búsqueda --[a-z] ), todos definidos
+en :root y redefinidos en @media (prefers-color-scheme: light) . Diez tokens semánticos
+principales:
+Token Oscuro (por defecto) Claro Rol
+--bg #131211 (grafito #FAF8F4 (crema) Fondo base
+cálido)
+--panel rgba(28,26,23,.82) blanco translúcido Tarjetas y paneles
+--text #EDEAE3 (hueso) #131211 Texto principal
+--muted #9A938A grisосредiano Metadatos
+--accent #AECC3A (lima #4E680A (oliva para Acción primaria y estado
+FuelTech) texto) activo
+--accent- #AECC3A #AECC3A Relleno sólido (FAB,
+fill primary button)
+--amber #F0B429 #8A5A00 Advertencias / "ESTIMADO"
+--border rgba(138,130,118,.24) gris Tenue Bordes por defecto
+--border- rgba(138,130,118,.48) gris Marcado Hover / alto contraste
+hi
+--accent- #101310 #101310 Tinta sobre relleno lima
+ink
+Fuente: public/index.html:370-398 (definición) y DESIGN.md:42-60 .
+Tres decisiones de diseño sobresalen como decisión de producto deliberada, no como detalle
+visual:
+Auditoría FuelTech Master · página 20 de 50
+===== PAGINA 21 =====
+Confidencial — revisión técnica
+1. El lima ya no tiñe rótulos ni iconos. El propio DESIGN.md:54-71 lo explica con una
+honestidad rara: "Antes había 73 usos del acento como color de texto: cada rótulo de
+sección, cada icono, cada encabezado de tabla. Cuando todo es acento, nada lo es. Ahora el
+lima marca acción primaria y estado activo, y nada más." Es la heurística 8 de Nielsen
+(Aesthetic and Minimalist Design) traducida en un repaso de tokens.
+CLEAN
+2. Modo claro adaptado contra --accent-soft-2 , no contra el fondo. El lima de marca no
+alcanza 4,5:1 sobre el blanco. En hecho, sobre el relleno tintado que usan el estado
+activo del menú, .cli-wa y .rl-nav:hover llegaba a 4,3:1 (no AA en texto de 12px). El
+ajuste a #4E680A lo deja en 4,8:1. "Al tocar el oliva hay que volver a medir ESE par, no
+el de mayor contraste" ( DESIGN.md:82 ). Es WCAG 1.4.3 (Contraste mínimo) resuelto a mano y
+documentado.
+WCAG AA
+3. El bisel se conserva, contenido. Sigue siendo la firma de la casa, pero solo en paneles y
+losas; botones, chips e inputs pasan a radio suave. "El bisel repetido cincuenta veces por
+pantalla dejaba de leerse como gesto" ( DESIGN.md:21-23 ). Es la heurística 4 de Nielsen
+(Consistency and Standards), aplicada dentro del propio producto.
+5.1.1 Aire fuera, densidad dentro
+El lema de layout del DESIGN.md ( DESIGN.md:18-20 ) casi no se menciona en otras auditorías
+pero define la coherencia del producto: home, dashboard, guías y legales respiran; ficha
+técnica y tablas conservan su densidad. La razón es expresa: "el aire cuesta scroll y el
+scroll cuesta tiempo al mecánico". Estamos dentro de la heurística 8 (Minimalist) pero con
+una sistemática calculada: minimalismo en zonas de orientación, densidad informada en zonas
+de decisión.
+5.2 Accesibilidad: contrastes, teclado, lectura
+El proyecto no declara WCAG ni tiene un statement of accessibility , pero en la práctica
+cumple la mayoría de los criterios relevantes para su persona. La tabla resume los criterios
+auditados:
+Auditoría FuelTech Master · página 21 de 50
+===== PAGINA 22 =====
+Confidencial — revisión técnica
+WCAG 2.2 SC Nivel Estado Evidencia
+1.4.3 Contraste AA Tokens calibrados; DESIGN.md documenta los casos
+CUMPLE
+(mínimo 4,5:1) peores (oliva sobre --accent-soft-2 , 4,8:1; texto
+deshabilitado no usa opacidad sino --neutral-soft-3 +
+--muted , DESIGN.md:88 ).
+1.4.11 Non-text AA Bordes de inputs ( .filters input ) y chips tienen
+CUMPLE
+Contrast contraste suficiente; foco lima visible. Robot
+interfaz midió contraste compuesto en 2 temas × 3
+anchos sin hallazgos.
+2.4.7 Focus AA public/index.html:435 : :where(a, button, select,
+CUMPLE
+Visible input, textarea, [tabindex]):focus-visible { outline:
+2px solid var(--accent); outline-offset: 2px; } . Hay
+además .skip-link para saltar al contenido principal
+( public/index.html:423-428 ).
+2.1.1 Keyboard A Las tarjetas de resultado ( .result-item ) son
+CUMPLE
+reales; los toggles son
+; los menús usan aria-pressed .
+4.1.2 Name, A 71 atributos aria-* en app.js , 43 en microapps.js ;
+CUMPLE
+Role, Value rostros de componentes con role="group" ,
+role="status" , aria-live="polite" ( app.js:88 ;
+ToastStack).
+2.5.8 Target AA Los controles compactos son 32-34 px con ratón y suben
+CUMPLE
+Size (Minimum) a 44 px bajo @media (pointer: coarse)
+( DESIGN.md:272 ). El robot interfaz verificó 3
+anchos.
+2.4.4 Link A El "Volver" del MicroShell ( microapps.js:45-55 ) sí
+PARCIAL
+Purpose (In tiene etiqueta visible "Volver" + icono. Pero algunos
+Context) botones de icono (cambiar tema, copiar enlace) usan
+title= en vez de aria-label= ; funciona para muchos
+lectores pero no es óptimo.
+1.4.10 Reflow AA Breakpoints 1240 / 900 / 720 / 600 / 480. El layout
+CUMPLE
+(320 px) colapsa a una columna en 900 px y dos ataduras del
+panel de filtros se sueltan en móvil ( DESIGN.md:303 ).
+2.2.2 Pause, A El hero de video en home "scrub" por scroll, no
+PARCIAL
+Stop, Hide reproduce solo; WCAG 2.2.2 sólo exige detener lo que se
+mueve solo. Pero el scrub ignora prefers-reduced-
+motion y ahorro de datos ( DESIGN.md:141-147 ); es una
+decisión deliberada de producto, no exenta de costo.
+1.3.1 Info and A Tablas de spec con th , caption implícitos y .num
+CUMPLE
+Relationships para columnas numéricas; el propio DESIGN.md:225
+documenta la regla .mic-tbl que desactiva overflow-
+word: anywhere para que "AMPERAJE" no se parta en
+"AMPER/AJE".
+Auditoría FuelTech Master · página 22 de 50
+===== PAGINA 23 =====
+Confidencial — revisión técnica
+WCAG 2.2 SC Nivel Estado Evidencia
+1.1.1 Non-text A Logotipo con alt ( index.html:267-268 ), iconos
+PARCIAL
+Content decorativos con aria-hidden implícitos vía . Pero
+icon.svg en el favicon no tiene role="img" ni
+aria-label . Menor.
+3.1.1 Language A <html lang="es"> ( index.html:2 ); robot recorrido
+CUMPLE
+of Page verificó 23 URLs, ninguna sin canónica.
+Accesibilidad por diseño defensivo
+Es notable lo siguiente: DESIGN.md documenta casos reales previos donde el contraste se
+rompió — .micro-card llegó a 1,19:1, .login-card y .diag-opt heredaban grafito en
+tema claro, el toggle tool-add-btn llegó a 2,35:1 con opacity:.4 . Es decir: se audita
+el sistema visual contra WCAG y se persiste la corrección en tokens, no en hex
+dispersos. Es la implementación completa y pragmática de 1.4.3 y 2.4.7, con historia del
+error.
+5.3 Las 10 heurísticas de Nielsen, una a una
+Las heurísticas se toman literalmente de "10 Usability Heuristics for User Interface Design"
+(Jakob Nielsen, NN/g, 1994; última revisión 30 enero 2024). En cada una se referencia el
+artículo de NN/g y se aplica al código:
+H1. Visibility of System Status
+CUMPLE FUERTE
+"El diseño debe mantener informado al usuario sobre lo que está pasando, con feedback apropiado y en
+un tiempo razonable" — NN/g, 1994/2024.
+Toasts de acuse explícitos. El propio comentario lo razona: "Copiar el enlace o guardar en
+el garage no cambiaba nada visible; sin acuse el mecánico repite el gesto sin saber si
+funcionó" ( public/app.js:68-72 ). Los toasts usan aria-live="polite" , así que el lector
+de pantalla anuncia el acuse sin robar el foco. Heurística 1 + WCAG 4.1.3 resueltos
+juntos.
+Skip-link que pasa de "off-screen" a visible con foco ( public/index.html:423-428 ).
+Estado activo de tarjeta de resultado con borde superior lima ( .result-item.active ) — el
+indicador de selección vive en el borde superior, no en el fondo, manteniendo la tarjeta
+legible ( DESIGN.md:291 ).
+Progreso de herramienta en bloque: .tool-progress con barra --accent-fill que avanza
+según se completa la inspección; no hay punto intermedio donde el mecánico "no sabe qué
+está haciendo".
+H2. Match Between the System and the Real World
+CUMPLE FUERTE
+"El diseño debe hablar el lenguaje del usuario. Usa palabras, frases y conceptos familiares para el
+usuario, no jerga interna." — NN/g.
+Vocabulario del taller como contrato: "pila" (no "bomba cruda"), "módulo" (no "ensamble
+completo"), "riel/flauta" (no "conducto de combustible"), "banco" (no "prueba deadhead").
+El propio AGENTS.md ( AGENTS.md:20-27 ) los define como ley del proyecto, sin excepciones.
+Auditoría FuelTech Master · página 23 de 50
+===== PAGINA 24 =====
+Confidencial — revisión técnica
+Errores en español, plano y proposicionados: "Correo o contraseña incorrectos" (sin
+revelar qué falló), "El teléfono inválido: usa el formato internacional, por ejemplo
++584121234567" . El test contract.test.js:43 valida que todo mensaje de error es en
+español (el usuario es un mecánico hispanohablante).
+Natural mapping del visor 3D OrientControls con el modelo del auto orientado como en el
+taller. Las etiquetas del formulario usan htmlFor explícito.
+H3. User Control and Freedom
+CUMPLE
+"Los usuarios ejecutan acciones por error. Necesitan una salida de emergencia claramente marcada." —
+NN/g.
+El botón "Volver" del MicroShell lleva etiqueta visible + icono: "el icono suelto de 34 px
+no se lee como botón — menos aún con guantes y a pulso en el celular" ( microapps.js:40-
+55 ). Es la justificación explícita de Nielsen: en contexto de uso (mecánico con manos
+sucias), el affordance no se confía a un icono solo.
+Toast que se desvanece a los 2,6 s: el error/éxito cierra solo; no requiere acción de
+"cerrar" para salir del estado ( app.js:80-82 ).
+Localstorage vs. API donde corresponde: las herramientas de trabajo del momento
+(inspección, cotizador, agenda) no exigen cuenta; sólo la información que vive en la nube
+(inventario, órdenes, clientes) la pide. Es darle libertad al usuario, no censurarlo.
+H4. Consistency and Standards
+CUMPLE FUERTE
+"Los usuarios no deben tener que preguntarse si palabras, situaciones o acciones distintas significan
+lo mismo. Sigue las convenciones de la plataforma y la industria." — Jakob's Law.
+Convenciones de React + htm: htmlFor y maxLength , no for ni maxlength (que es lo que
+haría HTML crudo). El comentario de AGENTS.md:231 es claro: "El frontend no tiene build
+step. Usa htmlFor y maxLength (no for ni maxlength)". Es la convención idiomática de React
+preservada a propósito.
+WhatsApp por wa.me : dígitos puros con prefijo de país, el único formato que acepta;
+"cualquier HTML llega como caracteres sueltos" ( microapps.js:15-24 ). Respeta la
+especificación de un externo en vez de inventar una URL.
+Consistencia interna: 35 micro apps comparten MicroShell y una colección fija de piezas
+( .mic-lead , .mic-sub , .mic-lbl , .mic-tbl , .tbl-acciones ). Cualquier mecánico que
+haya usado una herramienta ya sabe interpretar el resto.
+H5. Error Prevention
+CUMPLE FUERTE
+"Los buenos messages de error importan, pero los mejores diseños previenen problemas de ocurrir." —
+NN/g.
+El dato estimado se marca: un mecánico no puede distinguir a simple vista un dato estimado
+de uno de manual ( lib/domain.js:175-180 , función vehicleNote ). El aviso "⚠ ESTIMADO —
+verificar contra manual antes de reparar" se aplica por defecto si verified = 0 . Es
+prevención de error grave: evitar cambiar una pieza buena por una mala.
+Regla del guard "no-inventar-datos": si no lo verificaste, va con verified = 0 . Previene
+que el siguiente editor agregue una especificación sin fuente.
+Pilas por clase de inyección, no por umbral de PSI: el propio comentario de
+lib/domain.js:139-146 es explícito: "OJO: ya NO se decide por umbral de PSI — se decide
+por tipo de inyección." Antes, un Vortec con PSI en el rango podía recibir una pila MFI
+incompatible (TBI nunca debe llevar pila de alta: satura el regulador y ahoga el motor).
+Auditoría FuelTech Master · página 24 de 50
+===== PAGINA 25 =====
+Confidencial — revisión técnica
+Limitadores de tasa de chat, login y reseñas: prevención contra abuso, no sólo
+verificación. Es heurística 5 mezclada con OWASP A07.
+H6. Recognition Rather than Recall
+CUMPLE
+"Minimiza la carga de memoria del usuario: Elementos, acciones y opciones deben ser visibles." —
+NN/g.
+Panel de filtros sticky en el dashboard (480 px, columna izquierda): el usuario no tiene
+que recordar qué filtro eligió para moverlo. El filtro nunca se pierde de vista mientras
+se revisan resultados ( DESIGN.md:298-300 ).
+Franja de resultados sticky dentro del panel de contenido: el mecánico puede cambiar de
+vehículo sin volver arriba.
+Mi Garage en localStorage (sin login): los favoritos se ven, no se recorren recordando qué
+autos guardaste ( app.js:11-30 ).
+El "Volver" genérico del MicroShell no recuerda la herramienta previa — si el
+DEUDA
+mecánico se mueve por tres micro apps seguidas, el "Volver" siempre regresa a la grilla,
+no a la última dividada. No es crítico, pero es un caso real de Recognition vs. Recall.
+H7. Flexibility and Efficiency of Use
+CUMPLE
+"Atajos ocultos a ojos del novato pueden acelerar la interacción para el experto." — NN/g.
+Teclado: skip-link + focus-visible + botones reales.
+Búsqueda reactiva en el dashboard: a medida que el mecánico escribe marca/modelo/año, los
+resultados se filtran sin apretar "Buscar". Es el patrón de eficiencia de un sistema
+experto: el mecánico sabe qué busca y la app le quita el paso. Los botones secundarios del
+panel de filtros son deliberadamente de menor peso visual que la búsqueda reactiva, "ya
+que la búsqueda ya es reactiva (viven para no competir por atención)" ( DESIGN.md:296 ).
+Tema auto/claro/oscuro: persiste en localStorage. No exige decisión repetida.
+Herramientas que se hablan entre sí: "Tiempos de Mano de Obra" escribe en la misma clave
+ft_quote que lee el cotizador. Es la forma minimal de "personalización" — el contexto de
+trabajo del mecánico sobrevive sin configuración ( DESIGN.md:220 ).
+H8. Aesthetic and Minimalist Design
+CUMPLE
+"Las interfaces no deben contener información irrelevante o raramente necesaria." — NN/g.
+El sector "lima cálido / minimalismo cálido" del repaso (DESIGN.md §0-1): hasta 73 usos
+del lima como texto se redujeron a acción primaria + estado activo. La reducción de ruido
+visual es deliberada.
+"Aire fuera, densidad dentro": en ficha y tablas, donde el mecánico decide, hay densidad;
+en home, dashboard, guías y legales, hay aire. Es la heurística 8 matizada por el caso de
+uso.
+: public/index.html sigue siendo un único archivo de 2.202 líneas — sermón
+RUIDO RESIDUAL
+editorial minado dentro del HTML. No es visible en producción porque el usuario no lee el
+fuente, pero es ruido para el desarrollador y aumenta la deuda de parsing en el SSR (ALTER
+sobre INDEX_HTML en renderShell ). Ver sección 11 "Hallazgos bajos".
+H9. Help Users Recognize, Diagnose, and Recover from Errors
+CUMPLE
+"Los mensajes de error deben expresarse en lenguaje plano, indicar el problema y construir una
+solución." — NN/g.
+Auditoría FuelTech Master · página 25 de 50
+===== PAGINA 26 =====
+Confidencial — revisión técnica
+Mensajes en español, con causa y solución: "El teléfono inválido: usa el formato
+internacional, por ejemplo +584121234567" no se limita a decir "inválido", propone una
+solución concreta. El usuario no tiene que adivinar el formato.
+Validación visual de formulario: los inputs con foco muestran borde lima + halo ( box-
+shadow 0 0 0 3px var(--accent-soft-2) ) sin cambiar el radio ni el layout — es decir, no
+hay "salto visual" cuando se enfoca. El usuario no confunde la entrada válida con la
+inválida.
+El 404 no está localizado. /vehiculo/no-existe , /guia/inventada y rutas
+DEUDA
+inyectadas devuelven la página 404 por defecto de Express en inglés. No es un error de
+aplicación, pero es una brecha de Robustez. Identificado en quality/ROBOTS.md:44 .
+H10. Help and Documentation
+CUMPLE
+"Es mejor que el sistema no necesite explicación. Pero puede ser necesario proveer documentación…" —
+NN/g.
+Guías de diagnóstico SSR en server-pg.js:954 y GET /guia/:slug : síntomas de bomba
+fallando, cómo medir la presión, presión baja, alta, regulador, voltaje, GDI vs MFI.
+Atacan lo que el mecánico googlea todo el día (citado en el propio README: server-
+pg.js:689 ).
+El propio AGENTS.md es help and documentation para el editor: enumera trampas reales ("4.1
+await en todo lo que toque la base", "4.2 los parámetros van en un array", etc.) con
+código incorrecto vs correcto. Es la documentación en contexto, en el momento justo.
+Atajos de la app no documentados: no hay página de "atajos de teclado" — pero la
+aplicación tampoco introduce atajos ocultos; el único es TAB y Enter , que son convención
+del navegador. YAGNI: si no necesitas ayuda, mejor.
+5.4 Core Web Vitals y rendimiento percibido
+Los Core Web Vitals actuales son LCP (Largest Contentful Paint, buen < 2,5 s), INP
+(Interaction to Next Paint, comparable al viejo FID; < 200 ms desde 2024), y CLS (Cumulative
+Layout Shift, < 0,1). No se midieron en el informe del repo, pero hay decisiones tangibles
+que los afectan:
+LCP: la imagen hero-poster.jpg (26 KB) va como background de .home-hero y precargada
+en el <head> . Es el LCP y va siempre visible ( DESIGN.md:111-114 ). El video es "extra":
+.webm y .mp4 sin audio, fundido de .8 s cuando está listo. Es el patrón "poster first,
+video lazy" que recomienda la misma web.dev.
+CLS: "El video no se reproduce solo: avanza con el scroll, fotograma a fotograma"
+( DESIGN.md:115 ). Sin autoplay, sin transiciones repentinas, sin caja gráfica puntuada de
+"image jumped". El sticky ya diseñado para no saltar en el cambio a móvil.
+INP: ninguna ruta pública supera un segundo en el peor caso (presupuesto
+quality/budgets.json : /api/vehicles 80 ms, /api/modules 80 ms). En el robot carga con
+20 peticiones en paralelo p95＝249 ms, máx＝250 ms — sin errores. Lo único que penaliza
+seriamente INP es el crypto.scryptSync en el alta — esto produce exactly el efecto
+conocido como "main-thread blocking" que perjudica INP al серьpp‟ presupuesto de 200 ms
+en INP .
+Budgetces verificados: quality/budgets.js declara que app.js 110,2 KB / 130 KB,
+microapps.js 184,5 KB / 200 KB, index.html 134,8 KB / 140 KB. El build falla si se
+rompen. Es Web Vitals puesto en el pipeline.
+Auditoría FuelTech Master · página 26 de 50
+===== PAGINA 27 =====
+Confidencial — revisión técnica
+5.5 Hallazgos del robot de interfaz
+El robot interfaz abrió un navegador real y midió contraste compuesto, desbordes, scroll
+anidado y objetivos táctiles en 2 temas × 3 anchos = 6 dimensiones. 214 comprobaciones, 0
+fallidas. Es soy muy notable: llevó the tiempo a 57,5 s y no encontró ni un solo contraste
+por debajo de WCAG AA. La deuda que el documento conoce:
+El robot no comprueba prefers-contrast (más reciente) ni forced-colors
+OBSERVACIÓN
+(modo de Windows). No es una deuda presente, es un criterio WCAG 2.2 nuevo (criterio
+1.4.13 es de vuego) que convippedos medir en el roadmap si se apunta a WCAG 2.2 AAA o a
+3.0.
+El robot recorrido verificó que "ninguna página del sitemap carece de meta descripción,
+canónica o JSON-LD" → 46 bloques JSON-LD servidos y validados.
+Conclusión UX/UI
+El producto cumple las 10 heurísticas de Nielsen y WCAG 2.2 a nivel AA en los criterios
+relevantes para su público. Se le nota la edad: public/index.html a 2.202 líneas es un
+único CSS gigante; el负担 no es visible para el usuario, pero sí para el desarrollador.
+La deuda real en UI/UX son (1) el 404 de Express no localizado, (2) el scrub de hero
+ignorando prefers-reduced-motion y (3) títulos de páginas que rozan los 60 caracteres.
+Auditoría FuelTech Master · página 27 de 50
+===== PAGINA 28 =====
+Confidencial — revisión técnica
+6. Seguridad — OWASP Top 10 2021
+El OWASP Top 10 2021 (actualización más reciente desde 2017) recategoriza y ordena las
+familias de riesgo web más comunes. La auditoría recorre los diez ítems; en algunos el
+proyecto cumple sólidamente, en uno hay un hallazgo real (A02: fallos criptográficos) y en
+otro un hallazgo medio (A01: IDOR con limitaciones robustas). La puntuación agregada de 7,9
+se descompone así:
+A01 A02 A03 A04 A05
+BROKEN ACCESS CRYPTOGRAPHIC INJECTION · 9,2 INSECURE DESIGN · SECURITY
+CONTROL · 9,0 FAILURES · 6,5 8,8 MISCONFIG · 9,0
+6.1 A01:2021 — Broken Access Control
+El riesgo de control de acceso mal aplicado es el #1 desde OWASP 2021. En FuelTech Master el
+núcleo del riesgo es multi-tenant: talleres distintos comparten tablas y cualquier consulta
+sin WHERE workshop_id = ? es una fuga de datos entre negocios. El proyecto resuelve esto con
+una solución que es, por mucho, lo mejor del código:
+La regla de oro documentada en AGENTS.md:211-213
+"Los talleres comparten tablas. Una consulta sin ese filtro es una fuga de datos entre
+negocios. Va en todas: SELECT, UPDATE y DELETE, aunque ya hayas comprobado la propiedad
+antes." Es decir: el filtro se aplica incluso cuando el handler ya validó la
+pertenencia, porque es defensa en profundidad.
+El robot test/robots/aislamiento.js implementa una verificación que es la prueba real:
+recorre todas las rutas protegidas de server-pg.js y las ataca una por una desde una cuenta
+ajena. Es un fuzz dirigido, no un test de casos felices. El resultado de la última corrida
+( quality/ROBOTS.md:12 ):
+aislamiento : 139 comprobaciones, 0 fallidas, 1,2 s.
+Test qa/security.test.js contiene IDOR checks explícitos: "el taller B no puede BORRAR un
+registro del taller A conociendo su id", "el taller B no puede MODIFICAR inventario del
+taller A conociendo su id", "la exportación de respaldo solo trae datos del taller que la
+pide".
+Prueba security.test.js:141 : cookies HttpOnly y SameSite ; security.test.js:162 : el
+alta NUNCA devuelve el hash; security.test.js:170 : /api/auth/me nunca expone ni el hash
+ni los tokens de verificación. 20 tests exclusivos de sesión.
+El lorem "synthetic contract" de security.test.js:351 : "toda ruta /api nueva está
+protegida, o declarada pública a propósito". Es decir, no se evalúa por inspección, sino
+por walking de rutas estáticamente — el test recorre las rutas del endpoint público y
+comprueba que cada una esté en la lista de excepciones o marcada con requireWorkshop o
+requireAdmin .
+Auditoría FuelTech Master · página 28 de 50
+===== PAGINA 29 =====
+Confidencial — revisión técnica
+Hallazgo A01 — medio
+El proyecto permite 24 rutas API sin auth (catálogo + búsqueda), lo cual es por diseño
+seguro. Pero el listado RUTAS_PUBLICAS_PERMITIDAS es un constante escrita a mano
+( security.test.js ); si se añade una ruta nueva sin actualizar la lista, el test falla,
+lo cual es bueno. La amortización pendiente es convertir esa lista en inferida del
+código en vez de literales, para que un futuro editor no olvide agregarla. No es grave;
+es una mejora.
+6.2 A02:2021 — Cryptographic Failures
+CRÍTICO
+Esta es la peor nota del proyecto y el único hallazgo crítico real. El código que hashea
+contraseñas en server-pg.js:1635-1647 es:
+function hashPassword(pass) {
+const salt = crypto.randomBytes(16);
+const hash = crypto.scryptSync(pass, salt, 64);
+return
+`scrypt$${16384}$${8}$${1}$${salt.toString('base64')}$${hash.toString('base64')}`;
+}
+function verifyPassword(pass, stored) {
+const parts = stored.split('$');
+if (parts[0] !== 'scrypt' || parts.length !== 6) return false;
+const N = parseInt(parts[1], 16); const r = parseInt(parts[2], 16); const p =
+parseInt(parts[3], 16);
+const salt = Buffer.from(parts[4], 'base64');
+const hash = Buffer.from(parts[5], 'base64');
+const calc = crypto.scryptSync(pass, salt, hash.length, { N, r, p });
+return crypto.timingSafeEqual(calc, hash);
+}
+El problema: crypto.scryptSync es la variante síncrona de scrypt. Ocupa el event loop entero
+de Node mientras calcula; con N = 16384 (= 2^14, el valor mínimo recomendado por OWASP para
+producción), cada cálculo dura ~115 ms de CPU bloqueada. Es la solución algorítmica correcta
+(scrypt con parámetros correctos, sal aleatoria embebida en el hash, comparación de tiempo
+constante timingSafeEqual , sal en bytes aleatorios con randomBytes(16) ), pero su forma
+técnica es dañina para el event loop.
+Evidencia del propio robot de registro ( quality/ROBOTS.md:24-28 ):
+Reposo del bucle de eventos: p50 11,1 ms · p95 11,8 ms · máx 13 ms .
+Con 8 altas concurrentes: p50 10,8 ms · p95 12 ms · máx 818,5 ms .
+El matrimonio estás en la matemática: 8 altas × 115 ms de CPU síncrono = 920 ms de bloqueo
+del event loop; en la medición llegó a 818,5 ms ( ROBOTS.md:27 ).
+Una consulta del catálogo, durante alta concurrente: máx 668,6 ms .
+Auditoría FuelTech Master · página 29 de 50
+===== PAGINA 30 =====
+Confidencial — revisión técnica
+Impacto
+El bloqueo del event loop no es простelo por la paginación. Cualquier otra petición del
+servidor — /healthz , API, servicio de catálogo, página SSR — se cuelga mientras se
+procesa el scrypt. Con 8 usuarios en alta simultáneas el sistema ofrece un "tiempo de
+silencio" de casi 1 s, perjudicando LCP, INP y tráfico concurrente del portal. Es p50 y
+p95 extremo; no es una simple demora, es una denegación de servicio accidental.
+Solución: sustituir crypto.scryptSync por crypto.scrypt (asíncrona, basada en
+callbacks/Promises). El propio robot lo postula:
+async function hashPassword(pass) {
+const salt = crypto.randomBytes(16);
+return new Promise((resolve, reject) => {
+crypto.scrypt(pass, salt, 64, { N: 16384, r: 8, p: 1 }, (err, hash) => {
+if (err) return reject(err);
+resolve(`scrypt$${16384}$${8}$${1}$${salt.toString('base64')}$${hash.toString('base64')}
+`);
+});
+});
+}
+Toda llamada actual ( server-pg.js:1695 y 1710 ) ya está dentro de un handler async, así que
+el await funciona directo. Es un cambio de una sola línea y de un orden de magnitud menor en
+impacto: el código resultante es compatible con la estructura actual, explosiona el
+throughput y elimina el bloqueo del event loop. Es la primera recomendación de la sección 12
+(roadmap).
+6.3 A03:2021 — Injection
+El riesgo de inyección (SQL, NoSQL, OS, LDAP) es el más probable en cualquier backend común.
+En FuelTech Master el riesgo está controlado por cinco prácticas:
+1. Queries parametrizadas en todo el código: todos los handlers usan db.run(sql, [params])
+con ? ; el adaptador traduce a $1, $2, … en PostgreSQL. No hay concatenación manual. El
+guard db-params-en-array refuerza el uso de array en vez de argumentos sueltos (ya
+corregido bug antes de que se detectara).
+2. Validación de entradas numéricas: toInt(req.params.id, 1, 1e9) y if (id === null) return
+res.status(404).json({ error: 'No encontrado' }) . Los ids llegan a la base como enteros,
+no como strings.
+3. Escape de HTML en SSR: esc() de lib/pure.js escapa & < > " ' . El propio AGENTS.md:218-
+220 es claro: "No escribas otra función de escape. Dos escapes que se separan son un XSS
+esperando." Es DRY forzado por el guard.
+4. CSP estricta con nonce por petición: server-pg.js:188-218 usa
+helmet.contentSecurityPolicy con default-src 'self' y nonce por petición para scripts
+inline. Los hashes de CSP de los scripts inline de index.html se calculan del archivo
+real, no se pegan a mano ( server-pg.js:175-186 ),正常izando CRLF→LF porque el proyecto se
+edita en Windows. El propio comentario lo justifica: "un hash pegado literalmente caduca
+en silencio al tocar el script y el único síntoma es que el navegador lo bloquea sin que
+el servidor se entere." Es CSP حب rigurosidad.
+Auditoría FuelTech Master · página 30 de 50
+===== PAGINA 31 =====
+Confidencial — revisión técnica
+5. No hay eval ni new Function en código propio, y la CSP no explicitly explicita unsafe-
+eval . La prueba security.test.js:248 valida esto: "la CSP no abre unsafe-eval ni deja
+objectSrc libre". AdSense necesita unsafe-inline en scriptSrc ; se incluye
+condicionalmente si ADSENSE_CLIENT está seteado. Compromiso razonable.
+Además, el robot fuzz lanzó ~2.900 cargas hostiles contra toda la API: "nunca un 500, nunca
+una petición colgada, nunca tripas del servidor". Es la prueba de contusión: si hubiese
+inyección SQL, el fuzz habría producido algo —ió o un 500, o una ref exceso
+6.3.1 XSS almacenado en documentos
+El proyecto imprime documentos de entrega en SSR (HTML de servidor). El riesgo clásico de XSS
+almacenado es: el cliente introduce <script>alert(1)</script> en el nombre del taller o en
+el detallde del cargo, y se renderiza sin escape. La prueba business-flows.test.js:26 es
+explícita:
+it('26. la vista imprimible escapa el HTML de los datos (XSS almacenado)', async () => {
+// siembra un taller con un nombre que contiene XHTML y comprueba
+// que el HTML servido no lo ejecuta, sino lo escapa.
+});
+Es la prueba de un patrón conocido (XSSStored) en producción. Cumple.
+6.4 A04:2021 — Insecure Design
+El riesgo de diseño inseguro es nueva categoría OWASP 2021, que enfatiza los defectos de
+arquitectura que no se resuelven en implementación. En FuelTech Master el diseño es
+mayormente seguro y se auditado por los robots:
+Aislamiento multi-tenant en modulo YA definido y aplicado en todas las rutas.
+Rate limiting: visitLimiter 10/min, catalogLimiter 30/min, authLimiter y adminLimiter
+propios, chatLimiter , reviewLimiter 10/h. Es defensa en profundidad.
+El panel admin está seguro por defecto: sin ADMIN_PASSWORD , responde 503. La prueba
+security.test.js:307 valida que "el panel /admin está desactivado cuando no hay
+ADMIN_PASSWORD".
+Sin secrets en el repo: .env.example lista claves vacías; .gitignore incluye .env y
+los archivos de database SQLite.
+Bloqueo de pruebas a produccANGUAGEコミュン: el robotaje comun.js vacía TURSO_URL ,
+TURSO_AUTH_TOKEN y DATABASE_URL antes de importar nada, porque dotenv leía el .env del
+repo y conectaba a producción hasta antes de la prueba. "No es paranoia de más: comprobar
+el entorno no bastaba" ( AGENTS.md:80-86 ). Es insecure design resuelto(autoguardado,
+distancia, principio de seguridad).
+La secrección admin token es crypto.createHmac('sha256', ADMIN_SECRET)
+OBSERVACIÓN
+sobre un expiry como contador. Es propio, no usa librería JWT. Cumple el propósito, pero
+es código cripto propio conviene replicarlo en una librería de sesiones más стандарт en el
+roadmap (p. ej. iron-session o jose).
+Auditoría FuelTech Master · página 31 de 50
+===== PAGINA 32 =====
+Confidencial — revisión técnica
+6.5 A05:2021 — Security Misconfiguration
+Helmet activado con Strict-Transport-Security (preload, includeSubDomains, maxAge 1 año),
+referrer-policy: strict-origin-when-cross-origin , crossOriginEmbedderPolicy: false ,
+Permissions-Policy explícito desactivando camera/mic/geolocation/payment/usb/ interest-
+cohort ( server-pg.js:219-221 ).
+x-powered-by disabled: el servidor no revela la tecnología. Test security.test.js:255 lo
+verifica.
+Express body limit 20 KB en JSON; pruebas security.test.js:260 rechazan cuerpos gigantes.
+Prevención de DoS de cuerpo grande.
+Trust proxy configurable: process.env.TRUST_PROXY !== '0' ? 1 : 0 . Comentario del propio
+repo ( .env.example:69-72 ): "detrás de Render/Cloudflare debe quedar activada, o el rate
+limit vería a todos los visitantes como una sola IP". Es decir, el team understands la
+importancia de las cabeceras X-Forwarded-For para el rate limit.
+6.6 A06–A10 — visión condensada
+OWASP 2021 Estado Comentario
+A06 · Vulnerable El package.json fija versiones con ^ (p. ej. express
+PARCIAL
+and Outdated ^4.21.2 , helmet ^8.3.0 , better-sqlite3 ^11.10.0 ,
+Components puppeteer ^25.5.0 , react ^18.3.1 ). Sin npm audit
+ejecutado en el reporte, no se confirma. Incorporar
+dependencias actualizadas y npm audit --omit=dev al npm
+run verify sería una mejora.
+A07 · scrypt N=16384 (al menos mínimo OWASP); sal aleatoria por
+CUMPLE
+Identification and hash; cookies HttpOnly + SameSite; el login no revela qué
+Authentication falló ( "Correo o contraseña incorrectos" ); término de
+Failures sesión borra el token de la base. Rate limit propio en
+authLimiter ; el robot registro valida que "30 intentos →
+20 creadas, 10 frenadas con 429".
+A08 · Software and No hay.dependencies cargadas sin integrity= ; el frontend
+CUMPLE
+Data Integrity es React UMD en public/vendor/ , servido por el propio
+Failures dominio — no por un CDN. Sin subresource Integrity porque
+no es necesario. package-lock.json presente (78 KB).
+A09 · Security Hay morgan activo con formato en producción ( :method :url
+PARCIAL
+Logging and :status :res[content-length] - :response-time ms ) y 7
+Monitoring console.log/error en server-pg.js. Mejoraría con un runner
+Failures de audit log estructurado (p. ej. insertar eventos de
+seguridad en una tabla audit_log ). No afecta a usuarios
+pero sí a la respuesta a incidentes.
+A10 · Server-Side No hay solicitudes salientes desde la API hacia URLs
+CUMPLE
+Request Forgery derivadas del input. El chat Gemini llama a Google AI
+Studio con URL fija. La verificación de correo manda HTTP
+POST a Resend con su URL fija. No hay ataque SSRF
+explotitable.
+Auditoría FuelTech Master · página 32 de 50
+===== PAGINA 33 =====
+Confidencial — revisión técnica
+6.7 Cabeceras, rate limiting, CORS y CSRF
+CORS: no hay cors middleware. Es una API sola con el mismo origen, no una API tercera.
+Correcto por defecto.
+CSRF: la cookie de sesión usa SameSite explícito ( tokenCookieOpts() ); el propio OWASP
+reconoce SameSite como mitigación primaria de CSRF. No hay tokens CSRF por formulario. Es
+válido para una API usada exclusivamente desde el propio dominio.
+Rate limit: ~6 limiters distintos para distintos casos de uso; chat 6/min; visita 10/min;
+catálogo 30/min; admin login propio. Como correcto.
+HSTC preload (includeSubDomains) activado solo en producción ( server-pg.js:211-215 ).
+Correcto.
+Conclusión seguridad
+El proyecto tiene una postura de seguridad más sólida que la media. El único fallo
+crítico real, scryptSync, no es un fallo conceptual sino una implementación del mismo
+algoritmo correcto. La corrección cambia una palabra ( Sync → async). Todo lo demás
+cumple A01, A02 (más allá de lo síncrono), A03, A04, A05, A07, A08 y A10; el roadmap
+cubre A06 y A09.
+Auditoría FuelTech Master · página 33 de 50
+===== PAGINA 34 =====
+Confidencial — revisión técnica
+7. SEO, SSR y rendimiento
+FuelTech Master es una SPA sin build step, y aun así el proyecto tiene producción real de
+SEO: cada vehículo tiene una URL indexable, un <title> , meta description , canónica, Open
+Graph, JSON-LD y contenido rastreable servido en el HTML. Es la aplicación del famoso patrón
+"server-rendered content for crawlers + SPA mount for users", sin React Server Components ni
+infraestructura avanzada.
+7.1 Render del lado del servidor sin build step
+El mecanismo central es renderShell() en server-pg.js:279-320 . La función toma una
+plantilla genérica ( INDEX_HTML leída una sola vez del disco, server-pg.js:258 ) y la
+modifica in-place por reemplazo de regex sobre <title> , , canónica, og:title ,
+twitter:card , JSON-LD, OG image, etcétera. El resultado se sirve como HTML antes de que el
+bundle SPA decida montarse. Cualquier crawler sin JS ve el contenido; cualquier humano con JS
+ve React montado encima.
+El nonce por petición
+El JSON-LD se inserta con nonce="${nonce}" generado por petición ( server-pg.js:144 ).
+La CSP permite scripts solo con nonce; el JSON-LD pasa porque lo lleva. Es CSP estricta
+compatible con JSON-LD dinámico.
+7.2 Sitemap, JSON-LD, canónicas y robots.txt
+El robot recorrido recorre las 23 URLs del sitemap y audita una por una:
+Estado HTTP correcto (no 500, no 404 propias fuera de rutas inexistentes).
+<title> presente y único.
+presente y correcto. 0 páginas sin canónica.
+JSON-LD válido: 46 bloques servidos; WebApplication , AutoRepair , FAQPage , Product con
+Offer .
+Enlaces rotos en el sitemap: ninguno. 404 propios sobre rutas inválidas: 27 hallazgos (ver
+6.3) — son los /vehiculo/no-existe-jamas , /guia/inventada y similares.
+Latencia: p50 69 ms · p95 108,8 ms · máx 114,3 ms . Bien por debajo del presupuesto.
+Hreflang: el proyecto declara una sola versión en español para toda la región ( server-
+pg.js:286 ): hreflang="es" y hreflang="x-default" con la misma canónica. Es la decisión
+correcta para un producto dirigido a Latinoamérica como unidad.
+7.3 Presupuestos de latencia y tamaño
+CUMPLE
+Los presupuestos declarados en quality/budgets.json son modelo de rigor:
+Auditoría FuelTech Master · página 34 de 50
+===== PAGINA 35 =====
+Confidencial — revisión técnica
+Recurso Presupuesto Medido Estado
+/healthz 60 ms Normalmente ~2 ms
+CUMPLE
+/api/meta 60 ms p50 2,6 ms · p95 6,9 ms
+CUMPLE
+/api/vehicles 80 ms p50 4,1 ms · p95 5,4 ms
+CUMPLE
+/api/vehicles?q=nissan 80 ms p50 4,1 ms · p95 6,3 ms
+CUMPLE
+/api/vehicles?limit=100 100 ms p50 4,2 ms · p95 5,6 ms
+CUMPLE
+/api/modules 80 ms p50 5,2 ms · p95 12,6 ms
+CUMPLE
+/api/pumps 60 ms p50 3,1 ms · p95 4,2 ms
+CUMPLE
+Concurrencia: 60 peticiones, 20 en paralelo p95 249 ms · máx 250 ms
+0 errores, 0 bloqueadas
+Tamaños de bundle (presupuesto / medido):
+public/app.js : 110,2 KB / 130 KB —
+CUMPLE
+public/microapps.js : 184,5 KB / 200 KB —
+CUMPLE
+public/index.html : 134,8 KB / 140 KB — (cerca del límite)
+CUMPLE
+public/three3d.js : 35 KB / 45 KB —
+CUMPLE
+public/sw.js : 2,2 KB / 8 KB —
+CUMPLE
+server-pg.js : 177,1 KB / 200 KB —
+CUMPLE
+El presupuesto del HTML está cerca del límite; este es un indicador de tamaño el cual una
+reducción del CSS de index.html (p. ej. dividirlo en un archivo style.css cacheable) no es
+sólo mejora técnica sino budget headroom para el siguiente desarrollo.
+7.4 Service Worker, OG y PWA
+Service Worker ( public/sw.js , 2,2 KB): cachea estáticos del dominio. Pre-existent en el
+proyecto. Permite el uso offline a nivel de navegación (no de datos dinámicos).
+Web manifest en /manifest.webmanifest . apple-mobile-web-app-capable en index.html. PWA
+instalable.
+Open Graph dinámico: /vehiculo/:slug genera OG image específica por auto vía og-gen.js
+(puppeteer) si existe en public/og/ . Imagen por defecto default.png si no. El
+twitter:card cambia de summary a summary_large_image cuando hay imagen.
+FAQPage JSON-LD duplicado a propósito: las mismas once preguntas van visible en
+microapps.js y recargadas como FAQPage en <head> , para que Google muestre el resultado
+enriquecido. Es una duplicación con contrato: "marcado que no coincide con lo visible es
+motivo de penalización" ( DESIGN.md:150-153 ). Código matenido.
+Auditoría FuelTech Master · página 35 de 50
+===== PAGINA 36 =====
+Confidencial — revisión técnica
+8. Catálogo y fuente única de
+verdad
+El catálogo no se ve desde fuera pero es el corazón del producto: si una fila está mal, un
+mecánico cambia una pieza buena o deja una mala puesta. El proyecto formaliza esto con un
+patrón muy concreto: los datos viven en un único archivo ( lib/catalog.js , 389 líneas, sin
+lógica), validados por pruebas específicas ( test/unit/catalog.test.js ) que cubren forma,
+rangos, duplicados, solapes y referencias.
+8.1 Estructura de datos como única fuente de verdad
+El catálogo de vehículos se define como array de arrays anónimos en lib/catalog.js:75
+(constante V ). Cada fila tiene el formato fijo:
+[marca, modelo, añoDesde, añoHasta, motor, inyección, psiMin, psiMax, zona,
+retorno(1/0), locOverride?, nota?]
+Ejemplo real ( lib/catalog.js:77 ):
+['Nissan','Tsuru III',1992,2017,'1.6L L4 16v (GA16DE)','MFI',36,43,'rear_seat',1,null,
+'Con regulador conectado a vacío en ralentí baja ~6 PSI.']
+El propio comentario que acompaña el catálogo es una nota de metodología: "NO edites este
+archivo a mano sin correr npm run verify" ( lib/catalog.js:7-9 ). Es decir, el guard es co-
+responsable del catálogo.
+8.2 Validaciones estáticas del catálogo
+El catálogo se valida por pruebas como un schema más que como datos:
+Forma de cada fila ( catalog.test.js ): número de campos, tipos correctos, marcas
+conocidas, sistema de inyección en el enum ['MFI','TBI','VORTEC_CSFI','GDI'] .
+Rangos de PSI: cada fila tiene psiMin ≤ psiMax y ambos en rangos automotrices razonables.
+El test catalog.test.js:68 valida: "psiMax fuera de todo rango automotriz".
+Duplicados: la regla de unicidad incluye el tipo de inyección, así dos variantes del mismo
+auto (p. ej. Chevrolet|Onix|2020|2024 MFI Turbo y GDI L3) son válidas porque presionan
+distinto ( known-issues.json:49 ).
+Solapes: se detectan y son deuda conocida (ver sección 10).
+Referencia de pilas: catalog.test.js:144 valida que todo vehículo recibe al menos dos
+pilas, con una OEM, y catalog.test.js:162 valida que "a todo full inyección se le ofrecen
+pilas de más de 90 PSI". Es decir: el catálogo es también un contrato comercial.
+El resultado actual se resume en quality/REPORT.md :
+208 vehículos, 33 marcas, 10 pilas.
+Por sistema de inyección: MFI 157 · TBI 1 · VORTEC_CSFI 3 · GDI 47.
+Auditoría FuelTech Master · página 36 de 50
+===== PAGINA 37 =====
+Confidencial — revisión técnica
+104 vehículos (50 %) tienen datos ESTIMADOS y salen marcados con "⚠ ESTIMADO" en la ficha.
+El 50 % de estimados es la honestidad del sistema unravel: "es honestidad con el mecánico, no
+un detalle" ( AGENTS.md:271 ). Si los datos no provienen del manual, va con la marca verified
+= 0 y se publica con la advertencia. Es la heurística 5 de Nielsen (Error Prevention)
+aplicada al dato del producto, no a la UI.
+8.3 Deuda de datos pendiente del dueño
+El catálogo conocido incluye cinco problemas de datos pendientes del dueño del taller
+( quality/known-issues.json ). Detallados en sección 10; el más grave es
+Mitsubishi|L200|2010-2015 , donde dos filas se contradicen en retorno y por tanto generan
+despieces incompatibles para el mismo vehículo. No es deuda del código; es deuda del
+contenido.
+Auditoría FuelTech Master · página 37 de 50
+===== PAGINA 38 =====
+Confidencial — revisión técnica
+9. Frontend sin build step
+El frontend de FuelTech Master es deliberadamente no moderno: no usa Vite, no usa webpack, no
+usa TypeScript. Es React 18 de los binarios UMD (React de bajada) cargados por <script src> ,
+con htm en vez de JSX, y todo el CSS de la app principal inlineado en public/index.html . La
+justificación está en package.json y en comentarios suyos: el frontend se sirve sin build
+step, cada KB es descarga real en el celular del mecánico ( quality/budgets.json:31 ). Esa
+decisión simplifica muchísimas operaciones de despliegue pero introduce riesgos que merecen
+ser documentados.
+9.1 React 18 UMD + htm: trade-offs reales
+Aspecto Ventaja Costo
+Sin Despliegue trivial, sin versión de No hay TypeScript ni verificación
+transpiler Node complexities, sin sourcemaps. estática de tipos. Cualquier refactor
+depende de pruebas y de grep.
+React UMD Una sola descarga de React por todo el Susceptible a errores de type CC:
+global sitio (10,5 KB min + 128,7 KB react- class= es la convención (no
+dom min = ~140 KB), cacheable para className ) porque el equipo elige;
+siempre. htmlFor y maxLength requieren
+atención (registrado en AGENTS.md).
+htm en vez htm.bind(React.createElement) hace No hay type checking sobre templates;
+de JSX de Babel para runtime; html\`...\` los typos en atributos suenan deben
+produce elementos React sin paso de cazarse con pruebas manuales +
+compilación. robots.
+CSS inline No hay FOUC, no hay link CSS El HTML pesa 134,8 KB y está cerca
+gigante bloqueante, no hay waterfall de CSS. del techo (140 KB). Cambios
+visuales.TO línea en index.html
+inflar el presupuesto de index.html,
+no de asset aparte.
+Tres.js Es el único asset cargado como ES Puesto en vendor/three.module.js :
+como module. Permite optimizar y el code- 1,28 MB en disco. Previamente offline
+module splitting libre. o cacheable.
+9.2 Estado en localStorage vs. API
+El proyecto ajusta dos políticas de estado claras y consistentes:
+1. Herramientas de trabajo del momento: inspección, cotizador, agenda, mantenimiento —
+guardan en localStorage y no exigen cuenta. "Pedir registro para una lista de chequeo que
+se usa una vez en la rampa sobra" ( DESIGN.md:215-218 ).
+2. Herramientas con datos del negocio: inventario, órdenes, clientes, notas de entrega,
+notas, caja — van contra la API y exigen cuenta. Llevan la insignia Cuenta en la tarjeta.
+Auditoría FuelTech Master · página 38 de 50
+===== PAGINA 39 =====
+Confidencial — revisión técnica
+La regla está vig запретida por protectedIds en app.js (lista única de herramientas que
+exigen sesión). Su propia falla ya ocurrió: "Registro de Presión" abría y moría en 401 sin
+decir nada, porque su historial vive en /api/diagnostics . Es el costo de desincronía en este
+patrón dual. DESIGN.md:230-235 es claro: "cuando las dos listas se desincronizan el
+resultado no es un aviso sino un fallo mudo".
+9.3 Tamaño de bundle y descarga final
+La descarga total del usuario en una sesión limpia:
+Asset Tamaño Caché
+react.production.min.js 10,5 KB Permanente
+react-dom.production.min.js 128,7 KB Permanente
+htm.js 1,2 KB Permanente
+lucide.js 587,9 KB Permanente
+three.module.js (difere) 1,28 MB Permanente
+OrbitControls.js 31,4 KB Permanente
+GLTFLoader.js 107,7 KB Permanente
+BufferGeometryUtils.js 31,2 KB Permanente
+index.html 134,8 KB HTML (con SSR cache)
+app.js 110,2 KB Permanente (versionado)
+microapps.js 184,5 KB Permanente (versionado)
+three3d.js 35 KB Permanente
+fx.js , sw.js (min) 2,2 KB + 2,2 KB Permanente
+Con cache caliente, una segunda sesión carga solo index.html ~135 KB (con SSR) + JSON. Sin
+cache (primera visita), es ~2,2 MB, dominados por lucide.js (588 KB) y three.module.js (1,28
+MB). Aquí hay opportunity claro:
+lucide.js a 588 KB es el tercer asset más grande después de three.module.
+OPORTUNIDAD
+El proyecto usa Lucide Icons por ; pero hay cuento decenas de iconos finalmente verrugar.
+Reemplazarlo por SVG inline o por el subset de iconos efectivamente usados (p. ej. con
+lucide-static ) reduciría ~500 KB en cache fría. Es una mejora de Web Vitals visible.
+Three.js se carga como module y trae loaders (~1,4 MB total). Es aceptable
+OBSERVACIÓN
+en cache caliente porque carga dife ?v=4 , pero la primera visita paga. Diferir con
+type="module" y preload optimizaría el LCP del d3D (no del hero que es priority loto,
+pero de la página del visor sí).
+Auditoría FuelTech Master · página 39 de 50
+===== PAGINA 40 =====
+Confidencial — revisión técnica
+10. Deuda técnica conocida y
+presupuestos
+Una de las señales más claras de madurez de un proyecto es que publica su deuda en lugar de
+esconderla. FuelTech Master lo hace en cinco archivos JSON/MD en quality/ , todos editables
+solo por criterio, con reglas implacables: "esta lista ONLY puede encoger, máximo 5
+entradas". Cada entrada lleva razon y decidir , y estampado con detectado .
+10.1 : las 5 decisiones pendientes
+known-issues.json
+# Clave Gravedad Decisión pendiente
+1 Renault|Kwid|2019|2024|MFI Dos filas MFI iguales salvo 1.0L L4 vs
+DUPLICADO
+1.0L L3 . El Kwid es tricilíndrico, así que
+la fila "L4" parece error de captura.
+Producen módulos distintos (FTM-REN-xxx
+duplicado) y el buscador devuelve el mismo
+auto dos veces.
+2 Renault|Duster|MFI Dos filas solapadas (2012-2019 y 2013-
+SOLAPE
+2023). Un Duster 2015 devuelve dos fichas.
+Ambas son MFI y todas acaban en 50-60 PSI,
+así que el daño es duplicado, no
+contradicción.
+3 Mitsubishi|L200|MFI 2008-2015 (retorno=0) y 2010-2023
+GRAVE
+(retorno=1) se solapan en 2010-2015 y SE
+CONTRADICEN. Al diferir el retorno, generan
+despieces incompatibles (module_returnless
+vs hanger_return): un L200 2012 muestra dos
+despieces y el mecánico no sabe cuál pedir.
+Es el único maraGRAVE.
+4 Chevrolet|Tracker|GDI 2021-2024 (58-68 PSI) y 2020-2024 (55-72
+SOLAPE
+PSI) se solapan casi por completo y
+declaran presiones distintas para el mismo
+auto. Ambas son estimadas.
+5 AIRTEX E8213 (universal) Está definida en PUMPS (100 PSI, 8 A, 125
+HUÉRFANA
+LPH, turbina de alta) pero ninguna clase de
+CLASS_PUMPS la referencia. Nunca se ofrece
+a ningún vehículo. O se enlaza a MFI_STD
+como alternativa universal, o se borra de
+PUMPS.
+El punto 3 (L200) es el único que tiene impacto operativo inmediato: un mecánico que busque
+un L200 2012 recibirá dos despieces distintos que le dicen cosas opuestas (uno con línea de
+retorno, otro sin). La dependencia visual del 3D acentúa el problema. "Deuda pendiente de
+decisión del dueño del taller" — no es deuda del código. La estructura está preparada para
+Auditoría FuelTech Master · página 40 de 50
+===== PAGINA 41 =====
+Confidencial — revisión técnica
+resolverlo: basta que el dueño confirme en qué año el L200 pasó a sistema con retorno y
+cortar los rangos.
+10.2 y : el trinquete
+budgets.json baseline.json
+El trinquete es la implementación literal de "sólo puede mejorar". baseline.json guarda los
+valores de la última métrica aceptada:
+{
+"fecha": "2026-08-11T14:32:34.306Z",
+"pruebas_total": 407,
+"pruebas_fallidas": 0,
+"duracion_suite_seg": 7.3,
+"guard_violaciones": 0,
+"cobertura_lib_pct": 100,
+"rutas_api": 79,
+"rutas_api_probadas_pct": 100,
+"rutas_api_sin_proteger": 24,
+"deuda_conocida": 5,
+"vehiculos": 208,
+"marcas": 33,
+"vehiculos_sin_verificar_pct": 50,
+"archivos_sobre_presupuesto": 0,
+"max_lineas_archivo": 2691,
+"lineas_de_prueba": 4466,
+"razon_prueba_codigo": 0.47
+}
+El propio comentario de cabecera es modelo (paráfrasis): "subir el presupuesto para que pase
+el build es trampa: averigua por qué se rompió". Es la contracara del "si está roto pero
+conviene, ajusta el umbral" — una costumbre común y el origen silencioso de deuda técnica
+permanente. Aquí no se puede hacer sin registrar la razón.
+Otra métrica valiosa: lineas_de_prueba = 4466 vs líneas de producción estimadas en ~9.500 →
+razón prueba/código ≈ 0,47. Es una razón respetable para cualquier proyecto, pero es notable
+que el comentario del propio REPORT.md lo llame "mejorable": el objetivo declarado es una
+razon de 0,76 años por lo que la cifra del baseline es de 0,47. Es decir, el trinquete exige
+más pruebas con el tiempo, no menos.
+10.3 Límites estructurales (max_lineas_por_archivo =
+3000)
+El archivo actual con más líneas es microapps.js con 2691 (baseline 2026-08-11). El tope del
+guard es 3000. Sin este tope, el archivo seguiría creciendo en silencio. El techo no es un
+capricho estilista: es la señal que el SRP se está rompiendo (35 micro apps en un solo
+archivo es ya mucho). Cuando llegue a 3000, el equipo estará obligado a partirlo en módulos.
+Es una medida activa de Boy Scout Rule aplicada a escala de archivo.
+Auditoría FuelTech Master · página 41 de 50
+===== PAGINA 42 =====
+Confidencial — revisión técnica
+11. Hallazgos consolidados por
+severidad
+Esta sección agrupa todo lo identificado en el reporte por severidad operativa — no por
+popularidad ni por impacto en métrica. Cada línea cita el archivo y línea exactos del código
+fuente.
+11.1 Críticos — bloquean antes de cualquier nueva release
+1
+C1 · Bloqueo síncrono del event loop en auth
+Dónde: server-pg.js:1635-1647 ( hashPassword ) y server-pg.js:1640-1650
+( verifyPassword ); ambos usan crypto.scryptSync .
+Evidencia: quality/ROBOTS.md:24-28 — 8 altas concurrente paró el bucle 818,5 ms;
+consulta de catálogo llegó a 668,6 ms durante alta.
+Impacto: denegación de servicio accidental, INP degrado, p95 de cualquier endpoint se
+dispara durante alta de usuario. Con tráfico pagado o AdSense podría representar lead
+loss.
+Recomendación: crypto.scryptSync → crypto.scrypt (async). Cambio de una sola línea + 2
+await. Mantiene parámetros N=16384/r=8/p=1. Prioridad inmediata.
+11.2 Altos — resolver antes del próximo milestone
+3
+A1 · Listados de clientes y de inventario sin tope
+Dónde: GET /api/clients y GET /api/inventory en server-pg.js (asignados con
+requireWorkshop ).
+Evidencia: quality/ROBOTS.md:30-33 — ambos devuelven 800 filas existentes sin LIMIT. El
+propio robot carga lo marca. El reporte dice "devuelve 800 de 800 filas → SIN TOPE
+detectado".
+Impacto: latencia y memoria ofrecidas para fleets grandes; degrada Web Vitals en
+tenantes con miles de clientes; consume datos móviles innecesarios.
+Recomendación: añadir LIMIT 50 + paginación cursor o limit+offset igual que el resto de
+endpoints (notas, caja, documentos) que ya tienen topes (ver quality/ROBOTS.md:92-97
+para los exemplos que sí tienen).
+Auditoría FuelTech Master · página 42 de 50
+===== PAGINA 43 =====
+Confidencial — revisión técnica
+A2 · 404 de Express en inglés para rutas inexistentes
+Dónde: router de Express sin catch-all propio en server-pg.js .
+Evidencia: quality/ROBOTS.md:44-45 — /vehiculo/no-existe-jamas , /guia/inventada ,
+/vehiculo/ <script>alert(1)</script> devuelven la página 404 por defecto de Express en
+inglés y sin navegación.
+Impacto: UX rota (heurística 9 de Nielsen + consistencia de marca) y superficie leve de
+seguridad (reflejo del input en el HTML, aunque escapa bien el body). Heurística 4
+(Consistency) dañada.
+Recomendación: añadir un handler app.use((req,res) => res.status(404).send(renderShell({
+title: 'Página no encontrada', ... })) antes del handler por defecto de Express.
+Documenta en marca, en español, navegación visible.
+A3 · Solapes de catálogo GRAVE (Mitsubishi L200 2010-2015)
+Dónde: lib/catalog.js , fila Mitsubishi L200 (2008-2015 vs 2010-2023) con contradictoria
+retorno .
+Evidencia: quality/known-issues.json:28-32 , marcado como GRAVE.
+Impacto: un mecánico que busque un L200 2012 recibe dos despieces incompatibles y no
+sabe cuál pedir. Es/deuda del contenido, no del código; el dueño del taller decide.
+Recomendación: pedir confirmación al dueño del taller; recortar los rangos según el año
+de cambio de sistema. El propio producto ya pide esta decisión hace 2 días (detado 2026-
+08-11).
+11.3 Medios — resolver a medio plazo
+5
+M1 · public/index.html 物接近 el techo de presupuesto (134,8 KB / 140 KB). El <style>
+inline crece cada vez que se añade una micro app. Recomendación: extraer style.css
+cacheable; usar ?v=N sobre el link.
+M2 · lucide.js (588 KB) como tercer asset más grande sobre descarga inicial. La app usa
+decenas de iconos, no los 1.500+ del catálogo Lucide. Recomendación: lucide-static o SVG
+inline de los efectivamente usados.
+M3 · microapps.js (2691 líneas, tope 3000) va a chocar con el guard. Recomendación:
+partir en módulos (uno por micro app) y cargar via evento cuando la app es visitada
+( resolveComponent o fetch+eval cacheado). Reduce la descarga inicial.
+M4 · Títulos SEO rozando 60 chars. quality/ROBOTS.md:40-43 reporta 15 rutas con título de
+72 chars — dentro del límite técnico pero rozando truncamiento en móvil. Recomendación:
+plantilla de títulos más corta para fichas de vehículo (p. ej. "Presión {brand} {model}
+{yrs}: {psi} PSI | FuelTech").
+M5 · protectedIds como lista literal en app.js . Tener dos listas sincronizadas (literal
+JS en app.js + need: true en microapps.js) es una deuda declarada: si se desincronizan,
+"Registro de Presión" se rompe en mudo. Recomendación: generar la lista de protectedIds
+leyendo de microapps (introspección), o via layout del config-export de cada herramienta.
+M6 · server-pg.js (2439 líneas) rompe el SRP. Cada secciónSSR/CSP/Gemini/admin/metrics es
+probada por separado pero el archivo seguirá creciendo. Recomendación: partir en server-
+pg.js + lib/routes/*.js con express.Router .
+Auditoría FuelTech Master · página 43 de 50
+===== PAGINA 44 =====
+Confidencial — revisión técnica
+M7 · No se aplicó npm audit en el pipeline. No saber vulnerabilidades de dependencias es
+una brecha de A06. Recomendación: añadir a scripts/qa.js una llamada a npm audit --
+omit=dev --audit-level=high , fallar en severos.
+11.4 Bajos — buenos de notar, sin prisa
+7
+B1 · El scrub del hero ignora prefers-reduced-motion y el ahorro de datos
+( DESIGN.md:141-147 ). Es decisión deliberada de producto, pero tiene costo: quien pida
+movimiento reducido lo recibe igual. Ruta abierta: opt-in si el usuario lo cierra.
+B2 · Algunos botones de icono usan title= en vez de aria-label= . Funciona para muchos
+lectores, pero WCAG prefiere aria-label directamente asociado al botón.
+B3 · icon.svg en el favicon no tiene role="img" ni aria-label . Mínimo; el favicon es
+decorativo.
+B4 · "Volver" genérico del MicroShell no recuerda la herramienta anterior. Es una minucia
+de Recognition vs. Recall; registra en roadmap bajo "ux-polish".
+B5 · state-keeping de ft_quote vía localStorage compartida. Es un contrato informal entre
+"Tiempos de Mano de Obra" y el cotizador. Falta un test que valide la persistencia del
+contrato.
+B6 · No hay WCAG AAA declarado, ni statement of accessibility , ni 馆长i对比 forced. Es
+opcional; sería útil como reclamación de marca.
+B7 · No hay audit log estructurado. morgan está activo, pero eventos de seguridad (login
+fallido, login OK, alta de taller, etc.) no se guardan en base. Es A09 flaco.
+Auditoría FuelTech Master · página 44 de 50
+===== PAGINA 45 =====
+Confidencial — revisión técnica
+12. Recomendaciones priorizadas
+(roadmap)
+El roadmap resume los hallazgos en acciones de corto/medio/largo plazo, con estimación de
+esfuerzo y de riesgo. Cada acción es definible e independiente: no requiere rediseño del
+sistema, sino que elimina una (o varias) clases de deuda identificada. La prioridad sigue el
+patrón ICE (Impacto / Confianza / Esfuerzo) simplificado.
+12.1 Corto plazo (1-2 semanas) — "debería estar antes de
+la próxima promoción"
+# Acción Tipo Esfuerzo Borra
+hallazgo(s)
+1 Cambiar crypto.scryptSync por Seguridad / XS (30 C1 + parte
+crypto.scrypt (async) en hashPassword y Rendimiento min) de M5/M6
+verifyPassword . Envollos en Promise . 2
+await + una línea en cada handler async de
+auth.
+2 Añadir LIMIT y paginación a /api/clients y API / UX S (2 h) A1
+/api/inventory . Mismo patrón que notas/caja
+(que ya tienen topes). Test existe en
+contract.test.js:108 : seguir el patrón "el
+límite de página tiene tope".
+3 Handler 404 propio en español antes del UX / Nielsen S (1 h) A2
+default de Express. Reutilizar renderShell() H9
+para mantener marca + navegación.
+4 Plantar el handler en Charm of catch-all en Test S (sync cierra la
+server-pg.js: que el robot recorrido valide con #3) evidencia de
+23 + N URLs con 404 local. A2
+5 Acortar <title> de fichas de vehículo: SEO XS (20 M4
+cambiar la plantilla de server-pg.js:362 a min)
+algo del tipo "{brand} {model}: presión {psi}
+PSI | FuelTech". Meta description + JSON-LD
+también.
+Auditoría FuelTech Master · página 45 de 50
+===== PAGINA 46 =====
+Confidencial — revisión técnica
+12.2 Medio plazo (1-2 meses) — "el equipo decide cuándo,
+no si"
+# Acción Tipo Esfuerzo Borra
+hallazgo(s)
+6 Extraer public/style.css cacheable desde el Frontend M (2 M1, M6
+inline actual y reducir index.html de 135 KB días)
+a ~30 KB. Pasa presupuesto y desprende HTML
+del skin.
+7 Reemplazar lucide.js (588 KB) por lucide- Frontend / M (1 M2
+static o SVG inline de los iconos usados. LCP día)
+Reducción masiva de KB cache fría.
+8 Partir server-pg.js en lib/routes/*.js con Arquitectura M (3 M6
+express.Router : auth.js , catalog.js , / SRP días)
+admin.js , workshop.js , documents.js ,
+diagnostics.js , chat.js . Mantener
+createApp como composición.
+9 Sustituir protectedIds literal por Contrato S (1 M5, B5
+introspección de microapps.js (o por un día)
+export meta propio de cada herramienta) —
+elimina la desincronía.
+10 Resolver las 5 known-issues.json con el Catálogo S con A3 + cierre
+dueño del taller: (a) eliminar Renault Kwid dueño de deuda
+L4, (b) recortar Duster 2020-2023, (c)
+confirmar año L200 paso a retorno, (d)
+fusionar Tracker 2020-2024, (e) enlazar o
+borrar AIRTEX E8213. Cada una borra una
+entrada del JSON.
+11 Añadir npm audit --omit=dev --audit- Seguridad XS (1 h) M7
+level=high a scripts/qa.js ; fallar en A06
+severos.
+12 Añadir tabla audit_log + registro de eventos Seguridad M (2 B7
+de seguridad (login, alta, baja, sesiones A09 días)
+invalidadas, altas de admin). Logging
+estructurado.
+13 Test que valide la persistencia del contrato Contrato XS (1 h) B5
+ft_quote entre "Tiempos de Mano de Obra" y
+cotizador. Evitar ruptura silenciosa.
+Auditoría FuelTech Master · página 46 de 50
+===== PAGINA 47 =====
+Confidencial — revisión técnica
+12.3 Estratégico (3-6 meses) — "para crecer sin pagar
+Auditoría FuelTech Master · página 47 de 50
+===== PAGINA 48 =====
+Confidencial — revisión técnica
+deuda"
+# Acción Tipo Esfuerzo Borra
+hallazgo(s)
+14 Partir microapps.js (2691 / 3000 líneas) en Arquitectura L (1-2 M3, M1, M2
+módulos por micro app y cargarlos por fetch- / Web Vitals semanas)
+cacheado cuando la herramienta es visitada.
+Cada micro-app < 300 líneas. Reduce descarga
+inicial: el mecánico que noopcea inventario
+no baja el código de inventario.
+15 Adoptar TypeScript limitado: aunque el Código / DX L (4-8 DX mejora al
+principio "sin build step" se rompa semanas) refactor
+parcialmente, se puede escribir TS en lib/
+y hacerlo pasar por un target tsc ESM sin
+transpiler para el código de servidor. Sin
+transpile para el frontend. Cambia 0 del
+runtime.
+16 Adoptar una librería de sesión estándar Seguridad A04 M (3 A04 partial →
+(iron-session, jose o similar portable días) cumple
+compatible con Node). Reemplaza el código
+cripto propio de admin. Mantiene el esquema
+de cookie.
+17 Migrar tests a node --test con cobertura Test M (2 DX +
+real (no sólo lib/ ) usando c8 . El proyecto días) seguridad
+ya usa node --test ; c8 es compatible.
+Waitsir resultados en quality/REPORT.md .
+18 Comprobar WCAG 2.2 AAA y prefers-contrast : Accesibilidad M (4 B6, B2, B3
+el robot interfaz ya verifica AA. Extender / Marca días)
+a AAA y añadir modos de contraste forzado.
+Publica un ACCESSIBILITY.md , declarando
+conformidad.
+19 Hacer el scrub de hero a preferencias del UX / S (1 B1
+usuario: si la prefers-reduced-motion está Accesibilidad día)
+puesta, reducir tramo a 0 (video estático con
+frame elegido por JS); si el usuario activó
+ahorro de datos, no cargar el
+.
+Es dar marcha atrás a la decisión deliberada
+de producto — ahora reversible.
+Auditoría FuelTech Master · página 48 de 50
+===== PAGINA 49 =====
+Confidencial — revisión técnica
+# Acción Tipo Esfuerzo Borra
+hallazgo(s)
+20 Crear AGENTS.md de infraestructura separado Operaciones S (2 DX +
+con claves por entorno y playbooks: un "ops" días) incidenteResp
+clear-current. Extendido con la llegada del
+audit log (#12). Ayuda a la respuesta a
+incidentes.
+12.4 Lo que NO hay que tocar
+El proyecto tiene decisiones deliberadas que no deben cambiarse aunque un auditor "normal" lo
+solicitaría. Respetarlas es tanto parte del proceso de auditoría como las recomendaciones:
+lib/domain.js debe seguir puro: sin require('./db') , sin process.env , sin
+console.log . El guard lo defiende. Tocar esto rompe el tiempo de prueba (ltima de 1 ms) y
+el compromiso de cobertura 100 %.
+El vocabulario del taller: "pila", "módulo", "riel/flauta", "banco", "familia Yaris". No
+se "moderniza" con jerga académica. El usuario objetivo lo necesita así.
+verified = 0 por defecto: no se inventan datos técnicos sin fuente. Es la honestidad con
+el mecánico.
+El trinquete y el máximo 5 en known-issues.json : el techo obliga a resolver antes de
+agregar. Subir el tope es hacer trampa.
+El handler async envuelto ( const envolver ): Express 4 lo necesita. Migrar a Express 5
+(que captura promesas rechazadas automáticamente) es válido, pero hasta entonces el
+envoltorio es lo que evita peticiones colgadas.
+El payload del db.run(sql, [params]) en array: el guard lo defiende, y los bugs ocurrido
+dee dañar toy.
+Sin ORM: cada handler escribe el SQL exacto que necesita. Un ORM oculta el dialecto y
+desplaza los problemas al adaptador del ORM, no del motor.
+Sin build step en producción: es el presupuesto de tamaño y la velocidad de despliegue.
+TypeScript en lib/ es compatible (ver #15) siempre que el target sea ESM sin transpiler.
+Cierre
+FuelTech Master es un proyecto que aplica principios de Clean Code, SOLID, WCAG, Nielsen
+y OWASP no por cumplir normas, sino porque son la forma correcta de defender el trabajo
+real de un taller de bombas de gasolina. La deuda que tiene está visible y acotada, las
+pruebas la cubren y los robots la miden. La única acción urgente es sustituir
+scryptSync por scrypt ; las demás son mejoras de escala y DX. El campo de campamento
+está más limpio de lo que lo encontramos; este reporte es agradecerlo y ayudar a la
+siguiente revisión.
+12.5 Referencias externas citadas en el reporte
+Jakob Nielsen. "10 Usability Heuristics for User Interface Design". Nielsen Norman Group, 24
+abril 1994; última revisión 30 enero 2024. https://www.nngroup.com/articles/ten-usability-
+heuristics/
+Auditoría FuelTech Master · página 49 de 50
+===== PAGINA 50 =====
+Confidencial — revisión técnica
+W3C Web Accessibility Initiative (WAI). "How to Meet WCAG (Quick Reference)". WCAG 2.2, W3C
+Recommendation 5 oct 2023. https://www.w3.org/WAI/WCAG22/quickref/
+OWASP Foundation. "OWASP Top 10:2021". Open Worldwide Application Security Project, 2021.
+https://owasp.org/Top10/
+Robert C. Martin. Clean Code: A Handbook of Agile Software Craftsmanship. Prentice Hall, 2008.
+ISBN 978-0-13-235088-4.
+Robert C. Martin. Clean Architecture: A Craftsman's Guide to Software Structure and Design.
+Pearson, 2018. ISBN 978-0-13-449416-6.
+Robert C. Martin. "Design Principles and Design Patterns". ObjectMentor, 2000 (paper original
+SOLID); Michael Feathers acuña el acrónimo SOLID hacia 2004. https://wikipedia.org/wiki/SOLID
+Google Chrome team. "Core Web Vitals" (LCP, INP — reemplaza FID desde 2024 —, CLS).
+https://web.dev/vitals/
+Web.dev. "Image hero patterns" y "video preload + autoplay patterns".
+https://web.dev/articles/hero
+Mozilla Developer Network. crypto.scrypt (asincronía) y crypto.scryptSync.
+https://developer.mozilla.org/en-US/docs/Web/API/Node_crypto/scrypt
+express-rate-limit docs. Shared trust proxy y clamps de DB. https://express-rate-limit.morgan
+artistas/
+Google Search Central. "Data Analytics JSON-LD", y FAQ, Product y AutoRepair schemas.
+https://developers.google.com/search/docs/appearance/structured-data/search-gallery
+El análisis del código fuente se hizo sobre el estado del repositorio tal como se descargó (timestamp
+de baseline.json: 2026-08-11T14:32:34Z ). Las afirmaciones sobre líneas de código citan
+archivo.ext:línea con base en la versión analizada.
+Auditoría FuelTech Master · página 50 de 50

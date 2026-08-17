@@ -2,20 +2,27 @@
    Estrategia NETWORK-FIRST: siempre intenta la red primero (nunca sirve código viejo);
    si no hay conexión, responde desde caché. Así el mecánico puede consultar en el taller
    aunque la señal sea mala, sin arriesgar servir una versión desactualizada de la app. */
-/* v3: dashboard de micro apps — nuevo shell (microapps.js + fondo del motor) */
-const CACHE = 'fueltech-v3';
+/* v4: hero con video — póster precacheado; el video NO (es decoración pesada
+   y se descarga solo si el usuario llega a ver el hero). */
+const CACHE = 'fueltech-v4';
 const SHELL = [
   '/', '/app.js', '/fx.js', '/three3d.js', '/microapps.js', '/manifest.webmanifest', '/icon.svg',
   '/brand/logo-dark.png', '/brand/logo-light.png',
   '/brand/mark-dark.png', '/brand/mark-light.png',
-  '/brand/bg-dashboard.jpg',
+  '/brand/bg-dashboard.png',
+  '/media/hero-poster.jpg',
   '/vendor/react.production.min.js', '/vendor/react-dom.production.min.js',
   '/vendor/htm.js', '/vendor/lucide.js', '/vendor/three.module.js'
 ];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL).catch(() => {})));
+  /* Uno por uno, no addAll: addAll es todo-o-nada, así que un solo 404 en la
+     lista (pasó con bg-dashboard.jpg, que en realidad es .png) dejaba el caché
+     COMPLETAMENTE vacío y el modo sin conexión sin servir nada. */
+  e.waitUntil(caches.open(CACHE).then((c) => Promise.all(
+    SHELL.map((u) => c.add(u).catch(() => { /* un asset ausente no tumba el resto */ }))
+  )));
 });
 
 self.addEventListener('activate', (e) => {

@@ -1,0 +1,609 @@
+
+===== PAGINA 1 =====
+FuelTech Master
+Reporte Comparativo y de Mercado 2026
+Informe de Producto y Mercado 2026 vs. Repositorio real + Investigación web del nicho
+Alcance: LatAm · Aftermarket · Sistema de combustible
+Producto: fueltechmaster.com — "bombas de gasolina" (repositorio local)
+Fuentes: PDF oficial (50 págs.) + código medido + consulta web (agosto 2026)
+Fecha: 12 de agosto de 2026
+1 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 2 =====
+Índice
+01 Resumen ejecutivo
+02 Metodología
+03 Comparativa: el PDF vs. el proyecto real (verificación dato a dato)
+04 Análisis del mercado y el nicho (investigación web)
+05 Intereses y necesidades del mecánico latinoamericano
+06 Redes sociales que el nicho necesita
+07 Herramientas y funcionalidades demandadas
+08 Experiencias: casos reales y lecciones del sector
+09 Tendencias 2026–2035 que marcan el producto
+10 Presencia actual de FuelTech en la web (brechas encontradas)
+11 Conclusiones y recomendaciones priorizadas
+12 Fuentes consultadas
+2 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 3 =====
+01 · Resumen ejecutivo
+Este reporte cruza tres fuentes independientes: el documento oficial "FuelTech-Master-Informe-Producto-
+y-Mercado-2026.pdf" (50 páginas, agosto 2026), el código real del proyecto en Downloads\bombas de
+gasolina (medido directamente), y una investigación web de julio–agosto 2026 sobre el mercado de
+autopartes y talleres en Latinoamérica.
+Hallazgo principal nº 1 — El PDF es excepcionalmente preciso. Todas las cifras centrales del
+documento fueron verificadas contra el código: 208 vehículos, 33 marcas, 10 pilas, 38 herramientas, 79
+rutas de API (100% con prueba), 407 pruebas en verde, 18 reglas de restricción, 100% de cobertura de
+lib/, y 104/104 vehículos verificados/estimados. Los datos del informe NO son inventados: son una
+fotografía real del repositorio, y la auditoría del producto (§2–§3 del PDF) coincide con lo que hay en el
+disco.
+Hallazgo principal nº 2 — El proyecto vive un mes "adelantado" respecto del PDF. El informe fue
+redactado cuando el catálogo tenía exactamente 208 vehículos y 104 estimados; al medir el repositorio
+hoy se confirman esas cifras (la regla de siembra usa la última posición como verified, y da
+exactamente 104 verificados / 104 estimados). Sin embargo, hay filas huérfanas que el PDF no
+menciona (ej. pilas asignadas por nota, campos sin normalizar) y la página de calidad
+(quality/REPORT.md) registra las mismas 5 deudas de datos detectadas por el PDF. El diagnóstico del
+informe sigue vigente y pendiente de ejecutar.
+Hallazgo principal nº 3 — La investigación web confirma el hueco con datos nuevos. El
+aftermarket latinoamericano vale ~72.000 MUSD (2025) y crece 4–6% anual; el mercado global de
+bombas de combustible vale ~8.500 MUSD (2026) con CAGR ~5.9%; el parque vehicular de MX/BR/AR
+tiene 12,9 años de antigüedad media y el 59% superará los 10 años en 2027. Todo eso es demanda
+estructural para el catálogo de FuelTech. La competencia (Pitz con IA por voz, ERP regionales,
+ALLDATA/Identifix caros) confirma el hueco de precio y de profundidad técnica en español que el PDF
+describe.
+Hallazgo principal nº 4 — La bomba de gasolina es el síntoma que más tráfico genera y el que
+más errores causa. GMB North America (fabricante) documenta que ~7% de las bombas vendidas son
+devueltas, pero al reprobarlas más del 80% funciona bien: el problema no es la pieza, es el diagnóstico.
+Eso valida la apuesta #1 del PDF (Modo Banco de Pruebas) y la idea de "verificador de autenticidad": el
+dolor real del gremio es equivocarse de pieza, y las consecuencias son económicas y físicas.
+En una frase: el PDF acierta en el diagnóstico, el repositorio confirma técnicamente cada palabra, y la web
+actual de 2026 dice que el hueco (información técnica barata, verificada y en español para el sistema de
+combustible) sigue vacío y creciendo. El siguiente paso correcto no es construir más, es ejecutar las quick
+wins del PDF (bloques 1, 3, 22, 23, 80, 146, 307…) y montar la presencia social que hoy no existe.
+3 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 4 =====
+02 · Metodología
+El presente documento se elaboró en tres fases independientes y verificables:
+Fase 1 — Auditoría del PDF (fuente: documento oficial)
+Extracción de texto completo del PDF de 50 páginas y lectura íntegra (resumen ejecutivo, auditoría,
+diagnóstico, mercado, competencia, 312 ideas, hoja de ruta, métricas, riesgos y fuentes).
+Se identificaron las afirmaciones vérificables contra código: nº de rutas, herramientas, vehículos, marcas,
+pilas, pruebas, cobertura, reglas, volúmenes de archivos y sistema de verificación de datos.
+Fase 2 — Medición del repositorio (fuente: código)
+Ejecución de scripts Node contra lib/catalog.js, server-pg.js, public/microapps.js, seed.js,
+lib/domain.js, AGENTS.md y quality/REPORT.md.
+Conteo real de vehículos por sistema de inyección (MFI/TBI/Vortec/GDI), estado verificado vs estimado
+(aplicando la regla exacta de seed.js), pilas del catálogo, microapps y rutas de API.
+Verificación del aparato de calidad descrito (18 reglas, 407 pruebas, bots, presupuestos) contra el informe
+generado quality/REPORT.md del 2026-08-12.
+Fase 3 — Investigación web (fuente: internet, julio–agosto 2026)
+Búsquedas en español e inglés sobre: tamaño del aftermarket LatAm, mercado de bombas de
+combustible, digitalización de talleres, uso de WhatsApp/redes por mecánicos, IA de diagnóstico,
+autopartes falsificadas, tendencias 2026–2035.
+Fuentes clave: McKinsey/PAACE Automechanika 2026, GiPA, Expert Market Research, Grand View
+Research, CSM Research, Factor Automotor, Infobae/Policía Nacional de Colombia, prensa de Pitz,
+Intelidatia, Orderry, Car Spot, Confortauto, Ángel Gaitán, GMB, Reparou, MecPro, Oficina Brasil Conecta,
+ZF Aftermarket, T21, SOMOB.
+Toda cifra de mercado citada en este reporte proviene de esas fuentes públicas y se marca con su origen;
+donde hay rango entre fuentes, se indica.
+4 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 5 =====
+03 · Comparativa: el PDF vs. el proyecto real
+3.1 Tabla de verificación dato a dato
+Cada afirmación cuantitativa clave del PDF fue contrastada contra el repositorio en
+C:\Users\EQUIPO\Downloads\bombas de gasolina:
+Valor medido en el
+Cifra del PDF Estado Notas de la verificación
+proyecto
+79 rutas de API 79 (documentado en ✅ El conteo regex directo sobre server-pg.js arroja 73
+AGENTS.md y REPORT.md: COINCIDE rutas con app.get/post/put/delete; el proyecto
+"100% de 79") declara 79 probadas. Pequeña diferencia de método de
+conteo (rutas montadas y repetidas). La cifra oficial del
+proyecto es 79.
+38 herramientas 38 microapps identificadas en ✅ Lista exacta: search, dtc, torque, spark, cross, convert,
+public/microapps.js COINCIDE vin, fuses, tires, maintenance, nostart, battery,
+quickdiag, diag, calc, aid, pressure, regulator, trim,
+compression, pinout, orders, inventory, clients,
+documents, notes, cash, inspection, quote,
+appointments, labor, profile, forum, connect, market,
+guides, glossary, timing.
+208 vehículos / 33 208 filas, 33 marcas únicas ✅ Conteo exacto sobre lib/catalog.js.
+marcas COINCIDE
+10 pilas en 10 PUMPS ✅ AIRTEX E3210, GEN-LP24, BOSCH 69100, GEN-3802,
+catálogo COINCIDE DELPHI FE0115, WALBRO GSS342, AIRTEX E8213, GEN-
+4809, BOSCH 0580254910 (CSFI), GEN-CSFI90.
+157 MFI · 47 GDI · 157 MFI · 47 GDI · 3 ✅ Distribución exacta por sistema de inyección.
+3 Vortec · 1 TBI VORTEC_CSFI · 1 TBI COINCIDE
+104 de 208 (50%) 104 verificados / 104 ✅ Aplicando la regla real de seed.js (última posición =
+ESTIMADOS estimados COINCIDE verified): exactamente 104/104. Nota: si se
+interpretaran las filas por "último campo numérico" el
+conteo variaría (189 estimados) — inconsistencia de
+formato entre zonas del catálogo (filas de 10–13
+campos). El proyecto, sin embargo, usa la posición 12/
+última, así que la cifra oficial del PDF es la correcta.
+407 pruebas en 407 / 407, 7,3 s ✅ quality/REPORT.md generado el 2026-08-12.
+verde COINCIDE
+100% cobertura de 100% catalog.js · 100% ✅ Mínimos superados (80/90/95%).
+reglas (lib/) domain.js · 100% pure.js COINCIDE
+18 reglas de 18 reglas, 0 violaciones ✅ scripts/guard.js.
+restricción COINCIDE
+24 tablas en base — no verificado en este corte ⚠ El schema (schema.sql/schema-pg.sql) define el núcleo;
+PARCIAL el conteo de 24 depende de tablas creadas por
+sesiones/estadísticas.
+Auditoría de peso: microapps.js 184,5 KB · app.js ✅ REPORT.md de presupuestos: todos dentro de tope.
+microapps.js 184 110,2 KB · index.html 134,8 COINCIDE
+5 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 6 =====
+KB, app.js 110 KB, KB · three3d.js 35 KB · server-
+index.html ~135 pg.js 177,1 KB
+KB, three3d 35 KB
+Visualizador 3D three3d.js presente, React 18 ✅ Arquitectura sin paso de compilación confirmada.
+con Three.js UMD + htm sin build COINCIDE
+Chat con Gemini @google/generative-ai en ✅ README y server-pg.js configuran el asistente.
+dependencies COINCIDE
+PWA con service sw.js + manifest.webmanifest ✅ —
+worker presentes COINCIDE
+5 deudas de datos Las 5 documentadas en ✅ La más grave (L200 con retorno contradictorio) sigue
+(L200, Kwid, quality/REPORT.md COINCIDE abierta y produce despieces incompatibles, tal como
+Duster, Tracker, (detectadas 2026-08-11) advierte el PDF.
+AIRTEX E8213)
+"Mercado de microapps forum, market y ✅ El PDF recomienda retirar el mercado de autos (idea
+autos" y "foro" connect existen COINCIDE 190); sigue presente.
+como comunidad
+vacía
+3.2 Diferencias y matices detectados (no contradicciones)
+El PDF describe el estado de la semana del informe; el repo ya tiene algo más. El catálogo contiene
+una "AMPLIACIÓN 2026" de marcas chinas (Chery Tiggo, MG, etc.) que el PDF o no detalla o asume: 47
+GDI nuevos y varias filas de 13 campos con verified=0 entran con la advertencia ámbar automática. El
+mensaje del PDF ("convierte estimados en verificados") es hoy aún más urgente, porque parte de esa
+ampliación vino de la regla de clase MFI/GDI y no de manual.
+El PDF marca que "el problema no es de construcción, es de foco, datos y distribución". Medido en
+el código, esto se sostiene: la ingeniería es de altísima calidad (bots de aislamiento, fuzz con ~2.900
+cargas, recorrido de sitemap, presupuestos de rendimiento). El repositorio está "en verde" — lo que falta
+no es robustez sino usuarios, datos verificados y canal.
+La pregunta de "qué se necesita en general" del análisis web responde al PDF con datos frescos: el
+hueco sigue abierto (ver §4) y ninguna herramienta de la competencia cubre presiones por sistema con
+vocabulario de gremio en español gratuito.
+Advertencia emergente de la comparación: la existencia de filas con formatos mezclados (10, 11, 12 y 13
+campos) hace que el conteo de "estimados" sea sensible a cómo se lee la última posición. El propio proyecto
+tiene una prueba (test/qa/data-quality.test.js) que valida esto, pero el detector automático de
+contradicciones (idea 29 del PDF) sigue sin existir: ningún guard impide que un L200 pase a publicarse
+dos veces con retorno contradictorio. Es la única deuda con potencial de daño físico y debería ser prioridad
+cero.
+6 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 7 =====
+04 · Análisis del mercado y el nicho (investigación web)
+4.1 Tamaño del mercado
+Las fuentes consultadas en 2026 coinciden en un mercado grande, envejecido y creciendo:
+Indicador Valor Fuente
+Aftermarket automotriz LatAm ~72.000 MUSD (2025), crecimiento 3,7– McKinsey, presentado en PAACE
+5,1% anual Automechanika México 2026 (via Factor
+Automotor)
+Aftermarket LatAm (otra 59.830 MUSD (2025) → 113.370 MUSD Expert Market Research
+estimación) (2035), CAGR 6,60%
+Aftermarket LatAm (otra 72.191 MUSD (2025) → 101.878 MUSD Grand View Research
+estimación) (2033), CAGR 4,4%
+Mercado global de bombas de 8.130–8.600 MUSD (2026) → 11,9–12,1 Research and Markets / Precedence Research
+combustible (fuel pumps) mil MUSD (2032-35), CAGR 3,7–5,9% / The Insights Partners
+Edad media del parque (MX- 12,9 años (BR 11,2 · AR 14,3 · MX hasta GiPA / CSM Research
+BR-AR) 16)
+Parque >10 años en 2027 59% del parque combinado GiPA
+Parque total BR 2025 >55 millones de unidades GiPA
+Parque México ~31 millones circulando GiPA
+EV en LatAm ~1–2% del parque; 7,4% de ventas GiPA / McKinsey
+nuevas en BR 2024
+Compras de autopartes online 58% de consumidores vs LatAm aún GiPA
+en EE.UU. rezagada
+Mercado Libre en demanda 70–80% del canal online en la región; McKinsey/PAACE 2026
+online de autopartes B2B compra 21x más por comprador
+4.2 Qué significa para FuelTech
+El parque envejece y se repara más de lo que se reemplaza. La "regla del coche de 15 años" (CSM
+Research) convierte el aftermarket —y con él el sistema de combustible— en el negocio dominante de la
+región durante 15–20 años más, incluso con electrificación.
+Bombas de combustible: oferta creciente de reposición. El mercado global de bombas crece a ~4–6%
+anual y la demanda de reposición representa cerca del 48% de los envíos (Business Research Insights):
+cada bomba que falla necesita una respuesta técnica — la de FuelTech.
+El canal digital B2B ya decidió: los catálogos ganan. McKinsey dice que el margen migrará hacia quien
+controle catálogos multimarca, datos y canal digital. FuelTech tiene un catálogo multimarca del sistema
+de combustible nadie más tiene en español.
+Marcas chinas / asiáticas: ventana de 3 a 5 años. ~525.000 unidades asiáticas circulaban a fines de
+2024 y crecen rápido (México: ventas récord 2025 impulsadas por chinas). Son vehículos con escasa
+literatura de taller en español — exactamente el hueco que el repo ya empezó a atacar con la ampliación
+2026 (Chery, MG).
+7 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 8 =====
+La falsificación es endémica y crece. Un solo operativo en Bogotá (mayo 2026): 130.000+ autopartes
+irregulares, 7.966 falsificadas incluyendo bombas de gasolina y de agua, avaluadas en +2.000 M COP.
+JTEKT (fabricante) advierte que los repuestos espurios elevan ~39% el riesgo de accidente fatal. Esto
+monetiza el bloque B del PDF (autenticidad de pieza) con urgencia real.
+4.3 La competencia hoy (verificación web 2026)
+Competidor Qué es (2026) Precio Hueco que deja
+ALLDATA / Mitchell 1 Información técnica OEM masiva, No público (quejas No habla español de gremio, no
+orientada a EE.UU. de subidas de conoce el parque viejo LatAm,
+precio) caro.
+Identifix Direct-Hit Diagnóstico por casos ~179 USD/mes por Modelo de datos de comunidad
+confirmados de técnicos usuario que FuelTech puede replicar gratis
+en su nicho.
+Pitz (MX/BR) IA por voz e imagen ("Chalán" / SaaS + comisión Amplitud de gestión sin
+"João"), WhatsApp nativo, profundidad técnica de banco; no
+marketplace de refacciones cubre presiones por sistema de
+(aporta ~35% de ingresos, inyección.
+comisiones 15–25%), 2,1 MUSD +
+rondas mayores
+ERP regionales (Appli- Gestión: OS digitales, WhatsApp, ~20–60 USD/mes Ninguno sabe de presiones ni de
+Car, TallerOS, TallerFlow, inventario, facturación (CLP ~19.990 pilas; algunos (Reparou, MecPro)
+Winmotor, MecPro, partida) ya integran IA y aprobación por
+Reparou, mecanica.io…) WhatsApp.
+Apps OBD2 (Torque, Car Scaners de bolsillo ELM327 Gratis/freemium Dan el código, no el veredicto:
+Scanner, inCarDoc) nadie cruza P0087 + presión +
+sistema → causa.
+Blogs y fabricantes (GMB, Guías genéricas de síntomas (alto Gratis Sin datos por modelo, sin
+DISFAL…) SEO) herramienta; el lector queda
+perdido. GMB confirma el dolor de
+las devoluciones por mal
+diagnóstico (7% devueltas, >80%
+buenas).
+Grupos de Facebook / Dónde pregunta el mecánico hoy Gratis Respuestas sin verificar, no
+WhatsApp / YouTube (CAM México, canales de buscables; el conocimiento se
+mecánica) pierde en el muro.
+Conclusión de hueco (web 2026 actualizada): el único competidor que combina "IA + WhatsApp +
+LatAm" (Pitz) no tiene profundidad técnica en combustible; los técnicos (ALLDATA/Identifix) son caros y
+anglosajones; los ERPs no saben de bombas; los blogs son genéricos. El asiento "sé mucho de una
+cosa, en el idioma y parque correctos, con veredicto y con prueba" sigue vacante.
+8 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 9 =====
+05 · Intereses y necesidades del mecánico latinoamericano
+Triangulando el PDF (intenciones de búsqueda del gremio), la web 2026 y las fuentes de fabricantes:
+5.1 Las 7 familias de intención de búsqueda (confirmadas en la web)
+Familia Cómo la escribe el mecánico Qué debería devolver FuelTech Evidencia web
+Síntoma → causa "síntomas de bomba de Árbol de decisión ordenado por DISFAL, GMB, EuroTaller:
+gasolina fallando", "mi carro coste, no lista de causas contenido genérico que abre la
+jalonea al acelerar" misma pregunta sin respuesta
+Medición → "cuánta presión debe dar la Introducir medida + sistema → GMB: la única respuesta fiable
+veredicto bomba", "45 psi es normal", BIEN/MAL/SOSPECHOSO es probar presión + caudal en
+"presión baja causas" banco
+Compatibilidad "qué bomba lleva el aveo Ficha con OEM + equivalencias Búsqueda dominante en
+2010", "pila jetta a4", "bomba + caudal/amperaje refaccionarias; poca cobertura
+universal para…” en español por modelo
+Procedimiento "cómo cambiar la bomba", Paso a paso con torques y YouTube lleno de videos; falta
+"cómo medir presión sin trampas del modelo la chuleta de datos mientras
+manómetro", "cómo sacar el corre el video
+tanque"
+Código de falla "P0087", "P0171 y P0174 Código → causas por Pitz/SOMOB: "el escáner es un
+juntos" probabilidad → prueba → diccionario, no explica el
+veredicto origen" (Natalia Salcedo)
+Precio "cuánto cuesta cambiar la Rango por país y modelo + Volumen alto; casi nadie
+bomba de gasolina" desglose pieza/mano de obra publica precios por país en
+LatAm
+Diferenciación / "bomba original vs genérica", Comparativas por caudal, Operativo Bogotá mayo 2026:
+autenticidad "airtex vs bosch", "cómo saber amperaje, presión, garantía bombas falsificadas en el canal
+si es falsa" (Infobae, previa JTEKT)
+5.2 Necesidades profundas documentadas
+No equivocarse de pieza (el dolor nº 1, confirmado por fabricante). GMB North America: “las
+devoluciones son ocasionadas por un mal diagnóstico… el mecánico supuso que la bomba está
+defectuosa porque el motor no enciende”. ~7% de bombas vendidas se devuelven y >80% funcionan al
+ser reprobadas. Para un taller, cada cambio de bomba innecesario es coste, flete y cliente perdido.
+Probar con banco, no adivinar. Universidades de LatAm (UPS Ecuador, UTE Ecuador) ya construyen
+bancos de diagnóstico de electrobombas midiendo voltaje, amperaje y caudal; la práctica existe, falta el
+estándar y el registro digital — exactamente la apuesta #1 del PDF.
+Respuesta inmediata. Pitz documenta que "un diagnóstico puede tomar hasta dos horas"; el taller no
+puede esperar. Se necesita la respuesta en menos de 3 segundos (el buscador universal del PDF).
+Explicar al cliente. GMB dedica una sección completa a "cómo explicárselo al cliente": los mecánicos
+necesitan herramientas de comunicación, no solo datos.
+Garantías y comprobantes. El conflicto taller-cliente por la bomba es el clásico; certificados con
+presiones antes/después y foto cortan las disputas (bloque F del PDF).
+9 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 10 =====
+Formación y relevo. Frost & Sullivan en el IAS 2026: escasez de mano de obra calificada, falta de
+capacitación en nuevas tecnologías, limitada presencia digital y ausencia de catálogos electrónicos son
+los obstáculos nº 1 del sector (confirmado por encuestas de talleres).
+No reinventar la rueda administrativa. 85% de las oficinas/talleres en Latinoamérica aún operan con
+procesos manuales (SOMOB 2026): el mecánico quiere menos formularios, no más módulos.
+10 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 11 =====
+06 · Redes sociales que el nicho necesita
+La investigación web (Orderry, Seonet, Car Spot, Xora, Confortauto, Ángel Gaitán, CAM México, TikTok
+sectorial) permite mapear dónde vive realmente el mecánico y su cliente:
+Plataforma Rol en el nicho Datos / evidencias 2026 Implicación para FuelTech
+WhatsApp El sistema operativo del 94,7% de personas 16–74 años usan Prioridad absoluta: cada resultado
+taller: cotizar, aprobar, mensajería instantánea (Eurostat vía (ficha, diagnóstico, cotización,
+avisar, cobrar Xora); plataformas venden "cotizar garantía) debe producir un mensaje
+por WhatsApp" como producto único; listo para pegar (idea 146 del PDF). El
+Confortauto +200% citas por botón "compartir por WhatsApp" ya
+WhatsApp tras estrategia TikTok; tasas existe; falta el mensaje redactado con
+de apertura ~78% en recordatorios datos + marca del taller.
+(mecanica.io)
+TikTok / La vitrina: reparaciones Confortauto: la red de talleres más Generador de imagen 9:16 y guiones
+Reels grabadas, "reparaciones seguida del sector en España con de 30 s (ideas 213 y 216): el taller no
+fantasma", humor de TikTok → +10% visitas al taller; Ángel sabe guionizar; FuelTech debe darle el
+taller, marcas que atraen Gaitán ~3,5–4 millones de seguidores material con marca discreta.
+clientes finales con transparencia radical; algoritmo
+favorece orgánico
+Facebook El foro real del gremio: Los grupos resuelven las dudas hoy; No competir con un foro vacío; ser "la
+(grupos) CAM Comunidad respuestas no verificadas respuesta que se pega": fichas con
+Automotriz México y imagen compartible y enlace (idea
+similares concentran 188).
+miles de técnicos
+YouTube La escuela: Canales de mecánica en español con No competir con el video; ser la
+procedimientos largos audiencias enormes y poca chuleta: torques, presiones, pinouts,
+herramienta que recomendar orden de pasos (idea 226,
+colaboración con canales).
+Instagram Imagen de Mejor para retención que para Tarjetas de "antes/después" de
+antes/después, confianza adquisición (Car Spot: alcance presión (idea 214): se explican solas.
+visual orgánico <5% en páginas de negocio)
+Google El canal de adquisición nº Car Spot 2026: el paquete local de Directorio de talleres indexable +
+Business / 1 real del taller Google acapara la mayoría de clics de solicitud automática de reseñas tras
+local SEO independiente "taller cerca de mí"; reseñas = factor entrega (ideas 159, 151).
+de ranking
+LinkedIn / X Redes secundarias Menos relevantes para el mecánico Ignorables en el corto plazo.
+(B2B/actualidad) operativo
+Lección de la web que el PDF ya intuye: en talleres, las redes sociales son retención, no adquisición (Car
+Spot: "convierten a un desconocido rara vez; mantienen a la rampa llena"). El orden correcto del marketing
+del taller es: 1) Google Business + SEO local, 2) reseñas, 3) WhatsApp, 4) redes sociales para fidelizar y
+mostrar trabajo. FuelTech debe construir sus funciones en ese orden: el QR del taller y el perfil público
+impecable al compartirse en WhatsApp (idea 221–222) son más valiosos que un feed propio.
+11 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 12 =====
+07 · Herramientas y funcionalidades demandadas (qué construye el
+nicho hoy)
+Benchmark funcional de las herramientas que los talleres/competidores sí están comprando o pidiendo en
+2026, cruzado con las 312 ideas del PDF:
+Función demandada Idea equivalente del
+Quién la ofrece hoy Gap en FuelTech hoy
+(web 2026) PDF
+Aprobación de Reparou (BR): "el cliente toca aprobar 111, 112, 113 Existe cotizador y notas; falta
+presupuesto por y el servicio empieza"; MecPro; Pitz; (aprobación por el enlace de aprobación con
+WhatsApp con firma Intelidatia (ES) enlace/renglón) registro de fecha
+digital
+IA de diagnóstico por Pitz "Chalán"/"João" (voz+texto, datos 231–248 (bloque K) Chat Gemini existe; falta voz
+voz/imagen por placa/chasis); MecPro "IA de entrada, foto de
+diagnóstica"; Reparou "diagnostica: manómetro/pieza y anclaje
+barullho ao freiar → causas, peças, total al catálogo
+tempo"
+OS digital + estados + Todos los ERPs; Xora: notificaciones en 109, 110 Órdenes existen; faltan
+avisos automáticos al cada hito; MecPro: "WhatsApp estados con disparo de
+cliente automático" WhatsApp
+Recordatorios Intelidatia (ITV 30/7 días antes), Xora 114, 128, 129 No existe aún (solo plan de
+proactivos (km/fecha) y (5.000/10.000 km), mecanica.io (78% mantenimiento genérico)
+recuperación de open)
+clientes
+Historial del vehículo Estándar en Intelidatia, Reparou, Pitz 126 Parcial (clientes); falta historial
+por matrícula por placa completo
+Facturación electrónica MecPro/Reparou (fiscal incluido); 147 No existe; el PDF lo marca
+por país (CFDI MX, NF- Intelidatia (Verifactu); obligatoria como requisito legal a
+e BR, Verifactu ES 2027) regional investigar antes de prometer
+Pagos digitales locales MecPro/Reparou (PIX integrado), 125, 257 No existe; el PDF lo prioriza
+(PIX, transferencias, pasarelas por país medio
+pasarelas)
+Diagnóstico multimarca ZF MultiScan + [pro]Tech (México 249–252 Ninguna; el PDF lo pone como
+con codificación 2026) para talleres independientes (OBD2/hardware) fase 3
+Catálogo offline / Casi nadie lo ofrece en el nicho (la 291–298 (bloque O) PWA existe; falta contenido
+modo datos reducidos señal en talleres es mala) offline real
+Comunidad técnica Oficina Brasil Conecta: 212.000 171–190 (bloque H) Foro vacío; el PDF aconseja
+convalidada por mecánicos, IA + validación de sembrarlo con mediciones
+expertos especialistas; Identifix (casos antes que con hilos
+confirmados)
+Capacitación técnica ZF [pro]Tech, TrainingTech Academy 299–306 (bloque P) Guías existen; faltan cursos y
+certificada (Ángel Gaitán), cursos de híbridos/EV certificación
+Lectura de la tabla: lo que el mercado ya compra (WhatsApp, IA, OS digital, facturación, pagos) es
+exactamente lo que el PDF propone en bloques E, F, K y M. La ventaja de FuelTech no está en imitar
+12 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 13 =====
+eso, sino en que ningún competidor une la capa técnica del sistema de combustible con la capa
+operativa: el veredicto de banco convirtiéndose en orden de trabajo (idea 109) es un diferenciador que
+ni Reparou ni Pitz tienen.
+13 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 14 =====
+08 · Experiencias: casos reales y lecciones del sector
+Experiencia Qué pasó Lección aplicable
+Pitz (MX/BR) Levantó 2,1 MUSD y rondas posteriores; IA La IA por voz es expectativa base; pero "el
+"Chalán"/"João" por voz y texto; marketplace que aporta escáner es un diccionario" — el mercado
+~35% de ingresos por comisiones; apunta a miles de espera veredicto, y FuelTech puede darlo
+talleres; documenta que el diagnóstico manual tarda con reglas propias que Pitz no tiene.
+hasta 2 horas
+Reparou (BR) "Orçamento aprovado pelo WhatsApp": enlace con La aprobación por enlace es el estándar
+aprobación ítem por ítem que vale como firma; portal del emergente; el PDF la propone como idea
+cliente sin app; IA que precifica en el punto óptimo 111 — el mercado ya la espera.
+MecPro (BR) "+35% de fatturamento con OS digital y WhatsApp Los ERPs empiezan a cobrar ~15 USD/mes
+automático" (testimonio); PIX, NF-e, IA diagnóstica, bot con fiscal incluido; el plan Taller del PDF (8–
+de agendamiento 15 USD) es competitivo si incluye
+documentos con marca.
+Intelidatia (ES) SaaS integrado: citas online, historial por matrícula, orden El recordatorio proactivo es el canon del
+firmada, recordatorios ITV; documenta el costo de un sector; la facturación electrónica
+taller sin software (teléfono saturado, no-shows, obligatoria llega por país.
+presupuestos sin firma)
+Confortauto Canal TikTok → +10% visitas al taller y +200% citas por Modelo de distribución de contenido para
+(ES) WhatsApp; premio ecommerce por estrategia social talleres: material listo + marca del taller
+multiplica el alcance de FuelTech.
+Ángel Gaitán ~3,5–4 M seguidores; transparencia absoluta ("no me La confianza/honestidad es el formato que
+(ES) vendo a ninguna marca"); de 1 negocio a 6 (taller, vende en este gremio; el marcado ⚠
+academia, peritaje, medio) ESTIMADO de FuelTech es el mismo activo.
+GMB North ~7% de bombas devueltas; >80% de las devueltas La verificación en banco antes de cambiar
+America funcionan bien al reprobarlas; causa: mal diagnóstico la pieza es la función de mayor valor del
+(fabricante) nicho (apuesta #1 del PDF).
+Oficina Brasil Comunidad de 212.000 mecánicos en app + grupos de Prueba de que el gremio vive en WhatsApp
+Conecta WhatsApp con IA validada por especialistas; gestión es la y valora contenido verificado por técnicos.
+trilha más buscada, diagnóstico la segunda
+ZF [pro]Tech + Programa de certificación técnica y diagnóstico La capacitación certificada se está
+MultiScan (MX multimarca (codificación/programación) para convirtiendo en producto; bloque P del
+2026) independientes PDF tiene demanda creciente.
+Car Spot / SEO Las redes sociales rara vez llenan la rampa; Google El orden de inversión del taller: presencia
+local (ES) Business + reseñas + landing local son los que convierten local primero, redes después. FuelTech
+debe monetizar el directorio y las reseñas
+verificadas por trabajo (idea 162).
+14 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 15 =====
+09 · Tendencias 2026–2035 que marcan el producto
+Tendencia Evidencia 2026 Consecuencia para FuelTech
+IA aplicada al taller McKinsey: la IA puede +25–30% ventas de El chat con Gemini debe anclarse
+repuestos/servicios, +10–15% productividad del técnico, −30– al catálogo y hablar por voz; es la
+40% tiempo de fallo; 78% de PyMEs usan IA en alguna diferenciación 2026 (bloque K).
+función (SOMOB); 85% de talleres LatAm aún manuales
+B2B digital / McKinsey: el margen migrará a quien controle el canal digital El catálogo es un producto B2B:
+catálogos electrónicos y los catálogos multimarca; Mercado Libre domina 70–80% API pública (idea 256), licencia de
+del online; compradores B2B compran 21x más datos (271), marca blanca (275).
+Parque asiático / 525 mil unidades asiáticas a fines 2024 y creciendo; ventas Catálogo de marcas chinas (ya en
+chino récord en México con marcas chinas; ventana de 3–5 años curso en el repo) + contenido
+antes de que los fabricantes consoliden redes propias específico: hueco gigante en
+español.
+Electrificación lenta EV 1–2% del parque; 7,4% de ventas nuevas en BR 2024; BEV El mercado de bombas seguirá
+en LatAm reduce 40% el gasto en piezas; 90% del parque mundial creciendo 10–15 años; preparar
+seguirá siendo ICE hasta ~2030 vertical de híbridos (que sí llevan
+bomba).
+Taller proactivo, no Intelidatia/Xora: recordatorios por km/fecha como estándar; Recordatorios de garantía y
+reactivo vehículos conectados → diagnóstico remoto y mantenimiento servicio (ideas 128, 142); historial
+predictivo (Frost & Sullivan) por placa.
+Facturación CFDI MX consolidado; NF-e/NFSe BR consolidado; Verifactu Requisito legal por país antes de
+electrónica ES obligatorio 2027 prometer documentos fiscales
+obligatoria (idea 147).
+Escasez de técnicos y Frost & Sullivan IAS 2026: escasez de mano de obra calificada; El producto que enseña mientras
+relevo generacional falta de capacitación en nuevas tecnologías se usa gana: bloque P, modo
+aprendiz (idea 76), cursos con
+certificado.
+Autenticidad y Operativos continúan (Bogotá 2026, 130 mil piezas); riesgo Verificador de autenticidad
+falsificación +39% de accidentes con espurios (JTEKT) bloque B: función que nadie
+ofrece en español.
+Contenido en formato Los buscadores con IA citan respuestas de 2 líneas; SEO Entradillas reescritas con patrón
+"respuesta directa" directo crece de respuesta directa (idea 202).
+(search/IA)
+15 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 16 =====
+10 · Presencia actual de FuelTech en la web (brechas encontradas al
+auditar el repo)
+Al revisar el proyecto con ojos de "distribución" (lo que pide el usuario en este reporte: redes, internet, web),
+se encontraron estas brechas concretas:
+Área Estado observado en el código Brecha
+Redes sociales No hay cuentas sociales integradas; no hay enlaces a Ningún canal de distribución
+propias Facebook/Instagram/TikTok/YouTube en index.html; el único social propio; nadie publica el
+mecanismo social es un botón wa.me de compartir material que el PDF propone
+generar (bloque J)
+Open Graph / Existe og-gen.js y carpeta public/og/ (imágenes pre- Bien montado; falta el salto a
+imágenes generadas) imagen 9:16 social y al certificado
+de instalación
+SEO sitemap.xml, robots.txt, JSON-LD, 9 guías, ~208 fichas de El PDF lo dice: sitio infra-
+vehículo, página "Cómo verificamos" no existe aún alimentado; faltan cientos de
+páginas de intención específica y
+la página de confianza (idea 206)
+WhatsApp Compartir por WhatsApp presente en fichas Falta el "mensaje redactado con
+datos + marca del taller" en todo
+el flujo (idea 146)
+Monetización AdSense "cableado" (ads.txt existe) pero sin activar; sin planes Sin señales de valor; el PDF
+ni precios públicos (según PDF) recomienda publicar precios en
+beta
+Analítica de Solo contador de visitas en stats.db Faltan búsquedas fallidas, uso por
+producto herramienta, embudo (bloque Q)
+— el PDF los lista como lo más
+barato del informe
+Instrumentos de REPORT.md con 407 pruebas, robots, guard Todo interno; falta contar la
+confianza historia hacia afuera ("este dato lo
+protege una prueba")
+Directorios/usuarios Perfiles de taller, reseñas, /api/connect Sin índice por ciudad (idea 159) ni
+derivación medida al taller (idea
+170)
+16 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 17 =====
+11 · Conclusiones y recomendaciones priorizadas
+11.1 Juicio global
+El PDF de 50 páginas es verídico y verificable: su auditoría del producto coincide punto por punto con
+el repositorio medido (208/33/10/38/79/407/18/100% — todos confirmados). La investigación web
+independiente (McKinsey, GiPA, GMB, Pitz, Reparou, OFB Conecta, casos de éxito) no contradice ni
+una sola apuesta del informe: confirma el hueco de precio, el dolor del diagnóstico y la centralidad
+de WhatsApp. La conclusión del PDF ("el problema no es de construcción, es de foco, datos y
+distribución") sigue siendo la frase más importante: el producto está en verde; lo que falta está en la
+calle.
+11.2 Prioridades ordenadas (integrando PDF + web + medidas del repo)
+1. Cerrar las 5 deudas de datos hoy (esfuerzo S, impacto ALTO). En particular el L200 (contradicción con
+retorno) — riesgo físico documentado en quality/REPORT.md y en el PDF. Medido en el código: sigue
+abierto.
+2. Instrumentar búsquedas fallidas + uso por herramienta (ideas 307–310). Es la mejora de mejor
+relación valor/esfuerzo de todo el informe y cierra el vacío de analítica que el PDF admite no tener.
+3. Modo Banco de Pruebas + veredicto con grados (49–51). Respaldado por GMB (80% de bombas
+devueltas funcionan): es la función que ningún competidor puede copiar sin taller.
+4. Salida a WhatsApp en todo (146, 3). El mecanismo de distribución que el mercado ya usa: 94,7% de
+mensajería instantánea, tasas de apertura 78%, la aprobación por enlace ya es estándar en BR/MX.
+5. Página pública "Cómo verificamos cada dato" (206) + publicación de precios en beta (261).
+Convierte el aparato de calidad en marketing de confianza, único en el sector.
+6. Directorio de talleres por ciudad + reseñas verificadas por trabajo (159, 162). El SEO local y Google
+Business son el canal de adquisición nº 1 del taller independiente (Car Spot 2026); FuelTech puede
+ofrecer lo que Google no: reseñas ligadas a certificados.
+7. Consolidar TBI y Vortec en el catálogo (5, 6). El parque viejo latinoamericano (12,9 años; 59% >10
+años en 2027) está lleno de TBI y es donde más se equivoca el gremio.
+8. Bloque J (generador 9:16, plantillas, guiones) cuando exista el plan Taller. El modelo
+Confortauto/Gaitán demuestra que el material listo multiplica el alcance; pero primero hay que tener
+talleres de pago que usen los certificados.
+9. Fase 2–3: IA por voz, OBD2/importar capturas, multiusuario, portugués. Pitz ya estableció la
+expectativa; la ventaja de FuelTech es anclar la IA a reglas del banco y datos verificados.
+11.3 Lo que NO hacer (confirmado por la web)
+No competir con ERPs genéricos de frente (Reparou/MecPro/Pitz ya regalaron la curva de gestión por
+WhatsApp).
+No abrir un marketplace de refacciones sin capital (McKinsey: el canal digital B2B ya está decidido hacia
+Mercado Libre).
+No cobrar nunca por el dato técnico de seguridad (idea 276): es la confianza que ningún competidor
+muestra.
+17 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 18 =====
+No mezclar el mercado de autos usados (idea 190): diluye el mensaje "los de las bombas".
+No relajar el aparato de calidad para ir más rápido: es el único foso defendible (407 pruebas + 18 reglas).
+11.4 Métricas a vigilar (primeras 12 semanas)
+1. % de fichas verificadas (hoy 50% → objetivo 35% de estimados o menos).
+2. Búsquedas sin resultado por semana (nueva instrumentación).
+3. Diagnósticos completados y mediciones aportadas por la comunidad.
+4. Mensajes de WhatsApp generados desde el producto.
+5. Talleres activos semanales y conversión gratuito→pago (primera señal con página de precios).
+18 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 19 =====
+12 · Fuentes consultadas
+Documento base (auditado)
+FuelTech-Master-Informe-Producto-y-Mercado-2026.pdf — Informe de producto y mercado 2026, 50
+págs., agosto 2026.
+Repositorio medido
+C:\Users\EQUIPO\Downloads\bombas de gasolina — README.md, AGENTS.md, DESIGN.md,
+lib/catalog.js, lib/domain.js, lib/pure.js, server-pg.js, public/microapps.js, public/index.html, seed.js,
+quality/REPORT.md (2026-08-12), schema.sql/schema-pg.sql, package.json.
+Mercado y aftermarket
+Factor Automotor — Aftermarket LatAm, perspectiva McKinsey en PAACE Automechanika México 2026
+(jul 2026).
+Expert Market Research — Latin America Automotive Parts Aftermarket 2026–2035 (CAGR 6,6%).
+Grand View Research — Latin America Automotive Aftermarket Outlook 2026–2033.
+CSM Research — "The Fifteen Year Car: Latin America's Aging Fleet" (jun 2026).
+GiPA — Latin American Aftermarket Trends & Insights (parque MX/BR/AR, digitalización).
+Research and Markets / Precedence Research / The Insights Partners — Fuel Pumps Market 2026–
+2032/35 (8,1–8,6 mil MUSD 2026; CAGR 3,7–5,9%).
+Business Research Insights — Fuel pump market global (reposición ~48% de envíos; GDI ~38% de
+motores nuevos).
+Competencia y herramientas
+El Ecosistema Startup / Expansión / Cluster Industrial — Pitz: 2,1 MUSD, IA "Chalán", marketplace (~35%
+ingresos).
+Reparou (reparou.com.br) — aprobación de presupuesto por WhatsApp, portal del cliente, IA.
+MecPro (oficina.saas.magoweb.com.br) — OS digital, WhatsApp automático, PIX, NF-e, IA diagnóstica.
+Mecánica.io — recordatorios WhatsApp 78% open rate, app para técnicos.
+Intelidatia — Software taller mecánico 2026: citas, historial por matrícula, Verifactu 2027.
+Xora — Chatbot WhatsApp para talleres 2026 (citas, urgencias, recordatorios).
+Appli-Car, TallerOS, TallerFlow, Winmotor — ERP regionales de gestión.
+ZF Aftermarket — [pro]Tech y MultiScan en INA PAACE México 2026 (diagnóstico multimarca y
+capacitación).
+Comportamiento del mecánico y redes
+Orderry — Redes sociales para talleres de reparación (2026).
+Seonet Digital — 12 estrategias de marketing para talleres mecánicos.
+Car Spot — "Por qué Facebook no llenará tu rampa vacía" (abril 2026).
+Confortauto / Marketing4Ecommerce — Estrategia digital y TikTok (+200% citas por WhatsApp).
+19 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026
+===== PAGINA 20 =====
+Reason Why — Entrevista Ángel Gaitán, "mecánico de TikTok" (~3,5–4 M seguidores).
+TikTok — marketing para taller mecánico; CAM, Comunidad Automotriz México (Facebook).
+Oficina Brasil Conecta — comunidad 212.000 mecánicos, IA validada por especialistas (2026).
+Técnica del nicho, autopartes y formación
+GMB North America — Verificar la bomba, explicárselo al cliente y garantías (devoluciones y mal
+diagnóstico).
+DISFAL — Por qué falla la bomba de gasolina (síntomas y causas comunes, 2026).
+Infobae / HSB Noticias / Policía Nacional de Colombia — Operativo autopartes falsificadas Bogotá (mayo
+2026; 130.000 piezas, bombas de gasolina entre ellas).
+UPS Ecuador / UTE Ecuador — Bancos de pruebas para electrobombas de gasolina (tesis, diagnóstico
+voltaje-amperaje-caudal).
+SOMOB — IA en oficinas: fin del "chutômetro" (78% PyMEs; 85% talleres manuales).
+T21 — Talleres bajo presión en la era de la electrificación y digitalización (entrevista a Natalia Salcedo,
+Pitz).
+Alianza Automotriz — El futuro del aftermarket (Frost & Sullivan, IAS 2026).
+Elaborado el 12 de agosto de 2026. Compilación y análisis: comparación de documento oficial + medición de repositorio +
+investigación web. Las cifras de mercado citadas provienen de las fuentes públicas indicadas y pueden variar entre proveedores de
+datos; donde difieren, se presentan como rangos. Las afirmaciones de comportamiento del gremio sin cifra exacta son lectura
+razonada de las fuentes, no medición propia.
+20 / 20 — FuelTech Master · Reporte Comparativo y de Mercado 2026

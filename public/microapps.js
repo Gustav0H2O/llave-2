@@ -11,6 +11,18 @@
     set(k, v) { localStorage.setItem(k, JSON.stringify(v)); },
   };
   const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
+
+  /* ---------- envío por WhatsApp ----------
+     wa.me acepta el número en dígitos puros con prefijo de país y sin signos.
+     Si no hay número, abre el selector de contacto de WhatsApp en vez de
+     fallar — así el mecánico puede elegir el chat a mano. */
+  const soloDigitos = (t) => String(t || '').replace(/\D/g, '');
+  const enviarWhatsApp = (numero, texto) => {
+    const n = soloDigitos(numero);
+    const url = `https://wa.me/${n}?text=${encodeURIComponent(texto)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+  const telValido = (t) => /^\d{7,15}$/.test(soloDigitos(t));
   const now = () => new Date().toLocaleString('es', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   /* Icono: usa el MarkIcon de app.js si existe, si no, emoji fallback */
@@ -25,12 +37,18 @@
     return html`<span class="icon" style=${{ width: s, height: s }}></span>`;
   };
 
-  /* ---------- shell de micro app (header con volver) ---------- */
+  /* ---------- shell de micro app (header con volver) ----------
+     El "volver" lleva etiqueta visible, no solo la flecha: es la única salida de
+     una micro app y un icono suelto de 34px no se lee como botón — menos aún con
+     guantes y a pulso en el celular. Usa CatIc, que degrada a un hueco del mismo
+     tamaño si el icono falta, en vez de colapsar el botón. */
   const MicroShell = ({ title, icon, onBack, children }) => html`
     <div class="micro-shell panel">
       <div class="micro-shell-head">
-        <button type="button" class="micro-back" onClick=${onBack} aria-label="Volver al inicio"><${Ic} n="ChevronLeft" s=${16} /></button>
-        <${Ic} n=${icon} s=${18} />
+        <button type="button" class="micro-back" onClick=${onBack}>
+          <${CatIc} n="ChevronLeft" s=${16} /><span>Volver</span>
+        </button>
+        <span class="micro-shell-ic"><${CatIc} n=${icon} s=${18} /></span>
         <h2>${title}</h2>
       </div>
       <div class="micro-shell-body">${children}</div>
@@ -119,12 +137,164 @@
 
   const ZONES = ['Centro', 'Norte', 'Sur', 'Este', 'Oeste', 'Zona Industrial'];
 
+  /* Preguntas frecuentes. Van fuera del componente porque también se publican
+     como JSON-LD FAQPage en el <head> de index.html — mantenlas iguales.
+     El orden importa: arriba lo que más se pregunta antes de usar la app. */
+  const FAQ = [
+    ['¿Hay que pagar algo?',
+      'No, y no hay versión de pago escondida. La consulta técnica, el diagnóstico y las herramientas de aprendizaje son gratuitas y ni siquiera piden cuenta. La cuenta solo hace falta para las herramientas que guardan datos de tu negocio en la nube: inventario, clientes, órdenes de trabajo, notas de entrega y caja.'],
+    ['¿Cómo mido la presión de riel correctamente?',
+      'Conecta el manómetro en la válvula de servicio de la flauta o en línea con la alimentación. Toma tres lecturas: llave en ON sin arrancar (la pila ceba y debe sostener la presión unos segundos), en ralentí, y acelerando a unas 2 500 rpm. Después apaga y observa la caída: si baja rápido hay fuga por inyector, por el retorno o por la válvula anti-retorno de la pila. Compara cada lectura contra la spec del vehículo en el catálogo.'],
+    ['¿De dónde salen los datos de presión?',
+      'De manuales de servicio y fichas de fabricante, cargados a mano. Cuando un valor no está confirmado se marca como estimado con una advertencia en ámbar: úsalo como referencia y verifica contra el manual del vehículo antes de condenar una pieza. Las marcas chinas incorporadas recientemente entran todas como estimadas, porque su presión sale de la regla del sistema de inyección y no de un manual por modelo.'],
+    ['Mi vehículo no aparece, ¿qué hago?',
+      'El catálogo crece a mano. Usa el cross-reference para buscar por pila o módulo equivalente: muchos modelos comparten conjunto aunque cambie la marca. Después deja el modelo en el foro técnico y entra en la siguiente carga.'],
+    ['¿Sirve para carros chinos (Chery, JAC, Changan, Haval, BYD)?',
+      'Sí, y es donde más falta hacía: son parte del parque diario en Venezuela y buena parte de LATAM, y casi no hay literatura de taller en español para ellos. Están en el catálogo con su ubicación de módulo y su rango de presión por sistema de inyección, marcados como dato estimado hasta que alguien los confirme contra manual.'],
+    ['¿Funciona sin internet en el taller?',
+      'Parcialmente. La app se instala como PWA y guarda su código y las últimas consultas en caché, así que abre y muestra lo ya visto aunque la señal falle. Las herramientas que no consultan la base —conversor, cotizador, inspección, compresión, fusibles, pinouts— funcionan completas sin conexión. Las búsquedas nuevas del catálogo sí necesitan señal.'],
+    ['¿Puedo usarlo desde el celular?',
+      'Sí, está pensado para eso. Toda la interfaz es responsiva y desde Chrome o Safari puedes añadirla a la pantalla de inicio para que se abra como una app, sin barra del navegador.'],
+    ['¿Qué pasa con los datos de mi taller?',
+      'Inventario, clientes, órdenes, notas y caja se guardan en tu cuenta y se pueden exportar como respaldo cuando quieras. Las herramientas de trabajo del momento —inspección de recepción, cotizador, agenda y plan de mantenimiento— guardan solo en tu navegador y no salen de tu equipo.'],
+    ['¿Reemplaza al escáner o al manual de servicio?',
+      'No, y no pretende hacerlo. El escáner lee la computadora del vehículo; esto interpreta lo que el escáner te muestra y te da la referencia contra la que compararlo. El manual de servicio sigue siendo la autoridad para el torque final y el procedimiento exacto.'],
+    ['¿Cómo sé si la pila de gasolina está mala y no es otra cosa?',
+      'Presión baja no es sinónimo de pila mala. Antes de cambiarla descarta filtro tapado, malla de succión sucia, regulador abierto, caída de tensión en la alimentación de la pila y relé con contactos gastados. La herramienta de ajustes de combustible ayuda a separar «falta entrega» de «entra aire sin medir», que llegan al taller con el mismo síntoma.'],
+    ['¿Puedo aportar o corregir un dato?',
+      'Sí, y es como crece el catálogo. Si mediste un vehículo contra manual y el valor no coincide, déjalo en el foro técnico con marca, modelo, año y motor. Se revisa y se actualiza, y el registro pasa de estimado a confirmado.'],
+  ];
+
   /* ================================================================
      HOME — menú superior con iconos + página explicativa
      ================================================================ */
-  const Home = ({ onOpen, user, onLogout }) => {
+  /* ---------- aviso de verificación de correo ----------
+     Aparece solo con sesión iniciada y correo sin confirmar. No bloquea nada:
+     la cuenta funciona igual. Está para que el día que haya recuperación de
+     contraseña el correo sirva de verdad, y para avisar de un correo mal
+     escrito antes de que el taller pierda el acceso. */
+  const VerifyBanner = ({ user, onDone }) => {
+    const [estado, setEstado] = useState('idle');   // idle | enviando | enviado | error
+    const [enlace, setEnlace] = useState('');
+    const [msg, setMsg] = useState('');
+    if (!user || user.email_verified) return null;
+    const enviar = async () => {
+      setEstado('enviando');
+      try {
+        const r = await fetch('/api/auth/verify/send', { method: 'POST', credentials: 'same-origin' });
+        const b = await r.json().catch(() => ({}));
+        if (b.ya) { onDone && onDone(); return; }
+        if (b.ok) { setEstado('enviado'); return; }
+        // sin proveedor de correo configurado el servidor devuelve el enlace
+        setEstado(b.link ? 'enviado' : 'error');
+        setEnlace(b.link || '');
+        setMsg(b.motivo || 'No se pudo enviar el correo.');
+      } catch (e) { setEstado('error'); setMsg(e.message); }
+    };
+    return html`
+      <div class="verify-banner" role="status">
+        <span class="verify-ic"><${CatIc} n="MailWarn" s=${18} /></span>
+        <div class="verify-body">
+          ${estado === 'enviado' ? html`
+            <strong>Revisa tu correo</strong>
+            <span>Te mandamos un enlace a ${user.email}. Vence en 24 horas.</span>
+            ${enlace && html`<span class="verify-dev">Sin proveedor de correo configurado (${msg}). Enlace directo: <a href=${enlace}>confirmar ahora</a></span>`}
+          ` : html`
+            <strong>Confirma tu correo</strong>
+            <span>Tu cuenta funciona igual, pero sin confirmar ${user.email} no podrás recuperar el acceso si olvidas la contraseña.</span>
+            ${estado === 'error' && html`<span class="verify-dev">${msg}</span>`}
+          `}
+        </div>
+        ${estado !== 'enviado' && html`<button type="button" class="tool-add-btn" onClick=${enviar} disabled=${estado === 'enviando'}>
+          ${estado === 'enviando' ? 'Enviando…' : 'Enviar enlace'}
+        </button>`}
+      </div>`;
+  };
+
+  const Home = ({ onOpen, user, onLogout, onLogin, onUserChange }) => {
     const [q, setQ] = useState('');
     const [tab, setTab] = useState('inicio');
+    /* ---------- video del hero: avanza fotograma a fotograma con el scroll ----------
+       No hay autoplay ni loop. El video está pausado siempre y su `currentTime`
+       se mapea a cuánto ha recorrido el hero la pantalla: el usuario "rueda" la
+       animación con la rueda del ratón o el dedo. Al no haber movimiento
+       automático tampoco hace falta botón de pausa (WCAG 2.2.2 solo lo exige
+       para lo que se mueve solo).
+
+       Detalles que lo hacen viable:
+       - Los ficheros de /media están recodificados con GOP corto (keyframe cada
+         5 fotogramas). Con el GOP normal (~250) cada salto obliga a decodificar
+         desde el keyframe anterior y el scrub se ve a tirones.
+       - El seek se hace dentro de requestAnimationFrame y solo si el salto
+         supera ~1 fotograma; sin eso, cada evento de scroll dispara un seek y
+         el decodificador se satura.
+       - Con "reducir movimiento" o ahorro de datos NO se descarga nada: queda
+         el póster, que ya llegó en el primer pintado. */
+    const videoRef = useRef(null);
+    const trackRef = useRef(null);
+    const [videoReady, setVideoReady] = useState(false);   // primer fotograma pintado
+
+    /* Las cifras de cobertura salen de /api/meta, no de constantes escritas a
+       mano: el catálogo crece a mano y un número clavado en el HTML miente al
+       poco tiempo. Los valores de respaldo son los de la última carga conocida,
+       para que la sección no parpadee en 0 mientras llega la respuesta. */
+    const [meta, setMeta] = useState(null);
+    useEffect(() => {
+      let vivo = true;
+      fetch('/api/meta').then(r => r.ok ? r.json() : null).then(m => { if (vivo && m) setMeta(m); }).catch(() => {});
+      return () => { vivo = false; };
+    }, []);
+    const VEH_COUNT = meta?.total_vehicles || 144;
+    const BRAND_COUNT = meta?.brands?.length || 19;
+
+    /* Decisión de producto: el scrub va SIEMPRE, sin condiciones ni interruptor.
+       El atributo se estampa igual porque el CSS lo usa para estirar el tramo
+       de scroll, y así el hero mide lo mismo aunque el sistema pida movimiento
+       reducido. */
+    useEffect(() => {
+      document.documentElement.setAttribute('data-hero-motion', 'on');
+      return () => document.documentElement.removeAttribute('data-hero-motion');
+    }, []);
+
+    useEffect(() => {
+      const v = videoRef.current, track = trackRef.current;
+      if (!v || !track) return;
+
+      v.preload = 'auto';
+      v.load();
+      let dur = 0, raf = 0, objetivo = 0;
+      const onLoaded = () => { dur = v.duration || 0; setVideoReady(true); sync(); };
+
+      const tick = () => {
+        raf = 0;
+        if (!dur) return;
+        const r = track.getBoundingClientRect();
+        // recorrido útil = alto del tramo menos la pantalla que ocupa el hero pegado
+        const recorrido = Math.max(1, r.height - window.innerHeight);
+        const p = Math.min(1, Math.max(0, -r.top / recorrido));
+        objetivo = p * (dur - 0.05);
+        /* Un seek solo se pide si el anterior YA terminó. Sin este candado el
+           scroll encola decenas de seeks, el decodificador se atasca y la
+           imagen se congela justo cuando más se está moviendo el dedo. */
+        if (!v.seeking && Math.abs(v.currentTime - objetivo) > 1 / 30) v.currentTime = objetivo;
+      };
+      const sync = () => { if (!raf) raf = requestAnimationFrame(tick); };
+      // al acabar un seek, comprueba si el scroll ya se fue a otra parte
+      const onSeeked = () => { if (Math.abs(v.currentTime - objetivo) > 1 / 30) sync(); };
+
+      v.addEventListener('loadeddata', onLoaded);
+      v.addEventListener('seeked', onSeeked);
+      window.addEventListener('scroll', sync, { passive: true });
+      window.addEventListener('resize', sync);
+      sync();
+      return () => {
+        v.removeEventListener('loadeddata', onLoaded);
+        v.removeEventListener('seeked', onSeeked);
+        window.removeEventListener('scroll', sync);
+        window.removeEventListener('resize', sync);
+        if (raf) cancelAnimationFrame(raf);
+      };
+    }, []);
     const apps = [
       // Consulta rápida
       { id: 'search', t: 'Catálogo de Combustible', d: 'Presión, módulos y pilas por vehículo', i: 'Fuel', g: 'consulta', act: () => onOpen('search') },
@@ -134,13 +304,23 @@
       { id: 'cross', t: 'Cross-Reference', d: 'Pilas compatibles y alternativas', i: 'Compare', g: 'consulta', act: () => onOpen('cross') },
       { id: 'convert', t: 'Conversor de Unidades', d: 'PSI↔Bar, Nm↔lb-ft, mm↔in', i: 'Repeat', g: 'consulta', act: () => onOpen('convert') },
       { id: 'vin', t: 'Decodificador VIN', d: 'Chasis: año y fabricante', i: 'ScanSearch', g: 'consulta', act: () => onOpen('vin') },
+      { id: 'fuses', t: 'Fusibles y Relés', d: 'Colores, amperajes y circuitos', i: 'Zap', g: 'consulta', act: () => onOpen('fuses') },
+      { id: 'tires', t: 'Medidas de Llanta', d: 'Diámetro y error de velocímetro', i: 'Car', g: 'consulta', act: () => onOpen('tires') },
+      { id: 'maintenance', t: 'Plan de Mantenimiento', d: 'Qué toca según el kilometraje', i: 'History', g: 'consulta', act: () => onOpen('maintenance') },
       // Diagnóstico
+      { id: 'nostart', t: 'Mi Carro No Enciende', d: 'Árbol de decisión paso a paso', i: 'Key', g: 'diag', act: () => onOpen('nostart') },
+      { id: 'battery', t: 'Batería y Sistema de Carga', d: 'Reposo, arranque, carga y fuga', i: 'Battery', g: 'diag', act: () => onOpen('battery') },
       { id: 'quickdiag', t: 'Diagnóstico Rápido de PSI', d: 'Medida → BIEN/MAL con causas', i: 'Gauge', g: 'diag', act: () => onOpen('quickdiag') },
       { id: 'diag', t: 'Diagnóstico por Síntomas', d: 'Causas y pruebas rápidas', i: 'Stethoscope', g: 'diag', act: () => onOpen('diag') },
       { id: 'calc', t: 'Calculadoras Técnicas', d: 'Caudal, presión y eléctrico', i: 'Gauge', g: 'diag', act: () => onOpen('calc') },
       { id: 'aid', t: 'Identificador con IA', d: 'Describe la pieza y te la identifico', i: 'Assistant', g: 'diag', act: () => onOpen('aid') },
-      { id: 'pressure', t: 'Registro de Presión', d: 'Historial PSI/Bar por vehículo', i: 'Pump', g: 'diag', act: () => onOpen('pressure') },
+      // Guarda historial en la nube (/api/diagnostics exige sesión): sin `need`
+      // se abría y fallaba en silencio con un 401.
+      { id: 'pressure', t: 'Registro de Presión', d: 'Historial PSI/Bar por vehículo', i: 'Pump', g: 'diag', act: () => onOpen('pressure'), need: true },
       { id: 'regulator', t: 'Prueba de Regulador', d: 'Pasos para validar regulador', i: 'Gauge', g: 'diag', act: () => onOpen('regulator') },
+      { id: 'trim', t: 'Ajustes de Combustible', d: 'STFT/LTFT: pobre, rica y por qué', i: 'Droplets', g: 'diag', act: () => onOpen('trim') },
+      { id: 'compression', t: 'Prueba de Compresión', d: 'Diferencia entre cilindros y veredicto', i: 'Gauge', g: 'diag', act: () => onOpen('compression') },
+      { id: 'pinout', t: 'Pinouts OBD-II y Relé', d: 'Dónde clavar la punta del multímetro', i: 'Sensor', g: 'diag', act: () => onOpen('pinout') },
       // Taller (requiere cuenta)
       { id: 'orders', t: 'Órdenes de Trabajo', d: 'Servicios, garantías y promociones', i: 'ClipboardCheck', g: 'taller', act: () => onOpen('orders'), need: true },
       { id: 'inventory', t: 'Inventario / Stock', d: 'Control con alertas de mínimo', i: 'Box', g: 'taller', act: () => onOpen('inventory'), need: true },
@@ -148,6 +328,12 @@
       { id: 'documents', t: 'Notas de Entrega / Presupuestos', d: 'Genera e imprime documentos', i: 'FileText', g: 'taller', act: () => onOpen('documents'), need: true },
       { id: 'notes', t: 'Notas del Mecánico', d: 'Notas rápidas por vehículo', i: 'BookOpen', g: 'taller', act: () => onOpen('notes'), need: true },
       { id: 'cash', t: 'Cierre de Caja', d: 'Ingresos y egresos del día', i: 'Calculator', g: 'taller', act: () => onOpen('cash'), need: true },
+      // Estas tres guardan en el navegador, no en la nube: sirven sin cuenta.
+      { id: 'inspection', t: 'Inspección de Recepción', d: 'Checklist multipunto al recibir', i: 'ClipboardCheck', g: 'taller', act: () => onOpen('inspection') },
+      { id: 'quote', t: 'Cotizador Rápido', d: 'Mano de obra + refacciones + IVA', i: 'Calculator', g: 'taller', act: () => onOpen('quote') },
+      { id: 'appointments', t: 'Agenda de Citas', d: 'Quién viene, cuándo y a qué', i: 'Calendar', g: 'taller', act: () => onOpen('appointments') },
+      { id: 'labor', t: 'Tiempos de Mano de Obra', d: 'Horas de referencia para cotizar', i: 'History', g: 'taller', act: () => onOpen('labor') },
+      { id: 'profile', t: 'Mi Taller', d: 'Nombre, WhatsApp y correo verificado', i: 'Store', g: 'taller', act: () => onOpen('profile'), need: true },
       // Comunidad y mercado
       { id: 'forum', t: 'Foro Técnico', d: 'Preguntas y respuestas', i: 'MessagesSquare', g: 'comunidad', act: () => onOpen('forum') },
       { id: 'connect', t: 'Conectar Cliente ↔ Mecánico', d: 'Asistencia cerca de tu zona', i: 'MapPin', g: 'comunidad', act: () => onOpen('connect') },
@@ -178,7 +364,7 @@
     const appsOf = (g) => apps.filter(a => a.g === g);
     const card = (a) => html`<button type="button" class="micro-card micro-card-app" onClick=${a.act} key=${a.id}>
         <span class="micro-card-icon"><${Ic} n=${a.i} s=${24} /></span>
-        <span class="micro-card-title">${a.t}${lock(a) ? html` <em style=${{ fontSize: '9px', color: 'var(--amber)', fontStyle: 'normal' }}>🔒</em>` : ''}</span>
+        <span class="micro-card-title">${a.t}${lock(a) ? html`<em class="micro-card-lock">Cuenta</em>` : ''}</span>
         <span class="micro-card-desc">${a.d}</span>
       </button>`;
 
@@ -186,8 +372,10 @@
       <div class="home">
         <nav class="home-nav">
           <div class="home-nav-logo">
-            <img class="on-dark" src="/brand/mark-dark.png" width="34" height="34" alt="" />
-            <img class="on-light" src="/brand/mark-light.png" width="34" height="34" alt="" />
+            ${/* la clase `logo-mark` es la que lleva las reglas display:var(--logo-*);
+                 sin ella los DOS isotipos se pintaban a la vez, uno junto al otro */''}
+            <img class="logo-mark on-dark" src="/brand/mark-dark.png" width="34" height="34" alt="" />
+            <img class="logo-mark on-light" src="/brand/mark-light.png" width="34" height="34" alt="" />
             <strong>FuelTech</strong>
           </div>
           <div class="home-nav-links">
@@ -196,67 +384,200 @@
             </button>`)}
           </div>
           <div class="home-nav-user">
-            ${user ? html`<span class="muted" style=${{ fontSize: '11px' }}>${user.name} <button type="button" class="link-btn" onClick=${onLogout}>salir</button></span>`
-              : html`<span class="muted" style=${{ fontSize: '11px' }}>sin sesión</span>`}
+            ${user ? html`<span class="home-nav-who">${user.name} <button type="button" class="link-btn" onClick=${onLogout}>salir</button></span>`
+              : html`<button type="button" class="home-nav-login" onClick=${onLogin}>Iniciar sesión</button>`}
           </div>
         </nav>
 
-        <div class="home-body">
-          ${tab === 'inicio' ? html`
-            <header class="home-hero">
-              <img class="logo-lockup on-dark" src="/brand/logo-dark.png" width="760" height="205" alt="FuelTech Master" />
-              <img class="logo-lockup on-light" src="/brand/logo-light.png" width="760" height="193" alt="" />
-              <p class="home-tagline">El taller en tu bolsillo — herramientas, diagnóstico y gestión</p>
+        <${VerifyBanner} user=${user} onDone=${onUserChange} />
+
+        ${tab === 'inicio' ? html`
+          <div class="home-hero-track" ref=${trackRef}>
+          <header class="home-hero">
+            <video ref=${videoRef} class=${'home-hero-video' + (videoReady ? ' is-ready' : '')}
+              muted playsinline preload="none" tabIndex=${-1} aria-hidden="true">
+              <source src="/media/hero.webm" type="video/webm" />
+              <source src="/media/hero.mp4" type="video/mp4" />
+            </video>
+            <div class="home-hero-vignette" aria-hidden="true"></div>
+
+            <div class="home-hero-content">
+              <img class="logo-lockup logo-lockup--hero" src="/brand/logo-dark.png" width="760" height="205" alt="FuelTech Master" />
+              <span class="home-eyebrow">Herramientas para el taller</span>
+              <h1 class="home-hero-slogan">Presión de riel, módulos y pilas al instante.</h1>
+              <p class="home-tagline">${VEH_COUNT} vehículos de Latinoamérica, ${apps.length} herramientas de consulta, diagnóstico y gestión, y un veredicto BIEN/MAL comparando tu medición contra la especificación. Desde el celular, en el taller.</p>
+
               <div class="home-search">
-                <input type="search" class="styled-input" placeholder="Buscar app, herramienta, DTC, término…" value=${q} onChange=${e => { setQ(e.target.value); if (e.target.value) setTab(null); }} />
-                ${q && html`<button type="button" class="home-search-clear" onClick=${() => setQ('')} aria-label="Limpiar">✕</button>`}
+                <span class="home-search-ic"><${CatIc} n="Search" s=${17} /></span>
+                <label class="sr-only" htmlFor="home-q">Buscar herramienta</label>
+                <input id="home-q" type="search" class="styled-input" placeholder="Buscar app, herramienta, DTC, término…" value=${q} onChange=${e => setQ(e.target.value)} />
+                ${q && html`<button type="button" class="home-search-clear" onClick=${() => setQ('')} aria-label="Limpiar búsqueda">✕</button>`}
               </div>
+
               <div class="home-cta">
                 ${user ? html`<button type="button" class="tool-add-btn" onClick=${() => setTab('taller')}>Ir a mi taller →</button>`
-                  : html`<button type="button" class="tool-add-btn" onClick=${() => setTab('consulta')}>Explorar herramientas</button>`}
+                  : html`<button type="button" class="tool-add-btn" onClick=${() => onOpen('search')}>Buscar mi vehículo →</button>`}
+                <button type="button" class="home-cta-ghost" onClick=${() => setTab('consulta')}>Ver herramientas</button>
               </div>
-            </header>
 
-            <div class="home-explain">
-              <section class="home-about panel">
-                <h2 class="home-about-title">¿Qué es FuelTech Master?</h2>
-                <p>Es una plataforma para mecánicos y talleres de Latinoamérica que une en un solo lugar la <strong>consulta técnica</strong>, el <strong>diagnóstico</strong> y la <strong>gestión del negocio</strong>. Busca la presión de riel, el módulo y la pila de gasolina de más de 140 vehículos, diagnostica fallas comparando tus mediciones contra la especificación, y administra inventario, clientes y órdenes de trabajo desde el taller o el celular.</p>
-              </section>
-
-              <section class="home-cards">
-                <div class="home-card-item panel">
-                  <span class="home-card-ic"><${CatIc} n="Fuel" s=${26} /></span>
-                  <h3>Consulta técnica</h3>
-                  <p>Presión de riel en PSI y bar, ubicación del módulo, pilas OEM y alternativas, DTC, torques, bujías y más — por marca y modelo.</p>
-                </div>
-                <div class="home-card-item panel">
-                  <span class="home-card-ic"><${CatIc} n="Gauge" s=${26} /></span>
-                  <h3>Diagnóstico</h3>
-                  <p>Mide la presión en la flauta, compárala contra la spec del vehículo y obtén un veredicto BIEN/MAL con las causas probables.</p>
-                </div>
-                <div class="home-card-item panel">
-                  <span class="home-card-ic"><${CatIc} n="Wrench" s=${26} /></span>
-                  <h3>Gestión del taller</h3>
-                  <p>Inventario con alertas, órdenes de trabajo con evidencia, clientes, notas de entrega y presupuestos imprimibles. Todo con tu cuenta.</p>
-                </div>
-                <div class="home-card-item panel">
-                  <span class="home-card-ic"><${CatIc} n="MapPin" s=${26} /></span>
-                  <h3>Comunidad</h3>
-                  <p>Conecta clientes y mecánicos por ubicación y oferta, participa en el foro técnico y publica en el mercado de autos.</p>
-                </div>
-              </section>
-
-              <section class="home-audience panel">
-                <h2 class="home-about-title">¿Para quién es?</h2>
-                <div class="home-aud-grid">
-                  <div><strong>🔧 Mecánicos</strong><span>Consultan specs al instante, diagnostican con veredicto y gestionan su taller con cuenta propia.</span></div>
-                  <div><strong>🏪 Refaccionarias</strong><span>Buscan compatibilidades de pilas y módulos, y se conectan con mecánicos de su zona.</span></div>
-                  <div><strong>🚗 Conductores</strong><span>Entienden qué le pasa a su auto y encuentran mecánicos cerca por lo que ofrecen.</span></div>
-                  <div><strong>🎓 Aprendices</strong><span>Estudian guías, glosario y marcas de sincronización a su ritmo.</span></div>
-                </div>
-              </section>
+              <div class="home-stats">
+                <div class="home-stat"><b>${VEH_COUNT}</b><span>Vehículos</span></div>
+                <div class="home-stat"><b>${apps.length}</b><span>Herramientas</span></div>
+                <div class="home-stat"><b>$0</b><span>Sin cuenta</span></div>
+              </div>
             </div>
+
+          </header>
+          </div>
+
+          ${/* Buscar desde el hero no desmonta el hero (antes ponía tab=null y el
+                propio input desaparecía al primer carácter): la losa explicativa
+                se cambia por los resultados y al vaciar la caja vuelve sola. */
+            q ? html`
+          <div class="home-body">
+            <section class="home-group">
+              <div class="home-group-grid">${filtered.map(a => card(a))}</div>
+              ${filtered.length === 0 && html`<div class="empty">Sin resultados para “${q}”</div>`}
+            </section>
+          </div>
           ` : html`
+          <div class="home-explain">
+            <section class="home-sec">
+              <h2 class="home-about-title">¿Qué es FuelTech Master?</h2>
+              <p class="home-sec-lead">Una plataforma web para mecánicos, refaccionarias y talleres de Latinoamérica que reúne en un solo lugar la <strong>consulta técnica</strong>, el <strong>diagnóstico</strong> y la <strong>gestión del negocio</strong>. Abre en el navegador del celular o de la computadora del taller, se instala como app si quieres, y lo esencial no pide cuenta ni cobra nada.</p>
+              <p class="home-sec-lead">Empezó por un dato concreto —la <strong>presión de riel</strong>, que en un vehículo latinoamericano suele estar enterrada en un foro o un PDF suelto— y hoy cubre bastante más:</p>
+              <div class="home-what">
+                <div class="home-what-col">
+                  <h3>Buscar el dato</h3>
+                  <p>Presión de riel en PSI y bar por marca, modelo, año y motor de ${VEH_COUNT} vehículos de ${BRAND_COUNT} marcas, incluidas las chinas que ya llenan el taller. Dónde está el módulo, si hay que bajar el tanque, qué pilas OEM y alternativas le entran, y el visor 3D para ubicar la zona. Más ${DTCS.length} códigos OBD-II, torques, bujías, medidas de llanta, fusibles y pinouts.</p>
+                </div>
+                <div class="home-what-col">
+                  <h3>Diagnosticar</h3>
+                  <p>Metes tu medición y la herramienta la compara contra la especificación: veredicto BIEN/MAL con causas probables y qué probar después. Lo mismo con los ajustes de combustible del escáner, la prueba de compresión, el regulador y las calculadoras de caudal y eléctricas.</p>
+                </div>
+                <div class="home-what-col">
+                  <h3>Cobrar y administrar</h3>
+                  <p>Inspección de recepción, tiempos de mano de obra que pasan solos al cotizador, presupuestos y notas de entrega imprimibles, inventario con alertas de mínimo, clientes, órdenes de trabajo, agenda de citas y cierre de caja.</p>
+                </div>
+                <div class="home-what-col">
+                  <h3>Aprender y conectar</h3>
+                  <p>Guías de diagnóstico paso a paso, glosario del taller, marcas de sincronización, foro técnico para preguntar y corregir datos, conexión entre clientes y mecánicos por zona, y mercado de autos.</p>
+                </div>
+              </div>
+              <p class="home-sec-lead" style=${{ marginTop: '22px', marginBottom: 0 }}>Lo que <strong>no</strong> es: no reemplaza al manual de servicio ni al escáner. Es la referencia rápida que te evita adivinar mientras el carro está en la rampa — y todo dato sin confirmar viene marcado como tal.</p>
+            </section>
+
+            <section class="home-sec home-sec--alt">
+              <h2 class="home-about-title">Cómo funciona</h2>
+              <p class="home-sec-lead">Tres pasos, sin instalar nada y sin cuenta para lo esencial.</p>
+              <div class="home-steps">
+                <div class="home-step">
+                  <h3>Identifica el vehículo</h3>
+                  <p>Marca, modelo, año y motor — o pega el VIN y deja que el decodificador saque el año y el fabricante.</p>
+                </div>
+                <div class="home-step">
+                  <h3>Consulta la especificación</h3>
+                  <p>Presión de riel en PSI y bar, dónde está el módulo, si hay que bajar el tanque, y qué pilas OEM y alternativas le entran.</p>
+                </div>
+                <div class="home-step">
+                  <h3>Compara y decide</h3>
+                  <p>Metes tu medición de la flauta y recibes un veredicto BIEN/MAL con las causas probables y las pruebas que siguen.</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="home-sec">
+              <h2 class="home-about-title">Qué incluye</h2>
+              <p class="home-sec-lead">${apps.length} herramientas repartidas en cuatro frentes. Toca una categoría para abrirla.</p>
+              <div class="home-cards">
+                ${[
+                  ['Fuel', 'Consulta técnica', 'Presión de riel en PSI y bar, ubicación del módulo, pilas OEM y alternativas, DTC, torques, bujías, fusibles y medidas de llanta — por marca y modelo.', 'consulta'],
+                  ['Gauge', 'Diagnóstico', 'Mide la presión en la flauta, compárala contra la spec del vehículo y obtén un veredicto BIEN/MAL con las causas probables.', 'diag'],
+                  ['Wrench', 'Gestión del taller', 'Inventario con alertas, órdenes de trabajo, clientes, citas, inspección de recepción, cotizador y cierre de caja. Todo con tu cuenta.', 'taller'],
+                  ['MapPin', 'Comunidad', 'Conecta clientes y mecánicos por ubicación y oferta, participa en el foro técnico y publica en el mercado de autos.', 'comunidad'],
+                ].map(([ic, t, d, g]) => html`
+                  <button type="button" class="home-card-item" key=${g} onClick=${() => { setTab(g); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+                    <span class="home-card-ic"><${CatIc} n=${ic} s=${24} /></span>
+                    <h3>${t}</h3>
+                    <p>${d}</p>
+                    <span class="home-card-go">Ver ${appsOf(g).length} herramientas <${CatIc} n="ArrowRight" s=${14} /></span>
+                  </button>`)}
+              </div>
+            </section>
+
+            <section class="home-sec home-sec--alt">
+              <h2 class="home-about-title">Cobertura del catálogo</h2>
+              <p class="home-sec-lead">Datos cargados hoy en la base. Los registros marcados como estimados llevan su advertencia en ámbar dentro de la ficha.</p>
+              <div class="home-facts">
+                <div class="home-fact"><b>${VEH_COUNT}</b><span>Vehículos</span></div>
+                <div class="home-fact"><b>${BRAND_COUNT}</b><span>Marcas</span></div>
+                <div class="home-fact"><b>${DTCS.length}</b><span>Códigos DTC</span></div>
+                <div class="home-fact"><b>${TIMING.length}</b><span>Motores con marcas de tiempo</span></div>
+                <div class="home-fact"><b>${apps.length}</b><span>Herramientas</span></div>
+              </div>
+            </section>
+
+            <section class="home-sec">
+              <h2 class="home-about-title">¿Para quién es?</h2>
+              <div class="home-aud-grid">
+                <div><span class="home-aud-ic"><${CatIc} n="Wrench" s=${20} /></span><strong>Mecánicos</strong><span>Consultan specs al instante, diagnostican con veredicto y gestionan su taller con cuenta propia.</span></div>
+                <div><span class="home-aud-ic"><${CatIc} n="Store" s=${20} /></span><strong>Refaccionarias</strong><span>Buscan compatibilidades de pilas y módulos, y se conectan con mecánicos de su zona.</span></div>
+                <div><span class="home-aud-ic"><${CatIc} n="Car" s=${20} /></span><strong>Conductores</strong><span>Entienden qué le pasa a su auto y encuentran mecánicos cerca por lo que ofrecen.</span></div>
+                <div><span class="home-aud-ic"><${CatIc} n="BookOpen" s=${20} /></span><strong>Aprendices</strong><span>Estudian guías, glosario y marcas de sincronización a su ritmo.</span></div>
+              </div>
+            </section>
+
+            <section class="home-sec home-sec--alt">
+              <h2 class="home-about-title">Preguntas frecuentes</h2>
+              ${/* Estas mismas preguntas y respuestas están duplicadas como JSON-LD
+                    de tipo FAQPage en el <head> de index.html, para que Google pueda
+                    mostrarlas como resultado enriquecido. Si cambias una, cambia la
+                    otra: Google penaliza el marcado que no coincide con lo visible. */''}
+              <div class="home-faq">
+                ${FAQ.map(([q, a], i) => html`
+                  <details key=${i}>
+                    <summary>${q}</summary>
+                    <p>${a}</p>
+                  </details>`)}
+              </div>
+            </section>
+
+            <section class="home-sec">
+              <h2 class="home-about-title">Quién lo hace</h2>
+              <div class="home-author">
+                <div>
+                  <p>FuelTech Master es un proyecto independiente, hecho desde Latinoamérica y para el mecánico de la región: los datos, las unidades y el vocabulario están en español de taller — <em>pila</em>, <em>flauta</em>, <em>riel</em>, <em>chicote</em> — y no traducidos de un catálogo en inglés.</p>
+                  <p>Nació de un problema concreto: encontrar la presión de riel de un vehículo latinoamericano suele significar rebuscar en foros y PDFs sueltos mientras el carro está en la rampa. La idea es que ese dato, y los que vienen después, estén a una búsqueda de distancia.</p>
+                  <p>El catálogo se amplía a mano y se corrige con lo que reporta la gente en el foro. Si detectas un dato malo, avísalo: se revisa contra manual y se actualiza.</p>
+                </div>
+                <dl class="home-author-card">
+                  <dt>Proyecto</dt><dd>FuelTech Master · independiente</dd>
+                  <dt>Región</dt><dd>Latinoamérica (español)</dd>
+                  <dt>Autor</dt><dd>newpersonal98</dd>
+                  <dt>Contacto</dt><dd><a href="mailto:newpersonal98@gmail.com">newpersonal98@gmail.com</a></dd>
+                  <dt>Reportar un dato</dt><dd><button type="button" class="link-btn" onClick=${() => onOpen('forum')}>Foro técnico</button></dd>
+                </dl>
+              </div>
+            </section>
+
+            ${/* Cierre: quien llegó hasta aquí leyó todo y no tiene a dónde ir.
+                  La acción cambia según haya sesión o no. */''}
+            <section class="home-sec home-sec--alt home-close">
+              <div>
+                <h2>Busca tu vehículo y sal de dudas</h2>
+                <p>${VEH_COUNT} vehículos, ${apps.length} herramientas y ningún formulario de por medio. La consulta y el diagnóstico no piden cuenta.</p>
+              </div>
+              <div class="home-close-cta">
+                <button type="button" class="tool-add-btn" onClick=${() => onOpen('search')}>Buscar mi vehículo →</button>
+                ${user
+                  ? html`<button type="button" class="home-cta-ghost" onClick=${() => setTab('taller')}>Ir a mi taller</button>`
+                  : html`<button type="button" class="home-cta-ghost" onClick=${onLogin}>Crear cuenta del taller</button>`}
+              </div>
+            </section>
+          </div>
+          `}
+        ` : html`
+          <div class="home-body">
             ${q ? html`<section class="home-group"><div class="home-group-grid">${filtered.map(a => card(a))}</div>${filtered.length === 0 && html`<div class="empty">Sin resultados para “${q}”</div>`}</section>`
               : html`
                 <header class="home-cat-head">
@@ -265,9 +586,46 @@
                 </header>
                 <div class="home-group-grid home-apps-grid">${appsOf(tab).map(a => card(a))}</div>
               `}
-          `}
-        </div>
-        <footer class="home-footer">FuelTech Master · Herramientas para el mecánico profesional</footer>
+          </div>
+        `}
+        <footer class="home-footer">
+          <div class="home-footer-grid">
+            <div class="home-footer-brand">
+              <img class="logo-lockup on-dark" src="/brand/logo-dark.png" width="760" height="205" alt="FuelTech Master" />
+              <img class="logo-lockup on-light" src="/brand/logo-light.png" width="760" height="193" alt="" />
+              <p>Consulta técnica, diagnóstico y gestión para talleres de Latinoamérica. Proyecto independiente; el catálogo se amplía y se corrige a mano.</p>
+            </div>
+            <div>
+              <h4>Consulta</h4>
+              <ul>
+                <li><button type="button" class="link-btn" onClick=${() => onOpen('search')}>Catálogo de combustible</button></li>
+                <li><button type="button" class="link-btn" onClick=${() => onOpen('dtc')}>Códigos DTC</button></li>
+                <li><button type="button" class="link-btn" onClick=${() => onOpen('cross')}>Cross-reference</button></li>
+                <li><a href="/vehiculos">Índice de vehículos</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4>Aprender</h4>
+              <ul>
+                <li><a href="/guias">Guías de diagnóstico</a></li>
+                <li><button type="button" class="link-btn" onClick=${() => onOpen('glossary')}>Glosario técnico</button></li>
+                <li><button type="button" class="link-btn" onClick=${() => onOpen('timing')}>Marcas de sincronización</button></li>
+              </ul>
+            </div>
+            <div>
+              <h4>Comunidad</h4>
+              <ul>
+                <li><button type="button" class="link-btn" onClick=${() => onOpen('forum')}>Foro técnico</button></li>
+                <li><button type="button" class="link-btn" onClick=${() => onOpen('connect')}>Conectar con un mecánico</button></li>
+                <li><a href="mailto:newpersonal98@gmail.com">Reportar un dato</a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="home-footer-bottom">
+            <span>FuelTech Master · Herramientas para el mecánico profesional</span>
+            <span>Los datos son de referencia; verifica siempre contra el manual de servicio del vehículo.</span>
+          </div>
+        </footer>
       </div>`;
   };
 
@@ -748,12 +1106,13 @@
     return html`<${MicroShell} title="Clientes" icon="Car" onBack=${onBack}>
       ${api.err && html`<div class="alert"><span>${api.err}</span></div>`}
       <div class="cli-form" style=${{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px' }}>
-        <input type="text" class="styled-input" placeholder="Nombre" value=${f.name} onChange=${e => setF({ ...f, name: e.target.value })} />
-        <input type="text" class="styled-input" placeholder="Teléfono" value=${f.phone} onChange=${e => setF({ ...f, phone: e.target.value })} />
-        <input type="text" class="styled-input" placeholder="Correo" value=${f.email} onChange=${e => setF({ ...f, email: e.target.value })} />
-        <input type="text" class="styled-input" placeholder="Dirección" value=${f.address} onChange=${e => setF({ ...f, address: e.target.value })} />
-        <input type="text" class="styled-input" placeholder="Ciudad" value=${f.city} onChange=${e => setF({ ...f, city: e.target.value })} />
-        <input type="text" class="styled-input" placeholder="Notas" value=${f.notes} onChange=${e => setF({ ...f, notes: e.target.value })} />
+        <input type="text" name="nombre" autocomplete="name" class="styled-input" placeholder="Nombre…" aria-label="Nombre del cliente" value=${f.name} onChange=${e => setF({ ...f, name: e.target.value })} />
+        ${/* tel + código de país: es lo que necesita wa.me para abrir el chat */''}
+        <input type="tel" name="telefono" autocomplete="tel" inputmode="tel" class="styled-input" placeholder="WhatsApp: +58 412…" aria-label="Teléfono con código de país" value=${f.phone} onChange=${e => setF({ ...f, phone: e.target.value })} />
+        <input type="email" name="correo" autocomplete="email" spellcheck="false" class="styled-input" placeholder="Correo…" aria-label="Correo del cliente" value=${f.email} onChange=${e => setF({ ...f, email: e.target.value })} />
+        <input type="text" name="direccion" autocomplete="street-address" class="styled-input" placeholder="Dirección…" aria-label="Dirección" value=${f.address} onChange=${e => setF({ ...f, address: e.target.value })} />
+        <input type="text" name="ciudad" autocomplete="address-level2" class="styled-input" placeholder="Ciudad…" aria-label="Ciudad" value=${f.city} onChange=${e => setF({ ...f, city: e.target.value })} />
+        <input type="text" name="notas" class="styled-input" placeholder="Notas…" aria-label="Notas del cliente" value=${f.notes} onChange=${e => setF({ ...f, notes: e.target.value })} />
       </div>
       <div style=${{ display: 'flex', gap: '10px', margin: '10px 0 14px', alignItems: 'center' }}>
         <button type="button" class="tool-add-btn" onClick=${save} disabled=${!f.name.trim()}>${editing ? 'Guardar cambios' : 'Agregar cliente'}</button>
@@ -764,8 +1123,11 @@
           <button type="button" class="link-btn" style=${{ font: '700 13px var(--font)', color: 'var(--text)' }} onClick=${() => toggle(c)}>${c.name}</button>
           ${c.phone && html`<a href=${'tel:' + c.phone} class="link-btn">${c.phone}</a>`}
           ${c.city && html`<span class="muted">· ${c.city}</span>`}
+          ${/* mandar presupuesto o catálogo directo al chat del cliente */''}
+          ${telValido(c.phone) && html`<button type="button" class="cli-wa" title=${'Escribir a ' + c.name + ' por WhatsApp'}
+            onClick=${() => enviarWhatsApp(c.phone, `Hola ${c.name}, le escribo del taller.`)}>WhatsApp</button>`}
           <button type="button" class="link-btn" onClick=${() => edit(c)}>editar</button>
-          <button type="button" class="link-btn" onClick=${() => del(c.id)}>✕</button>
+          <button type="button" class="link-btn" onClick=${() => del(c.id)} aria-label=${'Borrar a ' + c.name}>✕</button>
           ${openId === c.id && html`<div style=${{ marginTop: '10px', borderTop: '1px solid var(--border)', paddingTop: '10px', width: '100%' }}>
             <strong class="muted" style=${{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>Vehículos</strong>
             ${(vehicles[c.id] || []).map(v => html`<div key=${v.id} class="order-item-line" style=${{ display: 'flex', justifyContent: 'space-between', gap: '8px', fontSize: '12px', margin: '4px 0' }}>
@@ -1174,9 +1536,1155 @@
     <div class="alert blue" style=${{ marginTop: '12px' }}><span>Referencia: la marca exacta y el método varían por año y mercado. Usa el manual de servicio.</span></div>
   </${MicroShell}>`;
 
+  /* ================================================================
+     24. Fusibles y relés
+     Dos tablas: el código de colores de los fusibles de cuchilla, que es
+     norma (ATO/ATC/mini) y por tanto un dato duro, y los amperajes típicos
+     por circuito, que NO lo son — varían por modelo y van marcados como
+     referencia. Separarlas evita que el segundo contagie autoridad al primero.
+     ================================================================ */
+  const FUSE_COLORS = [
+    ['2 A', 'Gris', '#9AA0A6'], ['3 A', 'Violeta', '#7E57C2'], ['5 A', 'Canela', '#D2A679'],
+    ['7.5 A', 'Café', '#6D4C41'], ['10 A', 'Rojo', '#E53935'], ['15 A', 'Azul', '#1E88E5'],
+    ['20 A', 'Amarillo', '#FDD835'], ['25 A', 'Natural', '#F5F5F5'],
+    ['30 A', 'Verde', '#43A047'], ['40 A', 'Naranja', '#FB8C00'],
+  ];
+  const FUSE_CIRCUITS = [
+    ['Bomba / pila de gasolina', '15–20 A', 'Casi siempre con relé propio. Si el fusible truena repetido, mide el consumo de la pila: por encima de su corriente nominal, está por irse.'],
+    ['Inyectores', '15–20 A', 'Compartido con el módulo de encendido en varios modelos.'],
+    ['ECU / computadora', '10–15 A', 'Suele haber dos: alimentación permanente (memoria) y switcheada.'],
+    ['Encendido / bobinas', '15–20 A', 'Un fusible abierto aquí da «gira y no arranca» sin chispa.'],
+    ['Electroventilador', '30–40 A', 'El de mayor consumo del cofre; casi siempre con relé y fusible tipo maxi.'],
+    ['Motor de arranque (relé)', '20–30 A', 'El cable de potencia va directo; el fusible protege el mando del relé.'],
+    ['Luces bajas', '10–15 A', 'Frecuente uno por lado.'],
+    ['Luces altas', '10–15 A', ''],
+    ['Intermitentes / direccionales', '10–15 A', ''],
+    ['Luces de freno', '10–15 A', 'Si fallan las tres, sospecha del interruptor del pedal antes que del fusible.'],
+    ['Claxon', '10–15 A', ''],
+    ['Limpiaparabrisas', '20–30 A', ''],
+    ['Aire acondicionado (embrague)', '10 A', 'El compresor se manda por relé.'],
+    ['Elevavidrios', '20–30 A', 'Un solo fusible para las cuatro puertas en muchos modelos.'],
+    ['Radio / infoentretenimiento', '10–15 A', 'También alimenta la memoria de estaciones.'],
+    ['Encendedor / toma 12 V', '15–20 A', 'El primero que truena por cargadores baratos.'],
+    ['Tablero / instrumentos', '7.5–10 A', ''],
+    ['Sistema ABS', '20–30 A', ''],
+    ['Bolsas de aire (SRS)', '7.5–10 A', 'No lo puentees nunca para «probar».'],
+  ];
+
+  const FusesApp = ({ onBack }) => {
+    const [q, setQ] = useState('');
+    const t = q.trim().toLowerCase();
+    const rows = FUSE_CIRCUITS.filter(r => !t || (r[0] + ' ' + r[2]).toLowerCase().includes(t));
+    return html`<${MicroShell} title="Fusibles y Relés" icon="Zap" onBack=${onBack}>
+      <h3 class="mic-sub">Código de colores (fusible de cuchilla)</h3>
+      <div class="fuse-grid">
+        ${FUSE_COLORS.map(([a, c, hex]) => html`<div class="fuse-chip" key=${a}>
+          <span class="fuse-dot" style=${{ background: hex }} aria-hidden="true"></span>
+          <b>${a}</b><span>${c}</span>
+        </div>`)}
+      </div>
+
+      <h3 class="mic-sub">Amperaje típico por circuito</h3>
+      <label class="sr-only" htmlFor="fuse-q">Filtrar circuito</label>
+      <input id="fuse-q" name="circuito" type="search" class="styled-input" placeholder="Filtrar circuito…" value=${q} onChange=${e => setQ(e.target.value)} style=${{ maxWidth: '320px', marginBottom: '12px' }} />
+      <table class="mic-tbl">
+        <thead><tr><th>Circuito</th><th>Amperaje</th><th>Nota</th></tr></thead>
+        <tbody>${rows.map((r, i) => html`<tr key=${i}><td>${r[0]}</td><td class="num"><strong>${r[1].replace(' A', ' A')}</strong></td><td class="muted">${r[2]}</td></tr>`)}</tbody>
+      </table>
+      ${rows.length === 0 && html`<div class="empty">Sin resultados para “${q}”</div>`}
+      <div class="alert" style=${{ marginTop: '14px' }}><span>Los amperajes por circuito son <strong>referencia</strong>: el valor bueno es el que dice la tapa de la caja de fusibles del vehículo. Nunca subas de amperaje para que “aguante” — el fusible protege el cable, no el componente.</span></div>
+    </${MicroShell}>`;
+  };
+
+  /* ================================================================
+     25. Medidas de llanta y error de velocímetro
+     ================================================================ */
+  const TireApp = ({ onBack }) => {
+    const [a, setA] = useState({ w: '195', p: '65', r: '15' });
+    const [b, setB] = useState({ w: '205', p: '60', r: '16' });
+    const diam = (t) => {
+      const w = parseFloat(t.w), p = parseFloat(t.p), r = parseFloat(t.r);
+      if (!w || !p || !r) return 0;
+      return r * 25.4 + 2 * (w * p / 100);   // mm
+    };
+    const dA = diam(a), dB = diam(b);
+    const ok = dA > 0 && dB > 0;
+    const diff = ok ? ((dB - dA) / dA) * 100 : 0;
+    const real100 = ok ? 100 * (dB / dA) : 0;
+    const revA = dA ? 1e6 / (Math.PI * dA) : 0;   // vueltas por km
+    const revB = dB ? 1e6 / (Math.PI * dB) : 0;
+    const grave = Math.abs(diff) > 3;
+    const campo = (t, set, label) => html`
+      <div class="tire-col">
+        <span class="mic-lbl">${label}</span>
+        <div class="tire-inputs">
+          <input type="number" class="styled-input" value=${t.w} onChange=${e => set({ ...t, w: e.target.value })} aria-label="Ancho en mm" />
+          <span>/</span>
+          <input type="number" class="styled-input" value=${t.p} onChange=${e => set({ ...t, p: e.target.value })} aria-label="Perfil en %" />
+          <span>R</span>
+          <input type="number" class="styled-input" value=${t.r} onChange=${e => set({ ...t, r: e.target.value })} aria-label="Rin en pulgadas" />
+        </div>
+        <span class="muted" style=${{ fontSize: '11px' }}>Ø ${diam(t) ? diam(t).toFixed(1) + ' mm · ' + (diam(t) / 25.4).toFixed(2) + ' in' : '—'}</span>
+      </div>`;
+    return html`<${MicroShell} title="Medidas de Llanta" icon="Car" onBack=${onBack}>
+      <p class="mic-lead">Compara la medida original con la que quieres montar: cuánto cambia el diámetro, cuánto miente el velocímetro y si el cambio se pasa del margen sano.</p>
+      <div class="tire-row">
+        ${campo(a, setA, 'Medida original')}
+        ${campo(b, setB, 'Medida nueva')}
+      </div>
+      ${ok && html`
+        <div class=${'tire-verdict' + (grave ? ' bad' : '')}>
+          <b>${diff > 0 ? '+' : ''}${diff.toFixed(2)} %</b>
+          <span>de diferencia en diámetro</span>
+        </div>
+        <dl class="kv tire-kv">
+          <dt>Velocímetro marcando 100 km/h</dt><dd>Vas realmente a <strong>${real100.toFixed(1)} km/h</strong></dd>
+          <dt>Diferencia de altura al piso</dt><dd>${((dB - dA) / 2).toFixed(1)} mm</dd>
+          <dt>Vueltas por kilómetro</dt><dd>${revA.toFixed(0)} → ${revB.toFixed(0)}</dd>
+          <dt>Odómetro tras 1 000 km reales</dt><dd>Marcará ${(1000 * (dA / dB)).toFixed(0)} km</dd>
+        </dl>
+        ${grave
+          ? html`<div class="alert"><span>Más de 3 % de diferencia: el velocímetro y el odómetro se van notablemente, y en vehículos con ABS o control de tracción el cambio puede alterar las lecturas de velocidad de rueda. Busca una medida más cercana.</span></div>`
+          : html`<div class="alert blue"><span>Dentro del ±3 % que se considera aceptable. Verifica igual que no roce con suspensión ni salpicaderas a tope de dirección.</span></div>`}`}
+    </${MicroShell}>`;
+  };
+
+  /* ================================================================
+     26. Inspección de recepción (multipunto)
+     Guarda en el navegador, no en la nube: es una lista de trabajo del
+     momento y no debería exigir cuenta para usarse en la rampa.
+     ================================================================ */
+  const INSPECTION = [
+    ['Niveles', ['Aceite de motor', 'Refrigerante', 'Líquido de frenos', 'Dirección hidráulica', 'Limpiaparabrisas']],
+    ['Neumáticos', ['Delantero izq.', 'Delantero der.', 'Trasero izq.', 'Trasero der.', 'Refacción', 'Presión de inflado']],
+    ['Frenos', ['Pastillas delanteras', 'Pastillas traseras', 'Discos / tambores', 'Freno de mano']],
+    ['Luces', ['Bajas', 'Altas', 'Direccionales', 'Freno', 'Reversa', 'Tablero sin testigos']],
+    ['Motor', ['Bandas', 'Mangueras', 'Filtro de aire', 'Bujías / cables', 'Fugas visibles']],
+    ['Eléctrico', ['Batería y bornes', 'Alternador (carga)', 'Motor de arranque', 'Claxon']],
+    ['Suspensión', ['Amortiguadores', 'Rótulas y terminales', 'Bujes', 'Ruidos en camino']],
+  ];
+  const INSP_STATES = [['ok', 'Bien'], ['warn', 'Atención'], ['bad', 'Mal']];
+
+  const InspectionApp = ({ onBack }) => {
+    const [d, setD] = useState(() => ls.get('ft_inspection', { veh: '', plate: '', km: '', notes: '', marks: {} }));
+    const [copiado, setCopiado] = useState(false);
+    const save = (next) => { setD(next); ls.set('ft_inspection', next); };
+    const mark = (k, v) => save({ ...d, marks: { ...d.marks, [k]: d.marks[k] === v ? undefined : v } });
+    const total = INSPECTION.reduce((n, g) => n + g[1].length, 0);
+    const done = Object.values(d.marks).filter(Boolean).length;
+    const counts = INSP_STATES.map(([s]) => Object.values(d.marks).filter(v => v === s).length);
+    const resumen = () => {
+      const lineas = [`Inspección de recepción — ${d.veh || 'vehículo sin identificar'}${d.plate ? ' (' + d.plate + ')' : ''}${d.km ? ' · ' + d.km + ' km' : ''}`, ''];
+      for (const [grupo, puntos] of INSPECTION) {
+        const conMarca = puntos.filter(p => d.marks[grupo + '|' + p]);
+        if (!conMarca.length) continue;
+        lineas.push(grupo.toUpperCase());
+        for (const p of conMarca) {
+          const est = INSP_STATES.find(s => s[0] === d.marks[grupo + '|' + p]);
+          lineas.push(`  [${est ? est[1] : '—'}] ${p}`);
+        }
+        lineas.push('');
+      }
+      if (d.notes) lineas.push('NOTAS', d.notes);
+      const txt = lineas.join('\n');
+      // Copiar no cambia nada visible por sí solo: sin acuse, el mecánico
+      // vuelve a tocar el botón sin saber si funcionó.
+      navigator.clipboard?.writeText(txt).then(() => {
+        setCopiado(true);
+        setTimeout(() => setCopiado(false), 2000);
+      }, () => {});
+    };
+    return html`<${MicroShell} title="Inspección de Recepción" icon="ClipboardCheck" onBack=${onBack}>
+      <p class="mic-lead">Recorre el vehículo antes de aceptarlo y deja constancia de cómo llegó. Se guarda en este navegador; copia el resumen para pegarlo en la orden.</p>
+      <div class="insp-head">
+        <input type="text" name="vehiculo" class="styled-input" placeholder="Vehículo (marca y modelo)…" aria-label="Vehículo: marca y modelo" value=${d.veh} onChange=${e => save({ ...d, veh: e.target.value })} />
+        <input type="text" name="placa" class="styled-input" placeholder="Placa…" aria-label="Placa" spellcheck="false" value=${d.plate} onChange=${e => save({ ...d, plate: e.target.value })} />
+        <input type="number" name="km" class="styled-input" placeholder="Kilometraje…" aria-label="Kilometraje" value=${d.km} onChange=${e => save({ ...d, km: e.target.value })} />
+      </div>
+
+      <div class="insp-progress" aria-live="polite">
+        <span><strong>${done}</strong> de ${total} puntos revisados</span>
+        <span class="insp-tally">
+          <em class="ok">${counts[0]} bien</em>
+          <em class="warn">${counts[1]} atención</em>
+          <em class="bad">${counts[2]} mal</em>
+        </span>
+      </div>
+
+      ${INSPECTION.map(([grupo, puntos]) => html`
+        <section class="insp-group" key=${grupo}>
+          <h3 class="mic-sub">${grupo}</h3>
+          ${puntos.map(p => {
+            const k = grupo + '|' + p;
+            return html`<div class="insp-row" key=${p}>
+              <span>${p}</span>
+              <div class="insp-btns">
+                ${INSP_STATES.map(([s, label]) => html`
+                  <button type="button" key=${s} class=${'insp-btn ' + s + (d.marks[k] === s ? ' on' : '')}
+                    aria-pressed=${d.marks[k] === s} onClick=${() => mark(k, s)}>${label}</button>`)}
+              </div>
+            </div>`;
+          })}
+        </section>`)}
+
+      <h3 class="mic-sub">Notas</h3>
+      <textarea class="styled-input" rows="3" placeholder="Golpes, faltantes, objetos dentro del vehículo…" value=${d.notes} onChange=${e => save({ ...d, notes: e.target.value })}></textarea>
+      <div class="insp-actions">
+        <button type="button" class="tool-add-btn" onClick=${resumen} disabled=${!done}>${copiado ? 'Copiado ✓' : 'Copiar resumen'}</button>
+        <button type="button" class="home-cta-ghost" onClick=${() => save({ veh: '', plate: '', km: '', notes: '', marks: {} })}>Inspección nueva</button>
+      </div>
+    </${MicroShell}>`;
+  };
+
+  /* ================================================================
+     27. Cotizador de mano de obra y refacciones
+     ================================================================ */
+  const QuoteApp = ({ onBack }) => {
+    const [q, setQ] = useState(() => ls.get('ft_quote', {
+      rate: '250', iva: '16', disc: '0',
+      cliente: '', tel: '', veh: '',
+      labor: [{ d: '', h: '' }],
+      parts: [{ d: '', q: '1', p: '' }],
+    }));
+    const [copiado, setCopiado] = useState(false);
+    const save = (next) => { setQ(next); ls.set('ft_quote', next); };
+    const num = (x) => { const n = parseFloat(x); return isNaN(n) ? 0 : n; };
+    const horas = q.labor.reduce((s, l) => s + num(l.h), 0);
+    const manoObra = horas * num(q.rate);
+    const refacciones = q.parts.reduce((s, p) => s + num(p.q) * num(p.p), 0);
+    const subtotal = manoObra + refacciones;
+    const descuento = subtotal * (num(q.disc) / 100);
+    const base = subtotal - descuento;
+    const iva = base * (num(q.iva) / 100);
+    const total = base + iva;
+    const money = (n) => n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const setLine = (key, i, campo, val) => {
+      const arr = q[key].map((l, j) => j === i ? { ...l, [campo]: val } : l);
+      save({ ...q, [key]: arr });
+    };
+    const addLine = (key, vacia) => save({ ...q, [key]: [...q[key], vacia] });
+    const delLine = (key, i) => save({ ...q, [key]: q[key].filter((_, j) => j !== i) });
+
+    /* Texto plano, no HTML: WhatsApp solo entiende su propio marcado ligero
+       (*negrita*) y cualquier otra cosa llega como caracteres sueltos. */
+    const comoTexto = () => {
+      const L = [];
+      L.push('*PRESUPUESTO*');
+      if (q.cliente) L.push(`Cliente: ${q.cliente}`);
+      if (q.veh) L.push(`Vehículo: ${q.veh}`);
+      L.push('');
+      const conManoObra = q.labor.filter(l => l.d || num(l.h));
+      if (conManoObra.length) {
+        L.push('*Mano de obra*');
+        for (const l of conManoObra) L.push(`• ${l.d || 'Trabajo'} — ${num(l.h)} h — $${money(num(l.h) * num(q.rate))}`);
+        L.push('');
+      }
+      const conPartes = q.parts.filter(p => p.d || num(p.p));
+      if (conPartes.length) {
+        L.push('*Refacciones*');
+        for (const p of conPartes) L.push(`• ${p.d || 'Refacción'} ×${num(p.q)} — $${money(num(p.q) * num(p.p))}`);
+        L.push('');
+      }
+      L.push(`Subtotal: $${money(subtotal)}`);
+      if (num(q.disc) > 0) L.push(`Descuento (${q.disc} %): -$${money(descuento)}`);
+      L.push(`Impuesto (${q.iva} %): $${money(iva)}`);
+      L.push(`*TOTAL: $${money(total)}*`);
+      L.push('');
+      L.push('Presupuesto estimado, sujeto a revisión física del vehículo.');
+      return L.join('\n');
+    };
+    const copiar = () => navigator.clipboard?.writeText(comoTexto()).then(() => {
+      setCopiado(true); setTimeout(() => setCopiado(false), 2000);
+    }, () => {});
+    const hayLineas = subtotal > 0;
+
+    return html`<${MicroShell} title="Cotizador Rápido" icon="Calculator" onBack=${onBack}>
+      <p class="mic-lead">Arma el presupuesto antes de dar el precio y mándalo por WhatsApp al cliente. Se guarda en este navegador.</p>
+
+      <h3 class="mic-sub">Cliente</h3>
+      <div class="quote-params">
+        <label><span class="mic-lbl">Nombre</span><input type="text" name="cliente" autocomplete="name" class="styled-input" placeholder="Nombre del cliente…" value=${q.cliente} onChange=${e => save({ ...q, cliente: e.target.value })} /></label>
+        <label><span class="mic-lbl">WhatsApp (con código de país)</span><input type="tel" name="telefono" autocomplete="tel" inputmode="tel" class="styled-input" placeholder="+58 412 1234567" value=${q.tel} onChange=${e => save({ ...q, tel: e.target.value })} /></label>
+        <label><span class="mic-lbl">Vehículo</span><input type="text" name="vehiculo" class="styled-input" placeholder="Marca, modelo y año…" value=${q.veh} onChange=${e => save({ ...q, veh: e.target.value })} /></label>
+      </div>
+
+      <h3 class="mic-sub">Tarifas</h3>
+      <div class="quote-params">
+        <label><span class="mic-lbl">Tarifa por hora</span><input type="number" class="styled-input" value=${q.rate} onChange=${e => save({ ...q, rate: e.target.value })} /></label>
+        <label><span class="mic-lbl">Impuesto %</span><input type="number" class="styled-input" value=${q.iva} onChange=${e => save({ ...q, iva: e.target.value })} /></label>
+        <label><span class="mic-lbl">Descuento %</span><input type="number" class="styled-input" value=${q.disc} onChange=${e => save({ ...q, disc: e.target.value })} /></label>
+      </div>
+
+      <h3 class="mic-sub">Mano de obra</h3>
+      ${q.labor.map((l, i) => html`<div class="quote-line" key=${'l' + i}>
+        <input type="text" class="styled-input" placeholder="Trabajo (ej. cambio de pila de gasolina)…" aria-label=${'Descripción del trabajo ' + (i + 1)} value=${l.d} onChange=${e => setLine('labor', i, 'd', e.target.value)} />
+        <input type="number" min="0" step="0.25" class="styled-input quote-narrow" placeholder="Horas" aria-label=${'Horas del trabajo ' + (i + 1)} value=${l.h} onChange=${e => setLine('labor', i, 'h', e.target.value)} />
+        <span class="quote-sub">$${money(num(l.h) * num(q.rate))}</span>
+        <button type="button" class="quote-del" onClick=${() => delLine('labor', i)} aria-label="Quitar línea" disabled=${q.labor.length === 1}>✕</button>
+      </div>`)}
+      <button type="button" class="home-cta-ghost quote-add" onClick=${() => addLine('labor', { d: '', h: '' })}>+ Agregar trabajo</button>
+
+      <h3 class="mic-sub">Refacciones</h3>
+      ${q.parts.map((p, i) => html`<div class="quote-line" key=${'p' + i}>
+        <input type="text" class="styled-input" placeholder="Refacción…" aria-label=${'Refacción ' + (i + 1)} value=${p.d} onChange=${e => setLine('parts', i, 'd', e.target.value)} />
+        <input type="number" min="0" class="styled-input quote-narrow" placeholder="Cant." aria-label=${'Cantidad de la refacción ' + (i + 1)} value=${p.q} onChange=${e => setLine('parts', i, 'q', e.target.value)} />
+        <input type="number" min="0" step="0.01" class="styled-input quote-narrow" placeholder="Precio" aria-label=${'Precio unitario de la refacción ' + (i + 1)} value=${p.p} onChange=${e => setLine('parts', i, 'p', e.target.value)} />
+        <span class="quote-sub">$${money(num(p.q) * num(p.p))}</span>
+        <button type="button" class="quote-del" onClick=${() => delLine('parts', i)} aria-label="Quitar línea" disabled=${q.parts.length === 1}>✕</button>
+      </div>`)}
+      <button type="button" class="home-cta-ghost quote-add" onClick=${() => addLine('parts', { d: '', q: '1', p: '' })}>+ Agregar refacción</button>
+
+      <dl class="kv quote-total">
+        <dt>Mano de obra (${horas.toFixed(1)} h)</dt><dd>$${money(manoObra)}</dd>
+        <dt>Refacciones</dt><dd>$${money(refacciones)}</dd>
+        <dt>Subtotal</dt><dd>$${money(subtotal)}</dd>
+        ${num(q.disc) > 0 && html`<dt>Descuento (${q.disc} %)</dt><dd>−$${money(descuento)}</dd>`}
+        <dt>Impuesto (${q.iva} %)</dt><dd>$${money(iva)}</dd>
+      </dl>
+      <div class="quote-grand" aria-live="polite"><span>Total</span><b>$${money(total)}</b></div>
+
+      <div class="insp-actions">
+        <button type="button" class="tool-add-btn" disabled=${!hayLineas || !telValido(q.tel)}
+          onClick=${() => enviarWhatsApp(q.tel, comoTexto())}>
+          Enviar por WhatsApp
+        </button>
+        <button type="button" class="home-cta-ghost" disabled=${!hayLineas} onClick=${copiar}>${copiado ? 'Copiado ✓' : 'Copiar texto'}</button>
+        <button type="button" class="home-cta-ghost" onClick=${() => save({ ...q, cliente: '', tel: '', veh: '', labor: [{ d: '', h: '' }], parts: [{ d: '', q: '1', p: '' }] })}>Presupuesto nuevo</button>
+      </div>
+      ${hayLineas && !telValido(q.tel) && html`<p class="quote-hint">Escribe el WhatsApp del cliente con código de país para poder enviárselo. Mientras tanto puedes copiar el texto.</p>`}
+    </${MicroShell}>`;
+  };
+
+  /* ================================================================
+     28. Agenda de citas
+     ================================================================ */
+  const AppointmentsApp = ({ onBack }) => {
+    const [items, setItems] = useState(() => ls.get('ft_appointments', []));
+    const [f, setF] = useState({ when: '', client: '', veh: '', job: '' });
+    const save = (arr) => { setItems(arr); ls.set('ft_appointments', arr); };
+    const add = () => {
+      if (!f.when || !f.client) return;
+      save([...items, { ...f, id: uid(), done: false }]);
+      setF({ when: '', client: '', veh: '', job: '' });
+    };
+    const orden = [...items].sort((a, b) => a.when.localeCompare(b.when));
+    const hoy = new Date().toISOString().slice(0, 10);
+    const fmt = (s) => {
+      const d = new Date(s);
+      return isNaN(d) ? s : d.toLocaleString('es', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    };
+    return html`<${MicroShell} title="Agenda de Citas" icon="Calendar" onBack=${onBack}>
+      <p class="mic-lead">Quién viene, cuándo y a qué. Se guarda en este navegador.</p>
+      <div class="cita-form">
+        <input type="datetime-local" name="fecha" class="styled-input" value=${f.when} onChange=${e => setF({ ...f, when: e.target.value })} aria-label="Fecha y hora de la cita" />
+        <input type="text" name="cliente" autocomplete="name" class="styled-input" placeholder="Cliente…" aria-label="Nombre del cliente" value=${f.client} onChange=${e => setF({ ...f, client: e.target.value })} />
+        <input type="text" name="vehiculo" class="styled-input" placeholder="Vehículo…" aria-label="Vehículo" value=${f.veh} onChange=${e => setF({ ...f, veh: e.target.value })} />
+        <input type="text" name="servicio" class="styled-input" placeholder="Servicio…" aria-label="Servicio a realizar" value=${f.job} onChange=${e => setF({ ...f, job: e.target.value })} />
+        <button type="button" class="tool-add-btn" onClick=${add} disabled=${!f.when || !f.client}>Agendar</button>
+      </div>
+      <p class="sr-only" aria-live="polite">${orden.length} citas agendadas</p>
+      ${orden.length === 0
+        ? html`<div class="empty">Sin citas agendadas.</div>`
+        : orden.map(c => html`<div class=${'cita-item' + (c.done ? ' done' : '') + (c.when.slice(0, 10) === hoy ? ' hoy' : '')} key=${c.id}>
+            <div class="cita-when">${fmt(c.when)}${c.when.slice(0, 10) === hoy ? html`<em>hoy</em>` : ''}</div>
+            <div class="cita-body">
+              <strong>${c.client}</strong>
+              <span>${[c.veh, c.job].filter(Boolean).join(' · ') || 'Sin detalle'}</span>
+            </div>
+            <div class="cita-acts">
+              <button type="button" class="link-btn" onClick=${() => save(items.map(x => x.id === c.id ? { ...x, done: !x.done } : x))}>${c.done ? 'reabrir' : 'atendida'}</button>
+              ${/* borrar es irreversible y el botón vive junto a "atendida": sin
+                    confirmar, un dedo torpe pierde la cita sin forma de recuperarla */''}
+              <button type="button" class="link-btn" onClick=${() => { if (confirm(`¿Borrar la cita de ${c.client}?`)) save(items.filter(x => x.id !== c.id)); }}>borrar</button>
+            </div>
+          </div>`)}
+    </${MicroShell}>`;
+  };
+
+  /* ================================================================
+     29. Plan de mantenimiento por kilometraje
+     Los intervalos son los genéricos de servicio ligero; el manual del
+     vehículo manda y por eso son editables.
+     ================================================================ */
+  const MAINT_DEFAULT = [
+    ['Aceite y filtro de motor', 10000],
+    ['Filtro de aire', 20000],
+    ['Filtro de cabina', 20000],
+    ['Filtro de gasolina', 40000],
+    ['Bujías (cobre)', 30000],
+    ['Bujías (platino / iridio)', 80000],
+    ['Líquido de frenos', 40000],
+    ['Refrigerante', 60000],
+    ['Banda de accesorios', 60000],
+    ['Banda / kit de tiempo', 90000],
+    ['Aceite de transmisión', 60000],
+    ['Rotación de neumáticos', 10000],
+    ['Pastillas de freno (revisión)', 20000],
+    ['Amortiguadores (revisión)', 60000],
+  ];
+
+  const MaintenanceApp = ({ onBack }) => {
+    const [km, setKm] = useState(() => ls.get('ft_maint_km', ''));
+    const [iv, setIv] = useState(() => ls.get('ft_maint_iv', {}));
+    const setKmSave = (v) => { setKm(v); ls.set('ft_maint_km', v); };
+    const setIvSave = (n, v) => { const next = { ...iv, [n]: v }; setIv(next); ls.set('ft_maint_iv', next); };
+    const actual = parseFloat(km) || 0;
+    const filas = MAINT_DEFAULT.map(([nombre, def]) => {
+      const paso = parseFloat(iv[nombre]) || def;
+      const proximo = Math.ceil((actual + 1) / paso) * paso;
+      const faltan = proximo - actual;
+      // "vencido" = ya pasó más de un intervalo completo desde el último servicio teórico
+      const estado = !actual ? '' : faltan <= paso * 0.1 ? 'bad' : faltan <= paso * 0.25 ? 'warn' : 'ok';
+      return { nombre, paso, proximo, faltan, estado };
+    }).sort((a, b) => a.faltan - b.faltan);
+    return html`<${MicroShell} title="Plan de Mantenimiento" icon="History" onBack=${onBack}>
+      <p class="mic-lead">Pon el kilometraje actual y mira qué servicio toca antes. Los intervalos vienen del servicio ligero genérico y son editables: el manual del vehículo manda.</p>
+      <label><span class="mic-lbl">Kilometraje actual</span>
+        <input type="number" class="styled-input" placeholder="Ej. 78500" value=${km} onChange=${e => setKmSave(e.target.value)} style=${{ maxWidth: '220px' }} />
+      </label>
+      ${!actual
+        ? html`<div class="alert blue" style=${{ marginTop: '14px' }}><span>Escribe el kilometraje para calcular los próximos servicios.</span></div>`
+        : html`<table class="mic-tbl maint-tbl" style=${{ marginTop: '16px' }}>
+            <thead><tr><th>Servicio</th><th>Cada</th><th>Próximo</th><th>Faltan</th></tr></thead>
+            <tbody>${filas.map(f => html`<tr key=${f.nombre} class=${'maint-' + f.estado}>
+              <td>${f.nombre}</td>
+              <td><input type="number" class="styled-input maint-iv" value=${iv[f.nombre] ?? f.paso} onChange=${e => setIvSave(f.nombre, e.target.value)} aria-label=${'Intervalo de ' + f.nombre} /></td>
+              <td>${f.proximo.toLocaleString('es-MX')} km</td>
+              <td><strong>${f.faltan.toLocaleString('es-MX')} km</strong></td>
+            </tr>`)}</tbody>
+          </table>`}
+    </${MicroShell}>`;
+  };
+
+  /* ================================================================
+     30. Ajustes de combustible (STFT / LTFT)
+     La herramienta que más le falta a un taller con escáner barato: el
+     escáner muestra los números pero no dice qué significan. El patrón
+     ralentí-vs-crucero es lo que separa una fuga de vacío de una pila
+     que ya no entrega, y ambas llegan como "le falta fuerza".
+     ================================================================ */
+  const TrimApp = ({ onBack }) => {
+    const [v, setV] = useState({ sIdle: '', lIdle: '', sCruise: '', lCruise: '' });
+    const n = (x) => { const f = parseFloat(x); return isNaN(f) ? null : f; };
+    const idle = n(v.sIdle) !== null && n(v.lIdle) !== null ? n(v.sIdle) + n(v.lIdle) : null;
+    const cruise = n(v.sCruise) !== null && n(v.lCruise) !== null ? n(v.sCruise) + n(v.lCruise) : null;
+    const clase = (t) => t === null ? '' : Math.abs(t) <= 10 ? 'ok' : t > 0 ? 'warn' : 'bad';
+    const etiqueta = (t) => t === null ? '—' : Math.abs(t) <= 10 ? 'Normal' : t > 0 ? 'Pobre' : 'Rica';
+
+    let diag = null;
+    if (idle !== null && cruise !== null) {
+      const pobreI = idle > 10, pobreC = cruise > 10;
+      const ricaI = idle < -10, ricaC = cruise < -10;
+      if (!pobreI && !pobreC && !ricaI && !ricaC) {
+        diag = { t: 'Ajustes dentro de rango', c: 'ok', p: [
+          'Ambos totales están dentro de ±10 %: la ECU no está compensando de forma significativa. Si hay síntoma, búscalo fuera de la mezcla (encendido, compresión, transmisión).',
+        ] };
+      } else if (pobreI && !pobreC) {
+        diag = { t: 'Pobre en ralentí, normal en crucero → entra aire sin medir', c: 'warn', p: [
+          'Una fuga de vacío pesa mucho a bajo flujo de aire y se diluye al acelerar: ese es justo este patrón.',
+          'Revisa mangueras de vacío, empaque del múltiple de admisión, tubo de la PCV, bota entre el MAF y la mariposa, y el servofreno.',
+          'Prueba rápida: rocía limpiador de carburador alrededor de las uniones con el motor en ralentí; si las RPM cambian, ahí está la fuga.',
+        ] };
+      } else if (pobreI && pobreC) {
+        diag = { t: 'Pobre en todo el rango → falta entrega de combustible o el MAF mide de menos', c: 'bad', p: [
+          'Cuando el ajuste es pobre igual en ralentí que en crucero, ya no es una fuga: es entrega insuficiente o una medición de aire equivocada.',
+          'Empieza por la presión de riel: mídela con el manómetro y compárala contra la spec del vehículo en el catálogo. Presión baja apunta a pila cansada, filtro tapado o regulador.',
+          'Si la presión está bien, sigue con inyectores sucios y con el MAF (límpialo y compara gramos por segundo contra lo esperado en ralentí).',
+        ] };
+      } else if (ricaI && ricaC) {
+        diag = { t: 'Rica en todo el rango → sobra combustible o el MAF mide de más', c: 'bad', p: [
+          'La ECU está quitando combustible en todo el rango: algo lo está metiendo de más.',
+          'Mide la presión de riel: por encima de la spec, sospecha del regulador o de la línea de retorno obstruida.',
+          'Revisa inyectores con fuga (goteo), sensor de temperatura de refrigerante mintiendo en frío, y el MAF sobre-reportando.',
+        ] };
+      } else if (ricaI && !ricaC) {
+        diag = { t: 'Rica en ralentí, normal en crucero', c: 'warn', p: [
+          'Típico de un inyector que gotea o de exceso de presión que solo se nota cuando la demanda es baja.',
+          'También lo da un motor con mucho carbón o un sensor de temperatura que reporta el motor más frío de lo que está.',
+        ] };
+      } else {
+        diag = { t: 'Patrón mixto entre ralentí y crucero', c: 'warn', p: [
+          'Los dos regímenes se comportan distinto y ninguno encaja limpio en un patrón típico. Vuelve a tomar los valores con el motor a temperatura y en lazo cerrado.',
+          'Si se repite, revisa presión de riel bajo carga y el sensor de oxígeno anterior al catalizador: un sensor perezoso desordena los ajustes.',
+        ] };
+      }
+    }
+    const campo = (k, label, hint) => html`
+      <label class="trim-field">
+        <span class="mic-lbl">${label}</span>
+        <input type="number" step="0.1" class="styled-input" placeholder="0.0" aria-label=${label}
+          value=${v[k]} onChange=${e => setV({ ...v, [k]: e.target.value })} />
+        <span class="trim-hint">${hint}</span>
+      </label>`;
+    return html`<${MicroShell} title="Ajustes de Combustible (Trims)" icon="Droplets" onBack=${onBack}>
+      <p class="mic-lead">Anota lo que marca el escáner en ralentí y en crucero sostenido (~2 500 rpm o 80 km/h), con el motor caliente y en lazo cerrado. El total es la suma del ajuste de corto y de largo plazo.</p>
+      <div class="trim-grid">
+        ${campo('sIdle', 'STFT ralentí %', 'Corto plazo')}
+        ${campo('lIdle', 'LTFT ralentí %', 'Largo plazo')}
+        ${campo('sCruise', 'STFT crucero %', 'Corto plazo')}
+        ${campo('lCruise', 'LTFT crucero %', 'Largo plazo')}
+      </div>
+      <div class="trim-totals">
+        <div class=${'trim-total ' + clase(idle)}><span>Total ralentí</span><b>${idle === null ? '—' : (idle > 0 ? '+' : '') + idle.toFixed(1) + ' %'}</b><em>${etiqueta(idle)}</em></div>
+        <div class=${'trim-total ' + clase(cruise)}><span>Total crucero</span><b>${cruise === null ? '—' : (cruise > 0 ? '+' : '') + cruise.toFixed(1) + ' %'}</b><em>${etiqueta(cruise)}</em></div>
+      </div>
+      ${diag && html`<div class=${'trim-diag ' + diag.c} aria-live="polite">
+        <h3>${diag.t}</h3>
+        ${diag.p.map((x, i) => html`<p key=${i}>${x}</p>`)}
+      </div>`}
+      <div class="alert blue"><span>Regla de lectura: <strong>positivo = la ECU añade combustible</strong> porque lee mezcla pobre; negativo = la quita porque lee mezcla rica. Hasta ±10 % se considera compensación normal.</span></div>
+    </${MicroShell}>`;
+  };
+
+  /* ================================================================
+     31. Prueba de compresión
+     ================================================================ */
+  const CompressionApp = ({ onBack }) => {
+    const [cyl, setCyl] = useState(4);
+    const [vals, setVals] = useState({});
+    const [spec, setSpec] = useState('');
+    const nums = Array.from({ length: cyl }, (_, i) => parseFloat(vals[i])).filter(x => !isNaN(x) && x > 0);
+    const listo = nums.length === cyl;
+    const max = listo ? Math.max(...nums) : 0;
+    const min = listo ? Math.min(...nums) : 0;
+    const prom = listo ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
+    const spread = listo && max ? ((max - min) / max) * 100 : 0;
+    const specN = parseFloat(spec);
+    const bajoSpec = listo && !isNaN(specN) ? Array.from({ length: cyl }, (_, i) => parseFloat(vals[i])).map((x, i) => x < specN ? i + 1 : null).filter(Boolean) : [];
+    const flojos = listo ? Array.from({ length: cyl }, (_, i) => parseFloat(vals[i])).map((x, i) => x < max * 0.85 ? i + 1 : null).filter(Boolean) : [];
+    const estado = !listo ? '' : spread <= 10 ? 'ok' : spread <= 15 ? 'warn' : 'bad';
+    return html`<${MicroShell} title="Prueba de Compresión" icon="Gauge" onBack=${onBack}>
+      <p class="mic-lead">Motor a temperatura, mariposa abierta de par en par, todas las bujías fuera y el sistema de combustible y encendido deshabilitados. Anota la lectura estabilizada de cada cilindro.</p>
+      <div class="comp-setup">
+        <label><span class="mic-lbl">Cilindros</span>
+          <div class="conv-modes" style=${{ marginBottom: 0 }}>
+            ${[3, 4, 5, 6, 8].map(k => html`<button type="button" key=${k} class=${'conv-mode' + (cyl === k ? ' active' : '')} onClick=${() => setCyl(k)}>${k}</button>`)}
+          </div>
+        </label>
+        <label><span class="mic-lbl">Mínimo de fábrica (PSI, opcional)</span>
+          <input type="number" class="styled-input" placeholder="Ej. 145" aria-label="Compresión mínima de fábrica en PSI" value=${spec} onChange=${e => setSpec(e.target.value)} />
+        </label>
+      </div>
+      <div class="comp-grid">
+        ${Array.from({ length: cyl }, (_, i) => html`
+          <label class="comp-cyl" key=${i}>
+            <span class="mic-lbl">Cil. ${i + 1}</span>
+            <input type="number" min="0" class="styled-input" placeholder="PSI" aria-label=${'Compresión del cilindro ' + (i + 1)}
+              value=${vals[i] || ''} onChange=${e => setVals({ ...vals, [i]: e.target.value })} />
+          </label>`)}
+      </div>
+      ${listo && html`<div aria-live="polite">
+        <div class=${'tire-verdict' + (estado === 'ok' ? '' : ' bad')}>
+          <b>${spread.toFixed(1)} %</b><span>de diferencia entre el mejor y el peor cilindro</span>
+        </div>
+        <dl class="kv" style=${{ marginTop: '14px' }}>
+          <dt>Mayor / menor</dt><dd>${max} / ${min} PSI</dd>
+          <dt>Promedio</dt><dd>${prom.toFixed(0)} PSI</dd>
+          ${flojos.length > 0 && html`<dt>Por debajo del 85 % del mejor</dt><dd>Cilindro ${flojos.join(', ')}</dd>`}
+          ${bajoSpec.length > 0 && html`<dt>Por debajo del mínimo de fábrica</dt><dd>Cilindro ${bajoSpec.join(', ')}</dd>`}
+        </dl>
+        ${estado === 'ok'
+          ? html`<div class="alert blue"><span>Diferencia dentro del 10 %: compresión pareja. Un motor sano no debería pasar de ahí.</span></div>`
+          : estado === 'warn'
+            ? html`<div class="alert"><span>Entre 10 % y 15 %: hay desgaste desigual. Vigílalo y repite la prueba en el próximo servicio; si además hay consumo de aceite o falla, sigue con la prueba húmeda.</span></div>`
+            : html`<div class="alert"><span>Más de 15 % de diferencia: hay un problema mecánico real. <strong>Haz la prueba húmeda</strong> — echa una cucharadita de aceite en el cilindro flojo y repite: si la lectura sube bastante, son anillos o cilindro; si no sube, son válvulas o empaque de culata. Dos cilindros contiguos igual de bajos apuntan al empaque entre ellos.</span></div>`}
+      </div>`}
+    </${MicroShell}>`;
+  };
+
+  /* ================================================================
+     32. Pinouts: conector de diagnóstico y relé
+     Ambos son norma publicada (SAE J1962 y el esquema Bosch de relé),
+     no datos de un modelo concreto — por eso se pueden dar cerrados.
+     ================================================================ */
+  const OBD_PINS = [
+    ['1', 'Libre para el fabricante', 'Suele llevar buses propios de la marca.', 0],
+    ['2', 'J1850 Bus +', 'PWM/VPW en vehículos americanos antiguos.', 0],
+    ['3', 'Libre para el fabricante', '', 0],
+    ['4', 'Masa de chasis', 'Debe dar continuidad a la carrocería.', 1],
+    ['5', 'Masa de señal', 'La referencia del escáner. Si falta, el equipo no enlaza.', 1],
+    ['6', 'CAN alto (CAN-H)', 'ISO 15765-4. El bus de casi todo lo posterior a 2008.', 1],
+    ['7', 'Línea K', 'ISO 9141-2 / KWP2000.', 1],
+    ['8', 'Libre para el fabricante', '', 0],
+    ['9', 'Libre para el fabricante', '', 0],
+    ['10', 'J1850 Bus −', 'Solo en PWM.', 0],
+    ['11', 'Libre para el fabricante', '', 0],
+    ['12', 'Libre para el fabricante', '', 0],
+    ['13', 'Libre para el fabricante', '', 0],
+    ['14', 'CAN bajo (CAN-L)', 'ISO 15765-4. Va en pareja con el pin 6.', 1],
+    ['15', 'Línea L', 'ISO 9141-2, poco usada.', 0],
+    ['16', '+12 V de batería', 'Permanente, con fusible propio. Si no hay 12 V aquí, el escáner ni enciende.', 1],
+  ];
+  const RELAY_PINS = [
+    ['30', 'Entrada +12 V', 'Alimentación de potencia, casi siempre permanente y con fusible.'],
+    ['85', 'Bobina −', 'Normalmente la manda a masa la ECU. Es el que se conmuta.'],
+    ['86', 'Bobina +', 'Alimentación de la bobina desde el switch o un fusible.'],
+    ['87', 'Salida (normalmente abierta)', 'Se conecta al 30 cuando el relé activa. Aquí sale la corriente a la pila.'],
+    ['87a', 'Salida (normalmente cerrada)', 'Unida al 30 con el relé en reposo. Solo en relés de cinco patas.'],
+  ];
+
+  const PinoutApp = ({ onBack }) => html`<${MicroShell} title="Pinouts: Diagnóstico y Relé" icon="Sensor" onBack=${onBack}>
+    <p class="mic-lead">Dos esquemas de norma, no de un modelo: el conector de diagnóstico SAE J1962 y el relé Bosch. Sirven para el mismo trabajo — saber dónde clavar la punta del multímetro.</p>
+
+    <h3 class="mic-sub">Conector OBD-II (J1962, 16 pines)</h3>
+    <p class="mic-lead">Mirando el conector de frente, con la parte ancha arriba: los pines 1–8 van arriba de izquierda a derecha y los 9–16 abajo.</p>
+    <table class="mic-tbl">
+      <thead><tr><th>Pin</th><th>Función</th><th>Nota</th></tr></thead>
+      <tbody>${OBD_PINS.map(([p, f, nota, clave]) => html`<tr key=${p} class=${clave ? 'pin-key' : ''}>
+        <td class="num"><strong>${p}</strong></td><td>${f}</td><td class="muted">${nota}</td>
+      </tr>`)}</tbody>
+    </table>
+    <div class="alert blue"><span>Prueba de tres minutos cuando el escáner no enlaza: <strong>16 a 4</strong> debe dar voltaje de batería y <strong>16 a 5</strong> lo mismo. Entre <strong>6 y 14</strong>, con el switch apagado, un CAN sano mide unos 60 Ω (dos resistencias de 120 Ω en paralelo).</span></div>
+
+    <h3 class="mic-sub">Relé de cuatro y cinco patas (Bosch)</h3>
+    <table class="mic-tbl">
+      <thead><tr><th>Pata</th><th>Función</th><th>Nota</th></tr></thead>
+      <tbody>${RELAY_PINS.map(([p, f, nota]) => html`<tr key=${p}>
+        <td class="num"><strong>${p}</strong></td><td>${f}</td><td class="muted">${nota}</td>
+      </tr>`)}</tbody>
+    </table>
+    <div class="alert"><span>Para probar el circuito de la pila puedes puentear <strong>30 con 87</strong> y ver si la bomba arranca: si suena, el relé o su mando son el problema y no la pila. Hazlo solo un instante — así saltas toda la protección del sistema.</span></div>
+  </${MicroShell}>`;
+
+  /* ================================================================
+     33. Tiempos de mano de obra
+     Rango de referencia para cotizar, no baremo oficial. Se enlaza con
+     el cotizador escribiendo en la misma clave de almacenamiento.
+     ================================================================ */
+  const LABOR = [
+    ['Combustible', 'Cambio de pila (módulo accesible bajo asiento)', 1.0, 1.5],
+    ['Combustible', 'Cambio de pila (requiere bajar el tanque)', 2.0, 3.5],
+    ['Combustible', 'Filtro de gasolina en línea', 0.4, 0.8],
+    ['Combustible', 'Limpieza de inyectores (desmontados)', 1.5, 2.5],
+    ['Combustible', 'Regulador de presión', 0.6, 1.2],
+    ['Combustible', 'Prueba de presión de riel', 0.3, 0.6],
+    ['Motor', 'Cambio de aceite y filtro', 0.3, 0.5],
+    ['Motor', 'Bujías (4 cilindros)', 0.6, 1.0],
+    ['Motor', 'Bujías (6 cilindros, banco trasero)', 1.5, 2.5],
+    ['Motor', 'Bobinas de encendido', 0.5, 1.2],
+    ['Motor', 'Empaque de tapa de válvulas', 1.5, 2.5],
+    ['Motor', 'Banda de accesorios', 0.5, 1.0],
+    ['Motor', 'Kit de banda de tiempo (4 cilindros)', 3.5, 5.0],
+    ['Motor', 'Cadena de tiempo', 5.0, 8.0],
+    ['Motor', 'Bomba de agua', 2.0, 3.5],
+    ['Motor', 'Termostato', 0.8, 1.5],
+    ['Motor', 'Radiador', 1.5, 2.5],
+    ['Motor', 'Junta de culata (4 cilindros)', 8.0, 12.0],
+    ['Frenos', 'Pastillas delanteras', 0.8, 1.2],
+    ['Frenos', 'Pastillas y discos delanteros', 1.3, 2.0],
+    ['Frenos', 'Bandas traseras (tambor)', 1.2, 2.0],
+    ['Frenos', 'Purga completa del sistema', 0.6, 1.0],
+    ['Frenos', 'Cilindro maestro', 1.5, 2.5],
+    ['Suspensión', 'Amortiguadores delanteros (par)', 1.5, 2.5],
+    ['Suspensión', 'Amortiguadores traseros (par)', 1.0, 2.0],
+    ['Suspensión', 'Rótula (por lado)', 1.0, 1.8],
+    ['Suspensión', 'Terminal de dirección (por lado)', 0.6, 1.0],
+    ['Suspensión', 'Bujes de barra estabilizadora', 0.8, 1.5],
+    ['Suspensión', 'Cremallera de dirección', 3.0, 5.0],
+    ['Eléctrico', 'Batería', 0.2, 0.4],
+    ['Eléctrico', 'Alternador', 1.0, 2.0],
+    ['Eléctrico', 'Motor de arranque', 1.0, 2.5],
+    ['Eléctrico', 'Diagnóstico con escáner', 0.5, 1.0],
+    ['Transmisión', 'Kit de embrague (tracción delantera)', 4.0, 6.0],
+    ['Transmisión', 'Cambio de aceite de transmisión', 0.5, 1.0],
+    ['Transmisión', 'Junta homocinética (por lado)', 1.5, 2.5],
+    ['Climatización', 'Recarga de gas y prueba de fugas', 0.8, 1.5],
+    ['Climatización', 'Compresor de A/A', 2.0, 3.5],
+    ['Climatización', 'Filtro de cabina', 0.2, 0.5],
+  ];
+
+  const LaborApp = ({ onBack }) => {
+    const [q, setQ] = useState('');
+    const [agregado, setAgregado] = useState('');
+    const t = q.trim().toLowerCase();
+    const rows = LABOR.filter(r => !t || (r[0] + ' ' + r[1]).toLowerCase().includes(t));
+    // Escribe en la misma clave que lee el cotizador: pasar de "cuánto tarda"
+    // a "cuánto cobro" es el paso siguiente natural y evita retecleado.
+    const alCotizador = (nombre, min, max) => {
+      const q0 = ls.get('ft_quote', { rate: '250', iva: '16', disc: '0', labor: [], parts: [{ d: '', q: '1', p: '' }] });
+      const horas = ((min + max) / 2).toFixed(2);
+      const labor = (q0.labor || []).filter(l => l.d || l.h);
+      ls.set('ft_quote', { ...q0, labor: [...labor, { d: nombre, h: horas }] });
+      setAgregado(nombre);
+      setTimeout(() => setAgregado(''), 2200);
+    };
+    return html`<${MicroShell} title="Tiempos de Mano de Obra" icon="History" onBack=${onBack}>
+      <p class="mic-lead">Rango de horas de referencia para cotizar. El botón manda el trabajo al cotizador con el promedio del rango ya puesto.</p>
+      <label class="sr-only" htmlFor="labor-q">Filtrar trabajo</label>
+      <input id="labor-q" name="trabajo" type="search" class="styled-input" placeholder="Filtrar trabajo o sistema…" value=${q} onChange=${e => setQ(e.target.value)} style=${{ maxWidth: '340px', marginBottom: '14px' }} />
+      <p class="sr-only" aria-live="polite">${agregado ? agregado + ' agregado al cotizador' : ''}</p>
+      <table class="mic-tbl tbl-acciones">
+        <thead><tr><th>Sistema</th><th>Trabajo</th><th>Horas</th><th><span class="sr-only">Acción</span></th></tr></thead>
+        <tbody>${rows.map(([sis, nombre, min, max], i) => html`<tr key=${i}>
+          <td class="muted">${sis}</td>
+          <td>${nombre}</td>
+          <td class="num"><strong>${min.toFixed(1)}–${max.toFixed(1)}</strong></td>
+          <td><button type="button" class="link-btn" onClick=${() => alCotizador(nombre, min, max)}>${agregado === nombre ? 'agregado ✓' : 'cotizar'}</button></td>
+        </tr>`)}</tbody>
+      </table>
+      ${rows.length === 0 && html`<div class="empty">Sin resultados para “${q}”</div>`}
+      <div class="alert" style=${{ marginTop: '14px' }}><span>No es un baremo oficial: son rangos de taller general. Un vehículo oxidado, un motor transversal apretado o un tornillo barrido se salen del rango sin discusión — cotiza con eso en mente.</span></div>
+    </${MicroShell}>`;
+  };
+
+  /* ================================================================
+     34. "No enciende" — árbol de decisión
+     Es la consulta número uno del oficio y llega siempre igual de vaga.
+     Lo que la desenreda no es una lista de causas sino UNA pregunta:
+     qué hace el motor al dar arranque. De ahí sale todo lo demás.
+     ================================================================ */
+  const NOSTART = {
+    inicio: {
+      q: '¿Qué pasa cuando das arranque?',
+      opts: [
+        ['muerto', 'Nada: ni luces, ni tablero, ni ruido'],
+        ['clic', 'El tablero enciende pero solo hace “clic” y no gira'],
+        ['lento', 'Gira lento, con desgano'],
+        ['gira', 'Gira normal pero no arranca'],
+        ['muere', 'Arranca y se apaga a los segundos'],
+      ],
+    },
+    muerto: {
+      t: 'Sin alimentación: batería, bornes o masa',
+      c: 'bad',
+      p: [
+        'Que no encienda ni el tablero descarta casi todo lo del motor: el problema está antes, en la alimentación.',
+        'Mide el voltaje en los bornes de la batería. Por debajo de 11,8 V está descargada; en 0 V hay un circuito abierto o la batería está en corto interno.',
+        'Mueve los bornes con la mano: si giran, ahí está. La sulfatación verde o blanca en el borne hace de aislante aunque el cable se vea puesto.',
+        'Revisa el cable de masa al motor y al chasis. Una masa floja da exactamente este cuadro sin que la batería tenga nada.',
+        'Si la batería mide bien y aun así no hay nada, busca el fusible principal (maxi) y el corta-corriente si el vehículo lo trae.',
+      ],
+      ir: ['battery', 'Medir batería y carga'],
+    },
+    clic: {
+      t: 'Llega mando pero no potencia: arranque, cables o batería al límite',
+      c: 'bad',
+      p: [
+        'El “clic” es el solenoide del arranque pegando: el mando llega, la corriente de potencia no.',
+        'Mide el voltaje en la batería MIENTRAS das arranque. Si se desploma por debajo de 9,6 V, la batería no da corriente aunque en reposo mida bien.',
+        'Si la batería aguanta, mide caída de tensión en el cable positivo grueso entre batería y arranque: más de 0,3 V es cable o terminal en mal estado.',
+        'Descartado lo anterior, el arranque está en falla: carbones gastados o el solenoide con los contactos quemados.',
+        'Un clic repetido, tipo metralleta, es casi siempre batería baja y no arranque.',
+      ],
+      ir: ['battery', 'Medir batería y carga'],
+    },
+    lento: {
+      t: 'Gira lento: energía insuficiente o resistencia mecánica',
+      c: 'warn',
+      p: [
+        'Primero descarta lo eléctrico: batería con poca carga, bornes flojos o cable de masa con resistencia.',
+        'Mide el voltaje durante el arranque. Si baja de 9,6 V con la batería recién cargada, la batería ya no sirve aunque el voltaje en reposo se vea bien.',
+        'Si lo eléctrico está sano, la resistencia es mecánica: aceite demasiado espeso para el clima, arranque con el bobinado en corto, o el motor apretado.',
+        'Ojo con el aceite: un 20W-50 en una mañana fría hace girar lento un motor sano.',
+      ],
+      ir: ['battery', 'Medir batería y carga'],
+    },
+    gira: {
+      q: 'Gira bien. ¿Tiene chispa y llega gasolina?',
+      opts: [
+        ['sinchispa', 'No hay chispa en las bujías'],
+        ['singas', 'Hay chispa pero no llega gasolina'],
+        ['ambos', 'Hay chispa y llega gasolina, y aun así no prende'],
+        ['nose', 'No lo he comprobado'],
+      ],
+    },
+    nose: {
+      t: 'Compruébalo antes de seguir: son cinco minutos',
+      c: 'ok',
+      p: [
+        'Chispa: saca una bujía, conéctala a su cable o bobina, apóyala contra masa metálica del motor y da arranque. Debe saltar chispa azul y fuerte. Con guantes y lejos de la boca de la bujía.',
+        'Gasolina: gira la llave a ON sin arrancar y escucha dos segundos de zumbido desde el tanque — es la pila cebando. Si no suena, empieza por el relé y el fusible de la pila.',
+        'Mejor todavía: conecta el manómetro a la flauta y mira si sube y sostiene la presión con la llave en ON.',
+      ],
+      ir: ['pinout', 'Ver pinout del relé'],
+    },
+    sinchispa: {
+      t: 'Sin chispa: encendido o señal de sincronización',
+      c: 'bad',
+      p: [
+        'Sin chispa el motor no prende aunque el resto esté perfecto. Casi siempre es señal, no bobina.',
+        'Empieza por el sensor de posición del cigüeñal (CKP): sin su señal la ECU no dispara ni chispa ni inyección. Es la causa más común de “giraba bien y de repente nada”.',
+        'Sigue con el fusible y el relé del sistema de encendido, y con la alimentación de las bobinas (debe haber 12 V en el positivo de la bobina con la llave en ON).',
+        'Revisa el inmovilizador: si el testigo de la llave parpadea en el tablero, la ECU está bloqueando el arranque a propósito.',
+        'Bobinas y bujías van al final de la lista, no al principio.',
+      ],
+      ir: ['spark', 'Bujías y calibración'],
+    },
+    singas: {
+      t: 'No llega gasolina: circuito de alimentación',
+      c: 'bad',
+      p: [
+        'Con la llave en ON debes oír la pila cebar dos segundos. Si no suena, el problema está en el mando, no necesariamente en la pila.',
+        'Orden correcto: fusible de la pila, relé de la pila, alimentación que llega al conector del módulo, y solo entonces la pila.',
+        'Puentea 30 con 87 en la base del relé un instante: si la pila arranca, el relé o su mando son el culpable y no la bomba.',
+        'Si la pila suena pero el motor no prende, mide presión de riel: puede estar girando sin entregar por malla tapada, filtro obstruido o impulsor gastado.',
+        'Descarta el inercial de corte por impacto si el vehículo lo trae — un golpe de bache lo dispara.',
+      ],
+      ir: ['pinout', 'Ver pinout del relé'],
+    },
+    ambos: {
+      t: 'Hay chispa y gasolina: compresión, sincronización o mezcla ahogada',
+      c: 'warn',
+      p: [
+        'Con los tres elementos presentes y sin arranque, falta compresión o el tiempo está corrido.',
+        'Haz prueba de compresión: una banda o cadena de tiempo saltada tumba la compresión de todos los cilindros a la vez.',
+        'Revisa las marcas de sincronización antes de desarmar nada más.',
+        'Si huele fuerte a gasolina, está ahogado: inyector pegado abierto o presión excesiva. Arranca con el acelerador a fondo para ventilar y vuelve a probar.',
+        'En inyección directa, la bomba de alta mecánica también puede ser la causa aunque la pila del tanque esté perfecta.',
+      ],
+      ir: ['compression', 'Prueba de compresión'],
+    },
+    muere: {
+      t: 'Arranca y se apaga: pierde alimentación o lo corta la ECU',
+      c: 'warn',
+      p: [
+        'Que arranque significa que chispa, gasolina y compresión estaban ahí en ese instante. Algo se cae después.',
+        'Presión de riel que no se sostiene: la pila arranca con el cebado inicial y luego no mantiene. Míde­la con el manómetro puesto mientras el motor se apaga.',
+        'Inmovilizador: si el motor prende y muere en dos segundos con el testigo de la llave encendido, es antirrobo y no mecánica.',
+        'Sensor de posición del cigüeñal calentándose y cortando, válvula de ralentí sucia, o fuga de vacío grande que impide sostener el ralentí.',
+        'En vehículos con corte por presión de aceite, un sensor en falla también lo apaga.',
+      ],
+      ir: ['pressure', 'Registro de presión'],
+    },
+  };
+
+  const NoStartApp = ({ onBack, onOpen }) => {
+    const [ruta, setRuta] = useState(['inicio']);
+    const nodo = NOSTART[ruta[ruta.length - 1]];
+    const atras = () => setRuta(ruta.slice(0, -1));
+    return html`<${MicroShell} title="Mi Carro No Enciende" icon="Key" onBack=${onBack}>
+      <p class="mic-lead">La consulta más común del taller y la más vaga. Responde una pregunta y el árbol se queda con las causas que de verdad aplican, en el orden en que conviene probarlas.</p>
+      ${ruta.length > 1 && html`<button type="button" class="home-cta-ghost" style=${{ alignSelf: 'flex-start', marginBottom: '16px' }} onClick=${atras}>← Pregunta anterior</button>`}
+      ${nodo.q ? html`
+        <h3 class="mic-sub">${nodo.q}</h3>
+        <div class="ns-opts">
+          ${nodo.opts.map(([k, label]) => html`
+            <button type="button" class="ns-opt" key=${k} onClick=${() => setRuta([...ruta, k])}>
+              <span>${label}</span><${CatIc} n="ArrowRight" s=${16} />
+            </button>`)}
+        </div>`
+      : html`
+        <div class=${'trim-diag ' + nodo.c} aria-live="polite">
+          <h3>${nodo.t}</h3>
+          ${nodo.p.map((x, i) => html`<p key=${i}>${x}</p>`)}
+        </div>
+        <div class="insp-actions">
+          ${nodo.ir && html`<button type="button" class="tool-add-btn" onClick=${() => onOpen && onOpen(nodo.ir[0])}>${nodo.ir[1]} →</button>`}
+          <button type="button" class="home-cta-ghost" onClick=${() => setRuta(['inicio'])}>Empezar de nuevo</button>
+        </div>`}
+    </${MicroShell}>`;
+  };
+
+  /* ================================================================
+     35. Batería y sistema de carga
+     El sistema eléctrico es la primera causa de avería y la batería, un
+     cuarto de esa causa. Las cinco medidas de abajo separan batería
+     mala de alternador malo de cable malo, que es donde se falla.
+     ================================================================ */
+  const BatteryApp = ({ onBack }) => {
+    const [m, setM] = useState({ reposo: '', arranque: '', carga: '', caidaPos: '', fuga: '' });
+    const num = (x) => { const f = parseFloat(x); return isNaN(f) ? null : f; };
+
+    const pruebas = [
+      {
+        k: 'reposo', label: 'Voltaje en reposo (V)', hint: 'Motor apagado 12 h, o 1 h después de rodar',
+        paso: 0.01, eval: (v) =>
+          v >= 12.6 ? ['ok', 'Carga completa (100 %)'] :
+          v >= 12.4 ? ['ok', 'Buena (≈75 %)'] :
+          v >= 12.2 ? ['warn', 'Media (≈50 %): recárgala y vuelve a medir'] :
+          v >= 12.0 ? ['warn', 'Baja (≈25 %): recarga y busca por qué se descargó'] :
+          v >= 10.5 ? ['bad', 'Descargada. Si no toma carga, está sulfatada'] :
+                      ['bad', 'Celda en corto: la batería no se recupera, cámbiala'],
+      },
+      {
+        k: 'arranque', label: 'Voltaje durante el arranque (V)', hint: 'El mínimo que marca mientras el motor gira',
+        paso: 0.1, eval: (v) =>
+          v >= 10.0 ? ['ok', 'Excelente: la batería sostiene bien la corriente'] :
+          v >= 9.6 ? ['ok', 'Dentro del mínimo aceptable (9,6 V a 20 °C)'] :
+          v >= 9.0 ? ['warn', 'Por debajo del mínimo: batería al límite o arranque exigiendo de más'] :
+                     ['bad', 'Se desploma: batería agotada, o el arranque está en corto y tira demasiada corriente'],
+      },
+      {
+        k: 'carga', label: 'Voltaje de carga (V)', hint: 'Motor en ralentí, en los bornes',
+        paso: 0.1, eval: (v) =>
+          v < 13.0 ? ['bad', 'El alternador no carga: revisa banda, fusible principal, conexión del regulador y el propio alternador'] :
+          v < 13.8 ? ['warn', 'Carga floja: puede no reponer lo que consume el vehículo. Revisa banda floja y caída en el cable de carga'] :
+          v <= 14.7 ? ['ok', 'Carga correcta (13,8–14,7 V)'] :
+          v <= 15.2 ? ['warn', 'Carga alta: vigila el regulador, hervirá el electrolito con el tiempo'] :
+                      ['bad', 'Sobrecarga: regulador dañado. Cámbialo antes de que reviente la batería y queme electrónica'],
+      },
+      {
+        k: 'caidaPos', label: 'Caída de tensión en el positivo (V)', hint: 'Entre borne y arranque, dando marcha',
+        paso: 0.01, eval: (v) =>
+          v <= 0.3 ? ['ok', 'Cable y terminales en buen estado'] :
+          v <= 0.5 ? ['warn', 'Resistencia apreciable: limpia terminales y revisa el cable'] :
+                     ['bad', 'Cable o terminal en mal estado: se está perdiendo la corriente antes de llegar al arranque'],
+      },
+      {
+        k: 'fuga', label: 'Fuga parásita (mA)', hint: 'Todo apagado y cerrado, tras 40 min de reposo',
+        paso: 1, eval: (v) =>
+          v <= 50 ? ['ok', 'Normal (hasta ~50 mA con módulos dormidos)'] :
+          v <= 100 ? ['warn', 'Algo alta: descarga la batería en varios días. Ve sacando fusibles uno a uno'] :
+                     ['bad', 'Fuga franca: algo no se está durmiendo. Radio mal instalada, alarma, módulo o alternador con diodo en fuga'],
+      },
+    ];
+    const hechas = pruebas.filter(p => num(m[p.k]) !== null);
+    return html`<${MicroShell} title="Batería y Sistema de Carga" icon="Battery" onBack=${onBack}>
+      <p class="mic-lead">El sistema eléctrico es la primera causa de avería y la batería, buena parte de ella. Estas cinco medidas separan batería mala de alternador malo de cable malo — que es justo donde se cambia la pieza equivocada. No hace falta llenarlas todas.</p>
+      <div class="bat-grid">
+        ${pruebas.map(p => {
+          const v = num(m[p.k]);
+          const r = v === null ? null : p.eval(v);
+          return html`<div class=${'bat-row' + (r ? ' ' + r[0] : '')} key=${p.k}>
+            <label class="bat-field">
+              <span class="mic-lbl">${p.label}</span>
+              <input type="number" step=${p.paso} class="styled-input" placeholder="—" aria-label=${p.label}
+                value=${m[p.k]} onChange=${e => setM({ ...m, [p.k]: e.target.value })} />
+              <span class="trim-hint">${p.hint}</span>
+            </label>
+            <p class="bat-verdict">${r ? r[1] : 'Sin medir'}</p>
+          </div>`;
+        })}
+      </div>
+      <div aria-live="polite" class="sr-only">${hechas.length} de ${pruebas.length} pruebas con lectura</div>
+      <div class="alert blue"><span>Orden que ahorra piezas: <strong>reposo → arranque → carga</strong>. Una batería que en reposo mide bien pero se desploma al arrancar está mala aunque el multímetro diga 12,6 V, y un alternador se declara culpable solo después de descartar banda floja y caída en su cable de salida.</span></div>
+    </${MicroShell}>`;
+  };
+
+  /* ================================================================
+     36. Perfil del taller
+     Nombre, WhatsApp del negocio y estado del correo. El teléfono se
+     guarda aquí y no en cada presupuesto: es el remitente, no el
+     destinatario.
+     ================================================================ */
+  const ProfileApp = ({ onBack }) => {
+    const [me, setMe] = useState(null);
+    const [f, setF] = useState({ name: '', phone: '', bio: '', city: '', services: '', is_public: false });
+    const [copiado, setCopiado] = useState(false);
+    const [estado, setEstado] = useState('cargando');   // cargando | listo | guardando | guardado | error
+    const [msg, setMsg] = useState('');
+    const [verif, setVerif] = useState('');
+
+    useEffect(() => {
+      fetch('/api/auth/me', { credentials: 'same-origin' })
+        .then(r => r.ok ? r.json() : Promise.reject(new Error('Sesión no válida')))
+        .then(u => {
+          setMe(u);
+          setF({
+            name: u.name || '', phone: u.phone || '', bio: u.bio || '',
+            city: u.city || '', services: u.services || '', is_public: !!u.is_public,
+          });
+          setEstado('listo');
+        })
+        .catch(e => { setEstado('error'); setMsg(e.message); });
+    }, []);
+
+    const guardar = async () => {
+      setEstado('guardando'); setMsg('');
+      try {
+        const r = await fetch('/api/auth/profile', {
+          method: 'PUT', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(f),
+        });
+        const b = await r.json();
+        if (!r.ok) throw new Error(b.error || 'No se pudo guardar');
+        setMe(b); setEstado('guardado');
+        setTimeout(() => setEstado('listo'), 2000);
+      } catch (e) { setEstado('error'); setMsg(e.message); }
+    };
+
+    const reenviar = async () => {
+      setVerif('enviando');
+      try {
+        const r = await fetch('/api/auth/verify/send', { method: 'POST', credentials: 'same-origin' });
+        const b = await r.json().catch(() => ({}));
+        setVerif(b.ok || b.link ? 'enviado' : 'error');
+        if (b.link) setMsg('Sin proveedor de correo configurado. Enlace: ' + b.link);
+      } catch (e) { setVerif('error'); setMsg(e.message); }
+    };
+
+    if (estado === 'cargando') return html`<${MicroShell} title="Mi Taller" icon="Store" onBack=${onBack}><div class="skel"><div class="skel-line"></div><div class="skel-line"></div></div></${MicroShell}>`;
+
+    return html`<${MicroShell} title="Mi Taller" icon="Store" onBack=${onBack}>
+      <p class="mic-lead">Los datos con los que sales ante el cliente. El WhatsApp es el que aparece en presupuestos y notas de entrega.</p>
+      ${me && html`
+        <div class=${'prof-mail ' + (me.email_verified ? 'ok' : 'warn')}>
+          <${CatIc} n=${me.email_verified ? 'MailCheck' : 'MailWarn'} s=${20} />
+          <div>
+            <strong>${me.email}</strong>
+            <span>${me.email_verified ? 'Correo confirmado' : 'Sin confirmar — no podrás recuperar el acceso si olvidas la contraseña'}</span>
+          </div>
+          ${!me.email_verified && html`<button type="button" class="home-cta-ghost" onClick=${reenviar} disabled=${verif === 'enviando'}>
+            ${verif === 'enviando' ? 'Enviando…' : verif === 'enviado' ? 'Enviado ✓' : 'Confirmar correo'}
+          </button>`}
+        </div>`}
+
+      <h3 class="mic-sub">Datos del taller</h3>
+      <div class="quote-params">
+        <label><span class="mic-lbl">Nombre del taller</span>
+          <input type="text" name="taller" autocomplete="organization" class="styled-input" placeholder="Taller…" value=${f.name} onChange=${e => setF({ ...f, name: e.target.value })} /></label>
+        <label><span class="mic-lbl">WhatsApp del taller</span>
+          <input type="tel" name="telefono" autocomplete="tel" inputmode="tel" class="styled-input" placeholder="+58 412 1234567" value=${f.phone} onChange=${e => setF({ ...f, phone: e.target.value })} />
+          <span class="trim-hint">Con código de país, sin espacios ni guiones</span></label>
+      </div>
+      ${f.phone && !telValido(f.phone) && html`<div class="alert" style=${{ marginTop: '12px' }}><span>El número no parece válido. Debe llevar código de país y entre 7 y 15 dígitos, por ejemplo <strong>+584121234567</strong>.</span></div>`}
+
+      <h3 class="mic-sub">Perfil público</h3>
+      <p class="mic-lead">Una página tuya, con dirección propia, que puedes mandar a un cliente. Ahí se acumulan las reseñas y la calificación que te dejan.</p>
+      <label class="prof-toggle">
+        <input type="checkbox" checked=${f.is_public} onChange=${e => setF({ ...f, is_public: e.target.checked })} />
+        <span><strong>Publicar mi perfil</strong><em>Sin esto la página no existe para nadie más y tu taller no sale en el directorio.</em></span>
+      </label>
+      <div class="quote-params" style=${{ marginTop: '14px' }}>
+        <label><span class="mic-lbl">Ciudad o zona</span>
+          <input type="text" name="ciudad" autocomplete="address-level2" class="styled-input" placeholder="Ej. Barcelona, Anzoátegui" value=${f.city} onChange=${e => setF({ ...f, city: e.target.value })} /></label>
+        <label><span class="mic-lbl">Servicios (separados por coma)</span>
+          <input type="text" name="servicios" class="styled-input" placeholder="Inyección, frenos, electricidad…" value=${f.services} onChange=${e => setF({ ...f, services: e.target.value })} /></label>
+      </div>
+      <label style=${{ display: 'block', marginTop: '14px' }}>
+        <span class="mic-lbl">Presentación</span>
+        <textarea class="styled-input" rows="3" maxLength="600" placeholder="Qué hace tu taller, desde cuándo, qué lo distingue…" value=${f.bio} onChange=${e => setF({ ...f, bio: e.target.value })}></textarea>
+        <span class="trim-hint">${(f.bio || '').length} / 600</span>
+      </label>
+
+      ${/* El enlace solo existe después de publicar: el slug se acuña al guardar */''}
+      ${me?.slug && me?.is_public && html`
+        <div class="prof-share">
+          <div>
+            <span class="mic-lbl">Tu enlace</span>
+            <code>${location.origin}/taller/${me.slug}</code>
+          </div>
+          <div class="prof-share-cta">
+            <button type="button" class="tool-add-btn" onClick=${() => enviarWhatsApp('', `Este es el perfil de mi taller: ${location.origin}/taller/${me.slug}`)}>Compartir por WhatsApp</button>
+            <button type="button" class="home-cta-ghost" onClick=${() => { navigator.clipboard?.writeText(`${location.origin}/taller/${me.slug}`).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 2000); }, () => {}); }}>${copiado ? 'Copiado ✓' : 'Copiar enlace'}</button>
+            <a class="home-cta-ghost" href=${'/taller/' + me.slug} target="_blank" rel="noopener">Ver mi perfil</a>
+          </div>
+        </div>`}
+      ${f.is_public && !me?.slug && html`<div class="alert blue" style=${{ marginTop: '12px' }}><span>Guarda los cambios y aquí aparecerá el enlace de tu perfil.</span></div>`}
+
+      ${msg && html`<div class="alert" style=${{ marginTop: '12px' }}><span>${msg}</span></div>`}
+      <div class="insp-actions">
+        <button type="button" class="tool-add-btn" onClick=${guardar}
+          disabled=${estado === 'guardando' || !f.name.trim() || (f.phone && !telValido(f.phone))}>
+          ${estado === 'guardando' ? 'Guardando…' : estado === 'guardado' ? 'Guardado ✓' : 'Guardar cambios'}
+        </button>
+        ${telValido(f.phone) && html`<button type="button" class="home-cta-ghost"
+          onClick=${() => enviarWhatsApp(f.phone, 'Prueba de FuelTech Master: si te llega esto, el número está bien.')}>Probar el número</button>`}
+      </div>
+    </${MicroShell}>`;
+  };
+
+  /* ================================================================
+     37. Perfil público de un taller (lo que ve quien recibe el enlace)
+     ================================================================ */
+  const PublicProfileApp = ({ onBack, slug }) => {
+    const ruta = slug || (location.pathname.match(/^\/taller\/([^/]+)/) || [])[1] || '';
+    const [p, setP] = useState(null);
+    const [err, setErr] = useState('');
+    const [f, setF] = useState({ author: '', rating: 0, comment: '' });
+    const [envio, setEnvio] = useState('');
+
+    // Identificador de dispositivo: solo sirve para que el servidor limite una
+    // reseña por perfil. No se comparte ni identifica a nadie.
+    const deviceId = (() => {
+      let d = ls.get('ft_device_id', null);
+      if (!d) { d = uid() + uid(); ls.set('ft_device_id', d); }
+      return d;
+    })();
+
+    /* `?t=` obliga a saltarse la caché de 60 s del endpoint: sin esto, quien
+       acababa de publicar su reseña recargaba y no la veía aparecer. */
+    const cargar = (fresco) => fetch(`/api/workshops/${encodeURIComponent(ruta)}${fresco ? '?t=' + Date.now() : ''}`)
+      .then(r => r.ok ? r.json() : r.json().then(b => Promise.reject(new Error(b.error || 'No se pudo cargar'))))
+      .then(setP).catch(e => setErr(e.message));
+    useEffect(() => { if (ruta) cargar(); else setErr('Falta el identificador del taller'); }, [ruta]);
+
+    const enviar = async () => {
+      setEnvio('enviando');
+      try {
+        const r = await fetch(`/api/workshops/${encodeURIComponent(ruta)}/reviews`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...f, device_id: deviceId }),
+        });
+        const b = await r.json();
+        if (!r.ok) throw new Error(b.error || 'No se pudo enviar');
+        setEnvio('enviado'); setF({ author: '', rating: 0, comment: '' });
+        cargar(true);
+      } catch (e) { setEnvio('error'); setErr(e.message); }
+    };
+
+    const estrellas = (n) => '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.round(n));
+    if (err && !p) return html`<${MicroShell} title="Perfil del taller" icon="Store" onBack=${onBack}>
+      <div class="empty">${err}</div>
+    </${MicroShell}>`;
+    if (!p) return html`<${MicroShell} title="Perfil del taller" icon="Store" onBack=${onBack}>
+      <div class="skel"><div class="skel-line"></div><div class="skel-line"></div></div>
+    </${MicroShell}>`;
+
+    return html`<${MicroShell} title=${p.name} icon="Store" onBack=${onBack}>
+      <div class="pp-head">
+        <div class="pp-rating">
+          <b>${p.promedio ?? '—'}</b>
+          <span class="pp-stars">${estrellas(p.promedio || 0)}</span>
+          <em>${p.total} ${p.total === 1 ? 'reseña' : 'reseñas'}</em>
+        </div>
+        <div class="pp-meta">
+          ${p.city && html`<span><${CatIc} n="MapPin" s=${15} /> ${p.city}</span>`}
+          ${p.email_verified && html`<span class="pp-verificado"><${CatIc} n="MailCheck" s=${15} /> Correo verificado</span>`}
+        </div>
+      </div>
+      ${p.bio && html`<p class="mic-lead" style=${{ marginTop: '16px' }}>${p.bio}</p>`}
+      ${p.services && html`<div class="pp-servicios">
+        ${p.services.split(',').map(s => s.trim()).filter(Boolean).map((s, i) => html`<span key=${i}>${s}</span>`)}
+      </div>`}
+      ${telValido(p.phone) && html`<div class="insp-actions">
+        <button type="button" class="tool-add-btn" onClick=${() => enviarWhatsApp(p.phone, `Hola ${p.name}, los encontré en FuelTech Master.`)}>Escribir por WhatsApp</button>
+      </div>`}
+
+      <h3 class="mic-sub">Deja tu reseña</h3>
+      ${envio === 'enviado'
+        ? html`<div class="alert blue"><span>Gracias, tu reseña ya está publicada.</span></div>`
+        : html`
+          <div class="pp-form">
+            <label><span class="mic-lbl">Tu nombre</span>
+              <input type="text" name="autor" autocomplete="name" class="styled-input" placeholder="Nombre…" value=${f.author} onChange=${e => setF({ ...f, author: e.target.value })} /></label>
+            <fieldset class="pp-rate">
+              <legend class="mic-lbl">Calificación</legend>
+              ${[1, 2, 3, 4, 5].map(n => html`
+                <button type="button" key=${n} class=${'pp-star' + (f.rating >= n ? ' on' : '')}
+                  aria-label=${n + ' de 5'} aria-pressed=${f.rating === n}
+                  onClick=${() => setF({ ...f, rating: n })}>★</button>`)}
+            </fieldset>
+          </div>
+          <label style=${{ display: 'block', marginTop: '12px' }}>
+            <span class="mic-lbl">Comentario (opcional)</span>
+            <textarea class="styled-input" rows="3" maxLength="600" placeholder="Cómo te atendieron, qué trabajo te hicieron…" value=${f.comment} onChange=${e => setF({ ...f, comment: e.target.value })}></textarea>
+          </label>
+          ${envio === 'error' && html`<div class="alert" style=${{ marginTop: '10px' }}><span>${err}</span></div>`}
+          <div class="insp-actions">
+            <button type="button" class="tool-add-btn" onClick=${enviar}
+              disabled=${envio === 'enviando' || !f.author.trim() || !f.rating}>
+              ${envio === 'enviando' ? 'Enviando…' : 'Publicar reseña'}
+            </button>
+          </div>`}
+
+      ${p.reseñas.length > 0 && html`
+        <h3 class="mic-sub">Lo que dicen (${p.total})</h3>
+        <div class="pp-lista">
+          ${p.reseñas.map((r, i) => html`<article class="pp-review" key=${i}>
+            <header><strong>${r.author}</strong><span class="pp-stars">${estrellas(r.rating)}</span></header>
+            ${r.comment && html`<p>${r.comment}</p>`}
+          </article>`)}
+        </div>`}
+    </${MicroShell}>`;
+  };
+
   window.FT_MICRO = {
-    Home, DtcApp, TorqueApp, SparkApp, CrossApp, ConverterApp, VinApp,
+    Home, ProfileApp, PublicProfileApp, DtcApp, TorqueApp, SparkApp, CrossApp, ConverterApp, VinApp,
     PressureApp, RegulatorApp, OrdersApp, InventoryApp, ClientsApp, NotesApp, CashApp,
     ForumApp, ConnectApp, QuickDiagApp, DocumentsApp, MarketApp, TimingApp,
+    FusesApp, TireApp, InspectionApp, QuoteApp, AppointmentsApp, MaintenanceApp,
+    TrimApp, CompressionApp, PinoutApp, LaborApp, NoStartApp, BatteryApp,
   };
 })();

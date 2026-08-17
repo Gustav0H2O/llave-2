@@ -1,0 +1,26 @@
+{
+  "$comentario": [
+    "Restricciones que aplica el propio Claude Code al trabajar en este proyecto.",
+    "",
+    "El hook PostToolUse corre scripts/guard.js --fast (menos de 1 segundo) cada",
+    "vez que se edita un archivo de código. Si encuentra una violación, el guard",
+    "sale con código 2 y Claude recibe el detalle como retroalimentación, así que",
+    "se entera del problema en el momento en vez de al final.",
+    "",
+    "Para desactivarlo temporalmente: renombra este archivo."
+  ],
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/guard-hook.js\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
