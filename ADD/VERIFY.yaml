@@ -1,0 +1,124 @@
+# ============================================================================
+# Binding de verificación de ADD para FuelTech Master.
+#
+# Política explícita del proyecto: los comandos que una A.SPEC puede citar en
+# VERIFICATION viven AQUÍ. El verifier (skill Verifier-ADD) no adivina: lee
+# este archivo y nada más. Mantenido según la skill Verify-Binding-ADD.
+#
+# Regla de drift: si un script de package.json se renombra o desaparece, este
+# archivo se corrige EN EL MISMO COMMIT que el cambio. Un binding que cita un
+# comando muerto es una mentira silenciosa.
+# ============================================================================
+
+verification:
+  checks:
+
+    - id: guard-rapido
+      run: npm run guard:rapido
+      covers:
+        contract:
+          - "análisis estático de las reglas del proyecto en <1 s (subconjunto rápido del guard)"
+      nota: >
+        Primer filtro mientras se implementa. No sustituye a `verify`: la
+        versión rápida omite las reglas lentas.
+
+    - id: verify
+      run: npm run verify
+      covers:
+        contract:
+          - "puerta completa del proyecto: restricciones + pruebas + métricas"
+        invariants:
+          - guard:await-en-base-de-datos
+          - guard:await-en-funciones-async-propias
+          - guard:parametros-de-consulta-en-array
+          - guard:id-validado-antes-de-consultar
+          - guard:aislamiento-por-taller
+          - guard:rutas-de-negocio-protegidas
+          - guard:escape-de-html-en-servidor
+          - guard:sin-secretos-en-el-codigo
+          - guard:pureza-de-lib
+          - guard:convenciones-de-htm-react
+          - guard:hashes-csp-calculados
+          - guard:variables-de-entorno-documentadas
+          - guard:pruebas-nunca-tocan-bases-reales
+          - guard:red-de-seguridad-async-de-express
+          - guard:tamano-de-archivos
+          - guard:reglas-del-taller-en-un-solo-sitio
+          - guard:deuda-conocida-acotada
+          - guard:cada-modulo-de-lib-tiene-pruebas
+          - "quality/budgets.json respetado (latencias, tamaños, cobertura, límites)"
+          - "trinquete de quality/baseline.json: ninguna métrica empeora"
+      nota: >
+        LA puerta. Ejecuta exactamente lo mismo que
+        .github/workflows/qa.yml corre en CI (thin-CI, skill CI-Wrapper-ADD).
+        Sin esto en verde la A.SPEC no se integra, sin excepción.
+
+    - id: test-unit
+      run: npm run test:unit
+      covers:
+        contract:
+          - "reglas del taller (lib/domain.js) y helpers puros (lib/pure.js, lib/catalog.js)"
+        invariants:
+          - "las presiones de banco/riel/módulo del §2 de AGENTS.md no cambian sin fuente citada"
+          - "forma, rangos, duplicados y solapes del catálogo válidos"
+      nota: >
+        Cambiar una regla del taller exige, en el mismo commit: el cambio en
+        lib/domain.js, el cambio en su prueba, y la fuente del dato nuevo en
+        el commit (AGENTS.md §2).
+
+    - id: test-qa
+      run: npm run test:qa
+      covers:
+        contract:
+          - "seguridad, contrato de API, integridad de datos y rendimiento"
+        invariants:
+          - "100 % de las rutas de API cubiertas por prueba (test/qa/contract.test.js)"
+          - "aislamiento entre talleres en todas las rutas protegidas"
+          - "latencias dentro de quality/budgets.json"
+      nota: >
+        Toda ruta nueva de API debe aparecer aquí con caso feliz Y caso de
+        error, o contract.test.js la rechaza (AGENTS.md §6).
+
+    - id: metrics
+      run: npm run metrics
+      covers:
+        contract:
+          - "informe de calidad (quality/REPORT.md) y presupuestos"
+        invariants:
+          - "trinquete: las métricas solo mejoran; retroceso deliberado = npm run metrics:aceptar con razón en el commit"
+          - "deuda conocida ≤ quality/budgets.json limites.max_deuda_conocida y solo puede encoger"
+      nota: >
+        quality/REPORT.md es generado. No se edita a mano, igual que este
+        binding no se edita sin correrlo.
+
+    - id: robots-rapido
+      run: npm run robots:rapido
+      covers:
+        contract:
+          - "tandas cortas de los siete robots (registro, aislamiento, fuzz, carga, recorrido, jornada, interfaz)"
+        invariants:
+          - "ningún 500, ninguna petición colgada, ninguna tripa del servidor expuesta bajo carga hostil"
+          - "ninguna fuga entre talleres bajo ataque desde cuenta ajena"
+      nota: >
+        OBLIGATORIO además de `verify` cuando la A.SPEC toca blast radius
+        alto: auth, sesiones, aislamiento, catálogo, CSP o el chat de IA.
+        ~30 s.
+
+    - id: robots-full
+      run: npm run robots
+      covers:
+        contract:
+          - "los siete robots completos (~5 min): volumen y combinaciones que nadie escribe a mano"
+      nota: >
+        Para A.SPEC de alto riesgo antes de integrar (cambios de esquema,
+        migraciones, aislamiento). Fuera de `verify` a propósito: verify tiene
+        que seguir durando segundos (AGENTS.md §1).
+
+    - id: pre-commit
+      run: git config core.hooksPath .githooks
+      covers:
+        contract:
+          - "barrera local: guard + pruebas antes de cada commit (activación única, luego corre solo)"
+      nota: >
+        No es un comando de verificación para citar en una A.SPEC; es la
+        activación del hook que ya corre guard y pruebas por su cuenta.

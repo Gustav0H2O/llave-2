@@ -92,6 +92,29 @@ propio texto de ataque devuelto como eco).
 
 ---
 
+## 1b. Todo cambio entra como A.SPEC
+
+Este repo opera bajo **ADD (Atomic Development Discipline)**: cada cambio se
+diseña, implementa y valida como unidad mínima, independiente, trazable y
+reversible. La doctrina está en `ADD/` (empieza por `ADD/README.md`); lo
+operativo, en cuatro líneas:
+
+1. **La A.SPEC se escribe antes del código**, en
+   `ADD/aspecs/FT-XXXX-<verbo>-<objeto>.md`, con la plantilla
+   `ADD/ASPEC-TEMPLATE.md`.
+2. **`VERIFICATION` solo cita comandos de `ADD/VERIFY.yaml`**: nada
+   inventado, el verifier lee el binding y nada más.
+3. **`npm run verify` en verde sigue siendo la puerta** — ADD no agrega
+   verificación, exige declarar cuál corrió y qué invariante cubría. Si el
+   cambio toca auth, sesiones, aislamiento, catálogo, CSP o el chat de IA
+   (blast radius alto): añade `npm run robots:rapido`.
+4. **1 A.SPEC = 1 rama `add/FT-XXXX-…` = 1 squash-commit en `master`**
+   (GitFlow Lite). Encontraste una mejora por el camino: no la metas, es
+   otra A.SPEC (*no opportunistic refactoring*, `ADD/SPECIFICATION.md` §4).
+
+La A.SPEC es contrato, no burocracia: si un cambio no cabe en una página
+WHY → ROLLBACK, es que todavía no se entiende el cambio.
+
 ## 2. Las reglas del taller (lo más importante del proyecto)
 
 Las dictó el dueño desde su banco de pruebas. Viven **solo** en `lib/domain.js` y
