@@ -328,8 +328,7 @@ describe('Seguridad — cabeceras y superficie pública', () => {
   });
 });
 
-describe('Seguridad — cobertura de la protección (análisis estático)', () => {
-  /* Estas tres pruebas son las que impiden que alguien agregue un recurso nuevo
+describe('Seguridad — cobertura de la protección (análisis estático)', () => {  /* Estas tres pruebas son las que impiden que alguien agregue un recurso nuevo
      sin protegerlo. No hacen peticiones: leen server-pg.js. */
 
   const PUBLICAS_A_PROPOSITO = new Set([
@@ -343,6 +342,9 @@ describe('Seguridad — cobertura de la protección (análisis estático)', () =
     'POST /api/admin/login',
     'POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/logout',
     'GET /api/auth/verify',
+    // Google OAuth: públicas por ser el inicio del flujo de autenticación.
+    // El estado (state) se valida en el callback para prevenir CSRF.
+    'GET /api/auth/google', 'GET /api/auth/google/callback',
     'GET /api/workshops', 'GET /api/workshops/:slug', 'POST /api/workshops/:slug/reviews',
     'GET /api/connect/profiles', 'POST /api/connect/profiles',
     'GET /api/connect/match', 'POST /api/connect/locate',
@@ -377,5 +379,60 @@ describe('Seguridad — cobertura de la protección (análisis estático)', () =
       .filter(r => ['/api/auth/login', '/api/auth/register'].includes(r.ruta) && !r.limitada)
       .map(r => `${r.metodo} ${r.ruta}`);
     assert.deepEqual(sinLimite, [], 'login y registro necesitan rate limit o son fuerza bruta gratis');
+  });
+});
+
+/* ============================================================================
+   FT-0002 — El directorio "connect" es público pero SIN datos privados.
+   Es la excepción pública declarada arriba: cualquiera puede listar perfiles y
+   buscar coincidencias cercanas (así lo usa un cliente sin cuenta). Lo que NO
+   puede pasar es que esa misma puerta entregue email, dirección o coordenadas
+   exactas de los perfiles: eso era raspable con dos líneas (hallazgo P0).
+   ========================================================================= */
+describe('Seguridad — /api/connect no expone PII', () => {
+  let ctx, anon;
+  before(async () => {
+    ctx = await levantarServidor();
+    anon = crearCliente(ctx.base);
+    const alta = await anon.post('/api/connect/profiles', {
+      email: 'connect-qa@example.com', name: 'Taller Conecta QA', city: 'Monterrey',
+      phone: '8110000000', role: 'mecanico', lat: 25.6866, lng: -100.3161,
+      offers: 'diagnostico de bombas', zone: 'Centro'
+    });
+    assert.equal(alta.status, 201, `el alta anónima debe seguir funcionando: ${alta.status}`);
+  });
+  after(() => ctx.cerrar());
+
+  it('el alta responde solo el id: nada de eco del email', async () => {
+    // ya creado en before(); repetimos el upsert para inspeccionar la respuesta.
+    // Al existir ya, entra por la rama UPDATE y responde 200 (el 201 es del alta).
+    const r = await anon.post('/api/connect/profiles', {
+      email: 'connect-qa@example.com', name: 'Taller Conecta QA', city: 'Monterrey'
+    });
+    assert.ok([200, 201].includes(r.status), `upsert devolvió ${r.status}`);
+    assert.equal(JSON.stringify(r.body).includes('connect-qa@example.com'), false,
+      'la respuesta del alta no debe contener el email');
+  });
+
+  for (const ruta of ['/api/connect/profiles',
+    '/api/connect/match?city=monterrey&lat=25.68&lng=-100.31&offers=diagnostico']) {
+    it(`GET ${ruta} lista el perfil público sin email, dirección ni coordenadas`, async () => {
+      const { status, body } = await anon.get(ruta);
+      assert.equal(status, 200);
+      const texto = JSON.stringify(body);
+      assert.ok(texto.includes('Taller Conecta QA'), 'el perfil público sí debe aparecer');
+      for (const prohibida of ['connect-qa@example.com', '"email"', '"address"', '"lat"', '"lng"']) {
+        assert.equal(texto.includes(prohibida), false, `${ruta} filtró ${prohibida}`);
+      }
+    });
+  }
+
+  it('match calcula distance_km en servidor sin revelar el punto crudo', async () => {
+    const { body } = await anon.get('/api/connect/match?lat=25.6867&lng=-100.3162&radius=5');
+    const fila = Array.isArray(body) ? body.find(p => p.name === 'Taller Conecta QA') : null;
+    if (fila) {
+      assert.equal(typeof fila.distance_km === 'number' || fila.distance_km === null, true,
+        'distance_km debe ser número o null');
+    }
   });
 });

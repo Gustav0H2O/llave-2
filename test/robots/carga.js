@@ -25,6 +25,10 @@ const {
 
 exigirEntornoSeguro();
 const o = opciones({ filas: 800, concurrencia: 20, talleres: 5 });
+/* El LIMIT que llevan los listados del taller en server-pg.js (FT-0004). Sirve
+   para saber si la muestra da para ver el tope: por debajo de esto, que el
+   listado devuelva todo no prueba nada. */
+const TOPE_ESPERADO = 500;
 const PRESUPUESTOS = require('../../quality/budgets.json').latencia_ms;
 
 /* Insertar por HTTP 800 órdenes tardaría minutos y mediría el limitador, no la
@@ -123,9 +127,21 @@ async function main() {
          descarga la tabla entera cada vez que abre la pantalla, con datos
          móviles en el taller. Devolver MENOS filas de las que hay demuestra
          que existe un LIMIT; devolverlas todas solo demuestra que el tope, si
-         lo hay, es mayor que la muestra — por eso conviene un --filas alto. */
+         lo hay, es mayor que la muestra.
+
+         Y eso último NO es un fallo, es una muestra corta: con --filas por
+         debajo del LIMIT 500 que llevan estas rutas (FT-0004), el tope no
+         puede dispararse y la comprobación daba rojo en las cinco tablas cada
+         vez que se corría `robots:rapido` (--filas=200). Un robot que falla
+         por su propio parámetro enseña a ignorar el rojo, que es peor que no
+         comprobar. Con la muestra corta se anota y se sigue; el veredicto lo
+         da la tanda completa, que sí llena 800. */
       const acotado = t.devueltas < o.filas;
       rep.nota(`${nombre.padEnd(13)} devuelve ${t.devueltas} de ${o.filas} filas${acotado ? `  → tope en ${t.devueltas}` : '  → SIN TOPE detectado'}`);
+      if (!acotado && o.filas <= TOPE_ESPERADO) {
+        rep.nota(`${nombre.padEnd(13)} muestra corta (${o.filas} ≤ ${TOPE_ESPERADO}): el tope no puede verse, corre la tanda completa`);
+        continue;
+      }
       rep.comprobar(acotado,
         `${nombre}: el listado tiene tope`,
         `devolvió las ${t.devueltas} filas existentes — sin LIMIT ni paginación (o con un tope superior a ${o.filas})`);

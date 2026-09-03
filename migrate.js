@@ -15,7 +15,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-const fueltechDb = new Database(path.join(__dirname, 'fueltech.db'), { readonly: true });
+const fuenteDb = new Database(path.join(__dirname, 'llave.db'), { readonly: true });
 const statsDb = new Database(path.join(__dirname, 'stats.db'), { readonly: true });
 
 async function migrateTable(tableName, dbSource, idFields = ['id']) {
@@ -78,13 +78,13 @@ async function run() {
   console.log('✅ Esquema creado en PostgreSQL.');
 
   // 2. Migrar tablas de catálogos (orden importa por llaves foráneas)
-  await migrateTable('injection_types', fueltechDb);
-  await migrateTable('brands', fueltechDb);
-  await migrateTable('vehicles', fueltechDb);
-  await migrateTable('fuel_modules', fueltechDb);
-  await migrateTable('fuel_pumps', fueltechDb);
-  await migrateTable('vehicle_modules', fueltechDb, ['vehicle_id', 'module_id']);
-  await migrateTable('module_pumps', fueltechDb, ['module_id', 'pump_id']);
+  await migrateTable('injection_types', fuenteDb);
+  await migrateTable('brands', fuenteDb);
+  await migrateTable('vehicles', fuenteDb);
+  await migrateTable('fuel_modules', fuenteDb);
+  await migrateTable('fuel_pumps', fuenteDb);
+  await migrateTable('vehicle_modules', fuenteDb, ['vehicle_id', 'module_id']);
+  await migrateTable('module_pumps', fuenteDb, ['module_id', 'pump_id']);
 
   // 3. Migrar estadísticas
   await migrateTable('visit_days', statsDb, ['day', 'visitor_hash']);

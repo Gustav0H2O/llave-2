@@ -241,7 +241,9 @@ async function bloqueoDelBucle(rep) {
 
     rep.nota(`retraso del bucle en reposo:       p50 ${enReposo.p50}ms · p95 ${enReposo.p95}ms · máx ${enReposo.max}ms`);
     rep.nota(`retraso del bucle con 8 altas:     p50 ${conAltas.p50}ms · p95 ${conAltas.p95}ms · máx ${conAltas.max}ms`);
-    rep.nota(`cada alta cuesta ~115ms de CPU con el hilo bloqueado (crypto.scryptSync, N=16384)`);
+    /* FT-0003: el hash pasó a crypto.scrypt() asíncrono. El KDF sigue costando
+       su CPU (~100 ms por alta), pero ya NO bloquea el hilo: por eso el retraso
+       del bucle con altas se queda en el orden del reposo. */
 
     /* 120ms es un scrypt entero: si el bucle se para tanto, ninguna otra
        petición se atiende durante ese tiempo, venga de quien venga. */

@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 6 620 292" width="620" height="292" role="img" aria-label="Corte grabado de un tanque con el módulo de gasolina, la pila, el flotador y el riel de inyectores">
+  <!--
+    Lámina de grabado: el módulo dentro del tanque, la línea de presión y el
+    riel con sus inyectores. Dibujada con línea y trama (no con relleno
+    ni degradado) para que invertirla dé exactamente el mismo dibujo en blanco
+    sobre grafito — por eso tinta.css la voltea con filter:invert(1) en oscuro
+    en vez de servir dos archivos.
+    Vocabulario del taller (AGENTS.md §0): la PILA es la bomba sola; el MÓDULO
+    es el ensamble completo que va en el tanque; el RIEL o FLAUTA alimenta los
+    inyectores. Los rótulos del dibujo usan esos nombres y no otros.
+  -->
+  <defs>
+    <pattern id="tramaA" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#111111" stroke-width="1.1" stroke-opacity=".5"/>
+    </pattern>
+    <pattern id="tramaB" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="4" stroke="#111111" stroke-width=".8" stroke-opacity=".32"/>
+    </pattern>
+    <pattern id="tramaC" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+      <line x1="0" y1="0" x2="0" y2="5" stroke="#111111" stroke-width=".9" stroke-opacity=".4"/>
+    </pattern>
+  </defs>
+
+  <g fill="none" stroke="#111111" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- ===== Tanque, en corte ===== -->
+    <path d="M34 92C33 74 46 62 66 61C120 58 196 59 244 61C262 62 272 74 271 92C272 140 271 196 269 232C268 250 256 260 238 261C186 264 116 263 66 261C47 260 35 249 34 231C32 196 33 138 34 92Z"/>
+    <!-- gasolina: nivel ondulado y trama fina -->
+    <path d="M38 160C70 154 98 165 132 161C168 157 196 150 228 156C244 159 258 157 267 154L267 230C268 247 257 256 240 257C188 260 116 259 66 257C49 256 39 246 38 229Z" fill="url(#tramaB)" stroke="none"/>
+    <path d="M38 160C70 154 98 165 132 161C168 157 196 150 228 156C244 159 258 157 267 154" stroke-width="1.5"/>
+    <path d="M46 172C74 167 100 176 128 173" stroke-width="1" stroke-opacity=".45"/>
+
+    <!-- ===== Brida y cabeza del módulo ===== -->
+    <path d="M112 62C112 51 118 45 130 45C146 44 166 44 180 45C192 46 197 52 197 62"/>
+    <path d="M104 62C104 57 108 55 116 55L194 55C201 55 205 58 205 63C205 68 201 70 194 70L115 70C107 70 104 67 104 62Z" fill="url(#tramaA)" fill-opacity=".9"/>
+    <path d="M118 45C118 36 124 31 133 31L176 31C185 31 191 36 191 45" stroke-width="1.5"/>
+
+    <!-- ===== Cuerpo del módulo (canasta) ===== -->
+    <path d="M116 72C116 96 115 130 116 166C117 200 116 218 118 230C119 240 126 245 137 246C152 247 168 247 180 246C190 245 195 239 196 229C198 214 197 190 197 160C198 124 197 94 197 72"/>
+    <!-- lado en sombra -->
+    <path d="M176 74C177 110 177 200 175 244L196 244C198 214 197 106 197 74Z" fill="url(#tramaC)" stroke="none"/>
+    <!-- ventanas de la canasta -->
+    <path d="M128 186C128 178 132 175 140 175C148 175 152 178 152 186C152 194 148 197 140 197C132 197 128 194 128 186Z" stroke-width="1.4"/>
+    <path d="M162 200C162 193 166 190 172 190C179 190 183 193 183 200C183 207 179 210 172 210C166 210 162 207 162 200Z" stroke-width="1.4"/>
+
+    <!-- ===== La pila (bomba sola) dentro del módulo ===== -->
+    <path d="M133 104C133 98 140 95 152 95C164 95 172 98 172 104C173 128 173 152 172 168C172 174 165 178 153 178C141 178 134 174 133 168C132 150 132 126 133 104Z" fill="url(#tramaA)" fill-opacity=".65"/>
+    <path d="M133 104C133 110 140 113 152 113C164 113 172 110 172 104" stroke-width="1.4"/>
+    <path d="M141 178C141 190 143 198 145 206M164 178C164 190 162 198 160 206" stroke-width="1.3"/>
+
+    <!-- ===== Flotador y aforador ===== -->
+    <path d="M197 178C210 176 224 172 236 166" stroke-width="1.7"/>
+    <path d="M236 152C247 152 254 158 254 166C254 175 247 181 236 181C226 181 219 175 219 166C219 158 226 152 236 152Z" fill="url(#tramaB)"/>
+    <path d="M199 174C202 180 203 186 202 192" stroke-width="1.2" stroke-opacity=".5"/>
+
+    <!-- ===== Línea de presión: del módulo al riel ===== -->
+    <path d="M156 31C156 24 160 20 168 19C210 15 246 17 282 17C300 17 310 24 311 40" stroke-width="2.1"/>
+    <path d="M311 40C312 52 311 62 310 72" stroke-width="2.1"/>
+    <path d="M338 96C356 92 378 90 400 90" stroke-width="2.1"/>
+
+    <!-- ===== Manómetro: lo que el mecánico mira de verdad ===== -->
+    <path d="M311 72C332 72 348 88 348 108C348 128 332 144 311 144C291 144 275 128 275 108C275 88 291 72 311 72Z"/>
+    <path d="M311 80C327 80 340 92 340 108C340 124 327 136 311 136C296 136 283 124 283 108C283 92 296 80 311 80Z" stroke-width="1.1" stroke-opacity=".55"/>
+    <path d="M295 122L311 108L330 96" stroke-width="2.2"/>
+    <path d="M311 105C313 105 314 106 314 108C314 110 313 111 311 111C309 111 308 110 308 108C308 106 309 105 311 105Z" fill="#111111"/>
+    <path d="M292 94L296 98M330 94L326 98M311 86L311 91M340 108L335 108M287 108L282 108" stroke-width="1.3"/>
+
+    <!-- ===== Riel / flauta con sus inyectores ===== -->
+    <path d="M400 82C446 79 520 80 574 82C583 82 588 87 588 96C588 106 583 111 574 111C520 113 448 113 401 110C392 110 388 105 388 96C388 87 392 83 400 82Z"/>
+    <path d="M400 88C446 86 520 86 574 88" stroke-width="1.1" stroke-opacity=".5"/>
+    <g stroke-width="1.7">
+      <path d="M414 112C414 124 413 132 414 142C415 150 421 154 431 154C441 154 447 150 448 142C449 132 448 124 448 112" fill="url(#tramaC)" fill-opacity=".8"/>
+      <path d="M420 154C420 166 421 174 423 182M442 154C442 166 441 174 439 182"/>
+      <path d="M424 182C424 190 427 196 431 200C435 196 438 190 438 182Z" fill="url(#tramaA)"/>
+
+      <path d="M470 112C470 124 469 132 470 142C471 150 477 154 487 154C497 154 503 150 504 142C505 132 504 124 504 112" fill="url(#tramaC)" fill-opacity=".8"/>
+      <path d="M476 154C476 166 477 174 479 182M498 154C498 166 497 174 495 182"/>
+      <path d="M480 182C480 190 483 196 487 200C491 196 494 190 494 182Z" fill="url(#tramaA)"/>
+
+      <path d="M526 112C526 124 525 132 526 142C527 150 533 154 543 154C553 154 559 150 560 142C561 132 560 124 560 112" fill="url(#tramaC)" fill-opacity=".8"/>
+      <path d="M532 154C532 166 533 174 535 182M554 154C554 166 553 174 551 182"/>
+      <path d="M536 182C536 190 539 196 543 200C547 196 550 190 550 182Z" fill="url(#tramaA)"/>
+    </g>
+
+    <!-- ===== Rótulos con línea de referencia ===== -->
+    <g stroke-width="1.2" stroke-opacity=".7">
+      <path d="M148 100C124 84 96 62 70 44"/>
+      <path d="M240 180C260 190 278 202 290 213"/>
+      <path d="M487 202C490 218 495 228 502 234"/>
+    </g>
+  </g>
+
+  <g fill="#111111" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-style="italic" fill-opacity=".82">
+    <text x="64" y="38" text-anchor="end">pila</text>
+    <text x="296" y="221" text-anchor="start">flotador</text>
+    <text x="311" y="170" text-anchor="middle" font-size="14" fill-opacity=".7">manómetro</text>
+    <text x="506" y="241" text-anchor="start">inyector</text>
+    <text x="588" y="70" text-anchor="end">riel</text>
+    <text x="34" y="288" text-anchor="start" font-size="14" fill-opacity=".7">módulo, en el tanque</text>
+  </g>
+</svg>

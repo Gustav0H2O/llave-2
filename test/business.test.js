@@ -313,8 +313,10 @@ describe('Connect API (matching cliente ↔ mecánico)', () => {
     await c.post('/api/connect/profiles', { email: 'cli@x.com', role: 'cliente', name: 'Cliente Y', city: 'Lima', zone: 'Centro', offers: '', needs: 'inyeccion bombas' });
     const r = await c.get('/api/connect/match?city=Lima&zone=Centro&offers=inyeccion%20bombas&needs=');
     assert.equal(r.status, 200);
-    // El cliente que busca "inyeccion bombas" debe aparecer con match_score > 0
-    const match = r.body.find(p => p.email === 'cli@x.com');
+    // El cliente que busca "inyeccion bombas" debe aparecer con match_score > 0.
+    // FT-0002: las respuestas ya NO incluyen email (PII), así que se identifica
+    // por nombre — el contrato de privacidad está probado en security.test.js.
+    const match = r.body.find(p => p.name === 'Cliente Y');
     assert.ok(match && match.match_score > 0);
   });
 

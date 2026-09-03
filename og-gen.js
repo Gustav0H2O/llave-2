@@ -1,4 +1,4 @@
-// FuelTech Master — Generador de imágenes Open Graph (1200×630) por vehículo.
+// llave — Generador de imágenes Open Graph (1200×630) por vehículo.
 // Uso: node og-gen.js   (o: npm run og). Requiere Chrome de Puppeteer instalado:
 //   npx puppeteer browsers install chrome
 // Salida: public/og/<id>.png por vehículo + public/og/default.png
@@ -9,41 +9,46 @@ const puppeteer = require('puppeteer');
 
 const OUT = path.join(__dirname, 'public', 'og');
 fs.mkdirSync(OUT, { recursive: true });
-const db = new Database(path.join(__dirname, 'fueltech.db'), { readonly: true });
+const db = new Database(path.join(__dirname, 'llave.db'), { readonly: true });
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-// Isotipo embebido: la página se renderiza desde una cadena (sin servidor), así que
-// una ruta relativa no resolvería. En base64 viaja dentro del propio HTML.
-const MARK_B64 = fs.readFileSync(path.join(__dirname, 'public', 'brand', 'mark-dark.png')).toString('base64');
+// Logo "llave" embebido: la página se renderiza desde una cadena (sin
+// servidor) así que una ruta relativa no resolvería. Tomamos los 5 paths
+// de la palabra del SVG vectorial y los envolvemos en crema sobre verde.
+const BRAND_SVG = fs.readFileSync(path.join(__dirname, 'public', 'brand', 'logo-llave.svg'), 'utf8');
+const innerPaths = BRAND_SVG.match(/<path d="[^"]+"\/>/g).slice(0, 5).join('');
+const BRAND_B64 = Buffer.from(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254"><g transform="translate(0,1254) scale(0.1,-0.1)" fill="#F8F7F3">${innerPaths}</g></svg>`
+).toString('base64');
 const bar = (psi) => (psi == null ? '' : (psi * 0.0689476).toFixed(1));
 
 function card({ title, sub, big, bigSmall, badge }) {
   return `<!doctype html><html><head><meta charset="utf-8">
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet">
   <style>
     *{margin:0;box-sizing:border-box}
-    body{width:1200px;height:630px;overflow:hidden;font-family:Montserrat,Arial,Helvetica,sans-serif;background:#0F1113;color:#E8EAE6}
+    body{width:1200px;height:630px;overflow:hidden;font-family:Inter,Arial,Helvetica,sans-serif;background:#F8F7F3;color:#111311}
+    /* El verde entra solo como acento, no satura la pieza */
     .bg{position:absolute;inset:0;background:
-      radial-gradient(ellipse 720px 520px at 8% -12%, rgba(174,204,58,.18), transparent),
-      radial-gradient(ellipse 820px 620px at 104% 118%, rgba(126,133,138,.22), transparent);}
-    .strip{position:absolute;left:0;top:0;height:100%;width:14px;background:linear-gradient(#C2DE4C,#8FAA22)}
+      radial-gradient(ellipse 720px 520px at 8% -12%, rgba(63,81,50,.10), transparent),
+      radial-gradient(ellipse 820px 620px at 104% 118%, rgba(123,137,104,.16), transparent);}
+    .strip{position:absolute;left:0;top:0;height:100%;width:14px;background:linear-gradient(#3F5132,#2A3A1F)}
     .wrap{position:relative;padding:64px 74px;height:100%;display:flex;flex-direction:column}
-    .head{display:flex;align-items:center;gap:20px}
+    .head{display:flex;align-items:center;gap:18px}
     .mark{width:64px;height:auto;display:block}
-    .brand{font-weight:800;font-size:30px;letter-spacing:3px}
-    .brand span{color:#AECC3A}
-    .kick{margin-top:8px;font-weight:700;font-size:15px;letter-spacing:6px;color:#969C99;text-transform:uppercase}
+    .brand{font-weight:800;font-size:30px;letter-spacing:1px;color:#111311}
+    .kick{margin-top:8px;font-weight:700;font-size:15px;letter-spacing:3px;color:#6B6D64;text-transform:uppercase}
     .main{margin-top:auto}
     .title{font-weight:800;font-size:62px;line-height:1.02;letter-spacing:-1px}
-    .sub{margin-top:14px;font-weight:500;font-size:25px;color:#BFC5BE}
-    .big{margin-top:24px;font-weight:800;font-size:116px;line-height:.86;color:#fff}
-    .big small{font-weight:500;font-size:33px;color:#969C99;letter-spacing:0}
-    .badge{display:inline-block;margin-top:26px;font-weight:700;font-size:21px;letter-spacing:2px;text-transform:uppercase;color:#AECC3A;border:2px solid rgba(174,204,58,.5);border-radius:4px;padding:8px 18px}
-    .foot{position:absolute;right:74px;bottom:54px;font-weight:600;font-size:19px;color:#8b918b;text-align:right;line-height:1.5}
+    .sub{margin-top:14px;font-weight:500;font-size:25px;color:#2A2C26}
+    .big{margin-top:24px;font-weight:800;font-size:116px;line-height:.86;color:#111311}
+    .big small{font-weight:500;font-size:33px;color:#6B6D64;letter-spacing:0}
+    .badge{display:inline-block;margin-top:26px;font-weight:700;font-size:21px;letter-spacing:1px;text-transform:uppercase;color:#3F5132;border:2px solid rgba(63,81,50,.5);border-radius:8px;padding:8px 18px}
+    .foot{position:absolute;right:74px;bottom:54px;font-weight:600;font-size:19px;color:#6B6D64;text-align:right;line-height:1.5}
   </style></head>
   <body><div class="bg"></div><div class="strip"></div><div class="wrap">
-    <div class="head"><img class="mark" src="data:image/png;base64,${MARK_B64}" alt="">
-      <div><div class="brand">FUEL<span>TECH</span> MASTER</div><div class="kick">Presión de combustible</div></div></div>
+    <div class="head"><img class="mark" src="data:image/svg+xml;base64,${BRAND_B64}" alt="">
+      <div><div class="brand">llave</div><div class="kick">Presión de combustible</div></div></div>
     <div class="main">
       <div class="title">${esc(title)}</div>
       <div class="sub">${esc(sub)}</div>
@@ -51,7 +56,7 @@ function card({ title, sub, big, bigSmall, badge }) {
       <div><span class="badge">${esc(badge)}</span></div>
     </div>
   </div>
-  <div class="foot">fueltech-master.onrender.com<br>Módulo y pilas compatibles</div>
+  <div class="foot">llave.onrender.com<br>Módulo y pilas compatibles</div>
   </body></html>`;
 }
 
@@ -98,6 +103,7 @@ async function render(page, html, out) {
     }), path.join(OUT, v.id + '.png'));
     if (++n % 20 === 0) console.log(`  ${n}/${rows.length}`);
   }
+  console.log(`  ${rows.length}/${rows.length} ✓`);
 
   await browser.close();
   db.close();

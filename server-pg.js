@@ -1,4 +1,4 @@
-// FuelTech Master — API REST
+// llave — API REST
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -15,11 +15,69 @@ const PROD = process.env.NODE_ENV === 'production';
 /* URL base pública para canonical, sitemap y Open Graph.
    Configurable sin tocar código: BASE_URL=https://tudominio.com
    Cámbiala cuando conectes tu dominio propio. */
-const BASE_URL = (process.env.BASE_URL || 'https://fueltech-master.onrender.com').replace(/\/+$/, '');
+const BASE_URL = (process.env.BASE_URL || 'https://llave.onrender.com').replace(/\/+$/, '');
 
 /* Modelo de IA configurable. OJO: 'gemini-3.5-flash' NO es un id válido de Google
    y hacía que el chat respondiera 502. Default a un modelo real y estable. */
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+
+/* FT-0011 — Asistente vía OpenRouter (modelo gratis). Si OPENROUTER_API_KEY
+   está configurada como secreto del host —nunca en el repo, igual que Gemini—,
+   el chat usa OpenRouter y Google queda como respaldo. Modelo por defecto:
+   Gemma 4 26B :free, probado en vivo respondiendo en español y sin ruido de
+   razonamiento (los nemotron gratuitos escupen su cadena de pensamiento). */
+const OPENROUTER_API_KEY = (process.env.OPENROUTER_API_KEY || '').trim();
+/* Cadena de modelos :free en orden de preferencia. Los gratuitos se saturan
+   por turnos (429): probar el siguiente en vez de fallar multiplica el margen
+   real del plan gratis. Excluidos los nemotron «reasoning»: responden bien
+   pero escupen su cadena de pensamiento en inglés dentro del texto útil. */
+const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS
+  || 'google/gemma-4-26b-a4b-it:free,google/gemma-4-31b-it:free')
+  .split(',').map(s => s.trim()).filter(Boolean);
+const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
+
+/* Groq (console.groq.com): API compatible con OpenAI, 14,400 peticiones/día
+   gratis sin tarjeta. Modelos de Llama y Gemma, muy rápidos. */
+const GROQ_API_KEY = (process.env.GROQ_API_KEY || '').trim();
+const GROQ_MODELS = (process.env.GROQ_MODELS
+  || 'llama-3.3-70b-versatile,llama-3.1-8b-instant,gemma2-9b-it')
+  .split(',').map(s => s.trim()).filter(Boolean);
+const GROQ_BASE = 'https://api.groq.com/openai/v1';
+
+/* NVIDIA NIM (build.nvidia.com): API compatible con la de OpenAI igual que
+   OpenRouter, así que comparte el MISMO camino de código —solo cambian URL,
+   clave y cadena de modelos—. Va primero en la prioridad porque es la que el
+   dueño dio de alta; si no está, se cae a OpenRouter y luego a Gemini. La
+   clave empieza por `nvapi-` y va como secreto del host, nunca en el repo.
+
+   Los ids están comprobados uno a uno contra `GET /v1/models` y con una
+   petición real. Es la trampa de AGENTS.md §4.10 con una vuelta de tuerca:
+   aquí un id no solo puede estar mal escrito, puede haber CADUCADO —
+   `meta/llama-3.3-70b-instruct` era el candidato obvio y NVIDIA lo retiró el
+   2026-08-26; responde 410 "end of life", que sin la cadena de respaldo habría
+   sido un 502 en cada mensaje. Excluidos los nemotron «reasoning»: meten su
+   cadena de pensamiento en el texto útil. */
+const NVIDIA_API_KEY = (process.env.NVIDIA_API_KEY || '').trim();
+const NVIDIA_MODELS = (process.env.NVIDIA_MODELS
+  || 'google/gemma-4-31b-it,mistralai/mistral-large-2-instruct,google/gemma-3-12b-it')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
+/* Quién atiende el chat; null si no hay clave compatible con OpenAI (entonces
+   manda Gemini, y si tampoco está, el 503 de siempre). */
+function proveedorChat() {
+  if (GROQ_API_KEY) return {
+    nombre: 'Groq', base: GROQ_BASE, clave: GROQ_API_KEY, modelos: GROQ_MODELS, cabeceras: {}
+  };
+  if (NVIDIA_API_KEY) return {
+    nombre: 'NVIDIA NIM', base: 'https://integrate.api.nvidia.com/v1',
+    clave: NVIDIA_API_KEY, modelos: NVIDIA_MODELS, cabeceras: {}
+  };
+  if (OPENROUTER_API_KEY) return {
+    nombre: 'OpenRouter', base: OPENROUTER_BASE, clave: OPENROUTER_API_KEY, modelos: OPENROUTER_MODELS,
+    cabeceras: { 'HTTP-Referer': BASE_URL, 'X-Title': 'llave' }
+  };
+  return null;
+}
 
 /* Google Analytics 4. Configurable; vacío = desactivado (y no se toca la CSP). */
 const GA_ID = process.env.GA_MEASUREMENT_ID || 'G-MXGS03FKB0';
@@ -58,9 +116,18 @@ const {
   toInt, psiToBar, str, num,
   esc, slugify, vehicleSlug, vehicleIdFromSlug, haceSlug,
 } = require('./lib/pure');
+/* La ruta de diagnóstico: estructura y HTML de /guias y /guia/:slug. Está en
+   lib/ porque es una función pura de (guías) → HTML y se prueba sola. */
+const { paginaRuta, paginaGuia, jsonLdRuta } = require('./lib/ruta');
+const { paginaPortada } = require('./lib/portada');
+const { paginaError, ERRORES: PANTALLAS_ERROR, codigosDeError } = require('./lib/errores');
+
+/* Modo mantenimiento. Con MAINTENANCE=1 el sitio entero responde 503 con su
+   pantalla propia en vez de quedarse a medias mientras se despliega. */
+const MAINTENANCE = /^(1|true|si|sí)$/i.test((process.env.MAINTENANCE || '').trim());
 
 /* Crea y configura la aplicación Express.
-   Recibe instancias de Database (better-sqlite3) para fueltech y stats.
+   Recibe instancias de Database (better-sqlite3) para llave y stats.
    Esto permite tests con bases en memoria sin tocar los archivos reales. */
 async function createApp(dbOverride, statsOverride) {
   // Los tests inyectan adaptadores sobre bases en memoria; en producción se usan
@@ -145,6 +212,22 @@ async function createApp(dbOverride, statsOverride) {
     next();
   });
 
+  /* Modo mantenimiento. Va AQUÍ arriba, después del nonce (que la pantalla
+     necesita) y antes de cualquier ruta: registrado abajo solo habría atendido
+     lo que no coincidiera con nada, que es exactamente lo contrario de un modo
+     mantenimiento. Se dejan pasar /healthz —es lo que mira el host para saber
+     si el proceso vive, y un 503 ahí provoca un reinicio en bucle— y los
+     estáticos, o la propia pantalla saldría sin estilos ni ilustración. */
+  if (MAINTENANCE) {
+    app.use((req, res, next) => {
+      if (req.path === '/healthz' || /^\/(media|brand|vendor|models|og)\//.test(req.path)
+        || /\.(css|js|mjs|svg|png|jpe?g|webp|ico|mp4|webm|webmanifest|txt|xml)$/.test(req.path)) return next();
+      res.set('Retry-After', '600');
+      if (!quiereHtml(req)) return res.status(503).json({ error: 'En mantenimiento' });
+      return enviarPaginaError(res, 503, { ruta: req.originalUrl });
+    });
+  }
+
   let dbDump = [];
   try {
     dbDump = await db.all(`SELECT b.name as brand, v.model, v.year_from, v.year_to, v.engine, v.rail_pressure_psi_min, v.rail_pressure_psi_max FROM vehicles v JOIN brands b on v.brand_id=b.id`, );
@@ -154,6 +237,19 @@ async function createApp(dbOverride, statsOverride) {
   const globalDBContext = 'Base de Datos (Vehículos soportados): ' + dbDump.map(r => `${r.brand} ${r.model} ${r.year_from}-${r.year_to} ${r.engine} PSI:${r.rail_pressure_psi_min}-${r.rail_pressure_psi_max}`).join('; ');
   // trust proxy ajustable para tests
   app.set('trust proxy', process.env.TRUST_PROXY !== '0' ? 1 : 0);
+
+  /* Canonicalización de host. Con www y sin www respondiendo lo mismo, el
+     buscador ve DOS sitios con el mismo contenido y reparte la autoridad
+     entre los dos. Un 301 deja una sola dirección buena: la de BASE_URL.
+     Hoy llave.onrender.com no resuelve el www, pero esta regla es
+     justo la que hace falta el día que se conecte el dominio propio, y no
+     cuesta nada tenerla puesta desde antes. */
+  const BASE_HOST = (() => { try { return new URL(BASE_URL).host; } catch (e) { return ''; } })();
+  app.use((req, res, next) => {
+    const host = String(req.headers.host || '');
+    if (!host.startsWith('www.') || BASE_HOST.startsWith('www.')) return next();
+    return res.redirect(301, BASE_URL + req.originalUrl);
+  });
 
   /* Orígenes que necesita AdSense. Sin esto la CSP bloquea el script y los iframes de
      los anuncios: el sitio se ve "sin anuncios" y la revisión de AdSense falla. */
@@ -262,12 +358,15 @@ async function createApp(dbOverride, statsOverride) {
   // Las clases on-dark/on-light las resuelve el CSS de index.html según el tema,
   // igual que en la app: aquí no hay JS que pueda elegir por nosotros.
   const BRAND_LOCKUP = `<a href="/" style="display:inline-block;margin-bottom:22px">
-      <img class="logo-lockup on-dark" src="/brand/logo-dark.png" width="760" height="205" alt="FuelTech Master" style="width:200px;height:auto">
-      <img class="logo-lockup on-light" src="/brand/logo-light.png" width="760" height="193" alt="" style="width:200px;height:auto">
+      <img class="logo-img logo-img--light" src="/brand/logo-llave.svg" alt="llave" style="height:52px;width:auto">
+      <img class="logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" style="height:52px;width:auto">
     </a>`;
 
-  const HOME_TITLE = 'FuelTech Master — Presión de riel (PSI/Bar), módulos y pilas de gasolina';
-  const HOME_DESC = 'Consulta técnica gratis para mecánicos de Latinoamérica: presión de riel (PSI/Bar), ubicación del módulo y pilas (bombas) de gasolina compatibles OEM y alternativas. Diagnóstico del sistema de combustible al instante.';
+  /* Medidos en píxeles, que es como los corta el buscador: el título cabe en
+     580 px (~60 chars) y la descripción en 1000 px (~180). Los anteriores
+     medían 656 px y 1353 px — ambos se cortaban en el resultado de búsqueda. */
+  const HOME_TITLE = 'Presión de bomba de gasolina por vehículo | llave';
+  const HOME_DESC = 'Presión de riel en PSI y bar, ubicación del módulo y pilas de gasolina compatibles OEM y alternativas. Consulta gratis para mecánicos de Latinoamérica.';
 
   // Imágenes OG disponibles (generadas por `npm run og`). Se leen una vez al arrancar.
   let OG_FILES = new Set();
@@ -276,7 +375,7 @@ async function createApp(dbOverride, statsOverride) {
   const ogForVehicle = (id) => (OG_FILES.has(id + '.png') ? '/og/' + id + '.png' : null);
 
   // Inyecta metadatos/contenido en la plantilla index.html sin romper la CSP.
-  function renderShell({ title, description, canonicalPath = '/', rootContent = '', jsonLd = null, vehicleId = null, nonce = '', ogImage = null }) {
+  function renderShell({ title, description, canonicalPath = '/', rootContent = '', jsonLd = null, vehicleId = null, nonce = '', ogImage = null, staticApp = false, keepPlaceholder = false }) {
     const canonical = BASE_URL + canonicalPath;
     const img = ogImage || DEFAULT_OG;
     let html = INDEX_HTML
@@ -300,11 +399,19 @@ async function createApp(dbOverride, statsOverride) {
         `<script type="application/ld+json"${nonce ? ` nonce="${nonce}"` : ''}>${JSON.stringify(jsonLd)}</script>`);
     }
     if (vehicleId != null) html = html.replace('<div id="root">', `<div id="root" data-vehicle="${vehicleId}">`);
+    /* FT-0006: páginas de solo contenido marcan #root para que app.js NO monte
+       la SPA encima — el SSR era real y React lo borraba al arrancar. */
+    else if (staticApp) html = html.replace('<div id="root">', '<div id="root" data-app="none">');
     if (rootContent) {
       // El pie legal va en TODAS las páginas renderizadas en servidor: AdSense exige que
       // privacidad y contacto se alcancen desde cualquier punto del sitio.
-      html = html.replace(/<!--ROOT-CONTENT-START-->[\s\S]*?<!--ROOT-CONTENT-END-->/,
-        `<!--ROOT-CONTENT-START-->${rootContent}${legalFooter()}<!--ROOT-CONTENT-END-->`);
+      /* keepPlaceholder: la portada NO tira el esqueleto gris. Es lo único que
+         ve la persona mientras arranca React, y el contenido rastreable se
+         añade debajo de él, fuera del pliegue. Se reemplaza con función y no
+         con cadena: un dólar-ampersand dentro del contenido se leería como
+         referencia a un grupo de la expresión regular. */
+      html = html.replace(/<!--ROOT-CONTENT-START-->([\s\S]*?)<!--ROOT-CONTENT-END-->/,
+        (m, previo) => `<!--ROOT-CONTENT-START-->${keepPlaceholder ? previo : ''}${rootContent}${legalFooter()}<!--ROOT-CONTENT-END-->`);
     }
     if (ADSENSE_CLIENT) {
       html = html.replace('</head>',
@@ -336,11 +443,20 @@ async function createApp(dbOverride, statsOverride) {
     JOIN injection_types it ON it.id = v.injection_type_id WHERE v.id = ?`, [id]) };
 
   app.get('/', async (req, res) => {
+    /* Dos COUNT(*) menos por visita a la portada: solo alimentaban la prosa
+       "N vehículos de M marcas", que se retiró — el catálogo sube y baja y la
+       página de entrada no debe comprometerse con una cifra. */
+    const muestra = await db.all(`SELECT v.id, b.name AS brand, v.model, v.year_from, v.year_to
+      FROM vehicles v JOIN brands b ON b.id = v.brand_id ORDER BY b.name, v.model LIMIT 12`);
     res.set('Cache-Control', 'public, max-age=300');
     res.type('html').send(renderShell({
       title: HOME_TITLE, description: HOME_DESC, canonicalPath: '/', nonce: res.locals.cspNonce,
+      /* Única página que CONSERVA su esqueleto: React monta encima. El
+         contenido va detrás, para el rastreador que no ejecuta JavaScript. */
+      rootContent: paginaPortada({ vehiculos: muestra, guias: GUIDES, lockup: BRAND_LOCKUP }),
+      keepPlaceholder: true,
       jsonLd: {
-        '@context': 'https://schema.org', '@type': 'WebApplication', name: 'FuelTech Master',
+        '@context': 'https://schema.org', '@type': 'WebApplication', name: 'llave',
         applicationCategory: 'AutomotiveApplication', operatingSystem: 'Web', inLanguage: 'es',
         description: HOME_DESC, url: BASE_URL + '/',
         offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' }
@@ -359,7 +475,10 @@ async function createApp(dbOverride, statsOverride) {
     const psi = `${v.rail_pressure_psi_min}–${v.rail_pressure_psi_max}`;
     const bar = `${psiToBar(v.rail_pressure_psi_min)}–${psiToBar(v.rail_pressure_psi_max)}`;
     const name = `${v.brand} ${v.model} ${v.year_from}-${v.year_to}`;
-    const title = `Presión de combustible ${name}: ${psi} PSI | FuelTech Master`;
+    /* FT-0007: sin el rango PSI en el título —con nombres largos pasaba de 70
+       chars y el robot recorrido lo marca como título cortado en SERP. El
+       dato vive en la descripción y en el h1. */
+    const title = `Presión de gasolina ${name} | llave`;
     const description = `${v.brand} ${v.model} (${v.year_from}-${v.year_to}, ${v.engine}, inyección ${v.injection_name}): presión de riel ${psi} PSI (${bar} bar), ubicación del módulo y pilas de gasolina compatibles OEM y alternativas.`;
 
     const mods = await db.all(`SELECT m.code, m.name, m.regulated_psi, m.flow_lph, vm.location_text
@@ -425,14 +544,14 @@ async function createApp(dbOverride, statsOverride) {
     if (!ws) {
       res.status(404).set('Cache-Control', 'no-store');
       return res.type('html').send(renderShell({
-        title: 'Perfil no disponible | FuelTech Master',
+        title: 'Perfil no disponible | llave',
         description: 'Este perfil de taller no existe o ya no está publicado.',
         canonicalPath: '/', nonce: res.locals.cspNonce,
         rootContent: `<main style="max-width:620px;margin:0 auto;padding:60px 22px;color:var(--text);font-family:Montserrat,system-ui,sans-serif">
           ${BRAND_LOCKUP}
           <h1 style="font-size:22px;margin-bottom:10px">Este perfil no está disponible</h1>
           <p style="color:var(--text-alt);line-height:1.7">El taller que buscas no existe o dejó de publicar su perfil. El enlace puede ser antiguo.</p>
-          <p style="margin-top:24px"><a href="/" style="color:var(--accent);font-weight:700">Ir a FuelTech Master →</a></p>
+          <p style="margin-top:24px"><a href="/" style="color:var(--accent);font-weight:700">Ir a llave →</a></p>
         </main>`,
       }));
     }
@@ -463,12 +582,12 @@ async function createApp(dbOverride, statsOverride) {
           <span style="color:var(--accent)"> ${estrellas(x.rating)}</span>
           ${x.comment ? `<p style="color:var(--text-alt);margin-top:4px;line-height:1.6">${esc(x.comment)}</p>` : ''}
         </blockquote>`).join('')}` : ''}
-      <p style="margin-top:30px"><a href="/" style="color:var(--accent)">← Volver a FuelTech Master</a></p>
+      <p style="margin-top:30px"><a href="/" style="color:var(--accent)">← Volver a llave</a></p>
     </main>`;
 
     res.set('Cache-Control', 'public, max-age=120');
     res.type('html').send(renderShell({
-      title: `${ws.name}${ws.city ? ' — ' + ws.city : ''} | Taller en FuelTech Master`,
+      title: `${ws.name}${ws.city ? ' — ' + ws.city : ''} | llave`,
       description: ws.bio
         ? String(ws.bio).slice(0, 160)
         : `Perfil de ${ws.name}${ws.city ? ' en ' + ws.city : ''}. ${resumen}.`,
@@ -498,14 +617,14 @@ async function createApp(dbOverride, statsOverride) {
     const rootContent = `<main style="max-width:820px;margin:0 auto;padding:40px 22px;color:var(--text);font-family:Montserrat,system-ui,sans-serif">
       ${BRAND_LOCKUP}
       <h1 style="font-size:24px">Catálogo de presión de combustible por vehículo</h1>
-      <p style="color:var(--text-alt)">Presión de riel, módulo y pilas de gasolina compatibles para ${rows.length} vehículos de Latinoamérica.</p>
+      <p style="color:var(--text-alt)">Presión de riel, módulo y pilas de gasolina compatibles para los vehículos de Latinoamérica.</p>
       <ul style="columns:2;column-gap:28px;margin-top:16px;line-height:2;padding-left:18px">${items}</ul>
     </main>`;
     res.set('Cache-Control', 'public, max-age=600');
     res.type('html').send(renderShell({
-      title: 'Catálogo de vehículos — Presión de combustible | FuelTech Master',
+      title: 'Catálogo: presión de combustible por vehículo | llave',
       description: 'Lista completa de vehículos con su presión de riel (PSI/Bar), módulo y pilas de gasolina compatibles OEM y alternativas.',
-      canonicalPath: '/vehiculos', rootContent, nonce: res.locals.cspNonce
+      canonicalPath: '/vehiculos', rootContent, nonce: res.locals.cspNonce, staticApp: true
     }));
   });
 
@@ -515,7 +634,7 @@ async function createApp(dbOverride, statsOverride) {
      de contacto e identidad del editor. Se sirven renderizadas en servidor para que el
      revisor de AdSense y Googlebot las vean sin ejecutar JavaScript. */
   const CONTACT_EMAIL = process.env.CONTACT_EMAIL || 'newpersonal98@gmail.com';
-  const SITE_OWNER = process.env.SITE_OWNER || 'FuelTech Master';
+  const SITE_OWNER = process.env.SITE_OWNER || 'llave';
   const LEGAL_UPDATED = '2 de agosto de 2026';
 
   const h2 = (t) => `<h2 style="font-size:17px;color:var(--accent);margin-top:26px;margin-bottom:8px">${t}</h2>`;
@@ -526,10 +645,10 @@ async function createApp(dbOverride, statsOverride) {
     {
       slug: 'acerca-de',
       label: 'Acerca de',
-      title: 'Acerca de FuelTech Master — quiénes somos y cómo verificamos los datos',
-      description: 'Quién está detrás de FuelTech Master, por qué existe este catálogo técnico de presión de combustible y cómo se obtienen y verifican los datos publicados.',
-      h1: 'Acerca de FuelTech Master',
-      html: `${p('FuelTech Master es un catálogo técnico independiente de consulta gratuita, enfocado en el sistema de combustible de vehículos que circulan en Latinoamérica: presión de riel (PSI/Bar), ubicación y especificación de módulos de gasolina, y equivalencias de pilas (bombas) OEM y alternativas.')}
+      title: 'Quiénes somos y cómo verificamos los datos | llave',
+      description: 'Quién está detrás de llave, por qué existe este catálogo técnico de presión de combustible y cómo se obtienen y verifican los datos publicados.',
+      h1: 'Acerca de llave',
+      html: `${p('llave es un catálogo técnico independiente de consulta gratuita, enfocado en el sistema de combustible de vehículos que circulan en Latinoamérica: presión de riel (PSI/Bar), ubicación y especificación de módulos de gasolina, y equivalencias de pilas (bombas) OEM y alternativas.')}
         ${h2('Por qué existe')}
         ${p('En el taller, encontrar la presión de riel correcta de un modelo concreto suele significar buscar entre manuales de servicio dispersos, foros y catálogos de refaccionaria que no siempre coinciden. Este proyecto reúne esa información en fichas consultables desde el celular, junto al valor de referencia y los números de parte compatibles, para que el diagnóstico parta de un dato y no de una suposición.')}
         ${h2('Quién lo publica')}
@@ -547,7 +666,7 @@ async function createApp(dbOverride, statsOverride) {
     {
       slug: 'contacto',
       label: 'Contacto',
-      title: 'Contacto | FuelTech Master',
+      title: 'Contacto | llave',
       description: 'Escríbenos para reportar un dato incorrecto, solicitar que agreguemos un vehículo al catálogo, consultas de publicidad o ejercer tus derechos de privacidad.',
       h1: 'Contacto',
       html: `${p('Este es un proyecto atendido por una persona, no por un equipo de soporte: respondemos en cuanto podemos, normalmente dentro de unos días hábiles.')}
@@ -567,11 +686,11 @@ async function createApp(dbOverride, statsOverride) {
     {
       slug: 'privacidad',
       label: 'Privacidad',
-      title: 'Política de privacidad y cookies | FuelTech Master',
-      description: 'Qué datos recopila FuelTech Master, qué cookies usamos, cómo trabajan los anuncios de Google y terceros, y cómo puedes controlar o eliminar tu información.',
+      title: 'Política de privacidad y cookies | llave',
+      description: 'Qué datos recopila llave, qué cookies usamos, cómo trabajan los anuncios de Google y terceros, y cómo puedes controlar o eliminar tu información.',
       h1: 'Política de privacidad y cookies',
       html: `${p(`<em style="color:var(--muted)">Última actualización: ${LEGAL_UPDATED}</em>`)}
-        ${p(`Esta política explica qué datos trata FuelTech Master (“el sitio”), operado por ${esc(SITE_OWNER)}, cuando visitas ${esc(BASE_URL)}. Para cualquier consulta sobre este documento, escribe a <a href="mailto:${esc(CONTACT_EMAIL)}" style="color:var(--accent)">${esc(CONTACT_EMAIL)}</a>.`)}
+        ${p(`Esta política explica qué datos trata llave (“el sitio”), operado por ${esc(SITE_OWNER)}, cuando visitas ${esc(BASE_URL)}. Para cualquier consulta sobre este documento, escribe a <a href="mailto:${esc(CONTACT_EMAIL)}" style="color:var(--accent)">${esc(CONTACT_EMAIL)}</a>.`)}
 
         ${h2('1. Qué datos recopilamos')}
         ${ul([
@@ -619,11 +738,11 @@ async function createApp(dbOverride, statsOverride) {
     {
       slug: 'terminos',
       label: 'Términos y aviso técnico',
-      title: 'Términos de uso y aviso técnico | FuelTech Master',
-      description: 'Condiciones de uso de FuelTech Master, límites de responsabilidad sobre los datos técnicos publicados, normas para comentarios y propiedad intelectual.',
+      title: 'Términos de uso y aviso técnico | llave',
+      description: 'Condiciones de uso de llave, límites de responsabilidad sobre los datos técnicos publicados, normas para comentarios y propiedad intelectual.',
       h1: 'Términos de uso y aviso técnico',
       html: `${p(`<em style="color:var(--muted)">Última actualización: ${LEGAL_UPDATED}</em>`)}
-        ${p('Al usar FuelTech Master aceptas estas condiciones. Si no estás de acuerdo con ellas, no utilices el sitio.')}
+        ${p('Al usar llave aceptas estas condiciones. Si no estás de acuerdo con ellas, no utilices el sitio.')}
 
         ${h2('1. Aviso técnico importante')}
         ${p('La información publicada —presión de riel, flujos, amperajes, ubicaciones y números de parte— es de carácter <strong>orientativo y de referencia</strong>. No sustituye al manual de servicio del fabricante, a las especificaciones del proveedor de la refacción ni al criterio de un técnico calificado.')}
@@ -676,7 +795,7 @@ async function createApp(dbOverride, statsOverride) {
     if (!pg) return next();
     res.set('Cache-Control', 'public, max-age=3600');
     res.type('html').send(renderShell({
-      title: pg.title, description: pg.description, canonicalPath: '/' + pg.slug, nonce: res.locals.cspNonce,
+      title: pg.title, description: pg.description, canonicalPath: '/' + pg.slug, nonce: res.locals.cspNonce, staticApp: true,
       rootContent: `<main style="max-width:820px;margin:0 auto;padding:40px 22px 0;color:var(--text);font-family:Montserrat,system-ui,sans-serif;line-height:1.7">
         ${BRAND_LOCKUP}
         <h1 style="font-size:26px;margin:10px 0 18px">${pg.h1}</h1>
@@ -692,7 +811,7 @@ async function createApp(dbOverride, statsOverride) {
     {
       slug: 'sintomas-bomba-de-gasolina-fallando',
       label: 'Síntomas de bomba fallando',
-      title: '7 síntomas de una bomba de gasolina fallando (y cómo confirmarlo) | FuelTech Master',
+      title: 'Síntomas de una bomba de gasolina fallando | llave',
       description: 'Aprende a reconocer una bomba (pila) de gasolina que se está muriendo: arranque difícil en caliente, jaloneo, pérdida de potencia, zumbido del tanque y más. Guía para mecánicos.',
       h1: '7 síntomas de una bomba de gasolina fallando',
       html: `<p style="color:var(--text-alt)">Una bomba (pila) de gasolina desgastada rara vez muere de golpe: primero da avisos. Reconocerlos a tiempo evita dejar tirado al cliente y apunta el diagnóstico hacia la presión de combustible.</p>
@@ -716,7 +835,7 @@ async function createApp(dbOverride, statsOverride) {
     {
       slug: 'como-medir-la-presion-de-combustible',
       label: 'Cómo medir la presión',
-      title: 'Cómo medir la presión de combustible paso a paso (con manómetro) | FuelTech Master',
+      title: 'Cómo medir la presión de combustible paso a paso | llave',
       description: 'Guía práctica para medir la presión de riel/combustible con manómetro: alivio de presión, conexión, lectura con llave ON, en ralentí y prueba de retención. Valores esperados por vehículo.',
       h1: 'Cómo medir la presión de combustible (paso a paso)',
       html: `<p style="color:var(--text-alt)">Medir la presión es lo que separa el diagnóstico de la adivinanza. Necesitas un <strong>manómetro de combustible</strong> con los adaptadores adecuados y tomar precauciones: la gasolina está a presión.</p>
@@ -732,13 +851,13 @@ async function createApp(dbOverride, statsOverride) {
         <p style="color:var(--text-alt)">Depende del vehículo y del tipo de inyección (TBI, MFI, Vortec, GDI). Busca el valor exacto de tu auto en el <a href="/vehiculos" style="color:var(--accent)">catálogo</a>. Si estás por debajo del rango, revisa <a href="/guia/presion-de-combustible-baja" style="color:var(--accent)">las causas de presión baja</a>.</p>`,
       faq: [
         { q: '¿Dónde se conecta el manómetro de presión de combustible?', a: 'En el puerto de prueba (válvula Schrader) del riel de inyectores si existe, o en línea con un adaptador en T. Antes hay que aliviar la presión del sistema.' },
-        { q: '¿Qué presión de combustible es normal?', a: 'Varía por vehículo y tipo de inyección. Consulta el valor exacto de tu modelo en el catálogo de FuelTech Master y compáralo con tu lectura.' }
+        { q: '¿Qué presión de combustible es normal?', a: 'Varía por vehículo y tipo de inyección. Consulta el valor exacto de tu modelo en el catálogo de llave y compáralo con tu lectura.' }
       ]
     },
     {
       slug: 'presion-de-combustible-baja',
       label: 'Presión baja: causas',
-      title: 'Presión de combustible baja: causas y cómo diagnosticarla | FuelTech Master',
+      title: 'Presión de combustible baja: causas y diagnóstico | llave',
       description: 'Presión de riel por debajo de especificación: bomba desgastada, cedazo/filtro tapado, regulador, caída de voltaje en el circuito, líneas obstruidas o fugas. Cómo diagnosticar cada causa.',
       h1: 'Presión de combustible baja: causas y diagnóstico',
       html: `<p style="color:var(--text-alt)">Mediste y estás por debajo del rango. Antes de condenar la bomba, descarta en orden estas causas — varias son más baratas y comunes.</p>
@@ -760,7 +879,7 @@ async function createApp(dbOverride, statsOverride) {
     {
       slug: 'presion-de-combustible-alta',
       label: 'Presión alta: causas',
-      title: 'Presión de combustible alta: causas, síntomas y diagnóstico | FuelTech Master',
+      title: 'Presión de combustible alta: causas y diagnóstico | llave',
       description: 'Presión de riel por encima de especificación: retorno obstruido, regulador trabado, vacío desconectado o bomba sin control. Síntomas de mezcla rica y cómo diagnosticar cada causa.',
       h1: 'Presión de combustible alta: causas y diagnóstico',
       html: `<p style="color:var(--text-alt)">Se habla mucho de presión baja y casi nada de presión alta, pero es igual de dañina: con exceso de presión los inyectores entregan más combustible del que la computadora calcula, y el motor trabaja rico sin que aparezca una falla evidente al principio.</p>
@@ -790,7 +909,7 @@ async function createApp(dbOverride, statsOverride) {
     {
       slug: 'regulador-de-presion-de-combustible',
       label: 'Regulador: cómo probarlo',
-      title: 'Regulador de presión de combustible: cómo funciona y cómo probarlo | FuelTech Master',
+      title: 'Regulador de presión: cómo funciona y probarlo | llave',
       description: 'Qué hace el regulador de presión, diferencias entre sistemas con y sin retorno, y tres pruebas para saber si está fallando antes de cambiarlo.',
       h1: 'Regulador de presión de combustible: cómo probarlo',
       html: `<p style="color:var(--text-alt)">El regulador es el componente que decide a qué presión llega el combustible a los inyectores. La bomba siempre empuja de más; el regulador desahoga el sobrante para mantener el valor correcto. Cuando falla, la presión se va por arriba o por abajo y el diagnóstico se confunde fácilmente con una bomba muerta.</p>
@@ -816,7 +935,7 @@ async function createApp(dbOverride, statsOverride) {
     {
       slug: 'voltaje-circuito-bomba-de-gasolina',
       label: 'Voltaje de la bomba',
-      title: 'Voltaje y caída de tensión en el circuito de la bomba de gasolina | FuelTech Master',
+      title: 'Voltaje bajo en el circuito de la bomba | llave',
       description: 'Cómo medir voltaje y caída de tensión en el circuito de la bomba de combustible, por qué una bomba buena entrega poca presión y cómo revisar relé, tierra y conectores.',
       h1: 'Voltaje en el circuito de la bomba: la prueba que evita cambios innecesarios',
       html: `<p style="color:var(--text-alt)">Muchas bombas devueltas como “defectuosas” estaban perfectamente bien: recibían 9 voltios en lugar de 12. Una bomba alimentada con voltaje bajo gira lento, entrega menos presión y menos flujo, y da exactamente los mismos síntomas que una bomba desgastada. Esta prueba toma cinco minutos y evita tirar el dinero.</p>
@@ -847,7 +966,7 @@ async function createApp(dbOverride, statsOverride) {
     {
       slug: 'inyeccion-gdi-vs-mfi-presion',
       label: 'GDI vs MFI',
-      title: 'GDI vs MFI: por qué la presión de combustible no se mide igual | FuelTech Master',
+      title: 'GDI vs MFI: la presión no se mide igual | llave',
       description: 'Diferencias entre inyección directa (GDI) e inyección a puerto (MFI/TBI): presiones de trabajo, bomba de baja y de alta, y qué precauciones tomar al diagnosticar cada sistema.',
       h1: 'GDI vs MFI: por qué la presión no se mide igual',
       html: `<p style="color:var(--text-alt)">Conectar un manómetro convencional a un motor de inyección directa es un error que se paga caro. Los sistemas GDI trabajan con presiones cientos de veces mayores y con un circuito completamente distinto. Antes de tocar nada, hay que saber qué sistema tienes enfrente.</p>
@@ -875,7 +994,7 @@ async function createApp(dbOverride, statsOverride) {
     {
       slug: 'como-cambiar-la-pila-de-gasolina',
       label: 'Cambiar la pila paso a paso',
-      title: 'Cómo cambiar la pila (bomba) de gasolina paso a paso | FuelTech Master',
+      title: 'Cómo cambiar la pila (bomba) de gasolina | llave',
       description: 'Procedimiento seguro para reemplazar una pila o módulo de gasolina: alivio de presión, acceso al tanque, cambio del cedazo, precauciones eléctricas y verificación final.',
       h1: 'Cómo cambiar la pila de gasolina paso a paso',
       html: `<p style="color:var(--text-alt)">Antes de empezar: confirma con el manómetro que la bomba es realmente la culpable. Una <a href="/guia/presion-de-combustible-baja" style="color:var(--accent)">presión baja</a> también la provoca un cedazo tapado, un regulador en falla o una <a href="/guia/voltaje-circuito-bomba-de-gasolina" style="color:var(--accent)">caída de voltaje</a>, y todas son más baratas de resolver.</p>
@@ -908,7 +1027,7 @@ async function createApp(dbOverride, statsOverride) {
     {
       slug: 'que-pila-de-gasolina-le-queda-a-mi-carro',
       label: 'Elegir la pila correcta',
-      title: 'Qué pila de gasolina le queda a mi carro: cómo elegir la correcta | FuelTech Master',
+      title: 'Qué pila de gasolina le queda a mi carro | llave',
       description: 'Cómo elegir una pila o bomba de gasolina compatible: presión, flujo LPH, amperaje, medidas físicas, conector y polaridad. Qué mirar antes de comprar una alternativa genérica.',
       h1: 'Qué pila de gasolina le queda a mi carro',
       html: `<p style="color:var(--text-alt)">“¿Esta le queda?” es la pregunta que más se escucha en el mostrador de una refaccionaria. La respuesta corta: no basta con que entre. Una pila compatible tiene que coincidir en cinco cosas, y si falla una sola, el trabajo se devuelve.</p>
@@ -931,23 +1050,19 @@ async function createApp(dbOverride, statsOverride) {
       ]
     }
   ];
-  const guideBody = (g) => `<main style="max-width:760px;margin:0 auto;padding:40px 22px;color:var(--text);font-family:Montserrat,system-ui,sans-serif;line-height:1.7">
-      ${BRAND_LOCKUP}
-      <p style="font:700 11px/1 sans-serif;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">Guía técnica</p>
-      <h1 style="font-size:26px;margin:10px 0 16px">${g.h1}</h1>
-      ${g.html}
-      <p style="margin-top:28px"><a href="/vehiculos" style="color:var(--accent);font-weight:700">Busca la presión exacta de tu vehículo →</a></p>
-      <p style="margin-top:10px;color:var(--muted)">Más guías: ${GUIDES.map(x => `<a href="/guia/${x.slug}" style="color:var(--muted)">${x.label}</a>`).join(' · ')}</p>
-    </main>`;
+  /* La ruta de diagnóstico (DESIGN.md §0c) se arma en lib/ruta.js: es una
+     función pura de (guías) → HTML, se prueba sin levantar servidor, y deja
+     este archivo con el margen de líneas que le quedaba. */
+  const guideBody = (g) => paginaGuia(g, GUIDES, BRAND_LOCKUP);
 
   app.get('/guias', async (req, res) => {
-    const items = GUIDES.map(g => `<li><a href="/guia/${g.slug}" style="color:var(--text);text-decoration:none">${g.h1}</a></li>`).join('');
     res.set('Cache-Control', 'public, max-age=3600');
     res.type('html').send(renderShell({
-      title: 'Guías de diagnóstico del sistema de combustible | FuelTech Master',
-      description: 'Guías prácticas para mecánicos: síntomas de una bomba de gasolina fallando, cómo medir la presión de combustible y causas de presión baja.',
-      canonicalPath: '/guias', nonce: res.locals.cspNonce,
-      rootContent: `<main style="max-width:760px;margin:0 auto;padding:40px 22px;color:var(--text);font-family:Montserrat,system-ui,sans-serif">${BRAND_LOCKUP}<h1 style="font-size:24px">Guías de diagnóstico</h1><ul style="line-height:2.2;margin-top:12px;padding-left:18px">${items}</ul></main>`
+      title: 'Ruta de diagnóstico del sistema de combustible | llave',
+      description: 'Nueve guías en orden, del síntoma a la pila puesta: cómo medir la presión de combustible, qué significa una lectura baja o alta, cómo probar el regulador y cómo elegir la pila correcta. Gratis y sin cuenta.',
+      canonicalPath: '/guias', nonce: res.locals.cspNonce, staticApp: true,
+      jsonLd: jsonLdRuta(GUIDES, BASE_URL),
+      rootContent: paginaRuta(GUIDES, BRAND_LOCKUP),
     }));
   });
 
@@ -956,7 +1071,7 @@ async function createApp(dbOverride, statsOverride) {
     if (!g) return next();
     res.set('Cache-Control', 'public, max-age=3600');
     res.type('html').send(renderShell({
-      title: g.title, description: g.description, canonicalPath: '/guia/' + g.slug, nonce: res.locals.cspNonce, rootContent: guideBody(g),
+      title: g.title, description: g.description, canonicalPath: '/guia/' + g.slug, nonce: res.locals.cspNonce, staticApp: true, rootContent: guideBody(g),
       jsonLd: { '@context': 'https://schema.org', '@type': 'FAQPage', inLanguage: 'es',
         mainEntity: g.faq.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) }
     }));
@@ -1227,8 +1342,14 @@ async function createApp(dbOverride, statsOverride) {
     res.json({ ...p, max_bar_direct: psiToBar(p.max_psi_direct) });
   });
 
-  /* ---------- Chatbot con Gemini API ---------- */
-  const CHAT_DAILY_LIMIT = 3;
+  /* ---------- Chatbot (OpenRouter :free con respaldo Gemini) ---------- */
+  /* Límites que protegen la cuota gratuita del proveedor. El techo GLOBAL
+     cuenta todo el sitio en la misma tabla chat_limits bajo una clave fija:
+     aunque llegue tráfico anómalo, el cupo diario de la cuenta OpenRouter
+     no se quema en una hora. Ajustables sin tocar código. */
+  const CHAT_DAILY_LIMIT = Math.min(20, Math.max(1, parseInt(process.env.CHAT_DAILY_LIMIT, 10) || 3));
+  const CHAT_IP_CEILING = Math.min(200, Math.max(5, parseInt(process.env.CHAT_IP_CEILING, 10) || 30));
+  const CHAT_GLOBAL_CEILING = Math.min(5000, Math.max(20, parseInt(process.env.CHAT_GLOBAL_CEILING, 10) || 150));
 
   // Asegurar tabla de límites por dispositivo
   await statsDb.exec(`
@@ -1251,7 +1372,8 @@ async function createApp(dbOverride, statsOverride) {
     : null;
 
   app.post('/api/chat', chatLimiter, async (req, res) => {
-    if (!genAI) {
+    const proveedor = proveedorChat();
+    if (!proveedor && !genAI) {
       return res.status(503).json({ error: 'API de IA no configurada', noKey: true });
     }
 
@@ -1266,31 +1388,53 @@ async function createApp(dbOverride, statsOverride) {
 
     try {
       const day = new Date().toISOString().slice(0, 10);
-      // Límite por DISPOSITIVO (así un taller con varios celulares detrás del mismo
-      // router no comparte un solo cupo), con un techo por IP como red de seguridad
-      // contra deviceId falsificados.
+
+      // Detectar si hay sesión de usuario (cuenta registrada)
+      let workshopId = null;
+      let token = req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : '';
+      if (!token) token = req.cookies?.ftm_session || '';
+      if (token) {
+        const tokenHash = hashToken(token);
+        const sess = await db.get('SELECT workshop_id FROM sessions WHERE token_hash = ? AND expires_at > ?', [tokenHash, new Date().toISOString()]);
+        if (sess) workshopId = sess.workshop_id;
+      }
+
+      // Límite por IP como red de seguridad
       const ipHash = crypto.createHash('sha256').update(req.ip).digest('hex');
-      const validDevice = typeof deviceId === 'string' && /^[a-f0-9]{16,64}$/.test(deviceId);
-      const actualDeviceId = validDevice ? `d:${deviceId}` : `ip:${ipHash}`;
       const ipCapKey = `ipcap:${ipHash}`;
-      const IP_DAILY_CEILING = 30;
-      if (((await getChatCount.get(day, ipCapKey))?.count || 0) >= IP_DAILY_CEILING) {
+      if (((await getChatCount.get(day, ipCapKey))?.count || 0) >= CHAT_IP_CEILING) {
         return res.json({
           response: '', remaining: 0, limitReached: true,
           message: 'Se alcanzó el límite diario de consultas desde esta red. Vuelve mañana o explora el catálogo directamente.'
         });
       }
-      const row = await getChatCount.get(day, actualDeviceId);
+
+      // Techo GLOBAL del sitio
+      if (((await getChatCount.get(day, 'global:todos'))?.count || 0) >= CHAT_GLOBAL_CEILING) {
+        return res.json({
+          response: '', remaining: 0, limitReached: true,
+          message: 'El asistente alcanzó su cupo global del día. Vuelve mañana: el resto del sitio sigue funcionando igual.'
+        });
+      }
+
+      // Determinar clave de límite: por cuenta si está logueado, por dispositivo si no
+      let limitKey;
+      if (workshopId) {
+        limitKey = `ws:${workshopId}`;
+      } else {
+        const validDevice = typeof deviceId === 'string' && /^[a-f0-9]{16,64}$/.test(deviceId);
+        limitKey = validDevice ? `d:${deviceId}` : `ip:${ipHash}`;
+      }
+
+      const row = await getChatCount.get(day, limitKey);
       const used = row ? row.count : 0;
       const remaining = Math.max(0, CHAT_DAILY_LIMIT - used);
 
       if (used >= CHAT_DAILY_LIMIT) {
-        return res.json({
-          response: '',
-          remaining: 0,
-          limitReached: true,
-          message: 'Has alcanzado el límite de 3 consultas por día. Vuelve mañana o explora el catálogo directamente.'
-        });
+        const msg = workshopId
+          ? 'Tu cuenta alcanzó el límite de consultas por día. Vuelve mañana o explora el catálogo directamente.'
+          : 'Has alcanzado el límite de consultas por día. Vuelve mañana o explora el catálogo directamente.';
+        return res.json({ response: '', remaining: 0, limitReached: true, message: msg });
       }
 
       let dbContext = '';
@@ -1304,15 +1448,38 @@ async function createApp(dbOverride, statsOverride) {
         }
       }
 
-      const sysPrompt = `Eres un asistente de FuelTech Master, un catálogo técnico de módulos y bombas de gasolina.
-SOLO respondes preguntas sobre:
+      /* FT-0009: dos instrucciones de sistema, un mismo alcance restringido.
+         'cliente' = dueño de auto sin jerga; cualquier otro valor (o ninguno)
+         = el prompt técnico de siempre. */
+      const esModoCliente = req.body?.modo === 'cliente';
+
+      const ALCANCE_COMUN = `SOLO respondes preguntas sobre:
 - Presión de riel (PSI/Bar) de vehículos (inyección MFI, TBI, Vortec, GDI)
 - Ubicación de módulos de combustible
 - Tipos de bomba y módulo
 - Diagnóstico básico de sistema de combustible
 - Seguridad al trabajar con gasolina
 
-NUNCA respondas temas fuera de esto. Si te preguntan algo no relacionado, di: "Solo puedo ayudarte con información técnica de sistemas de combustible."
+NUNCA respondas temas fuera de esto.`;
+
+      const sysPrompt = esModoCliente
+        ? `Eres el asistente de llave para DUEÑOS DE VEHÍCULO, no para mecánicos.
+Habla en español sencillo y cercano, sin siglas ni jerga técnica.
+
+Estructura SIEMPRE tu respuesta en tres partes cortas:
+1. Qué puede estar pasando (1-2 frases, en palabras cotidianas).
+2. Qué tan urgente es: si puede seguir manejando o mejor no mover el carro.
+3. Siguiente paso concreto: qué pedirle al taller, en una línea.
+
+${ALCANCE_COMUN}
+Si preguntan otra cosa, di: "Solo puedo ayudarte con problemas de combustible o de arranque."
+
+Nunca des un diagnóstico definitivo a distancia: recomienda medir la presión en un taller de confianza y consultar el manual del fabricante. No inventes precios exactos: habla de que el costo varía por ciudad, vehículo y calidad de la refacción.
+${globalDBContext}
+${dbContext}`
+        : `Eres un asistente de llave, un catálogo técnico de módulos y bombas de gasolina.
+${ALCANCE_COMUN}
+Si te preguntan algo no relacionado, di: "Solo puedo ayudarte con información técnica de sistemas de combustible."
 
 Responde en español. No des consejos de reparación sin incluir "consulta el manual de servicio".
 
@@ -1320,24 +1487,91 @@ ${globalDBContext}
 
 ${dbContext}`;
 
-      const model = genAI.getGenerativeModel({
-        model: GEMINI_MODEL,
-        systemInstruction: sysPrompt,
-        generationConfig: { maxOutputTokens: 1000, temperature: 0.3 }
-      });
+      let response;
+      if (proveedor) {
+        /* Camino único para las APIs compatibles con OpenAI (NVIDIA NIM y
+           OpenRouter): mismo cuerpo, mismo parseo, mismo manejo de errores.
+           Lo que cambia —URL, clave, cabeceras y cadena de modelos— lo trae
+           `proveedorChat()`. Todo por `fetch` nativo, sin dependencia nueva.
 
-      const chat = model.startChat({
-        history: (history || []).slice(-4).map(m => ({
-          role: m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content.slice(0, 300) }]
-        }))
-      });
+           Respuesta corta y determinista para estirar la cuota gratuita, y los
+           contadores solo se incrementan tras éxito. Si el modelo primario está
+           saturado (429) se prueba el siguiente de la cadena; si TODOS lo están,
+           avisa sin quemar la cuota del usuario. */
+        const mensajes = [
+          { role: 'system', content: sysPrompt },
+          ...(history || []).slice(-4).map(m => ({
+            role: m.role === 'assistant' ? 'assistant' : 'user',
+            content: String(m.content).slice(0, 300)
+          })),
+          { role: 'user', content: cleanMsg }
+        ];
+        let saturado = false;
+        response = '';
+        for (const modelo of proveedor.modelos) {
+          const orRes = await fetch(`${proveedor.base}/chat/completions`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${proveedor.clave}`,
+              'Content-Type': 'application/json',
+              ...proveedor.cabeceras
+            },
+            body: JSON.stringify({
+              model: modelo, messages: mensajes,
+              max_tokens: 700, temperature: 0.3
+            })
+          });
+          if (orRes.status === 429) { saturado = true; continue; }
+          /* 404/410: ese modelo ya no existe (NVIDIA retira ids por "end of
+             life" con preaviso, y un id mal escrito da lo mismo). Se pasa al
+             siguiente de la cadena en vez de tumbar el chat: la alternativa es
+             que el asistente muera en silencio el día que caduque un modelo,
+             que es exactamente lo que avisa AGENTS.md §4.10. El log deja dicho
+             cuál hay que cambiar en NVIDIA_MODELS. */
+          if (orRes.status === 404 || orRes.status === 410) {
+            const detalle = await orRes.text().catch(() => '');
+            console.error(`${proveedor.nombre}: el modelo "${modelo}" ya no existe (${orRes.status}) — quítalo de la configuración.`, detalle.slice(0, 160));
+            continue;
+          }
+          if (!orRes.ok) {
+            const detalle = await orRes.text().catch(() => '');
+            console.error(`${proveedor.nombre} error:`, orRes.status, modelo, detalle.slice(0, 200));
+            return res.status(502).json({ error: 'Error al comunicar con la IA. Intenta de nuevo.' });
+          }
+          const orData = await orRes.json();
+          response = String(orData.choices?.[0]?.message?.content || '')
+            .replace(/<think>[\s\S]*?<\/think>/g, '')   // por si un modelo gratuito filtra su razonamiento
+            .trim().slice(0, 3000);
+          break;
+        }
+        if (!response) {
+          if (saturado) return res.json({
+            response: '', remaining, limitReached: false,
+            message: 'El asistente está saturado ahora mismo. Espera un momento e intenta otra vez.'
+          });
+          return res.status(502).json({ error: 'La IA no devolvió respuesta. Intenta de nuevo.' });
+        }
+      } else {
+        const model = genAI.getGenerativeModel({
+          model: GEMINI_MODEL,
+          systemInstruction: sysPrompt,
+          generationConfig: { maxOutputTokens: 1000, temperature: 0.3 }
+        });
 
-      const result = await chat.sendMessage(cleanMsg);
-      const response = result.response.text().slice(0, 3000);
+        const chat = model.startChat({
+          history: (history || []).slice(-4).map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content.slice(0, 300) }]
+          }))
+        });
 
-      await bumpChatCount.run(day, actualDeviceId);
+        const result = await chat.sendMessage(cleanMsg);
+        response = result.response.text().slice(0, 3000);
+      }
+
+      await bumpChatCount.run(day, limitKey);
       await bumpChatCount.run(day, ipCapKey);
+      await bumpChatCount.run(day, 'global:todos');
 
       res.json({ response, remaining: remaining > 0 ? remaining - 1 : 0 });
     } catch (err) {
@@ -1632,19 +1866,26 @@ ${dbContext}`;
   const SESSION_COOKIE = 'ftm_session';
 
   // scrypt: hash con sal por usuario (formato: scrypt$N$r$p$sal$hash → 6 partes)
-  function hashPassword(pass) {
+  /* crypto.scrypt ASÍNCRONO (FT-0003): la variante Sync congelaba el bucle
+     ~818 ms por alta —el robot registro lo midió— y una consulta de catálogo
+     simultánea pasaba de ~6 ms a 668 ms. Mismo KDF, mismo formato de hash;
+     solo deja de bloquear el proceso entero. */
+  const scryptAsync = (pass, salt, len, opts) => new Promise((resolve, reject) => {
+    crypto.scrypt(pass, salt, len, opts, (err, key) => err ? reject(err) : resolve(key));
+  });
+  async function hashPassword(pass) {
     const salt = crypto.randomBytes(16);
-    const hash = crypto.scryptSync(pass, salt, 64);
+    const hash = await scryptAsync(pass, salt, 64);
     return `scrypt$${16384}$${8}$${1}$${salt.toString('base64')}$${hash.toString('base64')}`;
   }
-  function verifyPassword(pass, stored) {
+  async function verifyPassword(pass, stored) {
     try {
       const parts = stored.split('$');
       if (parts[0] !== 'scrypt' || parts.length !== 6) return false;
       const N = Number(parts[1]), r = Number(parts[2]), p = Number(parts[3]);
       const salt = Buffer.from(parts[4], 'base64');
       const hash = Buffer.from(parts[5], 'base64');
-      const calc = crypto.scryptSync(pass, salt, hash.length, { N, r, p });
+      const calc = await scryptAsync(pass, salt, hash.length, { N, r, p });
       return calc.length === hash.length && crypto.timingSafeEqual(calc, hash);
     } catch { return false; }
   }
@@ -1690,10 +1931,23 @@ ${dbContext}`;
     if (!name) return res.status(400).json({ error: 'Nombre del taller requerido' });
     const exists = await db.get('SELECT id FROM workshops WHERE email = ?', email);
     if (exists) return res.status(409).json({ error: 'Ya existe una cuenta con ese correo' });
-    const id = await db.insertReturningId(
-      'INSERT INTO workshops (email, pass_hash, name) VALUES (?, ?, ?)',
-      [email, hashPassword(pass), name]
-    );
+    const passHash = await hashPassword(pass);
+    /* FT-0003: al volver el hash asíncrono, DOS altas del mismo correo pueden
+       pasar ambas la consulta previa mientras las dos esperan su scrypt. La
+       carrera la cierra el UNIQUE de la tabla: se convierte en 409 en vez de
+       escapar como 500 (el robot registro dispara 12 altas simultáneas). */
+    let id;
+    try {
+      id = await db.insertReturningId(
+        'INSERT INTO workshops (email, pass_hash, name) VALUES (?, ?, ?)',
+        [email, passHash, name]
+      );
+    } catch (e) {
+      if (/UNIQUE/i.test(String(e.message))) {
+        return res.status(409).json({ error: 'Ya existe una cuenta con ese correo' });
+      }
+      throw e;
+    }
     const token = crypto.randomBytes(32).toString('base64url');
     await db.run('INSERT INTO sessions (token_hash, workshop_id, expires_at) VALUES (?, ?, ?)',
       [hashToken(token), id, new Date(Date.now() + SESSION_TTL_MS).toISOString()]);
@@ -1707,7 +1961,7 @@ ${dbContext}`;
     const email = str(req.body?.email, 120).toLowerCase();
     const pass = typeof req.body?.password === 'string' ? req.body.password : '';
     const ws = await db.get('SELECT * FROM workshops WHERE email = ?', email);
-    if (!ws || !verifyPassword(pass, ws.pass_hash)) {
+    if (!ws || !(await verifyPassword(pass, ws.pass_hash))) {
       return res.status(401).json({ error: 'Correo o contraseña incorrectos' });
     }
     const token = crypto.randomBytes(32).toString('base64url');
@@ -1878,7 +2132,7 @@ ${dbContext}`;
 
   async function enviarCorreo(to, subject, html) {
     const key = process.env.RESEND_API_KEY;
-    const from = process.env.MAIL_FROM || 'FuelTech Master <onboarding@resend.dev>';
+    const from = process.env.MAIL_FROM || 'llave <onboarding@resend.dev>';
     if (!key) return { enviado: false, motivo: 'RESEND_API_KEY no configurada' };
     try {
       const r = await fetch('https://api.resend.com/emails', {
@@ -1903,9 +2157,9 @@ ${dbContext}`;
       [hashToken(token), new Date(Date.now() + VERIFY_TTL_MS).toISOString(), ws.id]);
 
     const link = `${BASE_URL}/api/auth/verify?token=${encodeURIComponent(token)}`;
-    const r = await enviarCorreo(ws.email, 'Confirma tu correo — FuelTech Master',
+    const r = await enviarCorreo(ws.email, 'Confirma tu correo — llave',
       `<p>Hola ${escMail(ws.name)},</p>
-       <p>Confirma este correo para asegurar tu cuenta de FuelTech Master. El enlace vence en 24 horas.</p>
+       <p>Confirma este correo para asegurar tu cuenta de llave. El enlace vence en 24 horas.</p>
        <p><a href="${link}">Confirmar mi correo</a></p>
        <p style="color:#666;font-size:12px">Si no creaste esta cuenta, ignora este mensaje.</p>`);
 
@@ -1934,9 +2188,101 @@ ${dbContext}`;
     res.redirect('/?verificado=1');
   });
 
+  /* ---- Google Sign-In (OAuth 2.0) ---- */
+  const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
+  const GOOGLE_CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
+  const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || (PROD ? 'https://llave.onrender.com/api/auth/google/callback' : 'http://localhost:3000/api/auth/google/callback');
+
+  // Iniciar flujo Google OAuth
+  app.get('/api/auth/google', (req, res) => {
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      return res.status(503).json({ error: 'Google Sign-In no configurado' });
+    }
+    const state = crypto.randomBytes(16).toString('hex');
+    // Guardar state en cookie temporal para validar respuesta
+    res.cookie('google_oauth_state', state, { httpOnly: true, sameSite: 'lax', secure: PROD, maxAge: 600_000 });
+    const params = new URLSearchParams({
+      client_id: GOOGLE_CLIENT_ID,
+      redirect_uri: GOOGLE_REDIRECT_URI,
+      response_type: 'code',
+      scope: 'openid email profile',
+      state,
+      access_type: 'offline',
+      prompt: 'consent',
+    });
+    res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+  });
+
+  // Callback de Google OAuth
+  app.get('/api/auth/google/callback', async (req, res) => {
+    const { code, state } = req.query;
+    const savedState = req.cookies?.google_oauth_state;
+
+    // Limpiar cookie de estado
+    res.clearCookie('google_oauth_state');
+
+    if (!code || !state || state !== savedState) {
+      return res.redirect('/?login=google_error');
+    }
+
+    try {
+      // Intercambiar código por tokens
+      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code,
+          client_id: GOOGLE_CLIENT_ID,
+          client_secret: GOOGLE_CLIENT_SECRET,
+          redirect_uri: GOOGLE_REDIRECT_URI,
+          grant_type: 'authorization_code',
+        }),
+      });
+
+      if (!tokenRes.ok) throw new Error('Error al obtener tokens de Google');
+      const tokenData = await tokenRes.json();
+
+      // Obtener info del usuario
+      const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+
+      if (!userRes.ok) throw new Error('Error al obtener datos del usuario');
+      const googleUser = await userRes.json();
+
+      if (!googleUser.email) throw new Error('Google no proporcionó el email');
+
+      // Buscar o crear usuario
+      let ws = await db.get('SELECT * FROM workshops WHERE email = ?', googleUser.email.toLowerCase());
+      if (!ws) {
+        // Crear cuenta automáticamente
+        const name = googleUser.name || googleUser.email.split('@')[0];
+        const result = await db.run(
+          'INSERT INTO workshops (email, pass_hash, name, email_verified) VALUES (?, ?, ?, 1)',
+          [googleUser.email.toLowerCase(), 'google_oauth', name]
+        );
+        ws = await db.get('SELECT * FROM workshops WHERE id = ?', result.lastID);
+      }
+
+      // Crear sesión
+      const token = crypto.randomBytes(32).toString('base64url');
+      await db.run(
+        'INSERT INTO sessions (token_hash, workshop_id, expires_at) VALUES (?, ?, ?)',
+        [hashToken(token), ws.id, new Date(Date.now() + SESSION_TTL_MS).toISOString()]
+      );
+
+      res.cookie(SESSION_COOKIE, token, tokenCookieOpts());
+      res.redirect('/?login=google_ok');
+    } catch (err) {
+      console.error('Google OAuth error:', err.message);
+      res.redirect('/?login=google_error');
+    }
+  });
+
   /* ---- Inventario ---- */
   app.get('/api/inventory', requireWorkshop, async (req, res) => {
-    const rows = await db.all('SELECT * FROM inventory_items WHERE workshop_id = ? ORDER BY name', req.workshopId);
+    // Tope 500 = mismo criterio que órdenes y caja (robot carga: sin tope devolvía 800+)
+    const rows = await db.all('SELECT * FROM inventory_items WHERE workshop_id = ? ORDER BY name LIMIT 500', req.workshopId);
     res.set('Cache-Control', 'no-store').json(rows);
   });
 
@@ -2013,7 +2359,8 @@ ${dbContext}`;
 
   /* ---- Clientes + vehículos ---- */
   app.get('/api/clients', requireWorkshop, async (req, res) => {
-    const rows = await db.all('SELECT * FROM clients WHERE workshop_id = ? ORDER BY name', req.workshopId);
+    // Tope 500 = mismo criterio que órdenes y caja (robot carga: sin tope devolvía 800+)
+    const rows = await db.all('SELECT * FROM clients WHERE workshop_id = ? ORDER BY name LIMIT 500', req.workshopId);
     // Adjuntar vehículos de cada cliente para el selector de órdenes
     const out = [];
     for (const c of rows) {
@@ -2330,7 +2677,7 @@ ${dbContext}`;
       <title>${kindLabel} ${escv(doc.number)}</title>
       <style>
         * { box-sizing: border-box; } body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 32px; }
-        .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #AECC3A; padding-bottom: 14px; margin-bottom: 20px; }
+        .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #3F5132; padding-bottom: 14px; margin-bottom: 20px; }
         .head h1 { font-size: 22px; margin: 0; letter-spacing: 2px; } .head .num { font-size: 26px; font-weight: 800; }
         .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; font-size: 13px; }
         .meta b { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 2px; }
@@ -2342,7 +2689,7 @@ ${dbContext}`;
         @media print { body { margin: 12px; } }
       </style></head><body>
         <div class="head">
-          <div><h1>${escv(ws?.name || 'Taller')}</h1><div style="font-size:11px;color:#666">FuelTech Master</div></div>
+          <div><h1>${escv(ws?.name || 'Taller')}</h1><div style="font-size:11px;color:#666">llave</div></div>
           <div class="num">${kindLabel}<br>${escv(doc.number)}</div>
         </div>
         <div class="meta">
@@ -2352,21 +2699,29 @@ ${dbContext}`;
         <table><thead><tr><th>#</th><th>Descripción</th><th>Cant.</th><th>P. Unit.</th><th>Total</th></tr></thead>
         <tbody>${rowsHtml}</tbody></table>
         <div class="tot">Total: $${Number(doc.total || 0).toFixed(2)}</div>
-        <div class="foot"><span>Generado por FuelTech Master</span><span>${escv(doc.number)} · ${new Date().toLocaleString('es')}</span></div>
+        <div class="foot"><span>Generado por llave</span><span>${escv(doc.number)} · ${new Date().toLocaleString('es')}</span></div>
       </body></html>`;
     res.send(html);
   });
 
   /* ---- Conexión cliente ↔ mecánico ---- */
   const CONNECT_ROLES = ['mecanico', 'cliente', 'tienda'];
+  /* FT-0002 (auditoría P0): el directorio es público, pero las respuestas NUNCA
+     incluyen email, dirección ni coordenadas exactas — esa PII alimentaba
+     raspadores. El contacto es el teléfono que cada quien publicó voluntariamente
+     (misma política del perfil público /taller/:slug); la distancia se calcula en
+     servidor y sale como distance_km, jamás el punto crudo. */
+  const CONNECT_PUBLICO = 'id, role, name, phone, city, zone, offers, needs';
+  const connectLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false });
 
   app.get('/api/connect/profiles', async (req, res) => {
-    const rows = await db.all('SELECT * FROM connect_profiles ORDER BY name');
+    const rows = await db.all(`SELECT ${CONNECT_PUBLICO} FROM connect_profiles ORDER BY name`);
     res.set('Cache-Control', 'no-store').json(rows);
   });
 
-  // Upsert del perfil propio (identificado por email)
-  app.post('/api/connect/profiles', async (req, res) => {
+  // Upsert del perfil propio (identificado por email). Limitador propio: sin él,
+  // el alta anónima era un vector de spam masivo hacia la base.
+  app.post('/api/connect/profiles', connectLimiter, async (req, res) => {
     const b = req.body || {};
     const email = str(b.email, 120).toLowerCase();
     const name = str(b.name, 120);
@@ -2404,7 +2759,8 @@ ${dbContext}`;
     const meNeeds = str(q.needs, 500).toLowerCase();
     const tokens = (s) => new Set(s.toLowerCase().split(/[^a-záéíóúñ0-9]+/i).filter(w => w.length > 2));
     const myOff = tokens(meOffers), myNeed = tokens(meNeeds);
-    const profiles = await db.all('SELECT * FROM connect_profiles');
+    // lat/lng se leen SÓLO para calcular distance_km en servidor; jamás salen en la respuesta.
+    const profiles = await db.all(`SELECT ${CONNECT_PUBLICO}, lat, lng FROM connect_profiles`);
     const out = [];
     for (const p of profiles) {
       // Si tengo coordenadas y el otro también → distancia real
@@ -2422,7 +2778,8 @@ ${dbContext}`;
       let overlap = 0;
       for (const w of myOff) if (pNeed.has(w)) overlap++;
       for (const w of myNeed) if (pOff.has(w)) overlap++;
-      out.push({ ...p, distance_km: dist != null ? +dist.toFixed(1) : null, match_score: overlap });
+      const { lat, lng, ...publico } = p;
+      out.push({ ...publico, distance_km: dist != null ? +dist.toFixed(1) : null, match_score: overlap });
     }
     out.sort((a, b) => (b.match_score - a.match_score) || ((a.distance_km ?? 9999) - (b.distance_km ?? 9999)));
     res.set('Cache-Control', 'no-store').json(out);
@@ -2584,6 +2941,56 @@ ${dbContext}`;
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'No encontrado' }));
 
+  /* ---------- Pantallas de error (lib/errores.js) ----------------------
+     FT-0005 dio al sitio su 404 propio; esto extiende la idea a los cinco
+     códigos que un navegador puede llegar a ver, con la lámina de marca de
+     cada uno. La regla de reparto es la misma que ya usaba el manejador final:
+
+       · /api/*  → JSON. Lo consume código, no una persona.
+       · resto   → HTML, PERO solo si el cliente pidió HTML. Un `fetch` a una
+                   página desde el frontend no quiere 40 KB de maquetación.
+
+     Todas van con `noindex` y `no-store`: una URL rota, una zona privada o un
+     fallo temporal no deben quedar en el índice ni en la caché de nadie. */
+  const quiereHtml = (req) =>
+    !req.path.startsWith('/api') && (req.accepts(['html', 'json']) === 'html');
+
+  /* `estado` sale aparte del `codigo` por la vista previa: pinta la pantalla
+     del 503 pero responde 200, porque es una demostración y no el error — un
+     503 de verdad ahí haría que el buscador (o el host) creyera el sitio
+     caído. `noindex` y `no-store` en todas: una URL rota, una zona privada o
+     un fallo temporal no deben quedar indexados ni en la caché de nadie. */
+  function enviarPaginaError(res, codigo, { ruta = '', incidencia = '', estado = codigo } = {}) {
+    const { titulo, detalle } = PANTALLAS_ERROR[codigo] || {};
+    const html = renderShell({
+      title: `${titulo || 'Error'} | llave`,
+      description: detalle || 'Ocurrió un error.',
+      canonicalPath: '/', nonce: res.locals.cspNonce, staticApp: true,
+      rootContent: paginaError({ codigo, contacto: CONTACT_EMAIL, incidencia, ruta, lockup: BRAND_LOCKUP }),
+    }).replace('</head>', '<meta name="robots" content="noindex"></head>');
+    res.status(estado).set('Cache-Control', 'no-store').type('html').send(html);
+  }
+
+  /* Verlas en vivo sin provocar el fallo: es la única forma honesta de revisar
+     el 500 y el 503, que si no exigen romper o apagar el servidor. */
+  app.get('/_errores/:codigo', (req, res) => {
+    const codigo = toInt(req.params.codigo, 100, 599);
+    if (codigo === null || !codigosDeError().includes(codigo)) return enviarPaginaError(res, 404, { ruta: req.originalUrl });
+    enviarPaginaError(res, codigo, {
+      estado: 200,
+      ruta: codigo === 404 ? '/una/ruta/de/ejemplo' : `/_errores/${codigo}`,
+      incidencia: codigo === 500 ? 'PRVW1234' : '',
+    });
+  });
+
+  /* El catch-all también reparte: un `fetch` que no pidió HTML recibe JSON. Sin
+     esto, cualquier petición del frontend a una ruta caída se tragaba 160 KB de
+     maquetación en vez de un error de dos líneas. */
+  app.use((req, res) => {
+    if (!quiereHtml(req)) return res.status(404).json({ error: 'No encontrado' });
+    enviarPaginaError(res, 404, { ruta: req.originalUrl });
+  });
+
   /* Manejador de errores final.
 
      OJO — antes esto devolvía 500 para TODO, incluido lo que es culpa del
@@ -2597,6 +3004,14 @@ ${dbContext}`;
     const esDelCliente = status >= 400 && status < 500;
 
     if (esDelCliente) {
+      /* 401 y 403 pedidos por un navegador ya tienen pantalla propia: son los
+         dos casos donde el usuario necesita saber QUÉ hacer (entrar / pedir
+         acceso), no leer un JSON. El resto de 4xx son fallos de la petición
+         —JSON mal formado, cuerpo enorme— y los provoca código, no una
+         persona: siguen contestando JSON. */
+      if ((status === 401 || status === 403) && quiereHtml(req)) {
+        return enviarPaginaError(res, status, { ruta: req.originalUrl });
+      }
       const mensaje = err.type === 'entity.too.large'
         ? 'El contenido enviado es demasiado grande'
         : err.type === 'entity.parse.failed'
@@ -2605,8 +3020,16 @@ ${dbContext}`;
       return res.status(status).json({ error: mensaje });
     }
 
-    console.error('Error interno:', err.message || err);
-    res.status(500).json({ error: 'Error interno' });
+    /* Código de incidencia: ocho caracteres sin vocales —para que no salga
+       ninguna palabra y no se confunda al deletrearlo por teléfono— que van
+       AL LOG y A LA PANTALLA. Sin él, "me dio error" no se puede rastrear:
+       ahora el usuario dicta el código y aparece la línea exacta. */
+    const incidencia = crypto.randomBytes(6).toString('base64')
+      .replace(/[^A-Z0-9]/gi, '').replace(/[AEIOUaeiou]/g, '').toUpperCase().slice(0, 8).padEnd(8, '0');
+    console.error(`Error interno [${incidencia}] ${req.method} ${req.originalUrl}:`, err.message || err);
+
+    if (quiereHtml(req)) return enviarPaginaError(res, 500, { incidencia, ruta: req.originalUrl });
+    res.status(500).json({ error: 'Error interno', incidencia });
   });
 
   return app;
@@ -2647,7 +3070,7 @@ if (require.main === module) {
 
       const app = await createApp();
       const PORT = process.env.PORT || 3000;
-      const server = app.listen(PORT, () => console.log(`FuelTech Master corriendo en http://localhost:${PORT}`));
+      const server = app.listen(PORT, () => console.log(`llave corriendo en http://localhost:${PORT}`));
 
       process.on('SIGTERM', () => { server.close(() => { process.exit(0); }); });
     } catch (err) {

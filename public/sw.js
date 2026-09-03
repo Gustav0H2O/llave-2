@@ -1,19 +1,44 @@
-/* FuelTech Master — Service Worker (PWA)
-   Estrategia NETWORK-FIRST: siempre intenta la red primero (nunca sirve código viejo);
-   si no hay conexión, responde desde caché. Así el mecánico puede consultar en el taller
-   aunque la señal sea mala, sin arriesgar servir una versión desactualizada de la app. */
-/* v4: hero con video — póster precacheado; el video NO (es decoración pesada
-   y se descarga solo si el usuario llega a ver el hero). */
-const CACHE = 'fueltech-v4';
+/* llave — Service Worker (PWA)
+
+   Dos estrategias, no una, porque no todo el contenido tiene el mismo riesgo:
+
+   · CÓDIGO Y DATOS (/, app.js, microapps*.js, la API) → NETWORK-FIRST.
+     Servir una versión vieja de las reglas del taller es publicar una presión
+     equivocada: alguien cambia una pieza buena o deja una mala puesta. Se
+     intenta la red siempre; el caché es solo el paracaídas cuando no hay señal.
+
+   · LIBRERÍAS Y MARCA (/vendor/, /brand/, /media/) → CACHE-FIRST.
+     Son 1,9 MB de terceros e imágenes que no cambian entre despliegues, y en
+     el taller se navega con datos móviles. Bajarlos otra vez en cada visita
+     era el grueso de la descarga. Cuando cambian de verdad, cambia la versión
+     del caché de abajo y `activate` borra el anterior entero.
+
+   Subir CACHE es lo que publica una versión nueva a quien ya tiene la app
+   instalada. Si tocas public/ y no lo subes, el teléfono del mecánico puede
+   seguir con lo de ayer.
+   v4: capa móvil y PWA — barra inferior, rutas con ?app=, modo instalado.
+   v5: ilustraciones de marca (personaje del hero, fachada del taller).
+   v6: el hero pasa a una sola pieza compuesta (hero-llave.webp).
+   v7: las tablas de referencia salen a datos.js, y entran las cinco láminas de
+       las pantallas de error — que tienen que estar EN CACHÉ, porque el sitio
+       las necesita justo cuando algo va mal (sin red, por ejemplo). */
+const CACHE = 'llave-v7';
 const SHELL = [
-  '/', '/app.js', '/fx.js', '/three3d.js', '/microapps.js', '/manifest.webmanifest', '/icon.svg',
-  '/brand/logo-dark.png', '/brand/logo-light.png',
-  '/brand/mark-dark.png', '/brand/mark-light.png',
-  '/brand/bg-dashboard.png',
-  '/media/hero-poster.jpg',
+  '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js',
+  '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',
+  '/media/error-500.webp', '/media/error-503.webp',
+  '/manifest.webmanifest', '/icon.svg',
+  '/brand/logo-llave.svg', '/brand/logo-llave-light.svg',
+  '/brand/favicon-llave.svg', '/brand/favicon-32-llave.png', '/brand/favicon-64-llave.png',
+  '/brand/apple-touch-llave.png', '/brand/icon-192-llave.png',
+  '/brand/icon-512-llave.png', '/brand/icon-maskable-512-llave.png',
+  '/media/hero-llave.webp',
   '/vendor/react.production.min.js', '/vendor/react-dom.production.min.js',
   '/vendor/htm.js', '/vendor/lucide.js', '/vendor/three.module.js'
 ];
+
+/* Rutas cuyo contenido no cambia sin cambiar la versión del caché. */
+const INMUTABLE = /^\/(vendor|brand|media)\//;
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -29,6 +54,11 @@ self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     const keys = await caches.keys();
     await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
+    /* Con la app instalada, el navegador vuelve a la última página al abrirla;
+       navigationPreload adelanta esa petición mientras arranca el worker. */
+    if (self.registration.navigationPreload) {
+      await self.registration.navigationPreload.enable().catch(() => {});
+    }
     await self.clients.claim();
   })());
 });
@@ -38,11 +68,26 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;      // no tocar terceros (fuentes, etc.)
-  if (url.pathname.startsWith('/api/')) return;     // el API nunca se cachea
+  if (url.pathname.startsWith('/api/')) return;    // el API nunca se cachea
+
+  /* Librerías y marca: del caché si están, y se refrescan en segundo plano. */
+  if (INMUTABLE.test(url.pathname)) {
+    e.respondWith((async () => {
+      const hit = await caches.match(req);
+      if (hit) return hit;
+      try {
+        const net = await fetch(req);
+        if (net && net.ok && net.type === 'basic') (await caches.open(CACHE)).put(req, net.clone());
+        return net;
+      } catch (err) { return new Response('', { status: 504 }); }
+    })());
+    return;
+  }
 
   e.respondWith((async () => {
     try {
-      const net = await fetch(req);
+      const pre = e.preloadResponse ? await e.preloadResponse : null;
+      const net = pre || await fetch(req);
       if (net && net.ok && net.type === 'basic') {
         const c = await caches.open(CACHE);
         c.put(req, net.clone());
@@ -50,7 +95,16 @@ self.addEventListener('fetch', (e) => {
       return net;
     } catch (err) {
       const cached = await caches.match(req);
-      return cached || caches.match('/');
+      if (cached) return cached;
+      /* Una herramienta abierta por enlace (/?app=dtc) no está en el caché con
+         esa query, pero el armazón sí: se sirve "/" y la aplicación monta la
+         herramienta al leer la URL. Sin este respaldo, abrir un acceso directo
+         sin señal daba la página de error del navegador. */
+      if (req.mode === 'navigate') {
+        const raiz = await caches.match('/');
+        if (raiz) return raiz;
+      }
+      return new Response('', { status: 504 });
     }
   })());
 });

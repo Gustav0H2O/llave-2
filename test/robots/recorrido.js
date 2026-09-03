@@ -178,14 +178,22 @@ async function main() {
       rep.comprobar(p.status === 404, `${ruta} responde 404`, `estado ${p.status}`);
       rep.comprobar(p.status !== 500, `${ruta} no revienta con 500`, `estado ${p.status}`);
       if (p.status === 404) {
-        /* `/taller/:slug` sí pinta un 404 propio, según DESIGN.md, porque es la
-           página que circula por WhatsApp. Las demás caen en el 404 por defecto
-           de Express: <html lang="en">, <title>Error</title>, sin marca y sin
-           forma de volver. Un enlace de ficha compartido y luego caducado
-           enseña eso. La comprobación existe para que la incoherencia se vea. */
-        rep.comprobar(/FuelTech/i.test(p.html),
+        /* Esta comprobación nació para SEÑALAR una incoherencia: solo
+           `/taller/:slug` pintaba un 404 propio y el resto caía en el de
+           Express —<html lang="en">, <title>Error</title>, sin marca y sin
+           salida—, que es lo que veía quien abría un enlace caducado. Ya no:
+           FT-0005 le dio al sitio su propio 404 en español, y la marca pasó de
+           "FuelTech" a "llave", así que el robot buscaba un nombre que ya no
+           existe y marcaba en rojo las siete rutas por un rebranding, no por un
+           fallo. Ahora comprueba lo que de verdad importa —que el 404 esté en
+           español, lleve la marca y ofrezca una salida— y sigue vigilando que
+           nadie retroceda al de Express. */
+        const marca = /\bllave\b/i.test(p.html);
+        const salida = /href="\/"/.test(p.html) || /volver|inicio/i.test(p.html);
+        const esDeExpress = /<title>Error<\/title>/i.test(p.html) || /Cannot (GET|POST)/.test(p.html);
+        rep.comprobar(marca && salida && !esDeExpress,
           `${ruta}: el 404 lleva la marca y una salida`,
-          `sale el 404 por defecto de Express, en inglés y sin navegación: ${p.html.replace(/\s+/g, ' ').slice(0, 90)}`);
+          `404 sin marca/salida propias: ${p.html.replace(/\s+/g, ' ').slice(0, 90)}`);
       }
       rep.comprobar(!/<script>alert/i.test(p.html), `${ruta} no refleja script en la página de error`, 'XSS reflejado');
     }

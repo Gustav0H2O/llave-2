@@ -1,4 +1,4 @@
-/* FuelTech Master — Dashboard (React 18 + htm + Three.js) */
+/* llave — Dashboard (React 18 + htm + Three.js) */
 const { useState, useEffect, useRef } = React;
 const html = htm.bind(React.createElement);
 
@@ -31,38 +31,89 @@ function useGarage() {
 
 /* ---------- Tema (auto / claro / oscuro) ----------
    El script inline del <head> ya aplicó la preferencia antes del primer pintado;
-   aquí solo se lee y se cambia. 'auto' se guarda quitando el atributo para que
-   vuelva a mandar el media query del CSS y siga a los cambios del sistema. */
-const THEME_KEY = 'ft_theme';
+   aquí solo se lee y se cambia.
+
+   'auto' RESUELVE a light o dark y estampa el atributo igual que el arranque,
+   en vez de quitarlo. Quitarlo era el origen de un desajuste real: el script
+   del <head> SIEMPRE deja un data-theme explícito, así que las reglas escritas
+   para `:root:not([data-theme])` no se aplicaban nunca… hasta que el usuario
+   pulsaba "Auto" en caliente y entonces sí. A partir de ese clic la página
+   pasaba a regirse por una rama del CSS distinta de la que se ve al recargar:
+   la misma preferencia daba dos resultados según cómo hubieras llegado. Con el
+   atributo siempre puesto hay UNA sola rama, y el modo automático sigue al
+   sistema por el listener de abajo, que es lo que hacía el media query. */
+const THEME_KEY = 'llave_theme';
+const prefersDark = () => window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 const getTheme = () => { try { return localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) { return 'auto'; } };
 const applyTheme = (t) => {
-  const el = document.documentElement;
-  if (t === 'auto') el.removeAttribute('data-theme');
-  else el.setAttribute('data-theme', t);
+  const dark = t === 'dark' || (t === 'auto' && prefersDark());
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* modo privado */ }
   // La barra del navegador/PWA no lee variables CSS: hay que darle el color ya resuelto.
-  const dark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove());
   const meta = document.createElement('meta');
   meta.name = 'theme-color';
-  meta.content = dark ? '#0F1113' : '#F4F5F2';
+  meta.content = dark ? '#111311' : '#F8F7F3';
   document.head.appendChild(meta);
   window.dispatchEvent(new Event('ft-theme-change'));
 };
+/* Modo automático: repintar cuando el sistema cambia de tema. Antes lo hacía
+   el media query del CSS; ahora que el atributo manda siempre, hay que
+   reaplicarlo a mano. Solo mientras la preferencia guardada sea 'auto'. */
+if (window.matchMedia) {
+  window.matchMedia('(prefers-color-scheme: dark)')
+    .addEventListener('change', () => { if (getTheme() === 'auto') applyTheme('auto'); });
+}
 
+/* Dos estados visibles, no tres. "Auto" seguía siendo un botón que había que
+   entender y elegir; ahora es el punto de partida y ya está: mientras nadie
+   toque nada, la preferencia guardada es 'auto' y la página sigue al sistema.
+   Al primer clic el usuario pasa a mandar él, y el botón marcado indica en qué
+   modo está — que es la pregunta que se hace de verdad ("¿está en claro o en
+   oscuro?"), no cuál de tres políticas está activa. */
 function ThemeSwitch() {
   const [theme, setTheme] = useState(getTheme);
   const pick = (t) => { applyTheme(t); setTheme(t); track('tema_cambiar', { tema: t }); };
+  /* Mientras la preferencia sea 'auto', el sistema puede cambiar de tema por su
+     cuenta (anochece, o el usuario lo cambia en Windows). El listener global
+     reaplica el tema y avisa con `ft-theme-change`; sin escucharlo aquí, el
+     botón marcado se quedaría en el modo anterior. */
+  const [, refrescar] = useState(0);
+  useEffect(() => {
+    const alCambiar = () => refrescar(n => n + 1);
+    window.addEventListener('ft-theme-change', alCambiar);
+    return () => window.removeEventListener('ft-theme-change', alCambiar);
+  }, []);
+  /* En 'auto' no hay preferencia explícita, así que se marca el que se está
+     viendo: el que el sistema pide. Así el control nunca aparece "apagado". */
+  const activo = theme === 'auto' ? (prefersDark() ? 'dark' : 'light') : theme;
   const opt = (id, icon, label) => html`
-    <button type="button" onClick=${() => pick(id)} aria-pressed=${theme === id} title=${'Tema ' + label}>
-      <${Icon} name=${icon} size=${13} /> <span>${label}</span>
+    <button type="button" onClick=${() => pick(id)} aria-pressed=${activo === id}
+            title=${'Modo de color: ' + label} aria-label=${'Modo de color: ' + label}>
+      <${Icon} name=${icon} size=${15} /> <span>${label}</span>
     </button>`;
   return html`
-    <div class="theme-switch" role="group" aria-label="Tema de la interfaz">
-      ${opt('auto', 'Monitor', 'Auto')}
+    <div class="theme-switch" role="group" aria-label="Modo de color">
       ${opt('light', 'Sun', 'Claro')}
       ${opt('dark', 'Moon', 'Oscuro')}
     </div>`;
+}
+
+/* ¿Se cumple una media query ahora mismo? Reacciona a los cambios, así que
+   sirve para decidir DÓNDE va un bloque en el árbol —no solo cómo se pinta—,
+   que es algo que el CSS no puede hacer: mover un elemento a otro sitio del
+   documento según el ancho es cosa del marcado. */
+function useMediaQuery(consulta) {
+  const [coincide, setCoincide] = useState(() => window.matchMedia?.(consulta).matches ?? false);
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const mq = window.matchMedia(consulta);
+    const alCambiar = (e) => setCoincide(e.matches);
+    setCoincide(mq.matches);
+    mq.addEventListener('change', alCambiar);
+    return () => mq.removeEventListener('change', alCambiar);
+  }, [consulta]);
+  return coincide;
 }
 
 /* ---------- Avisos efímeros ----------
@@ -110,74 +161,55 @@ function Icon({ name, size = 16, className = '', spin = false, label, color, str
   return html`<span class=${'icon' + (spin ? ' spin' : '') + (className ? ' ' + className : '')} ref=${ref} style=${color ? { color } : null}></span>`;
 }
 
-/* ---------- Iconos de marca ----------
-   Set propio en el lenguaje de la iconografía FuelTech (trazo medio, esquinas
-   redondeadas, detalles en lima). Lucide es monocromo; para los iconos más
-   visibles de la interfaz usamos estos SVG bicolor (gris + acento lima). */
+/* ---------- Iconografía: Lucide ----------
+   El set propio dibujado a mano se retiró: cada icono estaba trazado a ojo, con
+   su propio aire y su propio centro óptico dentro del viewBox de 24, y en fila
+   —la barra inferior del celular, el menú, las 38 tarjetas— la falta de rejilla
+   común saltaba a la vista; los que llevaban `opacity=".55"` en parte del trazo
+   además parecían a medio cargar.
+
+   Lucide ya se descargaba igual (public/vendor/lucide.js, lo usa el componente
+   Icon): 1746 iconos sobre una rejilla de 24 con un solo grosor. Este mapa
+   traduce el nombre interno del proyecto al de Lucide, así que ningún llamador
+   cambia: quien pedía "Ecu" o "Pump" sigue pidiéndolo. */
 const MARK_ICONS = {
-  Search: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke=${c} opacity=".55"/><path d="m21 21-4.3-4.3" stroke=${c} opacity=".55"/><circle cx="11" cy="11" r="2.6" fill=${c} stroke="none"/></svg>`,
-  Fuel: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v14" stroke=${c} opacity=".55"/><path d="M14 10h3a2 2 0 0 1 2 2v4a1.5 1.5 0 0 0 3 0V9l-3-3" stroke=${c} opacity=".55"/><path d="M5 20h10" stroke=${c} opacity=".55"/><path d="M12 5.5 9.5 9h5L12 12.5" stroke=${c} fill="none"/></svg>`,
-  Gauge: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 14 15.5 9" stroke=${c}/><circle cx="12" cy="14" r="7" stroke=${c} opacity=".55"/><path d="M12 3a9 9 0 0 1 9 9" stroke=${c} opacity=".55"/><path d="M3.6 9.5A9 9 0 0 1 12 3" stroke=${c} opacity=".55"/></svg>`,
-  Pump: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2" stroke=${c} opacity=".55"/><path d="M12 8v3" stroke=${c}/><circle cx="12" cy="14.5" r="1.6" fill=${c} stroke="none"/></svg>`,
-  Injector: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3v8l-2 3v7h16v-7l-2-3V3" stroke=${c} opacity=".55"/><path d="M9 21v-4h6v4" stroke=${c} opacity=".55"/><path d="M9.5 7.5h5" stroke=${c}/><path d="M10.5 11h3" stroke=${c}/></svg>`,
-  Filter: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3" stroke=${c} opacity=".55"/><path d="M9 7.5h6" stroke=${c}/><path d="M9 12h6" stroke=${c}/><path d="M9 16.5h3" stroke=${c}/></svg>`,
-  Sensor: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2" stroke=${c} opacity=".55"/><rect x="10" y="10" width="4" height="4" fill=${c} stroke="none"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" stroke=${c} opacity=".55"/></svg>`,
-  Ecu: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2" stroke=${c} opacity=".55"/><path d="M8 9h2M8 12h2M14 9h2M14 12h2" stroke=${c}/><path d="M9.5 15.5h5" stroke=${c}/></svg>`,
-  History: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke=${c} opacity=".55"/><path d="M12 8v4l2.5 1.5" stroke=${c}/><path d="M3.5 4.5 6 7M20.5 4.5 18 7" stroke=${c} opacity=".55"/></svg>`,
-  Compare: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18" stroke=${c} opacity=".55"/><path d="M7 7H4l4-4 4 4H9" stroke=${c} opacity=".55"/><path d="M17 17h3l-4 4-4-4h3" stroke=${c} opacity=".55"/><path d="M7 12h3M17 12h-3" stroke=${c}/></svg>`,
-  View3D: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7Z" stroke=${c} opacity=".55"/><path d="M12 22V12M3 7l9 5 9-5" stroke=${c} opacity=".55"/><path d="M9 5l9 5" stroke=${c}/></svg>`,
-  Assistant: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3a7 7 0 0 0 0 14c.6 0 1.2-.1 1.8-.2L14 19v-2.5c2.9-1.2 5-4 5-7.5a7 7 0 0 0-9.5-6Z" stroke=${c} opacity=".55"/><path d="M9 9h.01M13 9h.01M9 12.5c1.5 1.2 3.5 1.2 5 0" stroke=${c}/></svg>`,
-  Favorite: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.3 1.1 6-5.4-2.9-5.4 2.9 1.1-6L3.2 9.4l6.1-.8Z" stroke=${c} opacity=".55"/><path d="m12 7 .9 1.9 2 .3-1.5 1.4.4 2-1.8-1-1.8 1 .4-2L9.1 9.2l2-.3Z" fill=${c} stroke="none"/></svg>`,
-  Settings: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" stroke=${c}/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" stroke=${c} opacity=".55"/></svg>`,
-  Droplets: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 16.3c0-3 3-7 3-7s3 4 3 7a3 3 0 0 1-6 0Z" stroke=${c} opacity=".55"/><path d="M12 5.5c1.6-2 3.5-3.5 5-3.5" stroke=${c}/><path d="M17 8.5c1-1.3 2-2 3-2" stroke=${c}/></svg>`,
-  Zap: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6Z" stroke=${c} opacity=".55"/><path d="M13 9h4" stroke=${c}/></svg>`,
-  Stethoscope: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3v5a5 5 0 0 0 10 0V3" stroke=${c} opacity=".55"/><path d="M10 13v3a5 5 0 0 0 10 0v-1" stroke=${c} opacity=".55"/><circle cx="20" cy="16" r="2" stroke=${c}/><path d="M10 3v2M5 3v2" stroke=${c} opacity=".55"/></svg>`,
-  Calendar: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" stroke=${c} opacity=".55"/><path d="M8 3v4M16 3v4M3 10h18" stroke=${c} opacity=".55"/><path d="M12 14l1.5 1.5L12 17" stroke=${c}/></svg>`,
-  Car: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11 6.5 6.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11" stroke=${c} opacity=".55"/><rect x="3" y="11" width="18" height="6" rx="2" stroke=${c} opacity=".55"/><path d="M6 14h.01M18 14h.01" stroke=${c}/></svg>`,
-  Tag: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2H4a2 2 0 0 0-2 2v8l10 10 10-10Z" stroke=${c} opacity=".55"/><circle cx="7.5" cy="7.5" r="1.5" fill=${c} stroke="none"/></svg>`,
-  ArrowUpDown: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 3-4 4h3v10h2V7h3Z" stroke=${c} opacity=".55"/><path d="m17 21 4-4h-3V7h-2v10h-3Z" stroke=${c} opacity=".55"/></svg>`,
-  Wrench: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4L15 11l-2-2Z" stroke=${c} opacity=".55"/><path d="M15.5 4.5 17 6" stroke=${c}/></svg>`,
-  BookOpen: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6c-1.5-1.3-3.5-2-6-2H3v14h3c2.5 0 4.5.7 6 2 1.5-1.3 3.5-2 6-2h3V4h-3c-2.5 0-4.5.7-6 2Z" stroke=${c} opacity=".55"/><path d="M12 6v14" stroke=${c}/></svg>`,
-  Check: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 12.5 5 5L20 6.5" stroke=${c} opacity=".55"/></svg>`,
-  Plus: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke=${c} opacity=".55"/></svg>`,
-  ClipboardCheck: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2" stroke=${c} opacity=".55"/><path d="M9 4V3h6v1" stroke=${c} opacity=".55"/><path d="m8.5 13 2.5 2.5 4.5-5" stroke=${c}/></svg>`,
-  Thermometer: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0Z" stroke=${c} opacity=".55"/><path d="M12 17.5v-5" stroke=${c}/></svg>`,
-  Box: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5Z" stroke=${c} opacity=".55"/><path d="M3 8l9 5 9-5M12 13v8" stroke=${c} opacity=".55"/><path d="M7.5 5.5l9 5" stroke=${c}/></svg>`,
-  MapPin: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11Z" stroke=${c} opacity=".55"/><circle cx="12" cy="10" r="2.6" stroke=${c}/></svg>`,
-  MessagesSquare: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4 8.8 8.8 0 0 1-3.7-.8L3 21l1.9-5.2a8.3 8.3 0 0 1-.9-3.8A8.4 8.4 0 0 1 12.5 3.1 8.4 8.4 0 0 1 21 11.5Z" stroke=${c} opacity=".55"/><path d="M8.5 11.5h.01M12.5 11.5h.01M16.5 11.5h.01" stroke=${c}/></svg>`,
-  Repeat: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 2 4 4-4 4" stroke=${c} opacity=".55"/><path d="M3 11V9a4 4 0 0 1 4-4h14" stroke=${c} opacity=".55"/><path d="m7 22-4-4 4-4" stroke=${c} opacity=".55"/><path d="M21 13v2a4 4 0 0 1-4 4H3" stroke=${c} opacity=".55"/></svg>`,
-  ScanSearch: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" stroke=${c} opacity=".55"/><circle cx="11" cy="11" r="5" stroke=${c} opacity=".55"/><path d="m15 15 3.5 3.5" stroke=${c}/></svg>`,
-  Calculator: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2" stroke=${c} opacity=".55"/><path d="M8 7h8" stroke=${c}/><path d="M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h.01M16 19h.01" stroke=${c}/></svg>`,
-  FileText: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" stroke=${c} opacity=".55"/><path d="M14 3v5h5" stroke=${c} opacity=".55"/><path d="M9 13h6M9 17h6" stroke=${c}/></svg>`,
-  Store: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9 5.5 4h13L20 9" stroke=${c} opacity=".55"/><path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9" stroke=${c} opacity=".55"/><path d="M3.5 9a2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0" stroke=${c}/><path d="M9 20v-5h6v5" stroke=${c}/></svg>`,
-  /* Play/Pause: control del video del hero. Relleno sólido y sin la opacidad
-     .55 del resto — es un control sobre video, necesita leerse a cualquier
-     brillo del fotograma que le toque debajo. */
-  /* ChevronLeft FALTABA y es el icono del botón "volver" de MicroShell: las 39
-     micro apps pintaban un botón vacío, porque MarkIcon devuelve null cuando el
-     nombre no está en esta tabla. */
-  MailWarn: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h9" stroke=${c} opacity=".55"/><path d="m2.5 6.5 9 6 9-6" stroke=${c} opacity=".55"/><path d="M19 14v3.5M19 20.5h.01" stroke=${c}/></svg>`,
-  MailCheck: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h9" stroke=${c} opacity=".55"/><path d="m2.5 6.5 9 6 9-6" stroke=${c} opacity=".55"/><path d="m16 17.5 2 2 4-4.5" stroke=${c}/></svg>`,
-  Phone: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3h3l1.5 4-2 1.5a12 12 0 0 0 5.5 5.5l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A17 17 0 0 1 4.5 5.2 2 2 0 0 1 6.5 3Z" stroke=${c} opacity=".55"/><path d="M14.5 3.5a6 6 0 0 1 5.5 5.5" stroke=${c}/></svg>`,
-  Battery: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="18" height="11" rx="2" stroke=${c} opacity=".55"/><path d="M22 11v3" stroke=${c} opacity=".55"/><path d="M6 5.5v1.5M15 5.5v1.5" stroke=${c} opacity=".55"/><path d="M8 12.5h5M10.5 10v5" stroke=${c}/></svg>`,
-  Key: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4" stroke=${c} opacity=".55"/><path d="m10.5 12.5 8-8 2.5 2.5-2 2 2 2-3 3-2-2-2 2" stroke=${c} opacity=".55"/><circle cx="7.5" cy="15.5" r="1.3" fill=${c} stroke="none"/></svg>`,
-  ChevronLeft: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 5-7 7 7 7" stroke=${c}/></svg>`,
-  Play: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l10-6.5Z" fill=${c} stroke=${c}/></svg>`,
-  Pause: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5v14M15 5v14" stroke=${c}/></svg>`,
-  ArrowRight: (s, c) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15" stroke=${c} opacity=".55"/><path d="m13.5 6.5 6 5.5-6 5.5" stroke=${c}/></svg>`,
+  Search: 'Search', Fuel: 'Fuel', Gauge: 'Gauge', Pump: 'SquareActivity',
+  Injector: 'Syringe', Filter: 'Filter', Sensor: 'CircuitBoard', Ecu: 'Cpu',
+  History: 'History', Compare: 'GitCompare', View3D: 'Box', Assistant: 'Bot',
+  Favorite: 'Star', Settings: 'Settings', Droplets: 'Droplets', Zap: 'Zap',
+  Stethoscope: 'Stethoscope', Calendar: 'Calendar', Car: 'Car', Tag: 'Tag',
+  ArrowUpDown: 'ArrowUpDown', Wrench: 'Wrench', BookOpen: 'BookOpen',
+  Check: 'Check', Plus: 'Plus', ClipboardCheck: 'ClipboardCheck',
+  Thermometer: 'Thermometer', Box: 'Box', MapPin: 'MapPin',
+  MessagesSquare: 'MessagesSquare', Repeat: 'Repeat', ScanSearch: 'ScanSearch',
+  /* Conversor de unidades: la regla del mapa completo no es cosmética — un
+     nombre que no esté aquí se le pasa a Lucide tal cual y, si tampoco lo
+     tiene, NO se pinta nada y no hay error que lo delate. */
+  Ruler: 'Ruler', Copy: 'Copy', Info: 'Info', Pencil: 'Pencil', Trash2: 'Trash2',
+  Calculator: 'Calculator', FileText: 'FileText', Store: 'Store',
+  MailWarn: 'MailWarning', MailCheck: 'MailCheck', Phone: 'Phone',
+  Battery: 'Battery', Key: 'KeyRound', ChevronLeft: 'ChevronLeft',
+  Play: 'Play', Pause: 'Pause', ArrowRight: 'ArrowRight', ArrowLeft: 'ArrowLeft',
+  Menu: 'Menu', Home: 'House', LogOut: 'LogOut', Download: 'Download',
+  Clock: 'Clock', Close: 'X', Upload: 'Upload', LayoutGrid: 'LayoutGrid',
 };
-/* Icono de marca: bicolor (gris + lima). El acento usa var(--accent) que en modo
-   claro se oscurece a oliva (contraste) y el gris hereda currentColor. */
+/* Se conserva el nombre MarkIcon: lo usan app.js, microapps.js y
+   microapps-taller.js en ~40 sitios, y window.FT_APP.MarkIcon es el puente. */
 function MarkIcon({ name, size = 16, className = '' }) {
-  const icon = MARK_ICONS[name];
-  if (!icon) return null;
-  const c = 'var(--accent)';
-  return html`<span class=${'icon mark-icon' + (className ? ' ' + className : '')}>${icon(size, c)}</span>`;
+  const lucide = MARK_ICONS[name] || name;
+  return html`<${Icon} name=${lucide} size=${size} strokeWidth=${1.8}
+    className=${'mark-icon' + (className ? ' ' + className : '')} />`;
 }
 // Expuesto para que microapps.js (dashboard) pueda reutilizar la iconografía de marca.
 window.FT_APP = window.FT_APP || {};
 window.FT_APP.MarkIcon = MarkIcon;
 window.FT_APP.MARK_ICONS = MARK_ICONS;
+/* ThemeSwitch también va al puente: el selector de tema se movió del panel de
+   filtros del Catálogo de Combustible a la barra del inicio, que es donde el
+   usuario espera una preferencia de toda la aplicación —y no dentro de una de
+   sus herramientas. La Home vive en microapps.js, que carga ANTES que este
+   archivo; se resuelve en tiempo de render, igual que MarkIcon. */
+window.FT_APP.ThemeSwitch = ThemeSwitch;
 
 /* ================================================================
    HERRAMIENTAS DEL TALLER — funciones prácticas para el mecánico
@@ -299,18 +331,33 @@ const getJobs = () => { try { return JSON.parse(localStorage.getItem(JOBS_KEY) |
 const saveJobs = (jobs) => localStorage.setItem(JOBS_KEY, JSON.stringify(jobs));
 
 /* ---- Componente: Herramientas ---- */
-function Tools({ selectedId, meta }) {
+/* Clave y forma del checklist guardado.
+
+   Antes se guardaba un array de booleanos indexado contra INSTALL_CHECKLIST:
+   funcionaba mientras la lista fuera fija, pero ahora el mecánico puede
+   añadir, renombrar y borrar pasos, y un índice suelto no sabe a qué paso
+   pertenece. Se guarda el paso entero — texto y marca — y se acepta el
+   formato viejo al leer para no borrarle el avance a quien ya tenía uno a
+   medias. */
+const checkKey = (id) => `ft_check_${id || 'gral'}`;
+const freshChecklist = () => INSTALL_CHECKLIST.map(t => ({ t, done: false }));
+const loadChecklist = (id) => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(checkKey(id)) || 'null');
+    if (!Array.isArray(saved) || !saved.length) return freshChecklist();
+    // formato viejo: [true, false, …] contra la lista por defecto
+    if (typeof saved[0] === 'boolean') return INSTALL_CHECKLIST.map((t, i) => ({ t, done: !!saved[i] }));
+    return saved.filter(p => p && typeof p.t === 'string').map(p => ({ t: p.t, done: !!p.done }));
+  } catch (e) { return freshChecklist(); }
+};
+
+function Tools({ selectedId, meta, onSelectVehicle }) {
   const [tab, setTab] = useState('diag');
   const [diag, setDiag] = useState(null);
-  const [checklist, setChecklist] = useState(() => {
-    const k = `ft_check_${selectedId || 'gral'}`;
-    try {
-      const saved = JSON.parse(localStorage.getItem(k) || '[]');
-      // si lo guardado no coincide con el checklist actual, se rellena con false
-      if (Array.isArray(saved) && saved.length === INSTALL_CHECKLIST.length) return saved;
-      return INSTALL_CHECKLIST.map(() => false);
-    } catch (e) { return INSTALL_CHECKLIST.map(() => false); }
-  });
+  const [checklist, setChecklist] = useState(() => loadChecklist(selectedId));
+  const [editIdx, setEditIdx] = useState(-1);   // paso en edición (-1 = ninguno)
+  const [editText, setEditText] = useState('');
+  const [newStep, setNewStep] = useState('');
   const [gloss, setGloss] = useState('');
   const [jobs, setJobs] = useState(getJobs);
   const [jobText, setJobText] = useState('');
@@ -351,16 +398,32 @@ function Tools({ selectedId, meta }) {
       </div>
     </div>`;
 
-  /* ---- Checklist ---- */
-  const toggleCheck = (i) => {
-    const k = `ft_check_${selectedId || 'gral'}`;
-    const next = [...checklist];
-    next[i] = !next[i];
+  /* ---- Checklist ----
+     Una sola puerta de escritura: todo cambio pasa por `saveCheck`, que guarda
+     y refresca. Tener el `localStorage.setItem` repetido en cada acción es
+     justo como se pierde un paso al añadir la quinta. */
+  const saveCheck = (next) => {
     setChecklist(next);
-    localStorage.setItem(k, JSON.stringify(next));
+    try { localStorage.setItem(checkKey(selectedId), JSON.stringify(next)); } catch (e) { /* modo privado */ }
   };
-  const resetCheck = () => { const k = `ft_check_${selectedId || 'gral'}`; const fresh = INSTALL_CHECKLIST.map(() => false); setChecklist(fresh); localStorage.setItem(k, JSON.stringify(fresh)); };
-  const doneCount = checklist.filter(Boolean).length;
+  const toggleCheck = (i) => saveCheck(checklist.map((p, j) => j === i ? { ...p, done: !p.done } : p));
+  const addStep = () => {
+    const t = newStep.trim();
+    if (!t) return;
+    saveCheck([...checklist, { t, done: false }]);
+    setNewStep(''); toast('Paso agregado');
+  };
+  const removeStep = (i) => { saveCheck(checklist.filter((_, j) => j !== i)); setEditIdx(-1); };
+  const startEdit = (i) => { setEditIdx(i); setEditText(checklist[i].t); };
+  const commitEdit = () => {
+    const t = editText.trim();
+    // Un paso sin texto no se guarda: dejaría una casilla muda que no dice qué
+    // hacer. Se cancela la edición y el paso se queda como estaba.
+    if (t && editIdx >= 0) saveCheck(checklist.map((p, j) => j === editIdx ? { ...p, t } : p));
+    setEditIdx(-1); setEditText('');
+  };
+  const resetCheck = () => { saveCheck(freshChecklist()); setEditIdx(-1); };
+  const doneCount = checklist.filter(p => p.done).length;
 
   /* ---- Comparador ---- */
   const cmp = (id) => pumps.find(p => p.id === Number(id));
@@ -419,26 +482,61 @@ function Tools({ selectedId, meta }) {
                 <span class="result-count">${doneCount}/${checklist.length}</span>
               </div>
               <div class="tool-progress"><div style=${{ width: (checklist.length ? doneCount / checklist.length * 100 : 0) + '%' }}></div></div>
+              ${/* Cada paso es editable y borrable, y abajo se agregan los
+                    propios. Ningún taller monta dos módulos igual: el que
+                    trabaja Vortec necesita el paso de los poppets y el que solo
+                    ve TBI no quiere leerlo cada vez. La lista por defecto sigue
+                    siendo la de la casa —"Reiniciar" la devuelve entera—, pero
+                    deja de ser inamovible. */''}
               <div class="tool-check-list">
                 ${checklist.map((c, i) => html`
-                  <label class="tool-check-item" data-checked=${!!c}>
-                    <input type="checkbox" checked=${!!c} onChange=${() => toggleCheck(i)} />
-                    <span class="tool-check-box"><${Icon} name="Check" size=${12} /></span>
-                    <span>${INSTALL_CHECKLIST[i]}</span>
-                  </label>`)}
+                  <div class="tool-check-row" key=${i}>
+                    ${editIdx === i
+                      ? html`
+                        <input type="text" class="styled-input tool-check-edit" autoFocus value=${editText}
+                               aria-label="Texto del paso"
+                               onChange=${e => setEditText(e.target.value)}
+                               onBlur=${commitEdit}
+                               onKeyDown=${e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') { setEditIdx(-1); setEditText(''); } }} />
+                        <button type="button" class="tool-icon-btn" title="Guardar el paso" onMouseDown=${e => e.preventDefault()} onClick=${commitEdit}>
+                          <${Icon} name="Check" size=${15} />
+                        </button>`
+                      : html`
+                        <label class="tool-check-item" data-checked=${c.done}>
+                          <input type="checkbox" checked=${c.done} onChange=${() => toggleCheck(i)} />
+                          <span class="tool-check-box"><${Icon} name="Check" size=${12} /></span>
+                          <span>${c.t}</span>
+                        </label>
+                        <button type="button" class="tool-icon-btn" title="Editar este paso" onClick=${() => startEdit(i)}>
+                          <${Icon} name="Pencil" size=${15} />
+                        </button>
+                        <button type="button" class="tool-icon-btn danger" title="Eliminar este paso" onClick=${() => removeStep(i)}>
+                          <${Icon} name="Trash2" size=${15} />
+                        </button>`}
+                  </div>`)}
+                ${checklist.length === 0 && html`<div class="empty" style=${{ padding: '18px' }}>El checklist está vacío. Agrega un paso abajo o reinícialo.</div>`}
               </div>
-              <button type="button" class="link-btn" onClick=${resetCheck} style=${{ marginTop: '12px' }}>Reiniciar checklist</button>
+              <div class="tool-check-add">
+                <input type="text" class="styled-input" placeholder="Agregar un paso al checklist…" maxLength="180"
+                       aria-label="Nuevo paso del checklist" value=${newStep}
+                       onChange=${e => setNewStep(e.target.value)}
+                       onKeyDown=${e => { if (e.key === 'Enter') addStep(); }} />
+                <button type="button" class="tool-add-btn" onClick=${addStep} disabled=${!newStep.trim()}>
+                  <${Icon} name="Plus" size=${14} /> Agregar
+                </button>
+              </div>
+              <button type="button" class="link-btn" onClick=${resetCheck} style=${{ marginTop: '12px' }}>Reiniciar checklist (vuelve a los pasos de fábrica)</button>
             </div>`}
 
           ${tab === 'compare' && html`
             <div>
               <div class="cmp-selects">
-                <div><label class="muted" style=${{ display: 'block', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '5px' }}>Pila A</label>
+                <div><label class="muted" style=${{ display: 'block', fontSize: '10px', letterSpacing: '1px', textTransform: 'none', marginBottom: '5px' }}>Pila A</label>
                   <select class="styled-input" value=${compareA} onChange=${e => setCompareA(e.target.value)}>
                     <option value="">Elige una pila…</option>
                     ${pumps.map(p => html`<option key=${p.id} value=${p.id}>${p.code} — ${p.manufacturer}</option>`)}
                   </select></div>
-                <div><label class="muted" style=${{ display: 'block', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '5px' }}>Pila B</label>
+                <div><label class="muted" style=${{ display: 'block', fontSize: '10px', letterSpacing: '1px', textTransform: 'none', marginBottom: '5px' }}>Pila B</label>
                   <select class="styled-input" value=${compareB} onChange=${e => setCompareB(e.target.value)}>
                     <option value="">Elige una pila…</option>
                     ${pumps.map(p => html`<option key=${p.id} value=${p.id}>${p.code} — ${p.manufacturer}</option>`)}
@@ -475,14 +573,25 @@ function Tools({ selectedId, meta }) {
             <div>
               <div style=${{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'flex-end', marginBottom: '14px' }}>
                 <div style=${{ flex: '1', minWidth: '200px' }}>
-                  <label class="muted" style=${{ display: 'block', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '5px' }}>Vehículo</label>
-                  <select class="styled-input" value=${jobsFor} onChange=${e => setJobsFor(e.target.value)}>
+                  <label class="muted" style=${{ display: 'block', fontSize: '10px', letterSpacing: '1px', textTransform: 'none', marginBottom: '5px' }}>Vehículo</label>
+                  ${/* Elegir un vehículo aquí abre su ficha en el catálogo. Antes
+                        solo cambiaba de qué carro se listaban los trabajos y había
+                        que salir a Herramientas, volver al buscador y buscarlo otra
+                        vez a mano para ver su presión — con el nombre ya delante en
+                        el desplegable. El registro del carro no se pierde: la
+                        selección se conserva, así que al reabrir Herramientas se
+                        vuelve a esta misma lista. */''}
+                  <select class="styled-input" value=${jobsFor} onChange=${e => {
+                    const v = e.target.value;
+                    setJobsFor(v);
+                    if (v && onSelectVehicle) onSelectVehicle(Number(v));
+                  }}>
                     <option value="">General / sin vehículo</option>
                     ${vehicles.map(v => html`<option key=${v.id} value=${v.id}>${v.brand} ${v.model} ${v.year_from}-${v.year_to}</option>`)}
                   </select>
                 </div>
                 <div style=${{ flex: '2', minWidth: '220px' }}>
-                  <label class="muted" style=${{ display: 'block', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '5px' }}>Trabajo realizado</label>
+                  <label class="muted" style=${{ display: 'block', fontSize: '10px', letterSpacing: '1px', textTransform: 'none', marginBottom: '5px' }}>Trabajo realizado</label>
                   <input type="text" class="styled-input" placeholder="Ej. Cambio de bomba y cedazo; presión 52 PSI OK" value=${jobText} onChange=${e => setJobText(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter') addJob(); }} />
                 </div>
                 <button type="button" class="tool-add-btn" onClick=${addJob} disabled=${!jobText.trim()}><${Icon} name="Plus" size=${14} /> Registrar</button>
@@ -492,7 +601,16 @@ function Tools({ selectedId, meta }) {
                   : jobsList.slice().reverse().map((j, ri) => html`
                     <div class="tool-job" key=${ri}>
                       <div class="tool-job-t">${j.t}</div>
-                      <div class="tool-job-meta">${new Date(j.ts).toLocaleString()} <button type="button" class="link-btn" onClick=${() => rmJob(jobsList.length - 1 - ri)}>quitar</button></div>
+                      <div class="tool-job-meta">${new Date(j.ts).toLocaleString()}</div>
+                      ${/* Papelera en vez del enlace "quitar": borra un registro sin
+                            vuelta atrás, y un enlace de 38x14 px con el mismo peso
+                            visual que la fecha no se lee como una acción destructiva
+                            —ni se acierta con el dedo. */''}
+                      <button type="button" class="tool-icon-btn danger" title="Eliminar este registro"
+                              aria-label=${'Eliminar el registro: ' + j.t}
+                              onClick=${() => rmJob(jobsList.length - 1 - ri)}>
+                        <${Icon} name="Trash2" size=${15} />
+                      </button>
                     </div>`)}
               </div>
               <p class="muted" style=${{ fontSize: '11px', marginTop: '10px' }}>Se guarda solo en este navegador (sin conexión a servidor).</p>
@@ -566,6 +684,11 @@ function Pump3D({ psi, style, code }) {
   const ref = use3D((el, FT3D) => FT3D.pump(el, { psi, style, code }), [psi, code, tk]);
   return html`<div class="v3d" ref=${ref}></div>`;
 }
+/* Al puente: el Cross-Reference de microapps.js enseñaba la pila solo con
+   texto, y una equivalencia se decide mirando la forma —entrada, salida,
+   terminales—, no leyendo una tabla. Es el MISMO visor de la ficha del
+   vehículo, así que la pieza se ve igual en los dos sitios. */
+window.FT_APP.Pump3D = Pump3D;
 
 /* ---------- Tarjeta de pila (detalle de vehículo) ---------- */
 function PumpCard({ pump }) {
@@ -721,7 +844,15 @@ function VehicleDetail({ id }) {
       setV(d);
       // page_view por vehículo → alimenta el reporte de Páginas de GA4 en el SPA
       track('page_view', { page_path: '/vehiculo/' + (d.slug || ''), page_title: `${d.brand} ${d.model}` });
-    }).catch(e => alive && setErr(e));
+    }).catch(e => {
+      if (!alive) return;
+      // Fallback demo si el servidor no responde
+      if (window.FT_DEMO_VEHICLE) {
+        const d = window.FT_DEMO_VEHICLE(id);
+        if (d) { setV(d); setErr(null); return; }
+      }
+      setErr(e);
+    });
     return () => { alive = false; };
   }, [id]);
   if (err) return html`<div class="empty" aria-live="polite">ERROR CARGANDO EL VEHÍCULO — INTENTA DE NUEVO</div>`;
@@ -745,19 +876,19 @@ function VehicleDetail({ id }) {
 
   // Compartir la ficha = distribución gratis (cada envío por WhatsApp trae usuarios nuevos)
   const shareUrl = `${location.origin}/vehiculo/${v.slug || ''}`;
-  const shareMsg = `${v.brand} ${v.model} — ${psiText} PSI. Ficha técnica en FuelTech Master:`;
+  const shareMsg = `${v.brand} ${v.model} — ${psiText} PSI. Ficha técnica en llave:`;
   const shareWhatsApp = () => { track('compartir', { method: 'whatsapp' }); window.open(`https://wa.me/?text=${encodeURIComponent(shareMsg + ' ' + shareUrl)}`, '_blank', 'noopener'); };
   const shareNative = async () => {
     track('compartir', { method: 'nativo' });
     try {
-      if (navigator.share) await navigator.share({ title: 'FuelTech Master', text: shareMsg, url: shareUrl });
+      if (navigator.share) await navigator.share({ title: 'llave', text: shareMsg, url: shareUrl });
       else { await navigator.clipboard.writeText(shareUrl); toast('Enlace copiado'); }
     } catch (e) { /* cancelado por el usuario */ }
   };
   const shareBtn = {
-    display: 'inline-flex', alignItems: 'center', gap: '7px', font: '700 11px var(--font)',
-    letterSpacing: '1px', textTransform: 'uppercase', background: 'transparent', color: 'var(--accent)',
-    border: '1px solid var(--accent-dim)', borderRadius: '2px', padding: '9px 14px', cursor: 'pointer'
+    display: 'inline-flex', alignItems: 'center', gap: '7px', font: '500 12px var(--font)',
+    letterSpacing: '0', textTransform: 'none', background: 'transparent', color: 'var(--accent)',
+    border: '1px solid var(--accent-dim)', borderRadius: 'var(--r-sm)', padding: '9px 14px', cursor: 'pointer'
   };
   const saved = garage.some(x => x.id === v.id);
   const onStar = () => {
@@ -835,23 +966,25 @@ function VehicleDetail({ id }) {
     </div>`;
 }
 
-/* ---------- Logotipo FuelTech Master ----------
-   Las dos versiones del manual de marca. Cuál se ve lo decide el CSS
-   (--logo-dark / --logo-light) según el esquema de color del sistema:
-   así el cambio de tema es instantáneo y no depende de JS. */
+/* ---------- Logotipo "llave" ----------
+   Dos versiones del manual de marca. Una para fondo claro (verde
+   #3F5132) y otra para fondo oscuro (crema #F8F7F3). Cuál se ve lo
+   decide el CSS por la clase logo-img--light / logo-img--dark según
+   el esquema de color del sistema: así el cambio de tema es
+   instantáneo y no depende de JS. */
 const LogoLockup = () => html`
   <${React.Fragment}>
-    <img class="logo-lockup on-dark" src="/brand/logo-dark.png" width="760" height="205"
-         alt="FuelTech Master" decoding="async" />
-    <img class="logo-lockup on-light" src="/brand/logo-light.png" width="760" height="193"
-         alt="" aria-hidden="true" decoding="async" />
+    <img class="logo-img logo-img--light" src="/brand/logo-llave.svg" alt="llave" decoding="async" />
+    <img class="logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" decoding="async" />
   <//>`;
 
-/* Isotipo suelto, para cabeceras compactas y avatares */
+/* "Logo mark" (versión compacta de la palabra): misma palabra "llave"
+   en SVG, escalada para cabeceras y avatares. La doble LL se incluye
+   dentro del propio logotipo, no como isotipo separado. */
 const LogoMark = ({ className = '' }) => html`
   <${React.Fragment}>
-    <img class=${'logo-mark on-dark ' + className} src="/brand/mark-dark.png" width="256" height="283" alt="" aria-hidden="true" decoding="async" />
-    <img class=${'logo-mark on-light ' + className} src="/brand/mark-light.png" width="256" height="266" alt="" aria-hidden="true" decoding="async" />
+    <img class=${'logo-mark logo-img--light ' + className} src="/brand/logo-llave.svg" alt="llave" decoding="async" />
+    <img class=${'logo-mark logo-img--dark ' + className} src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" decoding="async" />
   <//>`;
 
 /* Lee filtros y vehículo seleccionado desde la URL para que una búsqueda o ficha sea compartible/marcable */
@@ -888,7 +1021,9 @@ function getDeviceId() {
 }
 const DEVICE_ID = getDeviceId();
 
-function ChatBot({ vehicleId }) {
+function ChatBot({ vehicleId, user }) {
+  // El chat SOLO aparece para usuarios con sesión iniciada
+  if (!user) return null;
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -896,6 +1031,9 @@ function ChatBot({ vehicleId }) {
   const [noKey, setNoKey] = useState(false);
   const [remaining, setRemaining] = useState(null);
   const [limitReached, setLimitReached] = useState(false);
+  /* FT-0009: el dueño del auto no habla en PSI. El interruptor solo cambia la
+     instrucción de sistema del servidor; límites y cuota son los mismos. */
+  const [modoCliente, setModoCliente] = useState(false);
   const chatRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -928,7 +1066,8 @@ function ChatBot({ vehicleId }) {
           message: text,
           deviceId: DEVICE_ID,
           history: messages.slice(-4),
-          vehicleId
+          vehicleId,
+          modo: modoCliente ? 'cliente' : 'mecanico'
         })
       });
       const data = await res.json();
@@ -974,6 +1113,19 @@ function ChatBot({ vehicleId }) {
             <${MarkIcon} name="Assistant" size=${18} />
             <span>Asistente Técnico</span>
             ${remaining !== null && html`<span class="chat-remaining">${remaining}/3</span>`}
+            <button type="button" onClick=${() => setModoCliente(m => !m)}
+                    aria-pressed=${modoCliente}
+                    title="Cambia el tono de las respuestas: técnico o para dueño del auto"
+                    style=${{
+                      border: modoCliente ? '1px solid var(--accent-dim)' : '1px solid var(--border-hi)',
+                      background: modoCliente ? 'var(--accent-soft)' : 'transparent',
+                      color: modoCliente ? 'var(--accent-strong, var(--accent))' : 'var(--muted)',
+                      borderRadius: '999px', padding: '3px 11px',
+                      fontSize: '11px', fontWeight: 600,
+                      cursor: 'pointer', whiteSpace: 'nowrap'
+                    }}>
+              ${modoCliente ? 'dueño del auto' : 'técnico'}
+            </button>
             <button type="button" class="chat-close" onClick=${() => setOpen(false)} aria-label="Cerrar">
               <${Icon} name="X" size=${16} />
             </button>
@@ -988,13 +1140,23 @@ function ChatBot({ vehicleId }) {
             ${messages.length === 0 && !limitReached && html`
               <div class="chat-empty">
                 <div class="chat-empty-logo"><${LogoMark} /></div>
-                <p>Pregúntame sobre especificaciones técnicas de combustible</p>
-                <div class="chat-suggestions">
-                  <button type="button" onClick=${() => send('¿Qué PSI necesita un Tsuru III?')}>¿PSI del Tsuru?</button>
-                  <button type="button" onClick=${() => send('¿Cómo identificar una pila OEM?')}>¿Pila OEM?</button>
-                  <button type="button" onClick=${() => send('¿Dónde está el módulo de gasolina del Jetta?')}>Ubicación módulo Jetta</button>
-                  <button type="button" onClick=${() => send('¿Qué presión debe tener un sistema Vortec?')}>Presión Vortec</button>
-                </div>
+                ${modoCliente ? html`
+                  <p>Cuéntame qué le pasa a tu carro, en tus palabras</p>
+                  <div class="chat-suggestions">
+                    <button type="button" onClick=${() => send('Mi carro tarda mucho en encender, ¿qué puede ser?')}>Tarda en encender</button>
+                    <button type="button" onClick=${() => send('Oigo un zumbido debajo del asiento trasero, ¿es normal?')}>Zumbido bajo el asiento</button>
+                    <button type="button" onClick=${() => send('El carro se jalonea al acelerar, ¿es grave?')}>Se jalonea al acelerar</button>
+                    <button type="button" onClick=${() => send('¿Cómo le hago si el carro no enciende nada?')}>No enciende</button>
+                  </div>
+                ` : html`
+                  <p>Pregúntame sobre especificaciones técnicas de combustible</p>
+                  <div class="chat-suggestions">
+                    <button type="button" onClick=${() => send('¿Qué PSI necesita un Tsuru III?')}>¿PSI del Tsuru?</button>
+                    <button type="button" onClick=${() => send('¿Cómo identificar una pila OEM?')}>¿Pila OEM?</button>
+                    <button type="button" onClick=${() => send('¿Dónde está el módulo de gasolina del Jetta?')}>Ubicación módulo Jetta</button>
+                    <button type="button" onClick=${() => send('¿Qué presión debe tener un sistema Vortec?')}>Presión Vortec</button>
+                  </div>
+                `}
                 ${noKey && html`<p class="chat-warn">⚠️ Chat no disponible</p>`}
               </div>
             `}
@@ -1007,8 +1169,12 @@ function ChatBot({ vehicleId }) {
             ${loading && html`
               <div class="chat-msg bot">
                 <div class="chat-avatar"><${LogoMark} className="chat-avatar-mark" /></div>
-                <div class="chat-bubble thinking">
-                  <span class="dot-pulse"></span>
+                {/* aria-live: la auditoría señaló que el «está pensando» era solo
+                    visual — un lector de pantalla no se enteraba de que hubo
+                    respuesta en camino. */}
+                <div class="chat-bubble thinking" role="status" aria-live="polite">
+                  <span class="dot-pulse" aria-hidden="true"></span>
+                  <span class="sr-only">Consultando al asistente…</span>
                 </div>
               </div>
             `}
@@ -1079,7 +1245,7 @@ function Calculators() {
       background: tab === id ? 'var(--accent-soft)' : 'transparent',
       border: 'none', borderBottom: tab === id ? '2px solid var(--accent)' : '2px solid transparent',
       color: tab === id ? 'var(--text)' : 'var(--muted)',
-      fontFamily: 'var(--font)', fontSize: '11px', fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase',
+      fontFamily: 'var(--font)', fontSize: '12px', fontWeight: '500', letterSpacing: '0', textTransform: 'none',
       cursor: 'pointer', transition: 'all .2s'
     }}>
       <${MarkIcon} name=${({ flow: 'Droplets', pressure: 'Gauge', electrical: 'Zap' })[id] || 'Gauge'} size=${16} /> 
@@ -1112,11 +1278,11 @@ function Calculators() {
                 </h3>
                 <div style=${{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div>
-                    <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px' }}>Caballos de fuerza (HP)</label>
+                    <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'none', marginBottom: '6px' }}>Caballos de fuerza (HP)</label>
                     <input type="number" class="styled-input" value=${hp} onChange=${e => setHp(e.target.value)} placeholder="Ej: 300" />
                   </div>
                   <div>
-                    <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px' }}>Tipo de Inducción</label>
+                    <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'none', marginBottom: '6px' }}>Tipo de Inducción</label>
                     <select class="styled-input" value=${aspiration} onChange=${e => setAspiration(e.target.value)}>
                       <option value="na">Aspirado Natural (NA)</option>
                       <option value="turbo">Turbo / Supercargado</option>
@@ -1160,14 +1326,14 @@ function Calculators() {
               </h3>
               <div style=${{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '20px', alignItems: 'end' }}>
                 <div>
-                  <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px' }}>PSI (Libras)</label>
+                  <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'none', marginBottom: '6px' }}>PSI (Libras)</label>
                   <input type="number" class="styled-input" value=${psi} onChange=${onPsi} placeholder="43.5" />
                 </div>
                 <div style=${{ color: 'var(--border-hi)', paddingBottom: '10px', display: 'flex', justifyContent: 'center' }}>
                   <${Icon} name="ArrowRight" size=${20} />
                 </div>
                 <div>
-                  <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px' }}>Bar</label>
+                  <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'none', marginBottom: '6px' }}>Bar</label>
                   <input type="number" class="styled-input" value=${bar} onChange=${onBar} placeholder="3.0" />
                 </div>
               </div>
@@ -1182,11 +1348,11 @@ function Calculators() {
                 </h3>
                 <div style=${{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div>
-                    <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px' }}>Voltaje Real en Bomba (V)</label>
+                    <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'none', marginBottom: '6px' }}>Voltaje Real en Bomba (V)</label>
                     <input type="number" class="styled-input" value=${volts} onChange=${e => setVolts(e.target.value)} placeholder="Ej: 13.5" step="0.1" />
                   </div>
                   <div>
-                    <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px' }}>Resistencia del Motor (Ohms Ω)</label>
+                    <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'none', marginBottom: '6px' }}>Resistencia del Motor (Ohms Ω)</label>
                     <input type="number" class="styled-input" value=${ohms} onChange=${e => setOhms(e.target.value)} placeholder="Ej: 1.2" step="0.1" />
                   </div>
                 </div>
@@ -1197,7 +1363,7 @@ function Calculators() {
                   <${Icon} name="CircuitBoard" size=${16} /> Diagnóstico Amperaje
                 </h3>
                 <div style=${{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '10px 0' }}>
-                  <div style=${{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '2px' }}>Consumo Teórico</div>
+                  <div style=${{ fontSize: '12px', color: 'var(--muted)', textTransform: 'none', letterSpacing: '0' }}>Consumo Teórico</div>
                   <div style=${{ fontSize: '42px', fontWeight: 800, color: amps > 0 ? ampColor : 'var(--border-hi)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
                     ${amps} <span style=${{ fontSize: '18px' }}>A</span>
                   </div>
@@ -1220,6 +1386,14 @@ function Calculators() {
 /* ---------- Login / registro del taller ---------- */
 function LoginScreen({ onLogin, onBack }) {
   const [mode, setMode] = useState('login');
+  /* Sin cifras. El panel izquierdo prometía "144 vehículos de 19 marcas" y "38
+     herramientas": números que el catálogo mueve cada vez que el dueño da de
+     alta un vehículo, y que además se quedaban clavados en el respaldo escrito
+     a mano cuando /api/meta tardaba o fallaba. Una promesa que envejece sola es
+     peor que ninguna, así que el argumento se cuenta con lo que no cambia: qué
+     hay dentro y qué se puede hacer con ello. (Antes esto era peor: las tres
+     constantes eran variables locales de la Home de microapps.js, así que aquí
+     ni existían y el ReferenceError tumbaba el render entero de React.) */
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1257,29 +1431,86 @@ function LoginScreen({ onLogin, onBack }) {
     setBusy(false);
   };
   return html`
-    <div class="home">
-      <header class="home-header">
-        <img class="logo-lockup on-dark" src="/brand/logo-dark.png" width="760" height="205" alt="FuelTech Master" />
-        <img class="logo-lockup on-light" src="/brand/logo-light.png" width="760" height="193" alt="" />
-        <p class="home-tagline">Inicia sesión para gestionar tu taller</p>
-        ${onBack && html`<button type="button" class="link-btn" onClick=${onBack}>← Volver sin iniciar sesión</button>`}
-      </header>
-      <div class="login-card panel" style=${{ maxWidth: '420px', margin: '20px auto 60px', padding: '22px' }}>
-        ${done && html`<div class="alert blue"><span>¡Bienvenido! Tu sesión está activa.</span></div>`}
-        <div class="conv-modes" style=${{ marginBottom: '14px' }}>
-          <button type="button" class=${'conv-mode' + (mode === 'login' ? ' active' : '')} onClick=${() => { setMode('login'); setErr(''); }}>Iniciar sesión</button>
-          <button type="button" class=${'conv-mode' + (mode === 'register' ? ' active' : '')} onClick=${() => { setMode('register'); setErr(''); }}>Crear cuenta</button>
+    <div class="login-screen">
+      <aside class="login-art" aria-hidden="true">
+        <div class="login-art-bg"></div>
+        <div class="login-art-content">
+          ${/* Sin clase de tema: este panel es oscuro siempre, así que su
+                logotipo es siempre el crema. */''}
+          <img class="login-art-logo logo-img" src="/brand/logo-llave-light.svg" alt="llave" />
+          <h2 class="login-art-title">Tu taller,<br/>en una sola llave.</h2>
+          <p class="login-art-text">Inventario, clientes, órdenes, notas y caja en un solo lugar. Empieza gratis, sin tarjeta.</p>
+          <ul class="login-art-list">
+            <li>Catálogo de presión de riel, módulos y pilas por vehículo</li>
+            <li>Herramientas de diagnóstico y de gestión, listas para usar</li>
+            <li>Datos sincronizados entre tu celular y la computadora del taller</li>
+          </ul>
         </div>
-        <form onSubmit=${submit} style=${{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          ${mode === 'register' && html`<input type="text" class="styled-input" placeholder="Nombre del taller / dueño" value=${form.name} onChange=${e => setForm({ ...form, name: e.target.value })} />`}
-          <input type="email" class="styled-input" placeholder="Correo" value=${form.email} onChange=${e => setForm({ ...form, email: e.target.value })} />
-          <input type="password" class="styled-input" placeholder="Contraseña (mín 8)" value=${form.password} onChange=${e => setForm({ ...form, password: e.target.value })} />
-          <button type="submit" class="tool-add-btn" disabled=${busy || !form.email || !form.password}>${busy ? '…' : mode === 'register' ? 'Crear cuenta y entrar' : 'Entrar'}</button>
-        </form>
-        ${err && html`<div class="alert" style=${{ marginTop: '10px' }}><span>${err}</span></div>`}
-        <button type="button" class="link-btn" style=${{ marginTop: '12px' }} onClick=${importLocal} disabled=${busy}>⬆ Importar mis datos del navegador</button>
-        <div class="muted" style=${{ marginTop: '8px', fontSize: '11px' }}>Tus datos (inventario, clientes, órdenes, notas, caja) se guardan en la nube y se pueden exportar como respaldo.</div>
-      </div>
+      </aside>
+
+      <main class="login-form-wrap">
+        <a class="login-back" href="#" onClick=${(e) => { e.preventDefault(); onBack && onBack(); }}>
+          <${Icon} name="ArrowLeft" size=${16} /> Volver al inicio
+        </a>
+        <div class="login-form-inner">
+          ${/* Esta mitad sí sigue al tema (background: var(--bg)), así que
+                necesita las dos variantes, no una. */''}
+          <img class="login-form-logo logo-img logo-img--light" src="/brand/logo-llave.svg" alt="llave" />
+          <img class="login-form-logo logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" />
+
+          <div class="login-tabs" role="tablist">
+            <button type="button" role="tab" aria-selected=${mode === 'login'} class=${'login-tab' + (mode === 'login' ? ' is-active' : '')} onClick=${() => { setMode('login'); setErr(''); }}>Iniciar sesión</button>
+            <button type="button" role="tab" aria-selected=${mode === 'register'} class=${'login-tab' + (mode === 'register' ? ' is-active' : '')} onClick=${() => { setMode('register'); setErr(''); }}>Crear cuenta</button>
+          </div>
+
+          <h1 class="login-h1">${mode === 'register' ? 'Crea tu cuenta del taller' : 'Bienvenido de vuelta'}</h1>
+          <p class="login-h1-sub">${mode === 'register' ? 'Tarda menos de un minuto. Solo necesitas un correo.' : 'Entra con tu correo y contraseña.'}</p>
+
+          ${done && html`<div class="alert blue" style=${{ marginBottom: '14px' }}><span>¡Bienvenido! Tu sesión está activa.</span></div>`}
+
+          <form onSubmit=${submit} class="login-form">
+            ${mode === 'register' && html`
+              <label class="login-field">
+                <span>Nombre del taller</span>
+                <input type="text" class="styled-input" placeholder="Taller mecánico La Llave" value=${form.name} onChange=${e => setForm({ ...form, name: e.target.value })} required />
+              </label>`}
+            <label class="login-field">
+              <span>Correo</span>
+              <input type="email" class="styled-input" placeholder="tunombre@taller.com" value=${form.email} onChange=${e => setForm({ ...form, email: e.target.value })} required />
+            </label>
+            <label class="login-field">
+              <span>Contraseña</span>
+              <input type="password" class="styled-input" placeholder="Mínimo 8 caracteres" value=${form.password} onChange=${e => setForm({ ...form, password: e.target.value })} required minLength=${8} />
+            </label>
+
+            <button type="submit" class="tool-add-btn login-submit" disabled=${busy || !form.email || !form.password}>
+              ${busy ? 'Procesando…' : mode === 'register' ? 'Crear cuenta' : 'Entrar'}
+            </button>
+
+            ${err && html`<div class="alert" style=${{ marginTop: '4px' }}><span>${err}</span></div>`}
+          </form>
+
+          <div class="login-divider"><span>o</span></div>
+
+          <a href="/api/auth/google" class="login-google">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            Continuar con Google
+          </a>
+
+          <button type="button" class="login-secondary" onClick=${importLocal} disabled=${busy}>
+            <${Icon} name="Upload" size=${16} /> Importar mis datos del navegador
+          </button>
+
+          <p class="login-footer-note">
+            Los datos de tu cuenta (inventario, clientes, órdenes, notas, caja) se guardan en la nube cifrada y se pueden exportar como respaldo cuando quieras.
+          </p>
+        </div>
+      </main>
     </div>
   `;
 }
@@ -1348,6 +1579,20 @@ function App() {
     return () => clearTimeout(t);
   }, []);
   const garage = useGarage();
+  /* Dónde va el pie del panel de filtros. En escritorio cierra la columna, que
+     es su sitio de siempre. En el celular NO hay columna: el panel se apila
+     ENCIMA de los resultados, así que el pie caía entre los filtros y el primer
+     vehículo — media pantalla de enlaces legales antes del dato que el mecánico
+     vino a ver. Abajo del todo, tras la ficha, es donde se espera un pie. Se
+     decide en el marcado y no con CSS porque `order` no saca un elemento de su
+     contenedor.
+
+     Va AQUÍ, con el resto de hooks, y no junto al bloque que lo usa: más abajo
+     hay un `return` para la vista del dashboard, y un hook después de un return
+     condicional cambia el número de hooks entre renders. Eso es el error #310
+     de React, y tumba la pantalla entera del catálogo — es la misma regla que
+     ya avisa el comentario de `useGarage` unas líneas más arriba. */
+  const esMovil = useMediaQuery('(max-width: 900px)');
   const seqRef = useRef(0);
   const listRef = useRef(null);
   const modelInputRef = useRef(null);
@@ -1362,21 +1607,36 @@ function App() {
   function search() {
     if (abortCtrlRef.current) abortCtrlRef.current.abort();
     abortCtrlRef.current = new AbortController();
-    const signal = abortCtrlRef.current.signal;
     const seq = ++seqRef.current;
-    
+
     setIsSearching(true);
     const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString();
-    return fetch(`/api/vehicles?${qs}`, { signal })
+    return fetch(`/api/vehicles?${qs}`, { signal: abortCtrlRef.current.signal })
       .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(rows => { if (seq === seqRef.current) { setResults(rows); setSearchErr(false); setIsSearching(false); if (rows.length === 0) track('busqueda_sin_resultado', { q: filters.model || '' }); } })
-      .catch((e) => { 
+      .catch((e) => {
         if (e.name === 'AbortError') return;
-        if (seq === seqRef.current) { setResults([]); setSearchErr(true); setIsSearching(false); } 
+        if (seq !== seqRef.current) return;
+        // Si el servidor no responde o la ruta /api/vehicles no existe,
+        // caemos al catálogo demo para que la app se pueda probar sin backend.
+        if (window.FT_DEMO_SEARCH) {
+          const rows = window.FT_DEMO_SEARCH(filters);
+          setResults(rows);
+          setSearchErr(false);
+        } else {
+          setResults([]);
+          setSearchErr(true);
+        }
+        setIsSearching(false);
       });
   }
 
-  useEffect(() => { api('/api/meta').then(setMeta).catch(() => setMetaErr(true)); }, []);
+  useEffect(() => {
+    api('/api/meta').then(m => {
+      if (m && m.brands && m.brands.length) { setMeta(m); }
+      else { setMeta(window.FT_DEMO_META && window.FT_DEMO_META()); }
+    }).catch(() => { setMeta(window.FT_DEMO_META && window.FT_DEMO_META()); });
+  }, []);
 
   // registra la visita (1 vez por visitante por día; el servidor deduplica sin guardar IPs)
   // respeta Do-Not-Track
@@ -1411,8 +1671,20 @@ function App() {
   const urlSyncedOnce = useRef(false);
   useEffect(() => {
     if (!urlSyncedOnce.current) { urlSyncedOnce.current = true; return; }
+    /* Solo cuando el buscador está a la vista. En el dashboard, la lista de
+       resultados se carga igualmente de fondo y al fijar `selected` este
+       efecto escribía ?v=26 en la URL del inicio: ensuciaba el enlace que se
+       comparte y —peor— metía un paso de historial fantasma, así que el
+       primer gesto de atrás no salía de la aplicación sino que se quedaba en
+       la misma pantalla. */
+    if (viewState === 'home') return;
     const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v));
     if (selected) qs.set('v', selected);
+    /* `app` y `cat` son la posición en el dashboard, no un filtro: si este
+       efecto los borrara al primer cambio de marca, el botón atrás de Android
+       saldría de la aplicación en vez de volver a la herramienta anterior. */
+    const actual = new URLSearchParams(location.search);
+    for (const k of ['app', 'cat']) { const v = actual.get(k); if (v) qs.set(k, v); }
     const next = qs.toString();
     // desde una página /vehiculo/... la app pasa a usar URLs de sesión con base "/"
     const base = location.pathname.startsWith('/vehiculo') ? '/' : location.pathname;
@@ -1420,7 +1692,7 @@ function App() {
     if (url !== location.pathname + location.search) {
       history.pushState(null, '', url);
     }
-  }, [filters, selected]);
+  }, [filters, selected, viewState]);
 
   // Soporte para botón atrás del navegador
   useEffect(() => {
@@ -1453,20 +1725,53 @@ function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  /* ══════════════════════════════════════════════════════════════════════
+     APERTURA DE MICRO APPS Y BOTÓN ATRÁS
+     ----------------------------------------------------------------------
+     Cada herramienta abierta deja una entrada en el historial (?app=id).
+     Sin esto, instalada en Android, el gesto de volver —el más usado del
+     sistema— CERRABA LA APLICACIÓN desde cualquiera de las 38 herramientas,
+     porque para el navegador nunca se había navegado a ningún sitio. Además
+     una consulta deja de ser irrepetible: el enlace de "Buscador DTC" se
+     puede mandar por WhatsApp y se recupera al recargar.
+
+     Se usa ?app= en la raíz y no /app/id porque el servidor no tiene ruta
+     comodín: /app/dtc daría 404 al recargar o al abrirlo desde el historial.
+     ══════════════════════════════════════════════════════════════════════ */
+  const rutaEscribir = (cambios, modo = 'push') => {
+    const p = new URLSearchParams(location.search);
+    for (const [k, v] of Object.entries(cambios)) { if (v) p.set(k, v); else p.delete(k); }
+    const qs = p.toString();
+    const base = location.pathname.startsWith('/vehiculo') ? '/' : location.pathname;
+    const url = qs ? `${base}?${qs}` : base;
+    if (url === location.pathname + location.search) return;
+    history[modo === 'push' ? 'pushState' : 'replaceState']({ ft: 1 }, '', url);
+  };
+  /* Lo usa la Home de microapps.js para que cambiar de categoría también
+     cuente como un paso atrás. Tres niveles, como una app nativa:
+     inicio → categoría → herramienta. */
+  window.FT_RUTA = {
+    leer: () => {
+      const p = new URLSearchParams(location.search);
+      return { app: p.get('app') || null, cat: p.get('cat') || null };
+    },
+    escribir: rutaEscribir,
+  };
+
   // Manejador de apertura de micro app desde el dashboard
-  const openMicro = (id) => {
+  const openMicro = (id, opciones = {}) => {
     const FT = window.FT_MICRO || {};
+    const conRuta = (fn) => { if (!opciones.silencioso) rutaEscribir({ app: id }); fn(); };
     const map = {
-      search: () => setViewState('search'),
-      diag: () => { setViewState('tools'); },
-      calc: () => setViewState('calculators'),
-      glossary: () => { setViewState('tools'); },
-      guides: () => { window.location.href = '/guias'; },
-      aid: () => { /* identificador IA: abre el chat con prompt */ setViewState('search'); },
+      search: () => conRuta(() => setViewState('search')),
+      diag: () => conRuta(() => setViewState('tools')),
+      calc: () => conRuta(() => setViewState('calculators')),
+      glossary: () => conRuta(() => setViewState('tools')),
+      aid: () => conRuta(() => setViewState('search')),
     };
     if (map[id]) return map[id]();
     // micro apps del dashboard (componentes propios); las de negocio requieren sesión
-    const apps = { dtc: 'DtcApp', torque: 'TorqueApp', spark: 'SparkApp', cross: 'CrossApp', convert: 'ConverterApp', vin: 'VinApp', pressure: 'PressureApp', regulator: 'RegulatorApp', orders: 'OrdersApp', inventory: 'InventoryApp', clients: 'ClientsApp', notes: 'NotesApp', cash: 'CashApp', forum: 'ForumApp', connect: 'ConnectApp', quickdiag: 'QuickDiagApp', documents: 'DocumentsApp', market: 'MarketApp', timing: 'TimingApp', fuses: 'FusesApp', tires: 'TireApp', inspection: 'InspectionApp', quote: 'QuoteApp', appointments: 'AppointmentsApp', maintenance: 'MaintenanceApp', trim: 'TrimApp', compression: 'CompressionApp', pinout: 'PinoutApp', labor: 'LaborApp', nostart: 'NoStartApp', battery: 'BatteryApp', profile: 'ProfileApp', perfilPublico: 'PublicProfileApp' };
+    const apps = { dtc: 'DtcApp', torque: 'TorqueApp', spark: 'SparkApp', cross: 'CrossApp', convert: 'ConverterApp', vin: 'VinApp', pressure: 'PressureApp', regulator: 'RegulatorApp', orders: 'OrdersApp', inventory: 'InventoryApp', clients: 'ClientsApp', notes: 'NotesApp', cash: 'CashApp', forum: 'ForumApp', connect: 'ConnectApp', quickdiag: 'QuickDiagApp', documents: 'DocumentsApp', market: 'MarketApp', timing: 'TimingApp', fuses: 'FusesApp', tires: 'TireApp', inspection: 'InspectionApp', quote: 'QuoteApp', appointments: 'AppointmentsApp', maintenance: 'MaintenanceApp', trim: 'TrimApp', compression: 'CompressionApp', pinout: 'PinoutApp', labor: 'LaborApp', nostart: 'NoStartApp', battery: 'BatteryApp', profile: 'ProfileApp', perfilPublico: 'PublicProfileApp', guides: 'GuidesApp', diag: 'SymptomDiagApp', calc: 'CalcApp', aid: 'AidApp', glossary: 'GlossaryApp' };
     /* Solo lo que guarda datos del negocio en la nube. Todo lo demás —incluidas
        inspección, cotizador, agenda y mantenimiento, que persisten en el propio
        navegador— entra sin cuenta. `pressure` está aquí porque su historial vive
@@ -1475,14 +1780,47 @@ function App() {
     // Las apps de negocio sí exigen cuenta: en vez de tragarse el clic (el candado
     // del Home explicaba el porqué pero el botón no hacía nada), lleva al login.
     if (protectedIds.includes(id) && !user) { setShowLogin(true); return; }
-    if (apps[id] && FT[apps[id]]) { setMicroApp(apps[id]); setViewState('home'); }
+    if (apps[id] && FT[apps[id]]) {
+      if (!opciones.silencioso) rutaEscribir({ app: id });
+      setMicroApp(apps[id]); setViewState('home');
+    }
   };
   const closeMicro = () => {
-    // Si se entró por /taller/:slug, "Volver" debe dejar la URL limpia o al
-    // recargar volvería a abrirse el perfil en vez del inicio.
+    /* Si la herramienta se abrió desde el dashboard hay una entrada nuestra en
+       el historial: se deshace con history.back() para que "Volver" y el gesto
+       de atrás de Android hagan EXACTAMENTE lo mismo. Cerrar a mano dejaría la
+       entrada colgando y el gesto de atrás reabriría la herramienta recién
+       cerrada. Si se llegó por enlace directo (?app=… en la primera carga) no
+       hay nada que deshacer: se limpia la URL en el sitio. */
+    if (window.FT_RUTA.leer().app && history.state && history.state.ft) { history.back(); return; }
     if (location.pathname !== '/') history.replaceState(null, '', '/');
-    setMicroApp(null);
+    rutaEscribir({ app: null }, 'replace');
+    setMicroApp(null); setViewState('home');
   };
+
+  /* Sincroniza la vista con la URL: cubre el gesto de atrás, el de adelante y
+     la primera carga con ?app= puesto (enlace compartido o acceso directo del
+     menú de la app instalada en Android). */
+  const aplicarRuta = React.useCallback(() => {
+    const { app } = window.FT_RUTA.leer();
+    if (!app) { setMicroApp(null); setViewState('home'); return; }
+    setMicroApp(null);
+    openMicro(app, { silencioso: true });
+  }, [user]);
+  useEffect(() => {
+    const alVolver = () => aplicarRuta();
+    window.addEventListener('popstate', alVolver);
+    return () => window.removeEventListener('popstate', alVolver);
+  }, [aplicarRuta]);
+  /* Primera carga. Espera a saber si hay sesión: una herramienta con candado
+     abierta desde un acceso directo mandaría al login antes de tiempo. */
+  const rutaInicial = useRef(false);
+  useEffect(() => {
+    if (!authChecked || rutaInicial.current) return;
+    rutaInicial.current = true;
+    const { app } = window.FT_RUTA.leer();
+    if (app) openMicro(app, { silencioso: true });
+  }, [authChecked]);
 
   // --- DASHBOARD (pantalla completa) ---
   if (viewState === 'home') {
@@ -1507,15 +1845,43 @@ function App() {
     }
   }
 
+  const pie = html`
+    <div class="app-footer">
+      <div class="footer-head">
+        <img class="footer-mark logo-img--light" src="/brand/logo-llave.svg" width="774" height="309" alt="llave" decoding="async" />
+        <img class="footer-mark logo-img--dark" src="/brand/logo-llave-light.svg" width="774" height="309" alt="" aria-hidden="true" decoding="async" />
+      </div>
+      <div class="footer-desc footer-tag">Catálogo técnico de módulos y pilas de gasolina</div>
+      ${/* .footer-links en vez de estilo en línea por enlace: la clase da el
+            relleno vertical que sube el área tocable de 13px a ~36px (44px en
+            pantalla táctil) y centraliza el color y el hover. */''}
+      <div class="footer-desc footer-links" style=${{ marginTop: '5px' }}><a href="/guias">Guías de diagnóstico</a> · <a href="/vehiculos">Catálogo completo</a></div>
+      <div class="footer-desc footer-links" style=${{ marginTop: '4px' }}><a href="/acerca-de">Acerca de</a> · <a href="/contacto">Contacto</a> · <a href="/privacidad">Privacidad y cookies</a> · <a href="/terminos">Términos</a></div>
+      ${/* sin opacity: la bajaba a 4.5:1 justo en el filo del mínimo, y este es
+            precisamente el aviso que no conviene que se lea a medias. */''}
+      <div class="footer-desc" style=${{ marginTop: '5px' }}>Datos técnicos de referencia: verifica siempre contra el manual de servicio del fabricante antes de intervenir el vehículo.</div>
+      <div class="footer-copy">© 2025–2026 llave. Todos los derechos reservados.</div>
+      <div class="dev-contact">
+        <${Icon} name="Mail" size=${13} />
+        <a href="#" onClick=${handleEmailClick} title="Enviar correo a newpersonal98@gmail.com">¿Quieres un desarrollo similar? Contáctame: <strong>newpersonal98@gmail.com</strong></a>
+      </div>
+    </div>`;
+
   return html`
     <div class="app-shell">
       <!-- Panel de filtros: siempre fijo al lado -->
       <aside class="search-pane">
+        ${/* "Volver" en la esquina, en vez del botón "Inicio (Dashboard)" que
+              estaba abajo entre los filtros. Salir de una herramienta es
+              navegación, no un filtro más: va arriba a la izquierda, que es
+              donde se busca, y llama a lo mismo que el gesto de atrás. */''}
+        <button type="button" class="pane-back" onClick=${closeMicro}>
+          <${Icon} name="ArrowLeft" size=${16} /> Volver
+        </button>
         <div class="logo-block">
           <${LogoLockup} />
-          <h1 class="sr-only">FuelTech Master</h1>
+          <h1 class="sr-only">llave</h1>
         </div>
-        <${ThemeSwitch} />
 
         <div class="panel">
           <h2>Filtros de búsqueda</h2>
@@ -1530,9 +1896,9 @@ function App() {
                      ref=${modelInputRef} value=${filters.model} onChange=${set('model')} /></div>
             <div><label htmlFor="f-year"><${MarkIcon} name="Calendar" size=${13} /> Año</label>
               <input id="f-year" name="year" autocomplete="off" type="number" inputMode="numeric"
-                     min=${meta?.year_range.min} max=${meta?.year_range.max}
-                     placeholder=${meta ? `${meta.year_range.min}–${meta.year_range.max}` : ''}
-                     title=${meta ? `Año del modelo, entre ${meta.year_range.min} y ${meta.year_range.max}` : 'Año del modelo'}
+                     min=${meta?.year_range?.min ?? ''} max=${meta?.year_range?.max ?? ''}
+                     placeholder=${meta?.year_range ? `${meta.year_range.min}–${meta.year_range.max}` : 'ej. 2018'}
+                     title=${meta?.year_range ? `Año del modelo, entre ${meta.year_range.min} y ${meta.year_range.max}` : 'Año del modelo'}
                      value=${filters.year} onChange=${set('year')} /></div>
             <div><label htmlFor="f-inj"><${MarkIcon} name="Fuel" size=${13} /> Tipo de Inyección</label>
               <select id="f-inj" name="injection_type" autocomplete="off" title="Filtra por tipo de sistema de inyección de combustible" value=${filters.injection_type_id} onChange=${set('injection_type_id')}>
@@ -1546,9 +1912,6 @@ function App() {
                 <option value="year_desc">Año (Más reciente)</option>
               </select></div>
             <button type="button" title="Limpiar filtros (Esc)" onClick=${clearFilters}>Limpiar filtros</button>
-            <button type="button" class="mt" style=${{ marginTop: '8px', background: 'var(--accent-fill)', color: 'var(--accent-ink)', border: '1px solid var(--accent-fill)' }} onClick=${() => { setMicroApp(null); setViewState('home'); }}>
-              <${MarkIcon} name="View3D" size=${14} /> Inicio (Dashboard)
-            </button>
             <button type="button" class="mt" style=${{ marginTop: '8px', background: 'var(--card)', color: 'var(--text)', border: '1px solid var(--border-hi)' }} onClick=${() => { setViewState(viewState === 'calculators' ? 'search' : 'calculators'); }}>
               <${MarkIcon} name="Stethoscope" size=${14} /> ${viewState === 'calculators' ? 'Cerrar Calculadoras' : 'Abrir Calculadoras'}
             </button>
@@ -1559,31 +1922,13 @@ function App() {
           ${metaErr && html`<div class="alert"><${Icon} name="AlertTriangle" size=${14} /> Error al cargar catálogos. Verifica tu conexión.</div>`}
         </div>
 
-        <div class="app-footer">
-          <div class="footer-head">
-            <img class="footer-mark on-dark" src="/brand/mark-dark.png" width="256" height="283" alt="" aria-hidden="true" decoding="async" />
-            <img class="footer-mark on-light" src="/brand/mark-light.png" width="256" height="266" alt="" aria-hidden="true" decoding="async" />
-            <div class="footer-brand">FUEL<span>TECH</span> MASTER</div>
-          </div>
-          <div class="footer-desc">Catálogo técnico de módulos y pilas de gasolina</div>
-          ${/* .footer-links en vez de estilo en línea por enlace: la clase da el
-                relleno vertical que sube el área tocable de 13px a ~36px (44px en
-                pantalla táctil) y centraliza el color y el hover. */''}
-          <div class="footer-desc footer-links" style=${{ marginTop: '5px' }}><a href="/guias">Guías de diagnóstico</a> · <a href="/vehiculos">Catálogo completo</a></div>
-          <div class="footer-desc footer-links" style=${{ marginTop: '4px' }}><a href="/acerca-de">Acerca de</a> · <a href="/contacto">Contacto</a> · <a href="/privacidad">Privacidad y cookies</a> · <a href="/terminos">Términos</a></div>
-          ${/* sin opacity: la bajaba a 4.5:1 justo en el filo del mínimo, y este es
-                precisamente el aviso que no conviene que se lea a medias. */''}
-          <div class="footer-desc" style=${{ marginTop: '5px' }}>Datos técnicos de referencia: verifica siempre contra el manual de servicio del fabricante antes de intervenir el vehículo.</div>
-          <div class="footer-copy">© 2025–2026 FuelTech Master. Todos los derechos reservados.</div>
-          <div class="dev-contact">
-            <${Icon} name="Mail" size=${13} />
-            <a href="#" onClick=${handleEmailClick} title="Enviar correo a newpersonal98@gmail.com">¿Quieres un desarrollo similar? Contáctame: <strong>newpersonal98@gmail.com</strong></a>
-          </div>
-        </div>
+        ${!esMovil && pie}
       </aside>
 
-      <!-- Resultados + ficha técnica: misma pantalla, sin navegar -->
-      <div class="content-pane" id="main-content">
+      <!-- Resultados + ficha técnica: misma pantalla, sin navegar.
+           <main> y no <div>: el skip-link apunta aquí y un lector de
+           pantalla necesita el landmark real para anunciarlo (auditoría WCAG). -->
+      <main class="content-pane" id="main-content">
         <div class="results-strip">
           <div class="rs-head">
             <h2>${showGarage ? 'Mi Garage' : 'Vehículos encontrados'} <button type="button" class="link-btn rs-toggle" onClick=${() => setShowGarage(s => !s)}>${showGarage ? '← búsqueda' : `★ Garage (${garage.length})`}</button></h2>
@@ -1618,12 +1963,20 @@ function App() {
                 </button>`)}
               ${!showGarage && results?.length === 0 && html`<div class="empty-state" aria-live="polite">
                 ${searchErr
-                  ? html`<${Icon} name="WifiOff" size=${22} /><p>ERROR DE CONEXIÓN — REINTENTA EN UNOS SEGUNDOS</p>`
+                  ? html`
+                      <div class="empty-icon"><${Icon} name="WifiOff" size=${28} /></div>
+                      <p class="empty-title">Sin conexión con el servidor</p>
+                      <p class="empty-hint">No pudimos cargar el catálogo. Verifica tu conexión a internet y vuelve a intentarlo en unos segundos.</p>
+                      <button type="button" class="empty-action" onClick=${search}>
+                        <${Icon} name="RefreshCw" size=${14} /> Reintentar
+                      </button>`
                   : html`
-                    <${Icon} name="SearchX" size=${22} />
-                    <p>No se encontraron vehículos con estos filtros.</p>
-                    <p class="hint">Intenta ampliar tu búsqueda: quita la marca, el año o el tipo de inyección.</p>
-                    <button type="button" onClick=${clearFilters}><${Icon} name="FilterX" size=${14} /> Limpiar filtros</button>`}
+                      <div class="empty-icon"><${Icon} name="SearchX" size=${28} /></div>
+                      <p class="empty-title">Sin resultados con esos filtros</p>
+                      <p class="empty-hint">Prueba a quitar la marca, el año o el tipo de inyección para ampliar la búsqueda.</p>
+                      <button type="button" class="empty-action" onClick=${clearFilters}>
+                        <${Icon} name="FilterX" size=${14} /> Limpiar filtros
+                      </button>`}
               </div>`}
             </div>
             ${!showGarage && results?.length > 0 && html`<button type="button" class="rl-nav next" aria-label="Desplazar a la derecha" onClick=${scrollList(1)}><${Icon} name="ChevronRight" size=${20} /></button>`}
@@ -1634,13 +1987,15 @@ function App() {
           ${viewState === 'calculators' 
              ? html`<${Calculators} />`
              : viewState === 'tools'
-               ? html`<${Tools} selectedId=${selected} meta=${meta} />`
+               ? html`<${Tools} selectedId=${selected} meta=${meta}
+                        onSelectVehicle=${(id) => { setSelected(id); setViewState('search'); }} />`
                : selected
                  ? html`<${VehicleDetail} id=${selected} />`
-                 : html`<div class="empty">SELECCIONA UN VEHÍCULO PARA VER SU FICHA TÉCNICA</div>`}
+                  : html`<div class="empty">SELECCIONA UN VEHÍCULO PARA VER SU FICHA TÉCNICA</div>`}
         </div>
-      </div>
-      <${ChatBot} vehicleId=${selected} />
+      </main>
+      ${esMovil && pie}
+      <${ChatBot} vehicleId=${selected} user=${user} />
       <${ToastStack} />
       ${/* Estilos en clase y no en línea: el enlace medía 179×14 px —imposible de
             acertar con el dedo— y el botón repetía a mano el relleno lima que ya
@@ -1656,10 +2011,136 @@ function App() {
     </div>`;
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(html`<${App} />`);
+/* FT-0006: las páginas de solo contenido (/guias, /guia/:slug, legales,
+   /vehiculos, 404) llegan con data-app="none" en #root: el servidor ya pintó
+   TODO su contenido y montar la SPA encima lo borraba (hallazgo del robot
+   recorrido). Ahí React no se monta; el service worker sí se registra igual. */
+const __rootEl = document.getElementById('root');
+if (!__rootEl || __rootEl.dataset.app !== 'none') {
+  ReactDOM.createRoot(__rootEl).render(html`<${App} />`);
+}
 
-// PWA: registra el service worker (offline + instalable). Estrategia network-first,
-// sin riesgo de servir versiones viejas del código.
+/* ══════════════════════════════════════════════════════════════════════════
+   PWA — instalar, modo instalado y estado de la red
+   ══════════════════════════════════════════════════════════════════════════
+   Va fuera de React a propósito: son tres cosas que dependen del SISTEMA y no
+   del estado de la aplicación, ocurren antes de que monte el primer componente
+   y tienen que seguir funcionando en las páginas de solo contenido (/guias,
+   legales) donde React ni siquiera se monta. */
+
+// Estrategia network-first: nunca sirve código viejo, pero responde sin señal.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
 }
+
+/* 1. ¿Está abierta como aplicación instalada? -----------------------------
+   `display-mode: standalone` es el estándar; `navigator.standalone` es el
+   único que responde en el iOS antiguo que todavía se ve en el taller. La
+   clase la usa el CSS para reservar el notch y esconder la invitación a
+   instalar dentro de algo que ya está instalado. */
+(function modoInstalado() {
+  const suelta = () =>
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+    || (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches)
+    || window.navigator.standalone === true;
+  const marcar = () => document.body.classList.toggle('pwa', suelta());
+  marcar();
+  /* Android puede pasar de pestaña a aplicación instalada sin recargar. */
+  if (window.matchMedia) {
+    const mq = window.matchMedia('(display-mode: standalone)');
+    if (mq.addEventListener) mq.addEventListener('change', marcar);
+  }
+})();
+
+/* 2. Invitación a instalar ------------------------------------------------
+   Chrome en Android dispara `beforeinstallprompt` y deja mostrar el diálogo
+   nativo cuando queramos. Se guarda el evento y se ofrece a mano en vez de
+   dejar el aviso genérico del navegador, por dos razones: el momento lo
+   elegimos nosotros (no en el primer segundo, cuando nadie sabe todavía qué
+   es esto) y quien dice que no, no lo vuelve a ver en tres meses.
+
+   Instalada, la aplicación abre a pantalla completa, guarda su icono en el
+   cajón y —con el service worker— sirve el catálogo sin señal: es la
+   diferencia entre una página que se consulta y una herramienta del taller. */
+(function invitarAInstalar() {
+  const CLAVE = 'ft_instalar_rechazado';
+  const TRES_MESES = 90 * 24 * 60 * 60 * 1000;
+  let evento = null, banner = null;
+
+  const rechazadoHacePoco = () => {
+    try {
+      const t = Number(localStorage.getItem(CLAVE) || 0);
+      return t && (Date.now() - t) < TRES_MESES;
+    } catch (e) { return false; }
+  };
+  const cerrar = (recordar) => {
+    if (recordar) { try { localStorage.setItem(CLAVE, String(Date.now())); } catch (e) {} }
+    if (banner) { banner.remove(); banner = null; }
+  };
+
+  const mostrar = () => {
+    if (banner || !evento || rechazadoHacePoco() || document.body.classList.contains('pwa')) return;
+    banner = document.createElement('div');
+    banner.className = 'instalar-banner';
+    banner.setAttribute('role', 'dialog');
+    banner.setAttribute('aria-label', 'Instalar llave');
+    /* textContent y createElement, no innerHTML: la CSP de este proyecto no
+       admite HTML inyectado y aquí no hay nada que interpolar. */
+    const txt = document.createElement('div');
+    txt.className = 'instalar-txt';
+    const t1 = document.createElement('strong'); t1.textContent = 'Instala llave en tu teléfono';
+    const t2 = document.createElement('span'); t2.textContent = 'Abre a pantalla completa y consulta presiones sin señal.';
+    txt.append(t1, t2);
+    const si = document.createElement('button');
+    si.type = 'button'; si.className = 'instalar-si'; si.textContent = 'Instalar';
+    const no = document.createElement('button');
+    no.type = 'button'; no.className = 'instalar-no'; no.textContent = '\u2715';
+    no.setAttribute('aria-label', 'Ahora no');
+    si.addEventListener('click', async () => {
+      const ev = evento; evento = null; cerrar(false);
+      if (!ev) return;
+      ev.prompt();
+      try { await ev.userChoice; } catch (e) {}
+      track('pwa_instalar_aceptado');
+    });
+    no.addEventListener('click', () => { cerrar(true); track('pwa_instalar_rechazado'); });
+    banner.append(txt, si, no);
+    document.body.appendChild(banner);
+  };
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();          // sin esto Chrome pinta su propio aviso encima
+    evento = e;
+    /* Doce segundos: el tiempo de mirar una ficha completa. Ofrecerlo antes
+       es pedir que instale algo que todavía no ha visto. */
+    setTimeout(mostrar, 12000);
+  });
+  window.addEventListener('appinstalled', () => {
+    cerrar(false); evento = null;
+    document.body.classList.add('pwa');
+    track('pwa_instalada');
+  });
+})();
+
+/* 3. Aviso de sin conexión ------------------------------------------------
+   En el taller la señal se cae en la fosa y detrás de la cortina de metal.
+   El service worker hace que la aplicación siga respondiendo con lo cacheado,
+   y ese es justo el problema: sin avisar, el mecánico no sabe si la presión
+   que está leyendo es la de hoy o la de la última vez que hubo señal. */
+(function avisarSinRed() {
+  let aviso = null;
+  const pintar = () => {
+    const fuera = navigator.onLine === false;
+    document.body.classList.toggle('sin-red-activo', fuera);
+    if (fuera && !aviso) {
+      aviso = document.createElement('div');
+      aviso.className = 'sin-red';
+      aviso.setAttribute('role', 'status');
+      aviso.textContent = 'Sin conexión — mostrando lo último guardado en el teléfono';
+      document.body.appendChild(aviso);
+    } else if (!fuera && aviso) { aviso.remove(); aviso = null; }
+  };
+  window.addEventListener('online', pintar);
+  window.addEventListener('offline', pintar);
+  pintar();
+})();

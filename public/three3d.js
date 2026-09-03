@@ -1,4 +1,4 @@
-/* FuelTech Master — Visores 3D estilo BLUEPRINT técnico (Three.js + modelos GLTF)
+/* llave — Visores 3D estilo BLUEPRINT técnico (Three.js + modelos GLTF)
    Vehículo en vista fantasma/rayos X, módulo en despiece sobre su eje,
    y todo delineado con wireframe técnico (aristas) en lugar de render fotorrealista.
    Expone window.FT3D = { car, module, pump } y dispara 'ft3d-ready'. */
@@ -107,7 +107,7 @@ function blueprint(root) {
 function makeLabel(text, color = '#e8eae6', scale = 0.011) {
   const c = document.createElement('canvas');
   const m = c.getContext('2d');
-  m.font = '600 42px Montserrat, system-ui, sans-serif';
+  m.font = '600 42px Inter, system-ui, sans-serif';
   const pad = 16;
   c.width = Math.ceil(m.measureText(text).width) + pad * 2; c.height = 68;
   const ctx = c.getContext('2d');
@@ -116,7 +116,7 @@ function makeLabel(text, color = '#e8eae6', scale = 0.011) {
   rr(1, 6, c.width - 2, c.height - 12, 8); ctx.fill();
   ctx.strokeStyle = _isLight ? 'rgba(70,76,68,.35)' : 'rgba(160,175,150,.45)'; ctx.lineWidth = 1.5;
   rr(1, 6, c.width - 2, c.height - 12, 8); ctx.stroke();
-  ctx.font = '600 42px Montserrat, system-ui, sans-serif';
+  ctx.font = '600 42px Inter, system-ui, sans-serif';
   ctx.fillStyle = color; ctx.textBaseline = 'middle';
   ctx.fillText(text, pad, 36);
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
@@ -134,9 +134,9 @@ function printedBand(lines, radius, height) {
   ctx.textAlign = 'center';
   for (let rep = 0; rep < 2; rep++) {
     const cx = 256 + rep * 512;
-    ctx.font = '700 54px Montserrat, system-ui, sans-serif';
+    ctx.font = '700 54px Inter, system-ui, sans-serif';
     ctx.fillText(lines[0], cx, 105);
-    ctx.font = '500 36px Montserrat, system-ui, sans-serif';
+    ctx.font = '500 36px Inter, system-ui, sans-serif';
     ctx.fillText(lines[1] || '', cx, 165);
   }
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
@@ -256,7 +256,7 @@ function enableHover(viewer, meshes) {
       current = hit.object;
       current.userData._em = current.material.emissive.getHex();
       current.userData._emi = current.material.emissiveIntensity;
-      current.material.emissive.setHex(0xaecc3a);
+      current.material.emissive.setHex(0x3F5132);
       current.material.emissiveIntensity = .5;
       tip.textContent = current.userData.name;
       tip.style.opacity = 1;
@@ -306,7 +306,7 @@ function buildFuelSystem(g, box, { zone, psiText, zoneLabel, bodyType }, hoverab
   const line = tube([
     V3(tankX, Y(.08), W * .2), V3(X(.55), Y(.06), W * .32),
     V3(X(.75), Y(.1), W * .28), V3(X(.84), Y(.56), W * .12)
-  ], .02, new THREE.MeshStandardMaterial({ color: 0xaecc3a, metalness: .3, roughness: .4, emissive: 0xaecc3a, emissiveIntensity: .18 }), 50);
+  ], .02, new THREE.MeshStandardMaterial({ color: 0x3F5132, metalness: .3, roughness: .4, emissive: 0x3F5132, emissiveIntensity: .18 }), 50);
   line.userData.name = 'Línea de combustible'; g.add(line); hoverables.push(line);
 
   /* marcador pulsante del módulo */
@@ -317,13 +317,13 @@ function buildFuelSystem(g, box, { zone, psiText, zoneLabel, bodyType }, hoverab
     frame_rail:  [X(.58), Y(.12), W * .32],
   };
   const [mx, my, mz] = zonesPos[zone] || zonesPos.tank_drop;
-  const marker = new THREE.Mesh(new THREE.SphereGeometry(.12, 20, 20), MAT.glow(0xaecc3a));
+  const marker = new THREE.Mesh(new THREE.SphereGeometry(.12, 20, 20), MAT.glow(0x3F5132));
   marker.position.set(mx, my, mz); marker.userData.name = 'Módulo de gasolina';
   g.add(marker); hoverables.push(marker);
   const halo = new THREE.Mesh(new THREE.SphereGeometry(.12, 20, 20),
-    new THREE.MeshBasicMaterial({ color: 0xaecc3a, transparent: true, opacity: .25, depthWrite: false }));
+    new THREE.MeshBasicMaterial({ color: 0x3F5132, transparent: true, opacity: .25, depthWrite: false }));
   halo.position.copy(marker.position); g.add(halo);
-  const mkLbl = makeLabel(zoneLabel || 'MÓDULO', _isLight ? '#435A08' : '#aecc3a');
+  const mkLbl = makeLabel(zoneLabel || 'MÓDULO', _isLight ? '#3F5132' : '#6F8A5A');
   mkLbl.position.set(mx, box.max.y + .95, mz); g.add(mkLbl);
 
   v.ticks.push(t => {
@@ -508,11 +508,11 @@ function externalPump(el) {
   /* flechas de flujo */
   const inArrow = new THREE.Mesh(new THREE.ConeGeometry(.07, .18, 12), MAT.glow(0xb0b7ae));
   inArrow.rotation.z = -Math.PI / 2; inArrow.position.set(-1.6, .1, 0); g.add(inArrow);
-  const outArrow = new THREE.Mesh(new THREE.ConeGeometry(.07, .18, 12), MAT.glow(0xaecc3a));
+  const outArrow = new THREE.Mesh(new THREE.ConeGeometry(.07, .18, 12), MAT.glow(0x3F5132));
   outArrow.rotation.z = -Math.PI / 2; outArrow.position.set(1.25, .1, 0); g.add(outArrow);
   const lblIn = makeLabel('DESDE EL TANQUE', _isLight ? '#3a403f' : '#B0B7AE'); lblIn.position.set(-1.5, .75, .3); g.add(lblIn);
-  const lblOut = makeLabel('AL MOTOR', _isLight ? '#435A08' : '#AECC3A'); lblOut.position.set(1.35, .75, .3); g.add(lblOut);
-  const lblNo = makeLabel('NO LLEVA MÓDULO EN TANQUE', _isLight ? '#435A08' : '#aecc3a'); lblNo.position.set(0, 1.35, .3); g.add(lblNo);
+  const lblOut = makeLabel('AL MOTOR', _isLight ? '#3F5132' : '#6F8A5A'); lblOut.position.set(1.35, .75, .3); g.add(lblOut);
+  const lblNo = makeLabel('NO LLEVA MÓDULO EN TANQUE', _isLight ? '#3F5132' : '#6F8A5A'); lblNo.position.set(0, 1.35, .3); g.add(lblNo);
 
   blueprint(g);
   v.ticks.push(t => {
@@ -730,9 +730,9 @@ function pump(el, { psi = '', style = '', code = '' } = {}) {
   const out = new THREE.Mesh(new THREE.CylinderGeometry(.075, .075, .38, 14), MAT.brass());
   out.position.set(0, .98, -.12); out.userData.name = `Salida con check — ${psi} PSI máx directa`;
   g.add(out); hoverables.push(out);
-  const arrow = new THREE.Mesh(new THREE.ConeGeometry(.07, .16, 12), MAT.glow(0xaecc3a));
+  const arrow = new THREE.Mesh(new THREE.ConeGeometry(.07, .16, 12), MAT.glow(0x3F5132));
   arrow.position.set(0, 1.28, -.12); g.add(arrow);
-  const psiL = makeLabel(`${psi} PSI MÁX`, _isLight ? '#435A08' : '#AECC3A', .0065); psiL.position.set(0, 1.62, 0); g.add(psiL);
+  const psiL = makeLabel(`${psi} PSI MÁX`, _isLight ? '#3F5132' : '#6F8A5A', .0065); psiL.position.set(0, 1.62, 0); g.add(psiL);
 
   const bCap = new THREE.Mesh(new THREE.CylinderGeometry(.43, .4, .16, 40), MAT.blackPl());
   bCap.position.y = -.68; g.add(bCap);

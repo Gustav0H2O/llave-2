@@ -3,49 +3,55 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>FuelTech Master — Presión de riel (PSI/Bar), módulos y pilas de gasolina</title>
-<meta name="description" content="Consulta técnica gratis para mecánicos de Latinoamérica: presión de riel (PSI/Bar), ubicación del módulo y pilas (bombas) de gasolina compatibles OEM y alternativas. Diagnóstico del sistema de combustible al instante.">
-<meta name="keywords" content="pila de gasolina, bomba de gasolina, módulo de gasolina, presión de riel, presión de combustible, PSI inyección, refacciones automotrices, taller mecánico, mecánica automotriz, diagnóstico automotriz, TBI, MFI, GDI, Vortec, Latinoamérica">
+<title>llave — Presión de bomba de gasolina por vehículo</title>
+<meta name="description" content="Presión de riel en PSI y bar, ubicación del módulo y pilas de gasolina compatibles OEM y alternativas. Consulta gratis para mecánicos de Latinoamérica.">
+<meta name="keywords" content="llave, pila de gasolina, bomba de gasolina, módulo de gasolina, presión de riel, presión de combustible, PSI inyección, refacciones automotrices, taller mecánico, mecánica automotriz, diagnóstico automotriz, TBI, MFI, GDI, Vortec, Latinoamérica">
 <meta name="robots" content="index, follow">
-<link rel="canonical" href="https://fueltech-master.onrender.com/">
-<meta name="theme-color" content="#0F1113" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#F4F5F2" media="(prefers-color-scheme: light)">
+<link rel="canonical" href="https://llave.onrender.com/">
+<meta name="theme-color" content="#F8F7F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111311" media="(prefers-color-scheme: dark)">
 <script>
-/* Tema: se resuelve ANTES del primer pintado para que no haya destello blanco.
+/* Tema: se resuelve ANTES del primer pintado para que no haya destello.
    Va inline y sin defer a propósito — un archivo externo llegaría tarde.
-   'auto' no se estampa como atributo: se deja que el media query del CSS
-   decida, así el respaldo sin JS sigue funcionando igual. */
+   El default es "light" (lienzo editorial #F8F7F3). El usuario puede
+   elegir dark o auto (que sigue la preferencia del sistema) desde el
+   selector de tema en el panel lateral. */
 (function () {
   try {
-    var pref = localStorage.getItem('ft_theme');           // 'light' | 'dark' | 'auto' | null
-    if (pref === 'light' || pref === 'dark') document.documentElement.setAttribute('data-theme', pref);
-  } catch (e) { /* localStorage bloqueado (modo privado): se queda en auto */ }
+    var pref = localStorage.getItem('llave_theme');        // 'light' | 'dark' | 'auto' | null
+    if (pref === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    else if (pref === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+      document.documentElement.setAttribute('data-theme', 'dark');
+    else document.documentElement.setAttribute('data-theme', 'light');
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
 })();
 </script>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="FuelTech">
-<link rel="icon" type="image/svg+xml" href="/icon.svg">
-<link rel="icon" type="image/png" sizes="64x64" href="/brand/favicon-64.png">
-<link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="llave">
+<link rel="icon" type="image/svg+xml" href="/brand/favicon-llave.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="/brand/favicon-64-llave.png">
+<link rel="apple-touch-icon" href="/brand/apple-touch-llave.png">
 
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="FuelTech Master">
-<meta property="og:title" content="FuelTech Master — Presión de riel, módulos y pilas de gasolina">
-<meta property="og:description" content="Consulta técnica gratis para mecánicos de Latinoamérica: presión de riel, ubicación del módulo y pilas de gasolina compatibles OEM y alternativas.">
-<meta property="og:url" content="https://fueltech-master.onrender.com/">
+<meta property="og:site_name" content="llave">
+<meta property="og:title" content="llave — Presión de riel, módulos y pilas de gasolina">
+<meta property="og:description" content="Presión de riel en PSI y bar, ubicación del módulo y pilas de gasolina compatibles OEM y alternativas. Consulta gratis para mecánicos de Latinoamérica.">
+<meta property="og:url" content="https://llave.onrender.com/">
 <meta property="og:locale" content="es_MX">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="FuelTech Master — Presión, módulos y pilas de gasolina">
+<meta name="twitter:title" content="llave — Presión, módulos y pilas de gasolina">
 <meta name="twitter:description" content="Presión de riel, ubicación del módulo y pilas compatibles para vehículos de Latinoamérica.">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "WebApplication",
-  "name": "FuelTech Master",
+  "name": "llave",
   "applicationCategory": "AutomotiveApplication",
   "operatingSystem": "Web",
   "description": "Consulta técnica de presión de riel, ubicación de módulos y pilas de gasolina compatibles para vehículos de Latinoamérica.",
@@ -164,260 +170,210 @@
 
 <!-- Póster del hero: es el LCP del home (el <video> llega después, ver microapps.js).
      Sin este preload el navegador lo descubre tarde, dentro de una regla CSS. -->
-<link rel="preload" as="image" href="/media/hero-poster.jpg" fetchpriority="high">
+<!-- (preload de hero-poster eliminado: el hero ya no usa imagen de fondo) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   /* ================================================================
-     Sistema de color FuelTech Master
+     Sistema visual "llave"
      ----------------------------------------------------------------
-     Tres roles semánticos, deliberadamente separados. Antes de la
-     identidad lima el rojo hacía de marca Y de peligro a la vez; al
-     volverse lima la marca, "consumo crítico" habría quedado en verde.
-     Por eso ahora:
-       lima  (--accent) = marca, acción, dato confirmado
-       ámbar (--amber)  = incertidumbre, advertencia, trabajo extra
-       rojo  (--danger) = falla real: corto, circuito abierto, error
-     Nunca intercambiarlos: en un taller el color es la primera lectura.
+     Marca: llave · taller mecánico → marca digital premium.
+     Verde #3F5132 como acento estratégico (no saturado), blanco
+     cálido #F8F7F3 como lienzo editorial, negro carbón #111311
+     como tinta, gris metálico #9A9B91 como metadatos.
 
-     El tema se resuelve con [data-theme] en <html>, que estampa el
-     script del <head> antes del primer pintado (ver "tema"). Así el
-     usuario puede forzar claro/oscuro además de seguir al sistema.
+     Roles semánticos (no intercambiables, en un taller el color
+     es la primera lectura):
+       verde  (--accent) = marca, acción, dato confirmado
+       ámbar (--amber)   = incertidumbre, advertencia, trabajo extra
+       rojo  (--danger)  = falla real: corto, circuito abierto, error
+
+     El tema se resuelve con [data-theme] en <html>; el script del
+     <head> estampa el atributo antes del primer pintado para evitar
+     destello. El default editorial es light sobre #F8F7F3; el dark
+     mode (#111311) se activa con [data-theme="dark"] o cuando el
+     sistema lo pide y el usuario no ha elegido otra cosa.
      ================================================================ */
   :root {
-    --accent: #AECC3A;          /* lima de marca */
-    --accent-strong: #C2DE4C;   /* hover / brillo */
-    --accent-ink: #101310;      /* texto sobre relleno lima */
-    /* Rellenos sólidos (FAB, botones primarios): el lima NO cambia con el tema.
-       Es el color del logotipo y siempre lleva tinta oscura encima (~11:1), así que
-       funciona igual sobre grafito que sobre blanco. El --accent oscurecido del
-       modo claro es solo para texto y bordes, donde sí necesita contraste. */
-    --accent-fill: #AECC3A; --accent-fill-strong: #C2DE4C;
-    --accent-soft: rgba(174, 204, 58, .09);
-    --accent-soft-2: rgba(174, 204, 58, .16);
-    --accent-dim: rgba(174, 204, 58, .42);
-    --accent-glow: rgba(174, 204, 58, .28);
+    /* ---- Acento de marca: verde estratégico ---------------------------
+       El verde de marca funciona como relleno sólido y como tinta de
+       acción primaria. Mide ~7.8:1 sobre #F8F7F3 (AA Large + Normal). */
+    --accent: #3F5132;
+    --accent-strong: #2E3D24;          /* hover de relleno sólido */
+    --accent-olive: #7B8968;           /* verde oliva secundario */
+    --accent-olive-soft: rgba(123, 137, 104, .14);
+    --accent-olive-soft-2: rgba(123, 137, 104, .26);
+    --accent-ink: #F8F7F3;            /* texto sobre relleno verde */
+    --accent-fill: #3F5132;
+    --accent-fill-strong: #4F6740;
+    --accent-soft: rgba(63, 81, 50, .08);
+    --accent-soft-2: rgba(63, 81, 50, .16);
+    --accent-dim: rgba(63, 81, 50, .42);
+    --accent-glow: rgba(63, 81, 50, .22);
     /* alias heredados: three3d.js y admin.js siguen pidiendo --red */
     --red: var(--accent); --red-dim: var(--accent-dim);
 
-    --danger: #F2555A; --danger-dim: rgba(242, 85, 90, .45); --danger-soft: rgba(242, 85, 90, .1);
-    --amber: #F0B429; --amber-dim: rgba(240, 180, 41, .45); --amber-soft: rgba(240, 180, 41, .08);
+    /* ---- Estados: ámbar y rojo mantienen su rol ----------------------- */
+    --danger: #B8341E; --danger-dim: rgba(184, 52, 30, .42); --danger-soft: rgba(184, 52, 30, .08);
+    --amber: #8A5A00; --amber-dim: rgba(138, 90, 0, .34); --amber-soft: rgba(138, 90, 0, .08);
 
-    /* ---- Neutros cálidos -------------------------------------------------
-       El grafito de la casa se conserva, pero con temperatura: el gris azulado
-       original (#0F1113) pasa a un grafito con algo de tierra. Es un cambio de
-       matiz, no de identidad — la app sigue siendo oscura y sigue siendo la
-       misma, solo deja de sentirse fría. En claro, el lienzo pasa de un gris
-       verdoso a crema, que es donde el minimalismo cálido se nota de verdad. */
-    --bg: #131211; --panel: rgba(28, 26, 23, .82); --panel2: rgba(39, 36, 32, .9);
-    --card: rgba(39, 36, 32, .9);
-    /* Bordes más tenues: en minimalismo la separación la hace el aire, no la
-       línea. El borde marcado se reserva para lo que de verdad hay que tocar. */
-    --border: rgba(138, 130, 118, .24); --border-hi: rgba(138, 130, 118, .48);
-    --text: #EDEAE3; --muted: #9A938A;
-    /* ---- Rótulos ---------------------------------------------------------
-       Antes cada etiqueta de sección iba en lima: 73 usos del acento como
-       color de texto. Cuando todo es acento, nada lo es. Los rótulos pasan a
-       texto normal y el lima queda para la acción y el estado. Va en token
-       para poder revertirlo en un sitio. */
-    --label: #EDEAE3;
-    --label-rule: rgba(138, 130, 118, .28);
-    --icon: #9A938A;
-    --font: 'Montserrat', system-ui, -apple-system, sans-serif;
-    --v3d-bg: radial-gradient(ellipse at 50% 40%, #1d1b17 0%, #131211 90%);
-    --v3d-hint: rgba(154, 147, 138, .75);
-    --bg-glass: rgba(19, 18, 17, .95);
-    --bg-glass-strip: rgba(19, 18, 17, .93);
-    --bg-glass-tip: rgba(19, 18, 17, .92);
-    --bg-fade: rgba(19, 18, 17, .88);
-    --input-bg: rgba(10, 9, 8, .7);
-    --sunken: rgba(0, 0, 0, .18);        /* cajas hundidas dentro de un panel */
-    --text-alt: #C3BCB1;
-    --alert-text: #EFD6A0;
-    --neutral-soft: rgba(138, 130, 118, .07);
-    --neutral-soft-2: rgba(138, 130, 118, .11);
-    --neutral-soft-3: rgba(138, 130, 118, .18);
-    --scroll-thumb: #4C463E;
-    --hairline: rgba(255, 250, 240, .13); /* borde de realce sobre relleno oscuro */
-    --shadow-lg: 0 10px 40px rgba(0, 0, 0, .45);
-    /* Esquina troquelada: el gesto de marca de la casa (chapa metálica cortada
-       en diagonal). Vivía suelto dentro de `.panel`; al sacarlo a tokens lo
-       pueden usar botones, tarjetas y losas sin volver a escribir el polígono.
-       Corta arriba-izquierda y abajo-derecha, siempre en ese par. */
-       El bisel se CONSERVA como firma, pero contenido: solo en paneles y losas
-       —los contenedores grandes—, nunca en botones, chips, insignias ni
-       inputs. Ahí la esquina cortada se repetía decenas de veces por pantalla
-       y el gesto dejaba de leerse como gesto. Todo lo pequeño pasa a radio. */
-    --bevel-sm: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
-    --bevel: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-    --bevel-lg: polygon(22px 0, 100% 0, 100% calc(100% - 22px), calc(100% - 22px) 100%, 0 100%, 0 22px);
-    /* ---- Radios -----------------------------------------------------------
-       Tres, y solo tres. Antes convivían siete tratamientos de esquina
-       (2, 3, 4, 6, 8, 999px y 50%) según quién hubiera escrito el bloque, y
-       esa mezcla es la que hace que una interfaz se sienta improvisada. */
-    --r-sm: 8px;    /* chips, insignias, inputs, botones compactos */
-    --r: 10px;      /* botones, tarjetas pequeñas, campos */
-    --r-lg: 14px;   /* tarjetas y contenedores */
+    /* ---- Lienzo editorial: blanco cálido, jerarquía en alpha negro ---- */
+    --bg: #F8F7F3;
+    --panel: #FFFFFF;
+    --panel2: #F1EFEA;
+    --card: #FFFFFF;
+    --border: #E5E2DA;
+    --border-hi: #C9C6BC;
+    --ink: #111311;
+    --ink-2: #2A2C26;
+    --muted: #6B6D64;
+    --steel: #9A9B91;
+    --label: #111311;
+    --label-rule: #E5E2DA;
+    --icon: rgba(17, 19, 17, .44);
+    --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --v3d-bg: radial-gradient(ellipse at 50% 40%, #f5f4ee 0%, #e8e6df 90%);
+    --v3d-hint: rgba(17, 19, 17, .55);
+    --bg-glass: rgba(248, 247, 243, .85);
+    --bg-glass-strip: rgba(248, 247, 243, .82);
+    --bg-glass-tip: rgba(248, 247, 243, .92);
+    --bg-fade: rgba(248, 247, 243, .85);
+    --input-bg: #FFFFFF;
+    --sunken: #F1EFEA;
+    --text-alt: #2A2C26;
+    --alert-text: #6B4A00;
+    --neutral-soft: rgba(17, 19, 17, .04);
+    --neutral-soft-2: rgba(17, 19, 17, .07);
+    --neutral-soft-3: rgba(17, 19, 17, .11);
+    --scroll-thumb: rgba(17, 19, 17, .22);
+    --hairline: rgba(17, 19, 17, .08);
+    --shadow-lg: 0 12px 32px rgba(17, 19, 17, .08);
+    --shadow-sm: 0 1px 2px rgba(17, 19, 17, .04);
+
+    /* ---- Radios: escala suave ligada al lenguaje de la marca ---------
+       El brief pide formas redondeadas que recuerden llaves y dados.
+       Saltamos de 8/10/14 → 10/14/22/32. */
+    --bevel-sm: none; --bevel: none; --bevel-lg: none;
+    --r-sm: 10px;     /* chips, insignias, inputs, botones compactos */
+    --r:    14px;     /* botones, tarjetas pequeñas, campos */
+    --r-lg: 22px;     /* tarjetas y contenedores */
+    --r-xl: 32px;     /* losa del hero, bloques destacados */
     --r-full: 999px;
-    /* Superficies del home explicativo: una "losa" redondeada que se monta sobre
-       el hero y flota tarjetas encima. Son tokens y no hex fijos porque el bloque
-       nació copiando una landing clara y, en modo oscuro, pintaba una plancha
-       blanca en medio de la app. La forma (radio, elevación) se conserva; el
-       color lo decide el tema. */
-    --surface-slab: rgba(23, 21, 19, .86);
-    --surface-slab-2: rgba(16, 15, 13, .8);
-    --surface-card: rgba(39, 36, 32, .92);
-    /* Hover de tarjeta. Existe como token propio porque antes el hover reusaba
-       --panel2 (rgba(36,41,45,.9)), que en oscuro es el MISMO color que
-       --surface-card: pasar el ratón no cambiaba nada visible. */
-    --surface-card-hover: rgba(54, 50, 44, .95);
-    --surface-card-border: rgba(138, 130, 118, .2);
-    --surface-shadow: 0 18px 50px rgba(0, 0, 0, .5);
-    --surface-card-shadow: 0 2px 10px rgba(0, 0, 0, .3);
-    --surface-card-shadow-hi: 0 14px 30px rgba(0, 0, 0, .45);
-    /* Velo sobre la foto de motor del dashboard. Va en token porque el shell del
-       home lo tenía fijo en grafito: en tema claro la barra superior quedaba con
-       texto oscuro (--text) sobre un fondo casi negro. */
-    --home-scrim:
-      radial-gradient(ellipse 900px 500px at 50% 0%, rgba(19, 18, 17, .3), transparent),
-      linear-gradient(180deg, rgba(19, 18, 17, .74) 0%, rgba(19, 18, 17, .9) 40%, rgba(19, 18, 17, .98) 100%);
-    --logo-dark: block; --logo-light: none;
-    color-scheme: dark;
-  }
 
-  /* Paleta clara. Se aplica cuando el usuario la elige (data-theme="light") o,
-     si no ha elegido nada, cuando el sistema la pide. El script del <head>
-     normaliza el caso "auto" a un data-theme explícito, así que en la práctica
-     manda el selector de atributo; el media query es el respaldo sin JS. */
-  :root[data-theme="light"],
-  :root:not([data-theme]) {
-    /* el lima puro no alcanza 4.5:1 sobre blanco: para texto y bordes se
-       usa una versión oliva oscura, y el lima queda solo como relleno.
-       El valor se eligió midiendo el caso PEOR, que no es el oliva sobre el
-       fondo de la app sino sobre --accent-soft-2, el relleno tintado que usan
-       el estado activo del menú, `.cli-wa`, `.rl-nav:hover` y `.micro-back:hover`.
-       Con el #55700D anterior ese caso daba 4.3:1 y no llegaba a AA a 12px;
-       medido en el navegador, no a ojo. */
-    --lt-accent: #4E680A;
-    --lt-accent-strong: #3D520A;
-    --lt-accent-soft: rgba(78, 104, 10, .08);
-    --lt-accent-soft-2: rgba(78, 104, 10, .14);
-    --lt-accent-dim: rgba(78, 104, 10, .38);
-    --lt-accent-glow: rgba(174, 204, 58, .45);
-    --lt-danger: #C0272D; --lt-danger-dim: rgba(192, 39, 45, .4); --lt-danger-soft: rgba(192, 39, 45, .07);
-    --lt-amber: #8A5A00; --lt-amber-dim: rgba(138, 90, 0, .3); --lt-amber-soft: rgba(138, 90, 0, .07);
-    /* Lienzo crema en vez de gris verdoso: es el cambio que más se nota del
-       minimalismo cálido, y no toca la marca. */
-    --lt-bg: #FAF8F4; --lt-panel: #FFFFFF; --lt-panel2: #F1EDE6; --lt-card: #F1EDE6;
-    /* Bordes muy tenues: sobre crema, una línea marcada ensucia. */
-    --lt-border: rgba(120, 110, 96, .26); --lt-border-hi: rgba(80, 72, 60, .5);
-    --lt-text: #211E1A; --lt-muted: #6E665B;
-    --lt-label: #211E1A;
-    --lt-label-rule: rgba(120, 110, 96, .3);
-    --lt-icon: #6E665B;
-    --lt-v3d-bg: radial-gradient(ellipse at 50% 40%, #fbf8f2 0%, #ddd5c8 90%);
-    --lt-v3d-hint: rgba(20, 22, 26, .85);
-    --lt-bg-glass: rgba(250, 248, 244, .95);
-    --lt-bg-glass-strip: rgba(250, 248, 244, .93);
-    --lt-bg-glass-tip: rgba(255, 255, 255, .96);
-    --lt-bg-fade: rgba(250, 248, 244, .88);
-    --lt-input-bg: #FFFFFF;
-    --lt-sunken: rgba(90, 80, 66, .055);
-    --lt-text-alt: #5C544A;
-    --lt-alert-text: #6B4A00;
-    --lt-neutral-soft: rgba(90, 80, 66, .05);
-    --lt-neutral-soft-2: rgba(90, 80, 66, .09);
-    --lt-neutral-soft-3: rgba(90, 80, 66, .14);
-    --lt-scroll-thumb: #C4BCB0;
-    --lt-hairline: rgba(0, 0, 0, .08);
-    --lt-shadow-lg: 0 10px 40px rgba(60, 50, 38, .16);
-    --lt-surface-slab: #F5F1EA;
-    --lt-surface-slab-2: #EFEAE1;
-    --lt-surface-card: #FFFFFF;
-    --lt-surface-card-hover: #F4F0E8;
-    --lt-surface-card-border: rgba(90, 80, 66, .12);
-    --lt-surface-shadow: 0 18px 50px rgba(60, 50, 38, .1);
-    --lt-surface-card-shadow: 0 2px 10px rgba(60, 50, 38, .05);
-    --lt-surface-card-shadow-hi: 0 14px 30px rgba(60, 50, 38, .1);
-    --lt-home-scrim:
-      radial-gradient(ellipse 900px 500px at 50% 0%, rgba(250, 248, 244, .5), transparent),
-      linear-gradient(180deg, rgba(250, 248, 244, .9) 0%, rgba(250, 248, 244, .97) 40%, rgba(250, 248, 244, 1) 100%);
-  }
-  /* El remapeo va aparte del media query porque una regla CSS no puede estar
-     a la vez dentro y fuera de un @media. Las dos condiciones comparten los
-     valores --lt-* de arriba, así que no hay riesgo de que se desincronicen. */
-  :root[data-theme="light"] {
-    --accent: var(--lt-accent); --accent-strong: var(--lt-accent-strong);
-    --accent-soft: var(--lt-accent-soft); --accent-soft-2: var(--lt-accent-soft-2);
-    --accent-dim: var(--lt-accent-dim); --accent-glow: var(--lt-accent-glow);
-    --danger: var(--lt-danger); --danger-dim: var(--lt-danger-dim); --danger-soft: var(--lt-danger-soft);
-    --amber: var(--lt-amber); --amber-dim: var(--lt-amber-dim); --amber-soft: var(--lt-amber-soft);
-    --bg: var(--lt-bg); --panel: var(--lt-panel); --panel2: var(--lt-panel2); --card: var(--lt-card);
-    --border: var(--lt-border); --border-hi: var(--lt-border-hi);
-    --text: var(--lt-text); --muted: var(--lt-muted);
-    --label: var(--lt-label); --label-rule: var(--lt-label-rule); --icon: var(--lt-icon);
-    --v3d-bg: var(--lt-v3d-bg); --v3d-hint: var(--lt-v3d-hint);
-    --bg-glass: var(--lt-bg-glass); --bg-glass-strip: var(--lt-bg-glass-strip);
-    --bg-glass-tip: var(--lt-bg-glass-tip); --bg-fade: var(--lt-bg-fade);
-    --input-bg: var(--lt-input-bg); --sunken: var(--lt-sunken);
-    --text-alt: var(--lt-text-alt); --alert-text: var(--lt-alert-text);
-    --neutral-soft: var(--lt-neutral-soft); --neutral-soft-2: var(--lt-neutral-soft-2);
-    --neutral-soft-3: var(--lt-neutral-soft-3);
-    --scroll-thumb: var(--lt-scroll-thumb); --hairline: var(--lt-hairline);
-    --shadow-lg: var(--lt-shadow-lg);
-    --surface-slab: var(--lt-surface-slab); --surface-slab-2: var(--lt-surface-slab-2);
-    --surface-card: var(--lt-surface-card); --surface-card-hover: var(--lt-surface-card-hover);
-    --surface-card-border: var(--lt-surface-card-border);
-    --surface-shadow: var(--lt-surface-shadow);
-    --surface-card-shadow: var(--lt-surface-card-shadow);
-    --surface-card-shadow-hi: var(--lt-surface-card-shadow-hi);
-    --home-scrim: var(--lt-home-scrim);
-    --logo-dark: none; --logo-light: block;
+    /* ---- Superficies del home explicativo: la "losa" se monta sobre
+       el hero y flota tarjetas encima. Tokens para que el color siga
+       al tema. La forma (radio, elevación) se conserva. */
+    --surface-slab: rgba(17, 19, 17, .03);
+    --surface-slab-2: rgba(17, 19, 17, .05);
+    --surface-card: #FFFFFF;
+    --surface-card-hover: rgba(17, 19, 17, .04);
+    --surface-card-border: #E5E2DA;
+    --surface-shadow: 0 16px 40px rgba(17, 19, 17, .08);
+    --surface-card-shadow: 0 1px 2px rgba(17, 19, 17, .04);
+    --surface-card-shadow-hi: 0 12px 26px rgba(17, 19, 17, .10);
+    /* Velo sobre la foto de motor del dashboard: blanco cálido editorial */
+    --home-scrim:
+      radial-gradient(ellipse 900px 500px at 50% 0%, rgba(248, 247, 243, .5), transparent),
+      linear-gradient(180deg, rgba(248, 247, 243, .85) 0%, rgba(248, 247, 243, .95) 40%, rgba(248, 247, 243, 1) 100%);
+    /* Logo: un solo SVG con fill="currentColor" — controlamos el color
+       por el contenedor padre. Light mode: verde. */
     color-scheme: light;
   }
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme]) {
-      --accent: var(--lt-accent); --accent-strong: var(--lt-accent-strong);
-      --accent-soft: var(--lt-accent-soft); --accent-soft-2: var(--lt-accent-soft-2);
-      --accent-dim: var(--lt-accent-dim); --accent-glow: var(--lt-accent-glow);
-      --danger: var(--lt-danger); --danger-dim: var(--lt-danger-dim); --danger-soft: var(--lt-danger-soft);
-      --amber: var(--lt-amber); --amber-dim: var(--lt-amber-dim); --amber-soft: var(--lt-amber-soft);
-      --bg: var(--lt-bg); --panel: var(--lt-panel); --panel2: var(--lt-panel2); --card: var(--lt-card);
-      --border: var(--lt-border); --border-hi: var(--lt-border-hi);
-      --text: var(--lt-text); --muted: var(--lt-muted);
-      --label: var(--lt-label); --label-rule: var(--lt-label-rule); --icon: var(--lt-icon);
-      --v3d-bg: var(--lt-v3d-bg); --v3d-hint: var(--lt-v3d-hint);
-      --bg-glass: var(--lt-bg-glass); --bg-glass-strip: var(--lt-bg-glass-strip);
-      --bg-glass-tip: var(--lt-bg-glass-tip); --bg-fade: var(--lt-bg-fade);
-      --input-bg: var(--lt-input-bg); --sunken: var(--lt-sunken);
-      --text-alt: var(--lt-text-alt); --alert-text: var(--lt-alert-text);
-      --neutral-soft: var(--lt-neutral-soft); --neutral-soft-2: var(--lt-neutral-soft-2);
-      --neutral-soft-3: var(--lt-neutral-soft-3);
-      --scroll-thumb: var(--lt-scroll-thumb); --hairline: var(--lt-hairline);
-      --shadow-lg: var(--lt-shadow-lg);
-      --surface-slab: var(--lt-surface-slab); --surface-slab-2: var(--lt-surface-slab-2);
-      --surface-card: var(--lt-surface-card); --surface-card-hover: var(--lt-surface-card-hover);
-      --surface-card-border: var(--lt-surface-card-border);
-      --surface-shadow: var(--lt-surface-shadow);
-      --surface-card-shadow: var(--lt-surface-card-shadow);
-      --surface-card-shadow-hi: var(--lt-surface-card-shadow-hi);
-      --home-scrim: var(--lt-home-scrim);
-      --logo-dark: none; --logo-light: block;
-      color-scheme: light;
-    }
-  }
+
+  /* ---- Dark mode: lienzo #111311, mismas formas --------------------
+     Se activa con [data-theme="dark"] o, si el usuario no eligió nada,
+     cuando el sistema lo pide. La marca verde aparece más tenue —
+     nunca como texto sobre #111311 sin alpha. */
+  :root[data-theme="dark"] {
+    --accent: #6F8A5A;
+    --accent-strong: #8AA571;
+    --accent-olive: #9DAE89;
+    --accent-olive-soft: rgba(157, 174, 137, .16);
+    --accent-olive-soft-2: rgba(157, 174, 137, .28);
+    --accent-ink: #111311;
+    --accent-fill: #6F8A5A;
+    --accent-fill-strong: #8AA571;
+    --accent-soft: rgba(111, 138, 90, .16);
+    --accent-soft-2: rgba(111, 138, 90, .28);
+    --accent-dim: rgba(111, 138, 90, .52);
+    --accent-glow: rgba(111, 138, 90, .28);
+    --red: var(--accent); --red-dim: var(--accent-dim);
+    --danger: #E0635A; --danger-dim: rgba(224, 99, 90, .45); --danger-soft: rgba(224, 99, 90, .10);
+    --amber: #E6B14A; --amber-dim: rgba(230, 177, 74, .45); --amber-soft: rgba(230, 177, 74, .10);
+    /* Superficies un escalón arriba (#1A1C18 → #1F231C) y filos de .10/.20 a
+       .14/.26: sobre #111311 un panel a 4 puntos de luminancia del fondo y un
+       borde al 10 % no se distinguen del lienzo, y el oscuro se leía como una
+       plancha negra sin jerarquía. Se calientan hacia el verde de marca para
+       que sea grafito verdoso, no negro puro. */
+    --bg: #111311;
+    --panel: #1F231C;
+    --panel2: #2A2F26;
+    --card: #1F231C;
+    --border: rgba(248, 247, 243, .14);
+    --border-hi: rgba(248, 247, 243, .26);
+    --ink: #F8F7F3;
+    --ink-2: #D2CFC5;
+    --muted: #A3A599;
+    --steel: #9A9B91;
+    --label: #F8F7F3;
+    --label-rule: rgba(248, 247, 243, .14);
+    --icon: rgba(248, 247, 243, .44);
+    --v3d-bg: radial-gradient(ellipse at 50% 40%, #1a1c18 0%, #111311 90%);
+    --v3d-hint: rgba(248, 247, 243, .55);
+    --bg-glass: rgba(17, 19, 17, .85);
+    --bg-glass-strip: rgba(17, 19, 17, .82);
+    --bg-glass-tip: rgba(17, 19, 17, .8);
+    --bg-fade: rgba(17, 19, 17, .78);
+    --input-bg: rgba(248, 247, 243, .07);
+    --sunken: rgba(248, 247, 243, .05);
+    --text-alt: #D2CFC5;
+    --alert-text: #F5C542;
+    --neutral-soft: rgba(248, 247, 243, .04);
+    --neutral-soft-2: rgba(248, 247, 243, .08);
+    --neutral-soft-3: rgba(248, 247, 243, .14);
+    --scroll-thumb: rgba(248, 247, 243, .22);
+    --hairline: rgba(248, 247, 243, .10);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, .55);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+    --surface-slab: rgba(248, 247, 243, .06);
+    --surface-slab-2: rgba(248, 247, 243, .04);
+    --surface-card: #1F231C;
+    --surface-card-hover: rgba(248, 247, 243, .09);
+    --surface-card-border: rgba(248, 247, 243, .14);
+    --surface-shadow: 0 16px 40px rgba(0, 0, 0, .45);
+    --surface-card-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+    --surface-card-shadow-hi: 0 12px 26px rgba(0, 0, 0, .55);
+    --home-scrim:
+      radial-gradient(ellipse 900px 500px at 50% 0%, rgba(17, 19, 17, .5), transparent),
+      linear-gradient(180deg, rgba(17, 19, 17, .78) 0%, rgba(17, 19, 17, .92) 40%, rgba(17, 19, 17, 1) 100%);
+    color-scheme: dark;
+}
+  /* El default es SIEMPRE light editorial (lienzo #F8F7F3), sin importar
+     la preferencia del sistema. El dark mode (#111311) solo se activa con
+     [data-theme="dark"] explícito — el usuario lo elige con el selector de
+     tres estados (auto / claro / oscuro) en el panel lateral. Es una
+     decisión de producto: la marca "llave" se presenta editorial y clara
+     en su forma canónica, no en grafito. */
+
+  /* OJO: aquí había una `}` de más. Un `}` suelto en el nivel superior es un
+     error de sintaxis y la recuperación del parser se tragaba la regla de
+     abajo entera, así que el reset base NUNCA estuvo activo: `body` llevaba
+     los 8 px de margen del navegador y cada campo sumaba su relleno por fuera
+     del ancho. En el buscador la página se iba a 410 px dentro de un teléfono
+     de 390 y Android la encogía para que cupiera. Si vuelves a tocar el bloque
+     de arriba, cuenta las llaves. */
   * { box-sizing: border-box; margin: 0; padding: 0; }
   /* reset clave para responsividad: por defecto, un hijo de flex/grid no se encoge
      más allá de su contenido ("min-width:auto" = min-content), lo que empuja overflow
      horizontal fuera de pantalla en vez de envolver el texto. min-width:0 lo neutraliza
-     en todo el sitio (los anchos explícitos, como .logo-ft o .result-item, no se ven
+     en todo el sitio (los anchos explícitos, como .result-item o .rl-nav, no se ven
      afectados porque ya tienen flex:none). */
   * { min-width: 0; }
   html { scrollbar-color: var(--scroll-thumb) var(--bg); -webkit-tap-highlight-color: transparent; }
   @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
   body {
-    background: var(--bg); color: var(--text); font: 14.5px/1.55 var(--font);
+    background: var(--bg); color: var(--text); font: 15px/1.58 var(--font);
     min-height: 100vh; overflow-x: hidden; overflow-wrap: anywhere;
   }
   .skip-link {
@@ -441,18 +397,10 @@
   .icon.spin svg { animation: ft-spin 1s linear infinite; }
   @media (prefers-reduced-motion: reduce) { .icon.spin svg { animation-duration: 2.6s; } }
   @keyframes ft-spin { to { transform: rotate(360deg); } }
-  #bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
-  body::before {
-    content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-    background:
-      radial-gradient(ellipse 700px 500px at 12% -8%, var(--accent-soft), transparent),
-      radial-gradient(ellipse 800px 600px at 95% 15%, var(--neutral-soft-2), transparent),
-      radial-gradient(ellipse 900px 500px at 50% 110%, var(--neutral-soft), transparent);
-  }
-  body::after {
-    content: ''; position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .04;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
+  /* Fondo neutro, sin degradados de acento ni textura de grano: la separación
+     la hace el aire y las superficies, no el ornamento. */
+  body::before { content: none; }
+  body::after { content: none; }
   #root { position: relative; z-index: 2; }
 
   /* ---------- shell: filtros a un lado | resultados + ficha juntos del otro ---------- */
@@ -479,14 +427,47 @@
      Dos PNG del manual de marca (versión clara y versión oscura). Se muestran
      con display, no con filter/opacity, para que ninguna de las dos se
      descargue "a medias" ni se degrade el lima corporativo. */
-  .search-pane .logo-block { display: flex; align-items: center; justify-content: center; margin-bottom: 34px; flex: none; }
-  .logo-lockup { width: min(100%, 260px); height: auto; display: block; }
-  .logo-lockup.on-dark { display: var(--logo-dark); }
-  .logo-lockup.on-light { display: var(--logo-light); }
-  /* isotipo suelto (avatares, cabeceras compactas) */
-  .logo-mark { width: clamp(30px, 8vw, 40px); height: auto; flex: none; }
-  .logo-mark.on-dark { display: var(--logo-dark); }
-  .logo-mark.on-light { display: var(--logo-light); }
+  /* Centrado en la columna. Se probó a la izquierda cuando el logotipo era
+     grande, porque entonces el hueco lateral se leía como aire suyo; a su
+     tamaño actual el centrado equilibra mejor con el selector de tema, que
+     también va centrado justo debajo. */
+  .search-pane .logo-block { display: flex; align-items: center; justify-content: center; margin-bottom: 22px; flex: none; }
+  /* El logo se sirve en dos SVG precoloreados (verde para fondo claro, crema
+     para fondo oscuro). El CSS muestra uno y oculta el otro según el tema,
+     sin parpadeo y sin depender de JS — igual que el sistema anterior con
+     --logo-dark / --logo-light, pero con un solo atributo data-theme. */
+  /* Escala del logotipo, medida por ALTO y no por ancho.
+
+     Es lo que hace que se vea alineado: la marca es apaisada (2,6:1), así que
+     84 px de ancho son 34 de alto y al lado de un icono de 24 px canta, aunque
+     el número parezca modesto. Fijando el alto, logotipo, iconos y texto
+     comparten línea óptica. El ancho lo pone la relación real del trazo, de
+     modo que no puede deformarse.
+
+       xl  marca principal de una pantalla
+       m   cabecera. NO es el alto del icono del menú: se probó y se queda
+           corto, porque un icono es un glifo compacto y la marca es una
+           palabra. A igual altura de caja la palabra pesa menos. ~1,35x el
+           icono es lo que hace que los dos tengan la misma presencia.
+       s   en línea con texto de 13-14 px  */
+  :root { --logo-h-xl: 52px; --logo-h-m: 32px; --logo-h-s: 24px; }
+  .logo-img { height: var(--logo-h-xl); width: auto; max-width: 100%; display: block; }
+  .logo-img--light { display: block; }
+  .logo-img--dark  { display: none; }
+  :root[data-theme="dark"] .logo-img--light { display: none; }
+  :root[data-theme="dark"] .logo-img--dark  { display: block; }
+  /* Sin pareja `:root:not([data-theme])`, aquí ni en toda la hoja: NO hay
+     estado sin atributo — el script del <head> lo estampa antes del primer
+     pintado y applyTheme() lo reestampa siempre, "Auto" incluido. Esas reglas
+     no casaban al cargar y sí al pulsar "Auto" en caliente. */
+  /* Excepción del hero: debajo hay un video con degradado oscuro, no el
+     fondo de la app. El logo del hero es SIEMPRE la versión crema,
+     independientemente del tema del usuario. */
+  .home-hero .logo-img--light { display: none; }
+  .home-hero .logo-img--dark  { display: block; }
+  /* isotipo suelto (avatares, cabeceras compactas): ahora el "logo-mark" es la
+     palabra "llave" en SVG, escalada. Mismo SVG, mismo currentColor. */
+  .logo-mark { height: var(--logo-h-s); width: auto; flex: none; color: var(--accent); }
 
   /* ---------- selector de tema ----------
      Tres estados explícitos (auto / claro / oscuro) en vez de un interruptor de
@@ -500,7 +481,7 @@
     display: flex; align-items: center; justify-content: center; gap: 6px;
     padding: 7px 13px; border: none; border-radius: var(--r-full); cursor: pointer;
     background: transparent; color: var(--muted); touch-action: manipulation;
-    font: 700 9.5px var(--font); letter-spacing: 1.4px; text-transform: uppercase;
+    font: 700 9.5px var(--font); letter-spacing: 1.4px; text-transform: none;
     transition: background .18s, color .18s;
   }
   .theme-switch button:hover { color: var(--text); }
@@ -537,19 +518,14 @@
      más abajo en la hoja y, a igual especificidad, ganaba por orden de fuente —
      el aviso caía dentro del flujo y estrujaba el panel de contenido. */
   /* Este sí necesita despegarse del fondo: flota sobre el contenido. Va con
-     `filter: drop-shadow()` y no con `box-shadow`, porque hereda el `clip-path`
-     de `.panel` y una box-shadow quedaría recortada (invisible), que es
-     justo lo que pasaba. drop-shadow se aplica tras el recorte y sigue el bisel. */
+     `filter: drop-shadow()` para que siga la silueta del panel redondeado. */
   .panel.privacy-notice {
     position: fixed; z-index: 100; max-width: 340px; padding: 16px;
     left: calc(20px + env(safe-area-inset-left));
     bottom: calc(20px + env(safe-area-inset-bottom));
-    filter: drop-shadow(0 8px 22px rgba(0, 0, 0, .45));
+    filter: drop-shadow(0 8px 22px rgba(0, 0, 0, .35));
   }
-  :root[data-theme="light"] .panel.privacy-notice { filter: drop-shadow(0 8px 22px rgba(30, 35, 28, .22)); }
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme]) .panel.privacy-notice { filter: drop-shadow(0 8px 22px rgba(30, 35, 28, .22)); }
-  }
+  :root[data-theme="light"] .panel.privacy-notice { filter: drop-shadow(0 8px 22px rgba(0, 0, 0, .12)); }
   .privacy-notice h3 {
     display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
     font: 700 13px var(--font); color: var(--text);
@@ -561,7 +537,7 @@
     display: inline-block; padding: 8px 0; margin: -8px 0;
     color: var(--accent); text-underline-offset: 2px;
   }
-  @media (pointer: coarse) { .privacy-notice a { padding: 11px 0; margin: -11px 0; } }
+  @media (pointer: coarse) { .privacy-notice a { display: inline-block; padding: 13px 0; margin: -13px 0; } }
   .privacy-ok {
     width: 100%; cursor: pointer; touch-action: manipulation; min-height: 40px;
     background: var(--accent-fill); color: var(--accent-ink); border: 1px solid var(--accent-fill);
@@ -592,6 +568,24 @@
   .search-pane .filters {
     display: grid; grid-template-columns: 1fr 1fr; gap: 20px 18px;
   }
+  /* "Ordenar por" es el quinto campo de una rejilla de dos: se quedaba solo en
+     su fila con media columna de hueco al lado. Ocupando el ancho entero la
+     fila cierra, y de paso el desplegable deja de recortar "Marca, Modelo,
+     Año", que no cabía en 158 px. */
+  .search-pane .filters > div:nth-of-type(5) { grid-column: 1 / -1; }
+  /* Volver, arriba a la izquierda del panel */
+  .pane-back {
+    align-self: flex-start; flex: none; margin-bottom: 10px;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 12px 8px 8px; border-radius: var(--r);
+    background: transparent; border: 1px solid transparent; cursor: pointer;
+    color: var(--ink-2); font: 500 13px var(--font); letter-spacing: 0;
+    text-transform: none; touch-action: manipulation;
+    transition: color .15s, background .15s, border-color .15s;
+  }
+  .pane-back:hover { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-dim); }
+  .pane-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (pointer: coarse) { .pane-back { min-height: 44px; } }
   .search-pane .filters label { margin-bottom: 8px; }
   .search-pane .filters select, .search-pane .filters input { padding: 12px 13px; font-size: 14.5px; max-width: 100%; }
   .search-pane .filters button {
@@ -609,7 +603,7 @@
   }
   .results-strip .rs-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
   .results-strip .rs-head h2 {
-    font: 700 11px var(--font); letter-spacing: 1.4px; text-transform: uppercase; color: var(--label);
+    font: 700 11px var(--font); letter-spacing: 1.4px; text-transform: none; color: var(--label);
   }
   /* El conmutador Garage ↔ búsqueda medía 78x15: es el que cambia toda la lista
      de resultados y era el objetivo más pequeño de la pantalla. Mismo tratamiento
@@ -619,12 +613,11 @@
     display: inline-flex; align-items: center; min-height: 34px; margin-left: 10px;
     padding: 4px 11px; text-decoration: none; border: 1px solid var(--border);
     border-radius: var(--r-sm); color: var(--accent);
-    font: 700 10px var(--font); letter-spacing: 1.1px; text-transform: uppercase;
+    font: 700 10px var(--font); letter-spacing: 1.1px; text-transform: none;
     transition: background .14s, border-color .14s;
   }
   .rs-head .rs-toggle:hover { background: var(--accent-soft-2); border-color: var(--accent-dim); }
-  @media (pointer: coarse) { .rs-head .rs-toggle { min-height: 42px; } }
-  .result-count { color: var(--text-alt); font: 600 10.5px var(--font); letter-spacing: 1px; text-transform: uppercase; }
+  .result-count { color: var(--text-alt); font: 600 10.5px var(--font); letter-spacing: 1px; text-transform: none; }
   .result-count b { color: var(--accent); }
   .legend-est { cursor: help; }
   .link-btn {
@@ -634,6 +627,11 @@
   .legend-est .r-est { margin-left: 0; margin-right: 2px; }
   .result-row { display: flex; align-items: stretch; gap: 8px; }
   .result-list {
+    /* `flex: 1` y no el `0 1 auto` de serie: con resultados la lista rebosa y
+       llenaba la fila por accidente, pero con el estado vacío como único hijo
+       se encogía a su contenido (436 px medidos de 900) y el "Sin resultados
+       con esos filtros" salía a la izquierda en vez de centrado. */
+    flex: 1; min-width: 0;
     display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; margin-bottom: -6px;
     /* las flechas ya cubren la navegación; ocultar la barra nativa deja el panel más limpio */
     scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior: contain;
@@ -705,16 +703,31 @@
       width: 100%; height: auto; max-height: none; overflow-y: visible;
       position: relative; border-right: 0; border-bottom: 1px solid var(--border);
     }
-    /* En el celular la primera pantalla entera se iba en logotipo y selector de
-       tema, y el mecánico tenía que hacer scroll antes de ver un solo dato. El
-       logotipo se reduce y el selector de tema baja al pie, que es donde se
-       cambia una vez y no se vuelve a tocar: la ficha empieza mucho antes. */
-    .search-pane .logo-block { margin-bottom: 18px; }
-    .search-pane .logo-lockup { width: min(62%, 190px); }
-    /* el pie lleva order 99 explícito para que el selector, con order 98, quede
-       ANTES de él y no debajo del correo de contacto */
-    .search-pane .theme-switch { order: 98; margin: 20px auto 0; }
-    .search-pane .app-footer { order: 99; margin-top: 14px; }
+    /* ── Menos scroll antes del primer resultado ──────────────────────
+       Medido a 390x780 había 1.140 px del borde al primer vehículo, y a esta
+       pantalla se llega a mirar un dato. Se recorta sin quitar contenido:
+       logotipo más pequeño, filtros a dos columnas (la regla de 1.240 px los
+       apila porque allí el panel mide 380; en el celular ocupa los 390
+       enteros), y los dos botones de navegación compartiendo fila en vez de
+       ser dos barras a todo lo ancho. El pie ya no está aquí: se renderiza al
+       final de la página (ver `esMovil` en app.js). */
+    .search-pane .logo-block { margin-bottom: 14px; }
+    .search-pane .logo-block .logo-img { height: 46px; }
+    .search-pane .filters { grid-template-columns: 1fr 1fr; gap: 14px 12px; }
+    .search-pane .filters button { padding: 12px 10px; }
+    /* 1.º "Limpiar filtros" a todo lo ancho; 2.º y 3.º —Calculadoras y
+       Herramientas— comparten la fila de abajo. */
+    .search-pane .filters button:nth-of-type(2),
+    .search-pane .filters button:nth-of-type(3) {
+      grid-column: auto; font-size: 12px; padding: 12px 8px; margin-top: 4px !important;
+    }
+
+    /* El pie, ya fuera del panel, cierra la página a todo lo ancho */
+    .app-shell > .app-footer {
+      order: 99; width: 100%; margin-top: 0;
+      padding: 18px clamp(14px, 5vw, 24px) calc(28px + env(safe-area-inset-bottom));
+      border-top: 1px solid var(--border); background: var(--bg-glass);
+    }
     .content-pane { overflow-y: visible; }
     .results-strip { position: relative; }
     .preview-inner { padding: 20px 18px calc(50px + env(safe-area-inset-bottom)); }
@@ -730,7 +743,7 @@
     .result-item { scroll-snap-align: start; }
   }
   @media print {
-    body::before, body::after, #bg, .skip-link, .search-pane, .v3d-btn, .rl-nav, .app-footer { display: none !important; }
+    body::before, body::after, .skip-link, .search-pane, .v3d-btn, .rl-nav, .app-footer { display: none !important; }
     .app-shell { display: block; }
     .content-pane { overflow: visible; }
     .results-strip { position: static; }
@@ -747,24 +760,19 @@
      aplica DESPUÉS del recorte y sí sigue la silueta (ver .privacy-notice). */
   .panel {
     background: var(--panel); border: 1px solid var(--border);
-    clip-path: var(--bevel);
+    border-radius: var(--r-lg);
     padding: clamp(14px, 3.5vw, 22px) clamp(12px, 4vw, 24px); backdrop-filter: blur(6px);
     position: relative;
   }
-  .panel::before {
-    content: ''; position: absolute; top: 0; left: 14px; right: 0;
-    height: 1px; background: linear-gradient(90deg, var(--label-rule), transparent 70%);
-  }
   .panel h2 {
-    font: 700 12px var(--font); letter-spacing: 1.4px; text-transform: uppercase; color: var(--label);
+    font: 600 13px var(--font); letter-spacing: .2px; text-transform: none; color: var(--label);
     display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
   }
-  .panel h2::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border-hi), transparent); }
 
   /* ---------- buscador ---------- */
   .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) auto; gap: 16px; align-items: end; }
   .filters label {
-    display: flex; align-items: center; gap: 5px; font: 600 10px var(--font); letter-spacing: 2px; text-transform: uppercase;
+    display: flex; align-items: center; gap: 5px; font: 600 10px var(--font); letter-spacing: .4px; text-transform: none;
     color: var(--muted); margin-bottom: 6px;
   }
   .filters select, .filters input {
@@ -777,7 +785,7 @@
   /* Secundario a propósito: la búsqueda ya es reactiva, este botón solo limpia
      — no debe competir por atención con el contenido de la ficha */
   .filters button {
-    font: 700 12px var(--font); letter-spacing: 2px; text-transform: uppercase;
+    font: 600 12px var(--font); letter-spacing: .3px; text-transform: none;
     background: var(--panel2); color: var(--text); touch-action: manipulation;
     border: 1px solid var(--border-hi); border-radius: var(--r-sm); padding: 11px 28px; cursor: pointer;
     display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -805,7 +813,7 @@
     flex: 1; min-width: 120px; padding: 13px 10px; cursor: pointer; touch-action: manipulation;
     display: flex; align-items: center; justify-content: center; gap: 7px;
     background: transparent; border: none; border-bottom: 2px solid transparent;
-    color: var(--muted); font: 700 10.5px var(--font); letter-spacing: 1px; text-transform: uppercase;
+    color: var(--muted); font: 700 10.5px var(--font); letter-spacing: 1px; text-transform: none;
     transition: color .15s, border-color .15s, background .15s;
   }
   .tool-tab:hover { color: var(--text); }
@@ -862,12 +870,31 @@
   .tool-check-item[data-checked="true"] > span:last-child { opacity: .65; text-decoration: line-through; }
   .tool-check-item:hover { border-color: var(--border-hi); }
 
+  /* ---- checklist editable: paso + lápiz + papelera ---- */
+  .tool-check-row { display: flex; align-items: flex-start; gap: 6px; }
+  .tool-check-row > .tool-check-item, .tool-check-row > .tool-check-edit { flex: 1; min-width: 0; }
+  .tool-check-edit { padding: 10px 12px; font-size: 13px; }
+  .tool-icon-btn {
+    flex: none; width: 34px; height: 34px; margin-top: 4px; padding: 0; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; border: 1px solid var(--border); border-radius: var(--r-sm);
+    color: var(--muted); touch-action: manipulation;
+    transition: color .15s, background .15s, border-color .15s;
+  }
+  .tool-icon-btn:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-soft); }
+  .tool-icon-btn.danger:hover { color: var(--danger); border-color: var(--danger-dim); background: var(--danger-soft); }
+  .tool-icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tool-check-add { display: flex; gap: 8px; align-items: stretch; margin-top: 12px; flex-wrap: wrap; }
+  .tool-check-add input { flex: 1; min-width: 180px; }
+  .tool-check-add .tool-add-btn { flex: none; }
+  @media (pointer: coarse) { .tool-icon-btn { width: 44px; height: 44px; } }
+
   /* comparador */
   .cmp-selects { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
   @media (max-width: 600px) { .cmp-selects { grid-template-columns: 1fr; } }
   .cmp-table { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
   .cmp-head, .cmp-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 10px; padding: 10px 14px; align-items: center; }
-  .cmp-head { background: var(--panel2); font: 700 11px var(--font); letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .cmp-head { background: var(--panel2); font: 700 11px var(--font); letter-spacing: 1px; text-transform: none; color: var(--muted); }
   .cmp-head .cmp-a, .cmp-head .cmp-b { color: var(--label); }
   .cmp-row { border-top: 1px solid var(--border); font: 500 12.5px var(--font); }
   .cmp-lbl { color: var(--muted); font-size: 11.5px; }
@@ -886,7 +913,7 @@
   .tool-add-btn {
     flex: none; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; touch-action: manipulation;
     background: var(--accent-fill); color: var(--accent-ink); border: 1px solid var(--accent-fill);
-    font: 700 11px var(--font); letter-spacing: 1px; text-transform: uppercase;
+    font: 700 11px var(--font); letter-spacing: 1px; text-transform: none;
     padding: 11px 18px; border-radius: var(--r-sm); transition: filter .15s, opacity .15s;
   }
   .tool-add-btn:hover:not(:disabled) { filter: brightness(1.1); }
@@ -901,12 +928,22 @@
     background: var(--neutral-soft-3); border-color: var(--border); color: var(--muted);
   }
   .tool-jobs { display: flex; flex-direction: column; gap: 8px; }
-  .tool-job { padding: 12px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg); }
-  .tool-job-t { font: 600 13px var(--font); color: var(--text); }
-  .tool-job-meta { font: 500 11px var(--font); color: var(--muted); margin-top: 4px; display: flex; gap: 10px; align-items: center; }
+  /* Las tres celdas a mano: con colocación automática la papelera —que cruza
+     las dos filas— no cabía en la fila 1 (texto y fecha ya la ocupaban) y
+     acababa a la IZQUIERDA, con el registro corrido a la derecha. */
+  .tool-job {
+    padding: 12px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg);
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px;
+  }
+  .tool-job-t { grid-column: 1; grid-row: 1; font: 600 13px var(--font); color: var(--text); }
+  .tool-job-meta {
+    grid-column: 1; grid-row: 2;
+    font: 500 11px var(--font); color: var(--muted); margin-top: 4px; display: flex; gap: 10px; align-items: center;
+  }
+  .tool-job > .tool-icon-btn { grid-column: 2; grid-row: 1 / span 2; margin-top: 0; align-self: center; }
 
   .badge {
-    font: 600 10.5px var(--font); letter-spacing: 1.2px; text-transform: uppercase;
+    font: 600 10.5px var(--font); letter-spacing: 1.2px; text-transform: none;
     padding: 4px 10px; border-radius: var(--r-sm); border: 1px solid; white-space: nowrap;
   }
   .badge.MFI  { color: var(--text); border-color: var(--border-hi); background: var(--neutral-soft-2); }
@@ -930,7 +967,7 @@
   .kv dd { font-weight: 500; font-variant-numeric: tabular-nums; }
   .kv .psi { color: var(--text); font-family: var(--font); font-weight: 700; }
   .kv-sub {
-    grid-column: 1 / -1; font: 700 9.5px var(--font); letter-spacing: 2px; text-transform: uppercase;
+    grid-column: 1 / -1; font: 600 9.5px var(--font); letter-spacing: .4px; text-transform: none;
     color: var(--muted); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);
   }
   .kv-sub:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
@@ -947,7 +984,7 @@
   /* indicador de bajar tanque: es el primer dato que necesita el mecánico, vive arriba del panel */
   .tank-flag {
     display: inline-flex; align-items: center; gap: 7px; font: 700 12px var(--font);
-    letter-spacing: 1px; text-transform: uppercase; padding: 6px 12px; border-radius: var(--r-sm);
+    letter-spacing: 1px; text-transform: none; padding: 6px 12px; border-radius: var(--r-sm);
     border: 1px solid; margin-bottom: 14px;
   }
   /* bajar el tanque es trabajo extra (ámbar) y no bajarlo es la buena noticia (lima):
@@ -963,7 +1000,7 @@
   .v3d canvas { display: block; }
   .v3d-hint {
     position: absolute; right: 10px; bottom: 8px; font: 500 10px var(--font);
-    letter-spacing: 1.2px; text-transform: uppercase; color: var(--v3d-hint); pointer-events: none;
+    letter-spacing: 1.2px; text-transform: none; color: var(--v3d-hint); pointer-events: none;
   }
   .v3d-tip {
     position: absolute; left: 0; top: 0; opacity: 0; pointer-events: none; z-index: 3;
@@ -973,13 +1010,11 @@
   }
   .v3d-btn {
     position: absolute; left: 10px; top: 10px; z-index: 3; cursor: pointer; touch-action: manipulation;
-    font: 700 11px var(--font); letter-spacing: 1.8px; display: flex; align-items: center; gap: 7px;
-    background: linear-gradient(145deg, var(--accent-fill-strong), var(--accent-fill)); color: var(--accent-ink); border: 1px solid var(--accent-fill);
-    padding: 8px 16px; border-radius: var(--r-sm); transition: filter .15s, transform .1s;
-    box-shadow: 0 2px 8px var(--accent-glow);
+    font: 500 12px var(--font); letter-spacing: 0; display: flex; align-items: center; gap: 7px;
+    background: var(--accent-fill); color: var(--accent-ink); border: 1px solid var(--accent-fill);
+    padding: 8px 16px; border-radius: var(--r-sm); transition: filter .15s;
   }
-  .v3d-btn:hover { filter: brightness(1.12); }
-  .v3d-btn:active { transform: translateY(1px); }
+  .v3d-btn:hover { filter: brightness(1.08); }
 
   /* ---------- pilas ---------- */
   .pump-card { background: var(--panel2); border: 1px solid var(--border); padding: 14px 16px; }
@@ -993,19 +1028,107 @@
 
   /* estado vacío del buscador: no debe leerse como "la app se rompió" */
   .empty-state {
-    width: 100%; text-align: center; padding: 26px 20px; color: var(--text);
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    width: 100%; text-align: center; padding: 48px 28px; color: var(--text);
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+  .empty-state .empty-icon {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 4px;
+  }
+  .empty-state .empty-title {
+    font: 600 16px/1.3 var(--font); color: var(--ink); margin: 0;
   }
   .empty-state p { font: 600 13.5px var(--font); margin: 0; }
+  .empty-state .empty-hint {
+    font: 400 13px/1.55 var(--font); color: var(--muted); max-width: 380px; margin: 0;
+  }
+  .empty-state .empty-action {
+    margin-top: 10px; font: 600 13px var(--font);
+    background: var(--accent-fill); color: var(--accent-ink);
+    border: 1px solid var(--accent-fill);
+    border-radius: var(--r); padding: 10px 18px; cursor: pointer;
+    transition: background .15s, border-color .15s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .empty-state .empty-action:hover { filter: brightness(1.1); }
   .empty-state p.hint { font: 500 12px var(--font); color: var(--muted); max-width: 380px; }
   .empty-state button {
-    margin-top: 6px; font: 700 11px var(--font); letter-spacing: 1.5px; text-transform: uppercase;
+    margin-top: 6px; font: 700 11px var(--font); letter-spacing: 1.5px; text-transform: none;
     background: transparent; color: var(--accent); border: 1px solid var(--accent-dim); touch-action: manipulation;
     border-radius: var(--r-sm); padding: 9px 22px; cursor: pointer; transition: background .15s;
     display: inline-flex; align-items: center; gap: 8px;
   }
   .empty-state .icon { color: var(--muted); }
   .empty-state button:hover { background: var(--accent-soft-2); }
+
+  /* ---------- pantallas de error (lib/errores.js) ----------
+     Las cinco láminas son lápiz sobre papel crema y en tema oscuro NO se
+     invierten: eso las deja en negativo, que es justo el fallo corregido en la
+     sección del taller. La ilustración se queda igual y cambia el resto. */
+  .err-pantalla {
+    min-height: 72vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: clamp(18px, 4vw, 36px);
+    padding: clamp(28px, 6vw, 64px) clamp(18px, 5vw, 40px);
+  }
+  /* La marca arriba: sin ella una pantalla de error se lee como página de
+     nadie, que es lo que pasaba con el 404 por defecto de Express. */
+  .err-marca { width: 100%; max-width: 1040px; display: flex; }
+  .err-marca img { height: var(--logo-h-m); width: auto; }
+  .err-caja {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(20px, 5vw, 56px); align-items: center;
+    max-width: 1040px; width: 100%;
+  }
+  .err-ilustracion {
+    width: 100%; height: auto; border-radius: var(--r-lg);
+    background: #F8F1EA;   /* el papel de la lámina, para el borde del recorte */
+  }
+  .err-texto { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+  /* El número, grande y en segundo plano: se reconoce de un vistazo sin
+     competir con el titular, que es lo que dice qué pasó. */
+  .err-codigo {
+    font: 800 clamp(52px, 9vw, 86px)/1 var(--font); letter-spacing: -.03em;
+    color: var(--accent); opacity: .28; margin: 0 0 -6px;
+  }
+  /* Sobre el lienzo oscuro el verde a .28 casi desaparece: el número es la
+     señal que se busca de un vistazo, así que se sube. */
+  :root[data-theme="dark"] .err-codigo { opacity: .42; }
+  .err-titulo { font: 700 clamp(22px, 3vw, 32px)/1.15 var(--font); letter-spacing: -.02em; color: var(--ink); margin: 0; }
+  .err-lema { font: 600 15px/1.4 var(--font); color: var(--accent); margin: 0; }
+  .err-detalle { font: 400 15px/1.6 var(--font); color: var(--ink-2); margin: 0; max-width: 46ch; }
+  .err-ayuda { font: 400 13.5px/1.6 var(--font); color: var(--muted); margin: 4px 0 0; max-width: 48ch; }
+  .err-ruta { font: 400 12.5px/1.5 var(--font); color: var(--muted); margin: 2px 0 0; max-width: 100%; }
+  .err-ruta code, .err-incidencia code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px;
+    background: var(--sunken); border: 1px solid var(--border); border-radius: var(--r-sm);
+    padding: 2px 6px; word-break: break-all;
+  }
+  .err-acciones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  .err-accion {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 44px;
+    padding: 12px 20px; border-radius: var(--r); text-decoration: none;
+    font: 600 13.5px var(--font); touch-action: manipulation;
+    border: 1.5px solid var(--border-hi); color: var(--ink); background: transparent;
+    transition: background .15s, color .15s, border-color .15s, filter .15s;
+  }
+  .err-accion:hover { border-color: var(--accent-dim); color: var(--accent); background: var(--accent-soft); }
+  .err-accion--principal {
+    background: var(--accent-fill); border-color: var(--accent-fill); color: var(--accent-ink);
+  }
+  .err-accion--principal:hover { filter: brightness(1.1); background: var(--accent-fill); color: var(--accent-ink); }
+  .err-incidencia { font: 400 12.5px/1.6 var(--font); color: var(--muted); margin: 12px 0 0; }
+  .err-contacto { font: 400 12.5px/1.6 var(--font); color: var(--muted); margin: 2px 0 0; }
+  .err-contacto a { color: var(--accent); }
+  /* Celular: ilustración arriba y texto debajo, en el orden en que se lee, y
+     con la lámina recortada para que el titular no caiga bajo el pliegue. */
+  @media (max-width: 760px) {
+    .err-caja { grid-template-columns: 1fr; gap: 18px; }
+    .err-ilustracion { max-width: 340px; margin: 0 auto; }
+    .err-codigo { font-size: clamp(46px, 15vw, 64px); }
+    .err-accion { flex: 1 1 auto; }
+  }
 
   /* ---------- comentarios ---------- */
   .comments-list { display: flex; flex-direction: column; gap: 12px; }
@@ -1035,15 +1158,9 @@
   }
   .app-footer .footer-links a:hover, .app-footer .footer-links a:focus-visible { color: var(--accent); }
   @media (pointer: coarse) { .app-footer .footer-links a { padding: 12px 0; } }
-  .app-footer .footer-mark { width: 26px; height: auto; flex: none; opacity: .85; }
-  .app-footer .footer-mark.on-dark { display: var(--logo-dark); }
-  .app-footer .footer-mark.on-light { display: var(--logo-light); }
+  .app-footer .footer-mark { height: var(--logo-h-s); width: auto; flex: none; opacity: .85; }
+  .app-footer .footer-mark { color: var(--accent); }
   .app-footer .footer-head { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
-  .app-footer .footer-brand {
-    font: 700 11px var(--font); letter-spacing: 2px; text-transform: uppercase;
-    color: var(--text); margin-bottom: 4px;
-  }
-  .app-footer .footer-brand span { color: var(--accent); }
   .app-footer .footer-desc { margin-top: 2px; }
   /* Iba a 9px con opacity .65, o sea 3.5:1 en oscuro y 3.2:1 en claro: por
      debajo de AA y, sobre todo, ilegible para el público de este producto —un
@@ -1077,23 +1194,40 @@
     position: fixed; z-index: 200;
     bottom: calc(24px + env(safe-area-inset-bottom));
     right: calc(24px + env(safe-area-inset-right));
-    width: 52px; height: 52px; border-radius: 50%; cursor: pointer;
-    background: linear-gradient(145deg, var(--accent-fill-strong), var(--accent-fill)); color: var(--accent-ink);
-    border: 2px solid var(--hairline); box-shadow: 0 4px 20px var(--accent-glow);
+    width: 60px; height: 60px; border-radius: 50%; cursor: pointer;
+    background: var(--accent-fill); color: var(--accent-ink);
+    border: 2px solid var(--accent-fill);
     display: flex; align-items: center; justify-content: center;
-    transition: transform .2s, box-shadow .2s;
+    transition: filter .15s, transform .2s, box-shadow .2s;
+    box-shadow: 0 4px 20px rgba(63, 81, 50, 0.4), 0 0 0 0 rgba(63, 81, 50, 0.3);
+    animation: chat-pulse 2.5s infinite;
   }
-  .chat-fab:hover { transform: scale(1.08); box-shadow: 0 6px 28px var(--accent-glow); }
-  .chat-fab:active { transform: scale(.95); }
+  @keyframes chat-pulse {
+    0%, 100% { box-shadow: 0 4px 20px rgba(63, 81, 50, 0.4), 0 0 0 0 rgba(63, 81, 50, 0.3); }
+    50% { box-shadow: 0 4px 24px rgba(63, 81, 50, 0.5), 0 0 0 12px rgba(63, 81, 50, 0); }
+  }
+  .chat-fab:hover {
+    filter: brightness(1.1);
+    transform: scale(1.08);
+    animation: none;
+  }
+  .chat-fab:active { filter: brightness(.95); transform: scale(.96); }
+  .chat-fab-badge {
+    position: absolute; top: -2px; right: -2px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #22c55e; border: 2px solid var(--panel);
+    display: flex; align-items: center; justify-content: center;
+    font: 700 9px system-ui; color: white;
+  }
 
   .chat-panel {
     position: fixed; z-index: 199;
-    bottom: calc(88px + env(safe-area-inset-bottom));
+    bottom: calc(96px + env(safe-area-inset-bottom));
     right: calc(24px + env(safe-area-inset-right));
-    width: 380px; height: 520px; max-height: calc(100dvh - 130px);
+    width: 400px; height: 560px; max-height: calc(100dvh - 140px);
     background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg);
-    backdrop-filter: blur(12px); display: flex; flex-direction: column;
-    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(16px); display: flex; flex-direction: column;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.1);
     animation: chat-slide .25s ease-out;
   }
   @keyframes chat-slide {
@@ -1103,7 +1237,7 @@
   .chat-head {
     display: flex; align-items: center; gap: 8px; padding: 14px 16px;
     border-bottom: 1px solid var(--border); flex: none;
-    font: 700 12px var(--font); letter-spacing: 1.5px; text-transform: uppercase;
+    font: 700 12px var(--font); letter-spacing: 1.5px; text-transform: none;
     color: var(--accent);
   }
   .chat-head span { flex: 1; }
@@ -1132,7 +1266,7 @@
     text-align: center; color: var(--muted); padding: 20px 10px;
     display: flex; flex-direction: column; align-items: center; gap: 10px;
   }
-  .chat-empty-logo { width: 54px; height: auto; opacity: .9; }
+  .chat-empty-logo { height: 30px; width: auto; opacity: .9; }
   .chat-empty p { font: 500 12px var(--font); max-width: 280px; }
   .chat-suggestions {
     display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 280px;
@@ -1153,9 +1287,8 @@
     background: var(--accent-soft-2); border: 1px solid var(--accent-dim);
     display: flex; align-items: center; justify-content: center; color: var(--accent);
   }
-  .chat-avatar .chat-avatar-mark { width: 18px; height: auto; }
-  .chat-avatar .chat-avatar-mark.on-dark { display: var(--logo-dark); }
-  .chat-avatar .chat-avatar-mark.on-light { display: var(--logo-light); }
+  .chat-avatar .chat-avatar-mark { height: 13px; width: auto; }
+  .chat-avatar .chat-avatar-mark { color: var(--accent-ink); }
   .chat-bubble {
     max-width: 85%; padding: 9px 13px; border-radius: var(--r);
     font: 500 13px/1.45 var(--font); overflow-wrap: anywhere;
@@ -1237,20 +1370,7 @@
      ================================================================ */
   .home {
     position: relative; min-height: 100vh;
-    /* NO poner overflow-x aquí: `overflow-x: hidden` hace que el navegador
-       calcule `overflow-y: auto`, y eso convierte a .home en contenedor de
-       scroll. El hero del inicio es `position: sticky` y se pegaría a ESE
-       contenedor —que no scrollea— en vez de al viewport: nunca se pegaba, se
-       iba de pantalla en la primera pantalla de scroll y dejaba el resto del
-       tramo (~1400px) vacío enseñando este fondo.
-       El desbordamiento horizontal ya lo contiene `body`, donde sí es seguro
-       porque se propaga al viewport. */
-    background: url('/brand/bg-dashboard.png') center top/cover no-repeat;
-  }
-  /* degradado de legibilidad sobre la imagen (z-index 0, bajo el contenido z-index 1) */
-  .home::before {
-    content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-    background: var(--home-scrim);
+    background: var(--bg);
   }
   .home > * { position: relative; z-index: 1; }
 
@@ -1258,37 +1378,69 @@
   .home-nav {
     position: sticky; top: 0; z-index: 50;
     display: flex; align-items: center; gap: 14px;
-    padding: 14px 22px;
+    /* El logotipo tiene que caer en el MISMO eje que el titular del hero y que
+       el logotipo del pie. Los tres bloques centran su contenido en 1280 px,
+       pero la barra iba a un relleno fijo de 22 px, así que arrancaba 58 px
+       antes que todo lo demás y la página se leía descuadrada de arriba abajo.
+       El `max()` mantiene los 22 px como mínimo en pantallas estrechas. */
+    padding: 15px max(clamp(20px, 5vw, 40px), calc((100% - 1280px) / 2));
     background: var(--bg-glass); backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--border);
   }
-  .home-nav-logo { display: flex; align-items: center; gap: 8px; font: 800 14px var(--font); letter-spacing: .5px; color: var(--text); }
-  .home-nav-logo img { width: 30px; height: 30px; border-radius: var(--r); }
-  .home-nav-links { display: flex; align-items: center; gap: 4px; margin: 0 auto; flex-wrap: wrap; }
+  .home-nav-logo { display: flex; align-items: center; gap: 0; color: var(--accent); }
+  .home-nav-logo img { height: var(--logo-h-m); width: auto; }
+  /* NUNCA envuelve: con la marca, seis categorías, el buscador y la cuenta en
+     la misma barra, por debajo de ~1400 px los enlaces se iban a una segunda
+     fila y la barra pasaba de 79 a 125 px, con el logotipo flotando a media
+     altura de un bloque de dos pisos. Si no caben, se deslizan. */
+  .home-nav-links {
+    display: flex; align-items: center; gap: 4px; margin: 0 auto;
+    flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain;
+    scrollbar-width: none; -ms-overflow-style: none;
+    /* el degradado del borde avisa de que queda menú por ver */
+    -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 16px), transparent 100%);
+    mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 16px), transparent 100%);
+  }
+  .home-nav-links::-webkit-scrollbar { display: none; }
+  .home-nav-link { flex: none; }
   .home-nav-link {
     display: inline-flex; align-items: center; gap: 6px; cursor: pointer; touch-action: manipulation;
     background: none; border: 1px solid transparent; border-radius: var(--r); color: var(--muted);
-    font: 700 12px var(--font); letter-spacing: .4px; padding: 8px 13px;
+    font: 500 13px var(--font); letter-spacing: 0; padding: 8px 13px;
     transition: background .15s, color .15s, border-color .15s;
   }
   .home-nav-link:hover { background: var(--panel2); color: var(--text); }
   .home-nav-link.active { background: var(--accent-soft-2); color: var(--accent); border-color: var(--accent-dim); }
   .home-nav-ic { display: inline-flex; }
-  .home-nav-user { display: flex; align-items: center; white-space: nowrap; }
+  .home-nav-user { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  /* Selector de tema en la barra: el margen inferior de 26px que trae de serie
+     era para el panel de filtros; aquí lo alinea el flex. */
+  .home-nav .theme-switch { margin: 0; padding: 2px; flex: none; }
+  /* Sol y luna, sin etiqueta. El icono ya dice de qué va el control —es el
+     patrón que todo el mundo reconoce— y con el texto puesto la barra no cabe:
+     lleva marca, seis categorías, buscador y cuenta, y a 1440 px cortaba tanto
+     "Aprender" como "Iniciar sesión". El `title` y el `aria-label` de cada
+     botón, más el `aria-pressed` que marca cuál está activo, lo dejan claro
+     para el lector de pantalla y al pasar el ratón. */
+  .home-nav .theme-switch button { padding: 9px 12px; }
+  /* `:not(.icon)` no es un detalle: el icono TAMBIÉN es un <span> —así lo monta
+     el componente Icon, que le mete el SVG dentro— así que un `span { display:
+     none }` a secas escondía el sol y la luna junto con la etiqueta y dejaba el
+     control como una píldora vacía de 52x24 px. */
+  .home-nav .theme-switch button span:not(.icon) { display: none; }
   .home-nav-who { display: inline-flex; align-items: center; gap: 8px; font: 600 11px var(--font); color: var(--muted); }
   /* "salir" medía 14px de alto: imposible de acertar con el dedo */
   .home-nav-who .link-btn {
     display: inline-flex; align-items: center; min-height: 34px; padding: 4px 10px;
     text-decoration: none; border: 1px solid var(--border); border-radius: var(--r-sm);
-    font: 700 9.5px var(--font); letter-spacing: 1.1px; text-transform: uppercase; color: var(--muted);
+    font: 500 12px var(--font); letter-spacing: 0; text-transform: none; color: var(--muted);
   }
   .home-nav-who .link-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
-  @media (pointer: coarse) { .home-nav-who .link-btn { min-height: 42px; } }
   .home-nav-login {
     display: inline-flex; align-items: center; cursor: pointer; touch-action: manipulation;
     padding: 9px 15px; border-radius: var(--r-sm);
     background: var(--accent-fill); border: 1px solid var(--accent-fill); color: var(--accent-ink);
-    font: 700 11px var(--font); letter-spacing: 1px; text-transform: uppercase;
+    font: 500 13px var(--font); letter-spacing: 0; text-transform: none;
     transition: filter .15s;
   }
   .home-nav-login:hover { filter: brightness(1.1); }
@@ -1300,7 +1452,7 @@
      compactos suben a 44px, el mínimo cómodo con el dedo. En ratón se quedan
      compactos para no inflar las tablas densas de la ficha. */
   @media (pointer: coarse) {
-    .insp-btn, .quote-del, .conv-mode, .theme-switch button { min-height: 44px; }
+    .quote-del, .theme-switch button { min-height: 44px; }
     .quote-del { width: 44px; }
     .home-footer a, .home-footer .link-btn { padding: 12px 0; }
   }
@@ -1308,331 +1460,285 @@
   /* Los selectores de fecha nativos heredan el esquema del documento; sin esto
      el icono del calendario queda negro sobre el input casi negro. */
   .styled-input[type="date"], .styled-input[type="datetime-local"], .styled-input[type="time"] { color-scheme: inherit; }
-  :root[data-theme="dark"] .styled-input[type="datetime-local"]::-webkit-calendar-picker-indicator,
-  :root:not([data-theme]) .styled-input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(1) opacity(.7); }
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme]) .styled-input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: none; }
-  }
+  :root[data-theme="dark"] .styled-input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(1) opacity(.7); }
   :root[data-theme="light"] .styled-input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: none; }
 
   /* Titulares: evita la última línea huérfana de una sola palabra */
-  h1, h2, h3, .home-hero-slogan, .micro-card-title { text-wrap: balance; }
+  h1, h2, h3, .micro-card-title { text-wrap: balance; }
 
   /* ================================================================
-     HERO CON VIDEO DE FONDO (pestaña inicio)
+     HERO "TODO LO QUE NECESITAS" (pestaña inicio)
      ----------------------------------------------------------------
-     El video es decoración, no contenido: quien manda visualmente es el
-     PÓSTER, que va como background del contenedor y no en el atributo
-     poster= del <video>. Así el primer pintado ya trae la imagen (es el
-     LCP, precargado en el <head>) y el video entra después con un fundido
-     encima en vez de un corte seco.
-
-     El <video> arranca con preload="none" y solo se descarga/reproduce
-     cuando el hero está a la vista — lógica en el hook de `Home`
-     (microapps.js). Con "reducir movimiento" o ahorro de datos activos
-     nunca se descarga y el hero se queda en el póster: son ~430 KB que
-     el mecánico en datos móviles no debería pagar por una decoración.
-
-     El texto del hero SIEMPRE va en tonos claros (--hero-ink) aunque el
-     tema sea claro: debajo hay un video oscuro con degradado, no el
-     fondo de la app.
+     Layout 2 columnas con tipografía grande a la izquierda y una
+     foto del mecánico recortada con la silueta de la llave a la
+     derecha. Badges de confianza debajo del CTA y un card flotante
+     "Herramientas Pro / Catálogo actualizado" sobre la imagen.
      ================================================================ */
-  /* El hero se queda CLAVADO mientras el tramo (.home-hero-track) pasa por
-     debajo: esos 260vh de recorrido son los que el hook convierte en tiempo de
-     video. Sin el tramo, la animación entera se consumía en menos de una
-     pantalla de scroll y no daba tiempo a leerla como animación.
-     Con "reducir movimiento" el tramo se colapsa a una pantalla y no queda un
-     hueco vacío de dos pantallas y media. */
-  /* El tramo de scroll es fijo: la animación del hero va siempre, sin depender
-     de `prefers-reduced-motion`. Es una decisión de producto — el movimiento lo
-     controla por completo el scroll del usuario y se detiene en cuanto para. */
-  /* Alto del tramo = cuánto scroll dura la animación. El recorrido útil es
-     `alto − 1 pantalla`, así que 220vh dan 120vh de scrub. En móvil se acorta:
-     ahí cada pantalla de scroll cuesta más y enterrar el contenido bajo dos
-     pantallas y media de hero castiga la conversión. */
-  .home-hero-track { position: relative; height: 220vh; }
-  @media (max-width: 720px) { .home-hero-track { height: 170vh; } }
   .home-hero {
-    --hero-ink: #FFFFFF;
-    --hero-ink-soft: rgba(232, 234, 230, .82);
-    position: sticky; top: 0; isolation: isolate;
-    display: flex; flex-direction: column; justify-content: center;
-    height: 100vh; height: 100dvh; min-height: min(84vh, 720px);
-    overflow: hidden; border-bottom: 1px solid var(--border);
-    background: #0F1113 url('/media/hero-poster.jpg') center/cover no-repeat;
+    position: relative;
+    padding: clamp(48px, 6vw, 88px) clamp(20px, 5vw, 40px) clamp(48px, 6vw, 72px);
+    background: var(--bg);
   }
-  .home-hero-video {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    object-fit: cover; z-index: 0;
-    opacity: 0; transition: opacity .8s ease;
+  .home-hero-inner {
+    max-width: 1280px; margin: 0 auto;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(32px, 6vw, 80px); align-items: center;
   }
-  .home-hero-video.is-ready { opacity: 1; }
-  @media (prefers-reduced-motion: reduce) { .home-hero-video { transition: none; } }
-  /* Doble degradado: viñeta radial para centrar la mirada + rampa vertical
-     que funde el pie del hero con el fondo de la app (así la losa blanca
-     de abajo no aparece pegada sobre un corte duro de video). */
-  .home-hero-vignette {
-    position: absolute; inset: 0; z-index: 1; pointer-events: none;
-    background:
-      radial-gradient(ellipse 75% 60% at 30% 45%, transparent 0%, rgba(15,17,19,.5) 100%),
-      linear-gradient(100deg, rgba(15,17,19,.86) 0%, rgba(15,17,19,.55) 45%, rgba(15,17,19,.25) 100%),
-      linear-gradient(180deg, rgba(15,17,19,.55) 0%, transparent 22%, transparent 55%, var(--bg) 100%);
-  }
-  .home-hero-content {
+  .home-hero-text {
+    display: flex; flex-direction: column; gap: 22px; align-items: flex-start;
     position: relative; z-index: 2;
-    display: flex; flex-direction: column; align-items: flex-start; gap: 18px;
-    max-width: 1200px; width: 100%; margin: 0 auto;
-    padding: clamp(56px, 10vh, 104px) clamp(18px, 4vw, 30px) clamp(88px, 12vh, 120px);
   }
-  .home-hero-content > * { max-width: 640px; }
-  /* El lockup del hero es SIEMPRE la versión para fondo oscuro: debajo hay un
-     video con degradado grafito, no el fondo de la app. Por eso ignora los
-     tokens --logo-dark/--logo-light que alternan el resto del sitio. */
-  .logo-lockup--hero { display: block; width: min(100%, 250px); }
-  /* Cintillo: punto lima + etiqueta técnica, el mismo lenguaje de rotulación
-     que usan los paneles de la ficha. */
-  .home-eyebrow {
-    display: inline-flex; align-items: center; gap: 9px;
-    padding: 7px 14px 7px 11px; border-radius: var(--r-sm);
-    background: rgba(15,17,19,.55); border: 1px solid rgba(174,204,58,.4);
-    backdrop-filter: blur(6px);
-    font: 700 10.5px var(--font); letter-spacing: 1.8px; text-transform: uppercase;
-    color: var(--hero-ink);
+  .home-hero-title {
+    font: 700 clamp(34px, 5.4vw, 56px)/1.06 var(--font); letter-spacing: -.02em;
+    color: var(--ink);
+    text-wrap: balance;
+    max-width: 16ch;
   }
-  .home-eyebrow::before {
-    content: ''; width: 7px; height: 7px; border-radius: 50%; flex: none;
-    background: #AECC3A; box-shadow: 0 0 0 3px rgba(174,204,58,.25);
+  .home-hero-tagline {
+    font: 400 clamp(16px, 1.6vw, 19px)/1.55 var(--font);
+    color: var(--ink-2); max-width: 52ch;
   }
-  .home-hero-slogan {
-    font: 800 clamp(30px, 5.2vw, 54px)/1.08 var(--font); letter-spacing: -1.2px;
-    color: var(--hero-ink); text-shadow: 0 4px 30px rgba(0,0,0,.75);
-  }
-  .home-hero-slogan em { font-style: normal; color: #C2DE4C; }
-  .home-tagline {
-    font: 500 clamp(13.5px, 1.5vw, 16px)/1.55 var(--font); letter-spacing: 0;
-    text-transform: none; color: var(--hero-ink-soft); max-width: 540px;
-  }
-  .home-search { position: relative; width: min(100%, 480px); margin-top: 6px; }
-  .home-search .styled-input {
-    padding: 15px 44px 15px 44px; font-size: 15px; border-radius: 0; border-radius: var(--r-sm);
-    background: rgba(8,10,11,.72); border-color: rgba(126,133,138,.5);
-    color: #E8EAE6; backdrop-filter: blur(8px);
-  }
-  .home-search .styled-input::placeholder { color: rgba(232,234,230,.55); }
-  .home-search-ic {
-    position: absolute; left: 15px; top: 50%; transform: translateY(-50%);
-    /* z-index explícito: el backdrop-filter del input lo convierte en contexto
-       de apilado y, al ir después en el DOM, tapaba el icono. */
-    z-index: 2;
-    /* el icono de marca pinta su trazo gris al 55 % de opacidad, así que el
-       color base va casi opaco o desaparece sobre el input oscuro */
-    color: #E8EAE6; opacity: .8; pointer-events: none; display: inline-flex;
-  }
-  .home-search-clear {
-    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-    background: none; border: none; color: rgba(232,234,230,.7); cursor: pointer;
-    font-size: 14px; padding: 6px; line-height: 1; touch-action: manipulation;
-  }
-  .home-search-clear:hover { color: #fff; }
-  .home-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
-  /* Acción secundaria del hero: fantasma con vidrio, para que la primaria
-     (lima sólido, .tool-add-btn) siga siendo la única que grita. */
-  .home-cta-ghost {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 13px 22px; border-radius: var(--r-sm); cursor: pointer; touch-action: manipulation;
-    background: rgba(232,234,230,.08); border: 1px solid rgba(232,234,230,.35);
-    color: var(--hero-ink); font: 700 12px var(--font); letter-spacing: 1px; text-transform: uppercase;
-    backdrop-filter: blur(6px); transition: background .16s, border-color .16s;
-  }
-  .home-cta-ghost:hover { background: rgba(232,234,230,.16); border-color: rgba(232,234,230,.6); }
-  /* Fila de cifras: prueba social barata y honesta (salen de los datos reales). */
-  .home-stats {
-    display: flex; flex-wrap: wrap; gap: clamp(18px, 4vw, 38px); margin-top: 14px;
-    padding-top: 18px; border-top: 1px solid rgba(232,234,230,.18);
-    width: min(100%, 560px); max-width: none;
-  }
-  .home-stat { display: flex; flex-direction: column; gap: 2px; }
-  .home-stat b { font: 800 22px var(--font); color: var(--hero-ink); letter-spacing: -.5px; }
-  .home-stat span { font: 600 10px var(--font); letter-spacing: 1.6px; text-transform: uppercase; color: var(--hero-ink-soft); }
+  .home-hero-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+  /* (La tarjeta flotante "Catálogo verificado" se retiró: repetía los sellos de
+     confianza que tiene justo al lado y tapaba una esquina de la ilustración.
+     Su CSS se va con ella; dejarlo suelto es lo que ya pasó una vez con este
+     mismo bloque.) */
 
-  @media (max-width: 720px) {
-    .home-hero { min-height: min(90vh, 680px); }
-    .home-hero-vignette {
-      background:
-        linear-gradient(180deg, rgba(15,17,19,.72) 0%, rgba(15,17,19,.5) 35%, rgba(15,17,19,.72) 70%, var(--bg) 100%);
-    }
-    .home-stats { gap: 16px 22px; }
-    .home-stat b { font-size: 18px; }
+  /* El personaje y la foto del hero son un dibujo a lápiz recortado en
+     silueta: en tema oscuro flotaban sobre el negro como pegatinas. Este halo
+     les pone suelo —claro y traslúcido, abierto en el centro y apagándose
+     hacia los lados para que no se vea el borde—. Solo en oscuro: en claro el
+     lienzo crema ya hace ese papel. */
+  .home-hero-visual { position: relative; }
+  :root[data-theme="dark"] .home-hero-visual::before {
+    content: ''; position: absolute; z-index: 0;
+    /* Caja CUADRADA (el ancho manda en las dos medidas) para que el degradado
+       salga redondo de verdad: con `inset` la caja seguía la proporción del
+       hueco —apaisada— y el halo salía ovalado, dejando ver justo las esquinas
+       del recorte que venía a disimular. */
+    left: 50%; top: 50%; width: 118%; aspect-ratio: 1; transform: translate(-50%, -50%);
+    background:
+      radial-gradient(circle at 50% 48%,
+        rgba(255, 255, 255, .50) 0%,
+        rgba(252, 251, 248, .38) 26%,
+        rgba(248, 247, 243, .20) 46%,
+        rgba(248, 247, 243, .07) 64%,
+        transparent 78%);
+    filter: blur(6px);
+    pointer-events: none;
+  }
+  :root[data-theme="dark"] .home-hero-visual > * { position: relative; z-index: 1; }
+
+  /* Bocadillo del personaje, anclado en PORCENTAJES sobre .home-hero-visual: el
+     personaje vive dentro de la ilustración compuesta y con px el globo se
+     despegaría de su cabeza al escalar. */
+  .home-hero-saludo {
+    position: absolute; z-index: 3; left: 1%; top: 2%;
+    display: inline-block; padding: 9px 15px;
+    background: var(--accent-fill); color: var(--accent-ink);
+    border-radius: var(--r-full) var(--r-full) var(--r-full) 6px;
+    font: 700 clamp(13px, 1.3vw, 16px) var(--font); letter-spacing: -.01em;
+    white-space: nowrap; box-shadow: var(--shadow-lg);
+    transform-origin: left bottom;
+    animation: saludo-entra .5s .35s cubic-bezier(.34, 1.56, .64, 1) both;
+  }
+  .home-hero-saludo::after {
+    content: ''; position: absolute; left: 14px; bottom: -7px;
+    border: 8px solid transparent; border-top-color: var(--accent-fill); border-bottom: 0;
+    transform: skewX(-16deg);
+  }
+  @keyframes saludo-entra {
+    from { opacity: 0; transform: scale(.7) translateY(6px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) { .home-hero-saludo { animation: none; } }
+  @media (max-width: 880px) { .home-hero-saludo { left: 0; top: 0; padding: 7px 12px; } }
+
+  /* Badges de confianza: icono + dato, como en el brief */
+  /* `.home-hero-trust-item span` (0,1,1) le ganaba y dejaba el icono en gris
+     dentro de una pastilla verde. La pastilla es el elemento, no un texto. */
+  .home-hero-trust-item > .home-hero-trust-ic {
+    display: inline-flex; flex: none; color: var(--accent);
+    width: 34px; height: 34px; align-items: center; justify-content: center;
+    background: var(--accent-soft-2); border-radius: var(--r-full);
+  }
+  .home-hero-trust {
+    display: flex; gap: clamp(20px, 4vw, 44px); margin-top: 28px; padding-top: 28px;
+    border-top: 1px solid var(--border);
+    width: min(100%, 520px);
+  }
+  .home-hero-trust-item { display: flex; align-items: center; gap: 12px; }
+  .home-hero-trust-item strong {
+    display: block; font: 600 14px/1.2 var(--font); color: var(--ink);
+  }
+  .home-hero-trust-item span {
+    display: block; font: 500 12px/1.2 var(--font); color: var(--muted);
+    letter-spacing: .02em;
+  }
+
+  /* Lado derecho del hero: imagen recortada con la silueta de la llave */
+  .home-hero-visual {
+    position: relative;
+    aspect-ratio: 1 / 1.05;
+    width: 100%; max-width: 540px; justify-self: end;
+  }
+  .home-hero-visual .home-hero-img {
+    width: 100%; height: auto; display: block;
+  }
+  /* Sombra verde muy sutil alrededor de la silueta */
+  .home-hero-visual::after {
+    content: ''; position: absolute; inset: 8% -6% -6% 8%;
+    background: var(--accent); opacity: .07; z-index: -1; border-radius: 30% 50% 50% 50%;
+    filter: blur(50px);
+  }
+
+  @media (max-width: 880px) {
+    .home-hero-inner { grid-template-columns: 1fr; }
+    .home-hero-visual { max-width: 380px; margin: 0 auto; justify-self: center; }
+    .home-hero-trust { width: 100%; }
+  }
+  @media (max-width: 560px) {
+    .home-hero-trust { flex-direction: column; gap: 14px; }
   }
 
   /* ================================================================
-     LOSA EXPLICATIVA — se monta sobre el pie del hero
-     Superficie de contraste con esquinas muy redondeadas y tarjetas
-     flotando encima. Todo con tokens --surface-* para que funcione
-     igual en oscuro (losa grafito) y en claro (losa hueso).
+     ECOSISTEMA — BENTO GRID
+     Tres cards: Para el Taller, Para el Cliente, Micro-apps.
+     La tercera card es verde oscura con texto crema para variar el
+     peso visual, como en la referencia.
      ================================================================ */
-  .home-explain {
-    display: flex; flex-direction: column;
-    background: var(--surface-slab); border: 1px solid var(--surface-card-border);
-    clip-path: var(--bevel-lg); overflow: hidden;
-    /* ancho fluido con "canaleta" propia: al ir fuera de .home-body ya no
-       hereda su padding lateral y en móvil quedaría pegada a los bordes */
-    max-width: 1200px; width: calc(100% - clamp(24px, 6vw, 40px));
-    margin: clamp(-72px, -6vw, -40px) auto 0;
-    position: relative; z-index: 10;
-    backdrop-filter: blur(12px);
+  .home-ecosystem {
+    padding: clamp(56px, 7vw, 96px) clamp(20px, 5vw, 40px);
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
   }
-  /* Cada sección de la losa: la etiqueta lleva la línea horizontal de rótulo
-     técnico que ya usan los `h2` de `.panel`, en vez de ir centrada. */
-  .home-sec {
-    padding: clamp(44px, 6vw, 76px) clamp(22px, 5vw, 56px);
-    border-top: 1px solid var(--surface-card-border);
+  .home-ecosystem-inner {
+    max-width: 1280px; margin: 0 auto;
   }
-  .home-sec:first-child { border-top: none; }
-  .home-sec--alt { background: var(--surface-slab-2); }
-  .home-about-title {
-    display: flex; align-items: center; gap: 14px;
-    font: 700 12px var(--font); letter-spacing: 1.4px; text-transform: uppercase;
-    color: var(--label); margin-bottom: 10px;
+  .home-ecosystem-head {
+    text-align: center; margin-bottom: clamp(32px, 4vw, 56px);
+    max-width: 640px; margin-left: auto; margin-right: auto;
   }
-  .home-about-title::after {
-    content: ''; flex: 1; height: 1px;
-    background: linear-gradient(90deg, var(--label-rule), transparent 80%);
+  .home-ecosystem-head .eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 5px 12px; border-radius: var(--r-full);
+    background: var(--accent-soft); border: 1px solid var(--accent-dim);
+    color: var(--accent); font: 600 11px/1 var(--font);
+    letter-spacing: .14em; text-transform: uppercase;
+    margin-bottom: 16px;
   }
-  .home-sec-lead {
-    font: 500 15px var(--font); color: var(--text-alt); line-height: 1.75;
-    max-width: 66ch; margin-bottom: 32px;
+  .home-ecosystem-head .eyebrow::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
   }
-  .home-sec-lead strong { color: var(--text); font-weight: 700; }
+  .home-ecosystem-head h2 {
+    font: 700 clamp(26px, 3vw, 36px)/1.15 var(--font); letter-spacing: -.02em;
+    color: var(--ink); margin-bottom: 12px;
+  }
+  /* En el celular la sección es alta y estrecha: con `cover`, una ilustración
+     apaisada de 1,79:1 se amplía tanto que sólo se ve una franja del marco y
+     no se reconoce el taller. Se escala a propósito al 240 % del ancho, que es
+     justo lo que hace que el cartel —del 29,3 % al 70,8 % de la imagen— ocupe
+     el ancho completo de la pantalla y el titular siga cayendo dentro. */
+  .home-ecosystem-head p {
+    font: 400 16px/1.6 var(--font); color: var(--ink-2); max-width: 56ch;
+    /* Baja para librar el marco del cartel: pegada al titular se cruzaba con
+       el borde verde y con las persianas del dibujo. */
+    margin: clamp(16px, 2.4vw, 34px) auto 0;
+  }
+  .home-ecosystem-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 22px;
+  }
+  .home-eco-card {
+    position: relative; overflow: hidden;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--r-lg); padding: 32px 28px 28px;
+    display: flex; flex-direction: column; gap: 14px; align-items: flex-start;
+    transition: box-shadow .2s, transform .2s, border-color .2s;
+  }
+  .home-eco-card:hover {
+    border-color: var(--accent-dim);
+    box-shadow: 0 4px 20px rgba(63, 81, 50, .08);
+    transform: translateY(-2px);
+  }
+  .home-eco-card .ic {
+    width: 32px; height: 32px; color: var(--accent);
+    background: transparent; padding: 0; border-radius: 0;
+    display: inline-flex; flex: none;
+  }
+  .home-eco-card h3 {
+    font: 600 20px/1.2 var(--font); letter-spacing: -.01em; color: var(--ink);
+    margin: 0;
+  }
+  .home-eco-card p {
+    font: 400 14px/1.65 var(--font); color: var(--ink-2);
+    margin: 0; max-width: 38ch;
+  }
+  .home-eco-card ul {
+    list-style: none; padding: 0; margin: 4px 0 0;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .home-eco-card ul li {
+    display: flex; align-items: center; gap: 8px;
+    font: 500 13px/1.3 var(--font); color: var(--ink-2);
+  }
+  .home-eco-card ul li::before {
+    content: ''; width: 6px; height: 6px; flex: none; border-radius: 50%;
+    background: var(--accent);
+  }
+  .home-eco-card-ic {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; margin-bottom: 4px; border-radius: var(--r);
+    background: var(--accent-soft-2); color: var(--accent);
+  }
+  .home-eco-card--dark .home-eco-card-ic {
+    background: rgba(248, 247, 243, .14); color: var(--accent-ink);
+  }
+  .home-eco-card .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .home-eco-card .tag {
+    padding: 4px 12px; border-radius: var(--r-full);
+    background: var(--accent-soft-2); border: 1px solid var(--accent-dim);
+    font: 500 11px/1.3 var(--font); color: var(--accent);
+  }
+  .home-eco-card .go {
+    margin-top: 16px; align-self: flex-start;
+    display: inline-flex; align-items: center; gap: 8px;
+    /* Explícito: es un <button> y sin esto hereda la caja gris del sistema. */
+    background: transparent; border: 1px solid var(--accent-dim); cursor: pointer;
+    padding: 10px 16px; border-radius: var(--r-full);
+    font: 600 13px/1 var(--font); color: var(--accent); text-decoration: none;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .home-eco-card .go:hover { background: var(--accent-soft); border-color: var(--accent); }
+  .home-eco-card .go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* En la tarjeta oscura el acento no contrasta: se invierte a la tinta crema. */
+  .home-eco-card--dark .go {
+    color: var(--accent-ink); border-color: rgba(248, 247, 243, .35);
+  }
+  .home-eco-card--dark .go:hover {
+    background: rgba(248, 247, 243, .12); border-color: rgba(248, 247, 243, .6);
+    color: var(--accent-ink);
+  }
+  .home-eco-card .go .ic { width: 14px; height: 14px; padding: 0; background: none; }
 
-  /* "Qué es": cuatro columnas de prosa, sin tarjeta. El bloque explica, no
-     invita a tocar — meterlo en tarjetas lo haría parecer clicable. */
-  .home-what { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 30px 36px; margin-top: 30px; }
-  .home-what-col h3 {
-    font: 700 10.5px var(--font); letter-spacing: 1.3px; text-transform: uppercase;
-    color: var(--label); margin-bottom: 10px; padding-bottom: 10px;
-    border-bottom: 1px solid var(--surface-card-border);
+  /* Variante: card oscura invertida */
+  .home-eco-card--dark {
+    background: var(--accent);
+    border-color: var(--accent-strong);
+    color: var(--accent-ink);
   }
-  .home-what-col p { font: 500 13px var(--font); color: var(--text-alt); line-height: 1.75; }
-
-  .home-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
-  /* Las tarjetas son <button>: abren su categoría. Antes eran <div> con
-     aspecto de tarjeta clicable que no hacía nada.
-     El hover NO usa sombra: `clip-path` recorta todo lo que sale de la caja,
-     así que la sombra sería invisible. El realce va en borde y fondo. */
-  .home-card-item {
-    border: 1px solid var(--surface-card-border); clip-path: var(--bevel);
-    background: var(--surface-card); padding: 30px 28px;
-    display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
-    text-align: left; cursor: pointer; touch-action: manipulation; font-family: var(--font);
-    transition: transform .22s cubic-bezier(.16,1,.3,1), border-color .22s, background .22s;
+  .home-eco-card--dark .ic {
+    color: var(--accent-ink);
   }
-  /* --surface-card-hover y no --panel2: en oscuro --panel2 es rgba(36,41,45,.9),
-     prácticamente el mismo color que --surface-card, así que el hover cambiaba
-     el borde pero no el fondo. */
-  .home-card-item:hover {
-    transform: translateY(-4px); border-color: var(--accent-dim); background: var(--surface-card-hover);
+  .home-eco-card--dark h3 { color: var(--accent-ink); }
+  .home-eco-card--dark p { color: rgba(248, 247, 243, .80); }
+  .home-eco-card--dark .tag {
+    background: rgba(248, 247, 243, .14); border-color: rgba(248, 247, 243, .20);
+    color: var(--accent-ink);
   }
-  .home-card-item:active { transform: translateY(-1px); }
-  .home-card-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  @media (prefers-reduced-motion: reduce) { .home-card-item, .home-card-item:hover { transform: none; transition: none; } }
-  .home-card-ic {
-    display: inline-flex; color: var(--icon); margin-bottom: 10px;
-    background: var(--neutral-soft-2); padding: 12px; border-radius: var(--r-sm);
-  }
-  .home-card-item h3 { font: 700 16px var(--font); letter-spacing: -.2px; color: var(--text); }
-  .home-card-item p { font: 500 13px var(--font); color: var(--text-alt); line-height: 1.7; }
-  .home-card-go {
-    margin-top: auto; padding-top: 12px; display: inline-flex; align-items: center; gap: 6px;
-    font: 700 10.5px var(--font); letter-spacing: 1.4px; text-transform: uppercase; color: var(--accent);
-    transition: gap .2s;
-  }
-  .home-card-item:hover .home-card-go { gap: 11px; }
-
-  .home-aud-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
-  .home-aud-grid > div {
-    display: flex; flex-direction: column; gap: 6px; background: var(--surface-card);
-    border: 1px solid var(--surface-card-border); clip-path: var(--bevel); padding: 22px;
-  }
-  .home-aud-grid strong { font: 800 14px var(--font); color: var(--text); }
-  .home-aud-grid span { font: 500 12px var(--font); color: var(--text-alt); line-height: 1.55; }
-  .home-aud-ic { display: inline-flex; color: var(--icon); margin-bottom: 12px; }
-
-  /* ---- cierre con llamada a la acción ---- */
-  .home-close {
-    display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
-    border-top: 1px solid var(--accent-dim);
-  }
-  .home-close h2 { font: 800 clamp(19px, 2.4vw, 26px)/1.2 var(--font); color: var(--text); letter-spacing: -.4px; margin-bottom: 8px; }
-  .home-close p { font: 500 13.5px var(--font); color: var(--text-alt); line-height: 1.6; max-width: 56ch; }
-  .home-close-cta { display: flex; flex-wrap: wrap; gap: 10px; flex: 0 1 auto; max-width: 100%; }
-  .home-close-cta > * { max-width: 100%; }
-  /* En pantalla angosta los dos botones pasan a ancho completo apilados: con
-     `flex: none` el de "Crear cuenta del taller" se salía del viewport. */
-  @media (max-width: 560px) {
-    .home-close-cta { width: 100%; }
-    .home-close-cta > * { flex: 1 1 100%; justify-content: center; text-align: center; }
-  }
-
-  /* ---- "Cómo funciona": tres pasos numerados ---- */
-  .home-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 22px; counter-reset: paso; }
-  .home-step {
-    position: relative; padding: 24px 22px 22px;
-    background: var(--surface-card); border: 1px solid var(--surface-card-border); clip-path: var(--bevel);
-  }
-  .home-step::before {
-    counter-increment: paso; content: counter(paso, decimal-leading-zero);
-    display: block; margin-bottom: 12px;
-    font: 700 30px var(--font); letter-spacing: -1px; color: var(--label-rule); opacity: 1;
-  }
-  .home-step h3 { font: 800 14px var(--font); color: var(--text); margin-bottom: 6px; }
-  .home-step p { font: 500 13px var(--font); color: var(--text-alt); line-height: 1.7; }
-
-  /* ---- Cobertura: cifras grandes ---- */
-  .home-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 18px; }
-  .home-fact {
-    padding: 20px; background: var(--surface-card);
-    border: 1px solid var(--surface-card-border); border-radius: var(--r-lg);
-  }
-  .home-fact b { display: block; font: 800 26px var(--font); color: var(--text); letter-spacing: -.8px; }
-  .home-fact span { font: 600 10px var(--font); letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); }
-
-  /* ---- FAQ: <details> nativo, sin JS ---- */
-  .home-faq { display: flex; flex-direction: column; gap: 12px; max-width: 900px; }
-  .home-faq details {
-    background: var(--surface-card); border: 1px solid var(--surface-card-border);
-    border-radius: var(--r-lg); padding: 0;
-  }
-  .home-faq summary {
-    cursor: pointer; touch-action: manipulation; list-style: none;
-    padding: 20px 24px; font: 600 14px var(--font); color: var(--text);
-    display: flex; align-items: center; justify-content: space-between; gap: 14px;
-  }
-  .home-faq summary::-webkit-details-marker { display: none; }
-  .home-faq summary::after {
-    content: '+'; flex: none; font: 400 20px var(--font); color: var(--muted); line-height: 1;
-  }
-  .home-faq details[open] summary::after { content: '−'; }
-  .home-faq summary:hover { color: var(--accent); }
-  .home-faq summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .home-faq p { padding: 0 24px 22px; font: 500 13.5px var(--font); color: var(--text-alt); line-height: 1.75; max-width: 68ch; }
-
-  /* ---- Quién lo hace ---- */
-  .home-author { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 24px; align-items: start; }
-  @media (max-width: 760px) { .home-author { grid-template-columns: 1fr; } }
-  .home-author p { font: 500 13.5px var(--font); color: var(--text-alt); line-height: 1.7; margin-bottom: 12px; max-width: 68ch; }
-  .home-author-card {
-    background: var(--surface-card); border: 1px solid var(--surface-card-border);
-    clip-path: var(--bevel); padding: 22px;
-  }
-  .home-author-card dt { font: 600 9.5px var(--font); letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); }
-  .home-author-card dd { font: 600 13px var(--font); color: var(--text); margin-bottom: 14px; }
-  .home-author-card dd:last-child { margin-bottom: 0; }
-  /* padding vertical para que el enlace sea tocable, con margen negativo para
-     que no descuadre la rejilla de definiciones */
-  .home-author-card a, .home-author-card .link-btn {
-    display: inline-block; padding: 8px 0; margin: -8px 0; color: var(--accent);
-  }
+  .home-eco-card--dark .go { color: var(--accent-ink); }
+  .home-eco-card--dark:hover { box-shadow: 0 8px 30px rgba(63, 81, 50, .25); }
 
   /* ---- cabecera de categoría + grilla de apps ---- */
   .home-cat-head { margin-bottom: 26px; }
@@ -1649,21 +1755,19 @@
     display: flex; flex-direction: column; gap: 9px; text-align: left; cursor: pointer; touch-action: manipulation;
     background: var(--surface-card); border: 1px solid var(--surface-card-border); border-radius: var(--r-lg);
     padding: 20px 18px 18px; color: var(--text); backdrop-filter: blur(6px);
-    transition: border-color .18s, background .18s, transform .18s;
+    transition: border-color .18s, background .18s;
     font-family: var(--font);
   }
-  /* sin box-shadow: el clip-path del bisel la recortaría y no se vería */
   .micro-card:hover {
-    border-color: var(--accent-dim); background: var(--surface-card-hover);
-    transform: translateY(-3px);
+    border-color: var(--border-hi); background: var(--surface-card-hover);
   }
-  @media (prefers-reduced-motion: reduce) { .micro-card, .micro-card:hover { transform: none; transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .micro-card:hover { transition: none; } }
   /* Candado de "requiere cuenta": insignia con el mismo lenguaje que los badges
      de la ficha, no un emoji de 9px suelto dentro del título. */
   .micro-card-lock {
     display: inline-flex; align-items: center; gap: 4px; vertical-align: 1px; margin-left: 6px;
     padding: 2px 6px; background: var(--amber-soft); border: 1px solid var(--amber-dim); color: var(--amber);
-    font: 700 8.5px var(--font); letter-spacing: 1px; text-transform: uppercase; font-style: normal;
+    font: 700 8.5px var(--font); letter-spacing: 1px; text-transform: none; font-style: normal;
   }
   .micro-card:active { transform: translateY(0); }
   .micro-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -1671,48 +1775,222 @@
   .micro-card-title { font: 600 14px var(--font); letter-spacing: -.1px; }
   .micro-card-desc { font: 500 12px var(--font); color: var(--text-alt); line-height: 1.6; }
   /* ---- pie ampliado ---- */
+  /* Footer editorial — una sola fila con logo, links y copyright,
+     alineado en una rejilla de tres columnas. Coherente con el estilo
+     Stitch: simple, mucha separación, tipografía discreta. */
   .home-footer {
-    margin-top: 40px; padding: clamp(30px, 5vw, 46px) clamp(20px, 5vw, 40px) 26px;
+    margin-top: 0; padding: clamp(36px, 5vw, 56px) clamp(20px, 5vw, 40px) clamp(28px, 4vw, 40px);
     background: var(--surface-slab-2); border-top: 1px solid var(--border);
-    color: var(--muted); font: 500 12px var(--font);
+    color: var(--muted); font: 500 13px var(--font);
   }
-  .home-footer-grid {
-    max-width: 1200px; margin: 0 auto;
-    display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(auto-fit, minmax(150px, 1fr)); gap: 28px;
+  .home-footer-inner {
+    max-width: 1280px; margin: 0 auto;
+    display: grid; grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1fr);
+    gap: clamp(20px, 4vw, 48px); align-items: center;
   }
-  .home-footer-brand .logo-lockup { width: min(100%, 190px); margin-bottom: 12px; }
-  .home-footer-brand p { line-height: 1.65; max-width: 42ch; }
-  .home-footer h4 {
-    font: 700 10px var(--font); letter-spacing: 1.3px; text-transform: uppercase;
-    color: var(--label); margin-bottom: 14px;
+  .home-footer-brand { display: inline-flex; align-items: center; }
+  /* Sin el `display` de más: se lo devolvía a `.logo-img--dark`, que el tema
+     claro esconde, y el pie salía con los dos logotipos en fila. */
+  .home-footer-brand img { height: var(--logo-h-m); width: auto; }
+  .home-footer-links {
+    display: flex; gap: clamp(14px, 2vw, 28px); flex-wrap: wrap;
+    justify-content: center;
   }
-  .home-footer ul { list-style: none; display: flex; flex-direction: column; gap: 2px; }
-  /* padding vertical, no gap: así el área tocable del enlace llega a ~36px en
-     vez de los 15px de la caja del texto */
-  .home-footer a, .home-footer .link-btn {
-    display: inline-block; padding: 9px 0; color: var(--text-alt);
-    text-decoration: none; font-size: 12px; text-align: left;
+  .home-footer-links a {
+    color: var(--ink-2); text-decoration: none; font-size: 13px;
+    transition: color .15s;
   }
-  .home-footer a:hover, .home-footer .link-btn:hover { color: var(--accent); text-decoration: underline; }
-  .home-footer-bottom {
-    max-width: 1200px; margin: 26px auto 0; padding-top: 18px;
-    border-top: 1px solid var(--border);
-    display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: space-between;
-    font-size: 11px; letter-spacing: .5px;
+  .home-footer-links a:hover { color: var(--accent); }
+  .home-footer-copy {
+    text-align: right; font-size: 12px; color: var(--muted); margin: 0;
+  }
+  @media (max-width: 720px) {
+    .home-footer-inner { grid-template-columns: 1fr; text-align: center; }
+    .home-footer-brand { justify-content: center; }
+    .home-footer-copy { text-align: center; }
+  }
+
+  /* ================================================================
+     LOGIN / REGISTRO — pantalla dividida 2 columnas
+     ---------------------------------------------------------------
+     Editorial: mitad izquierda oscura con la marca y la promesa,
+     mitad derecha blanca con el formulario. Sin elementos decorativos
+     que distraigan. La paleta del sistema (verde #3F5132) manda.
+     ================================================================ */
+  .login-screen {
+    min-height: 100vh; display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  }
+  /* Columna izquierda: arte con la marca y la promesa */
+  /* `center` y no `flex-end`: con el contenido pegado abajo quedaban ~380 px de
+     verde vacío arriba, que es lo que se leía como descuadrado. */
+  .login-art {
+    position: relative; overflow: hidden;
+    background: #16200F;
+    color: #F8F7F3;
+    display: flex; align-items: center;
+    padding: clamp(36px, 5vw, 64px);
+  }
+  /* El personaje del manual de marca ya viene compuesto abajo a la derecha, en
+     un lienzo vertical con la proporción de esta columna: el hueco de arriba a
+     la izquierda es donde cae el texto, así que aquí basta `cover` y un velo
+     suave que asegure el contraste del titular sin apagar el dibujo. */
+  .login-art-bg {
+    position: absolute; inset: 0; z-index: 0;
+    background:
+      linear-gradient(104deg, rgba(15, 21, 11, .90) 0%, rgba(15, 21, 11, .78) 40%, rgba(15, 21, 11, .58) 70%, rgba(15, 21, 11, .46) 100%),
+      url('/media/fondo-login.webp') center / cover no-repeat,
+      #16200F;
+  }
+  .login-art-content {
+    position: relative; z-index: 1; max-width: 460px;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  /* `align-self` no es cosmético aquí: estos dos van dentro de contenedores
+     flex en COLUMNA, donde el eje transversal es el ancho. Con `width: auto` y
+     el `align-items: stretch` por defecto, la imagen se estiraba a todo el
+     ancho de la columna —440 px para un logotipo de 78— y salía deformada a
+     14:1. Antes no pasaba porque el ancho estaba fijado a mano. */
+  .login-art-logo { height: 36px; width: auto; align-self: flex-start; }
+  .login-art-title {
+    font: 700 clamp(30px, 3.5vw, 44px)/1.1 var(--font);
+    letter-spacing: -.02em; color: #F8F7F3; margin: 0;
+  }
+  .login-art-text { font: 400 16px/1.55 var(--font); color: rgba(248, 247, 243, .78); margin: 0; max-width: 42ch; }
+  .login-art-list {
+    list-style: none; padding: 0; margin: 6px 0 0;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .login-art-list li {
+    display: flex; align-items: flex-start; gap: 10px;
+    font: 500 14px/1.5 var(--font); color: rgba(248, 247, 243, .82);
+    padding-left: 18px; position: relative;
+  }
+  .login-art-list li::before {
+    content: ''; position: absolute; left: 0; top: 8px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #BACCAF; flex: none;
+  }
+  /* Columna derecha. Rejilla de dos filas, no una columna con el "Volver" en
+     `position: absolute`: el absoluto se salía del flujo y por debajo de ~700
+     px de alto aterrizaba ENCIMA del logotipo y las pestañas. Ahora tiene fila
+     propia y el formulario se centra en lo que sobra. */
+  .login-form-wrap {
+    position: relative;
+    display: grid; grid-template-rows: auto 1fr;
+    padding: clamp(20px, 3vw, 32px) clamp(24px, 6vw, 72px) clamp(24px, 4vw, 48px);
+    background: var(--bg);
+  }
+  .login-back {
+    justify-self: start; align-self: start;
+    display: inline-flex; align-items: center; gap: 6px;
+    font: 500 13px var(--font); color: var(--ink-2);
+    text-decoration: none; padding: 8px 12px 8px 8px; border-radius: var(--r);
+    margin-bottom: 12px; transition: color .15s, background .15s;
+  }
+  .login-back:hover { color: var(--accent); background: var(--accent-soft); }
+  .login-form-inner {
+    width: 100%; max-width: 420px; margin: 0 auto; align-self: center;
+    display: flex; flex-direction: column; gap: 18px;
+    padding: 12px 0;
+  }
+  /* Sin `display`: se lo devolvía a la variante que el tema esconde y el
+     formulario acababa con los dos logotipos en fila. Es el mismo fallo que
+     tenía el pie del home. */
+  .login-form-logo { height: 36px; width: auto; align-self: flex-start; }
+  .login-tabs {
+    display: inline-flex; padding: 4px; border-radius: var(--r-full);
+    background: var(--panel-2, var(--panel2)); border: 1px solid var(--border);
+    align-self: flex-start;
+  }
+  .login-tab {
+    padding: 9px 18px; border: 0; background: transparent;
+    font: 600 13px var(--font); color: var(--ink-2);
+    border-radius: var(--r-full); cursor: pointer;
+  }
+  .login-tab.is-active {
+    background: var(--accent); color: var(--accent-ink);
+  }
+  .login-h1 {
+    font: 700 clamp(24px, 2.6vw, 30px)/1.15 var(--font);
+    letter-spacing: -.02em; color: var(--ink); margin: 4px 0 0;
+  }
+  .login-h1-sub {
+    font: 400 14px/1.55 var(--font); color: var(--ink-2);
+    margin: 0 0 4px;
+  }
+  .login-form { display: flex; flex-direction: column; gap: 12px; }
+  .login-field { display: flex; flex-direction: column; gap: 6px; }
+  .login-field > span {
+    font: 600 12px/1 var(--font); letter-spacing: .04em; color: var(--ink-2);
+  }
+  .login-field input { width: 100%; }
+  .login-submit {
+    width: 100%; padding: 14px 20px; margin-top: 4px;
+    font: 600 14px/1 var(--font);
+  }
+  .login-divider {
+    display: flex; align-items: center; gap: 12px;
+    font: 500 11px/1 var(--font); letter-spacing: .12em;
+    color: var(--muted); text-transform: uppercase;
+  }
+  .login-divider::before, .login-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+  .login-secondary {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 18px; border: 1.5px solid var(--ink); border-radius: var(--r);
+    background: transparent; color: var(--ink);
+    font: 600 13px var(--font); cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .login-secondary:hover { background: var(--ink); color: var(--bg); }
+
+  .login-google {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 12px 18px; border: 1.5px solid #dadce0; border-radius: var(--r);
+    background: #fff; color: #3c4043;
+    font: 600 13px 'Google Sans', Arial, sans-serif; cursor: pointer;
+    text-decoration: none; transition: box-shadow .15s, border-color .15s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .login-google:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    border-color: #bdc1c6;
+  }
+  .login-footer-note {
+    font: 400 12px/1.55 var(--font); color: var(--muted); margin: 0;
+  }
+
+  @media (max-width: 880px) {
+    .login-screen { grid-template-columns: 1fr; }
+    .login-art { display: none; }
+  }
+
+  /* Categorías: bloques apilados con grid de apps */
+  .home-cats {
+    padding: clamp(48px, 6vw, 80px) clamp(20px, 5vw, 40px);
+    background: var(--bg);
+  }
+  .home-cat-block { margin-bottom: clamp(40px, 5vw, 64px); }
+  .home-cat-block:last-child { margin-bottom: 0; }
+  .home-cat-block .home-cat-head { margin-bottom: 22px; max-width: 720px; }
+  .home-cat-block .home-cat-title {
+    font: 700 clamp(22px, 2.6vw, 28px) var(--font); letter-spacing: -.02em; color: var(--ink);
+    margin: 0 0 6px;
+  }
+  .home-cat-block .home-cat-desc {
+    font: 400 14px/1.55 var(--font); color: var(--ink-2); margin: 0;
   }
 
   /* Mismo fallo que .micro-card y misma corrección: estos tres nacieron con
      grafito literal y en tema claro pintaban islas oscuras con texto --text
      encima. Van por token. */
-  .login-card { border: 1px solid var(--surface-card-border); border-radius: var(--r-lg); background: var(--surface-card); }
   .match-badge { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-dim); border-radius: var(--r-sm); font: 700 10px var(--font); padding: 2px 6px; }
   .diag-opt { background: var(--sunken); }
   .diag-opt:hover { border-color: var(--accent-dim); }
 
   @media (max-width: 720px) {
-    .home-nav { flex-wrap: wrap; gap: 6px; }
-    .home-nav-links { order: 3; width: 100%; justify-content: center; }
-    .home-nav-user { margin-left: auto; }
   }
 
   /* vista de micro app */
@@ -1729,21 +2007,17 @@
     cursor: pointer; touch-action: manipulation;
     background: var(--panel2); border: 1px solid var(--border-hi); color: var(--text);
     padding: 9px 15px 9px 11px; min-height: 38px; border-radius: var(--r-sm);
-    font: 700 11px var(--font); letter-spacing: 1.2px; text-transform: uppercase;
+    font: 700 11px var(--font); letter-spacing: 1.2px; text-transform: none;
     transition: background .15s, color .15s, border-color .15s;
   }
   .micro-back:hover { background: var(--accent-soft-2); color: var(--accent); border-color: var(--accent-dim); }
   .micro-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  @media (max-width: 480px) {
-    .micro-shell-head { flex-wrap: wrap; }
-    .micro-shell-head h2 { font-size: 16px; }
-  }
   .micro-shell-body { display: flex; flex-direction: column; gap: 14px; }
 
   /* tablas */
   .mic-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
   .mic-tbl th {
-    text-align: left; font: 700 10px var(--font); letter-spacing: 1.5px; text-transform: uppercase;
+    text-align: left; font: 700 10px var(--font); letter-spacing: 1.5px; text-transform: none;
     color: var(--label); padding: 8px 10px; border-bottom: 1px solid var(--border-hi);
     /* el `overflow-wrap: anywhere` global partía los encabezados a mitad de
        palabra ("AMPER / AJE"): en una celda de tabla el ancho lo negocia el
@@ -1756,7 +2030,7 @@
   .mic-tbl td .link-btn {
     display: inline-flex; align-items: center; min-height: 34px; padding: 6px 12px;
     text-decoration: none; border: 1px solid var(--border); border-radius: var(--r-sm);
-    font: 700 10px var(--font); letter-spacing: 1.1px; text-transform: uppercase;
+    font: 700 10px var(--font); letter-spacing: 1.1px; text-transform: none;
     white-space: nowrap; transition: background .14s, border-color .14s;
   }
   .mic-tbl td .link-btn:hover { background: var(--accent-soft-2); border-color: var(--accent-dim); }
@@ -1771,12 +2045,12 @@
   /* ---- piezas compartidas por las micro apps ---- */
   .mic-lead { font: 500 13.5px var(--font); color: var(--text-alt); line-height: 1.75; max-width: 66ch; margin-bottom: 24px; }
   .mic-sub {
-    font: 700 11px var(--font); letter-spacing: 1.4px; text-transform: uppercase; color: var(--label);
+    font: 700 11px var(--font); letter-spacing: 1.4px; text-transform: none; color: var(--label);
     margin: 30px 0 14px; display: flex; align-items: center; gap: 14px;
   }
   .mic-sub::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--label-rule), transparent 80%); }
   .mic-sub:first-child { margin-top: 0; }
-  .mic-lbl { display: block; font: 600 10px var(--font); letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .mic-lbl { display: block; font: 600 10px var(--font); letter-spacing: 1.4px; text-transform: none; color: var(--muted); margin-bottom: 6px; }
 
   /* ---- fusibles ----
      La muestra de color no es decoración: la tabla ES el código de colores, y
@@ -1806,7 +2080,7 @@
     background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: var(--r-lg);
   }
   .tire-verdict b { font: 800 30px var(--font); color: var(--accent); letter-spacing: -1px; }
-  .tire-verdict span { font: 600 11px var(--font); letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-alt); }
+  .tire-verdict span { font: 600 11px var(--font); letter-spacing: 1.4px; text-transform: none; color: var(--text-alt); }
   .tire-verdict.bad { background: var(--amber-soft); border-left-color: var(--amber); }
   .tire-verdict.bad b { color: var(--amber); }
   .tire-kv { margin-top: 16px; }
@@ -1834,7 +2108,7 @@
   .insp-btn {
     padding: 6px 12px; cursor: pointer; touch-action: manipulation; min-height: 32px;
     background: transparent; border: 1px solid var(--border); color: var(--muted);
-    font: 700 9.5px var(--font); letter-spacing: 1.1px; text-transform: uppercase;
+    font: 700 9.5px var(--font); letter-spacing: 1.1px; text-transform: none;
     border-radius: var(--r-sm); transition: background .14s, color .14s, border-color .14s;
   }
   .insp-btn:hover { border-color: var(--border-hi); color: var(--text); }
@@ -1868,7 +2142,7 @@
     margin-top: 12px; padding: 16px 20px;
     background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: var(--r-lg);
   }
-  .quote-grand span { font: 700 11px var(--font); letter-spacing: 2px; text-transform: uppercase; color: var(--text-alt); }
+  .quote-grand span { font: 600 11px var(--font); letter-spacing: .4px; text-transform: none; color: var(--text-alt); }
   .quote-grand b { font: 800 26px var(--font); color: var(--accent); letter-spacing: -.8px; font-variant-numeric: tabular-nums; }
 
   /* ---- citas ---- */
@@ -1885,7 +2159,7 @@
     text-transform: capitalize; display: flex; align-items: center; gap: 8px;
   }
   .cita-when em {
-    font: 700 9px var(--font); font-style: normal; letter-spacing: 1.2px; text-transform: uppercase;
+    font: 700 9px var(--font); font-style: normal; letter-spacing: 1.2px; text-transform: none;
     background: var(--accent-fill); color: var(--accent-ink); padding: 2px 6px;
   }
   .cita-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 140px; }
@@ -1903,9 +2177,9 @@
     background: var(--sunken); border: 1px solid var(--border);
     border-left: 3px solid var(--border-hi); border-radius: var(--r-lg);
   }
-  .trim-total span { font: 600 10px var(--font); letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); }
+  .trim-total span { font: 600 10px var(--font); letter-spacing: 1.4px; text-transform: none; color: var(--muted); }
   .trim-total b { font: 800 26px var(--font); letter-spacing: -.8px; color: var(--text); font-variant-numeric: tabular-nums; }
-  .trim-total em { font: 700 11px var(--font); font-style: normal; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .trim-total em { font: 700 11px var(--font); font-style: normal; letter-spacing: 1px; text-transform: none; color: var(--muted); }
   .trim-total.ok { border-left-color: var(--accent); background: var(--accent-soft); }
   .trim-total.ok b, .trim-total.ok em { color: var(--accent); }
   .trim-total.warn { border-left-color: var(--amber); background: var(--amber-soft); }
@@ -1990,7 +2264,7 @@
   .pp-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
   .pp-rating { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .pp-rating b { font: 800 34px var(--font); color: var(--text); letter-spacing: -1px; }
-  .pp-rating em { font: 600 11px var(--font); font-style: normal; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+  .pp-rating em { font: 600 11px var(--font); font-style: normal; letter-spacing: 1.2px; text-transform: none; color: var(--muted); }
   .pp-stars { color: var(--accent); font-size: 16px; letter-spacing: 2px; }
   .pp-meta { display: flex; flex-direction: column; gap: 6px; }
   .pp-meta span { display: inline-flex; align-items: center; gap: 7px; font: 600 12px var(--font); color: var(--text-alt); }
@@ -2033,11 +2307,10 @@
     display: inline-flex; align-items: center; min-height: 30px; padding: 5px 11px;
     cursor: pointer; touch-action: manipulation; border-radius: var(--r-sm);
     background: var(--accent-soft-2); border: 1px solid var(--accent-dim); color: var(--accent);
-    font: 700 9.5px var(--font); letter-spacing: 1.1px; text-transform: uppercase;
+    font: 700 9.5px var(--font); letter-spacing: 1.1px; text-transform: none;
     transition: background .14s;
   }
   .cli-wa:hover { background: var(--accent-soft); }
-  @media (pointer: coarse) { .cli-wa { min-height: 40px; } }
   .quote-hint { font: 500 12px var(--font); color: var(--amber); margin-top: 10px; }
 
   /* ---- árbol "no enciende" ---- */
@@ -2089,6 +2362,32 @@
 
   /* DTC */
   .dtc-list { display: flex; flex-direction: column; gap: 8px; }
+  .dtc-barra { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; margin-bottom: 14px; }
+  .dtc-barra input { flex: 1 1 260px; min-height: 46px; font-size: 16px; }
+  .dtc-barra .tool-add-btn { flex: none; }
+  .dtc-form {
+    padding: 16px 18px; margin-bottom: 14px;
+    background: var(--sunken); border: 1px solid var(--border-hi); border-radius: var(--r-lg);
+  }
+  .dtc-form h3 { font: 700 13.5px var(--font); color: var(--text); margin: 0 0 12px; }
+  .dtc-form-campos { display: flex; flex-wrap: wrap; gap: 12px; }
+  .dtc-form-campos > label { flex: 1 1 200px; }
+  .dtc-form label, .dtc-form-ancho { display: flex; flex-direction: column; gap: 5px; margin-top: 0; }
+  .dtc-form-ancho { margin-top: 12px; }
+  .dtc-form label > span { font: 600 10px var(--font); letter-spacing: 1px; color: var(--muted); }
+  .dtc-form-acciones { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+  /* El separador dice de dónde sale cada bloque: los del taller no son norma */
+  .dtc-grupo {
+    font: 700 10px var(--font); letter-spacing: 1.2px; color: var(--muted);
+    margin: 10px 0 2px; padding-top: 8px; border-top: 1px solid var(--border);
+  }
+  .dtc-grupo:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+  .dtc-acciones { margin-left: auto; display: flex; align-items: center; gap: 6px; flex: none; }
+  .dtc-propio {
+    font: 700 9px var(--font); letter-spacing: 1px; color: var(--accent);
+    background: var(--accent-soft); border: 1px solid var(--accent-dim);
+    border-radius: var(--r-sm); padding: 3px 7px; white-space: nowrap;
+  }
   .dtc-item { display: flex; gap: 12px; padding: 11px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg); }
   .dtc-code { flex: none; font: 700 13px var(--font); color: var(--text); letter-spacing: .3px; padding-top: 1px; font-variant-numeric: tabular-nums; }
   .dtc-body { display: flex; flex-direction: column; gap: 2px; }
@@ -2096,18 +2395,94 @@
   .dtc-body span { font: 500 12px var(--font); color: var(--text-alt); line-height: 1.45; }
 
   /* conversor */
+  /* ---- Cross-Reference de pilas ----
+     Una equivalencia se decide MIRANDO la pieza —entrada, salida, terminales—
+     y antes solo había una tabla de texto. El visor es el de la ficha. */
+  .cross-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 16px 18px; }
+  .cross-cab { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  .cross-cab h3 { font: 700 15px var(--font); color: var(--text); margin: 0; }
+  .cross-psi { font: 700 15px var(--font); color: var(--accent); font-variant-numeric: tabular-nums; }
+  .cross-cuerpo { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 18px; align-items: start; }
+  .cross-visual .v3d { width: 100%; aspect-ratio: 4 / 3; border-radius: var(--r); overflow: hidden; }
+  .cross-titulo { font: 700 12px var(--font); letter-spacing: .6px; color: var(--label); margin: 20px 0 10px; }
+  .cross-rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+  .cross-alt {
+    display: flex; flex-direction: column; gap: 8px; padding: 10px; text-align: left; cursor: pointer;
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg);
+    color: inherit; font: inherit; touch-action: manipulation;
+    transition: border-color .15s, background .15s, transform .15s;
+  }
+  .cross-alt:hover { border-color: var(--accent-dim); background: var(--accent-soft); transform: translateY(-2px); }
+  .cross-alt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cross-alt .cross-visual .v3d { aspect-ratio: 1; }
+  .cross-alt-txt { display: flex; flex-direction: column; gap: 2px; }
+  .cross-alt-txt strong { font: 700 12.5px var(--font); color: var(--text); }
+  .cross-alt-txt span { font: 500 11px var(--font); color: var(--muted); }
+  .cross-alt-psi { color: var(--text-alt) !important; font-variant-numeric: tabular-nums; }
+  .cross-alt-psi em { font-style: normal; color: var(--accent); margin-left: 4px; }
+  @media (max-width: 720px) { .cross-cuerpo { grid-template-columns: 1fr; } }
+
   .conv-modes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
   .conv-mode {
     padding: 8px 14px; cursor: pointer; touch-action: manipulation;
     background: var(--panel2); border: 1px solid var(--border); color: var(--muted);
-    font: 700 10.5px var(--font); letter-spacing: 1px; text-transform: uppercase; border-radius: var(--r-sm);
+    font: 700 10.5px var(--font); letter-spacing: 1px; text-transform: none; border-radius: var(--r-sm);
     transition: background .15s, color .15s, border-color .15s;
   }
+  .conv-mode { display: inline-flex; align-items: center; gap: 6px; }
   .conv-mode.active { background: var(--accent-soft); border-color: var(--accent-dim); color: var(--accent); }
-  .conv-body { display: flex; flex-direction: column; gap: 14px; max-width: 340px; }
-  .conv-out { font: 800 34px var(--font); color: var(--text); font-variant-numeric: tabular-nums; }
-  .conv-out span { font: 500 14px var(--font); color: var(--muted); }
-  .conv-out2 { font: 600 15px var(--font); color: var(--muted); }
+  /* Entrada: cantidad y unidad juntas, que es como se dice en voz alta
+     ("sesenta PSI"). Antes la unidad estaba implícita y no se podía cambiar. */
+  .conv-entrada {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 12px;
+  }
+  .conv-campo { display: flex; flex-direction: column; gap: 5px; }
+  .conv-campo:first-child { flex: 1 1 160px; }
+  .conv-campo:nth-child(2) { flex: 1 1 180px; }
+  .conv-lbl { font: 600 10px var(--font); letter-spacing: 1px; text-transform: none; color: var(--muted); }
+  .conv-entrada input, .conv-entrada select { min-height: 46px; font-size: 16px; }
+  .conv-limpiar {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 46px; padding: 0 14px;
+    background: transparent; border: 1px solid var(--border); border-radius: var(--r-sm);
+    color: var(--muted); font: 600 12.5px var(--font); cursor: pointer; touch-action: manipulation;
+  }
+  .conv-limpiar:hover { color: var(--danger); border-color: var(--danger-dim); }
+  .conv-atajos { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 16px; }
+  .conv-atajos-lbl { font: 600 10.5px var(--font); letter-spacing: .6px; color: var(--muted); margin-right: 2px; }
+  .conv-atajo {
+    padding: 7px 12px; min-height: 34px; cursor: pointer; touch-action: manipulation;
+    background: var(--sunken); border: 1px dashed var(--border-hi); border-radius: var(--r-full);
+    color: var(--text-alt); font: 600 12px var(--font); font-variant-numeric: tabular-nums;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .conv-atajo:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-dim); }
+  /* Todas las equivalencias a la vez, cada una copiable de un toque */
+  .conv-tabla { display: flex; flex-direction: column; gap: 6px; }
+  .conv-fila {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px;
+    width: 100%; text-align: left; padding: 13px 16px; min-height: 52px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--r);
+    color: var(--text); font: inherit; cursor: pointer; touch-action: manipulation;
+    transition: background .15s, border-color .15s;
+  }
+  .conv-fila:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent-dim); }
+  .conv-fila:disabled { cursor: default; }
+  .conv-fila.es-origen { background: var(--sunken); border-style: dashed; }
+  .conv-fila-u { font: 600 13.5px var(--font); color: var(--text-alt); }
+  .conv-fila-u em { font-style: normal; font-size: 11px; color: var(--muted); }
+  /* tabular-nums: sin ellas los dígitos bailan de ancho y la columna de
+     resultados se descuadra cada vez que cambia una cifra. */
+  .conv-fila-v {
+    font: 700 clamp(17px, 2.4vw, 21px) var(--font); color: var(--text);
+    font-variant-numeric: tabular-nums; justify-self: end;
+  }
+  .conv-fila.es-origen .conv-fila-v { color: var(--accent); }
+  .conv-fila-ic {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: var(--muted); font: 600 11px var(--font);
+  }
+  .conv-fila:hover .conv-fila-ic { color: var(--accent); }
+  @media (pointer: coarse) { .conv-atajo, .conv-mode { min-height: 44px; } }
 
   /* VIN */
   .vin-card { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg); }
@@ -2136,7 +2511,7 @@
   .reg-btn-no {
     padding: 11px 18px; cursor: pointer; touch-action: manipulation;
     background: var(--panel2); border: 1px solid var(--danger-dim); color: var(--danger);
-    font: 700 11px var(--font); letter-spacing: 1px; text-transform: uppercase; border-radius: var(--r-sm);
+    font: 700 11px var(--font); letter-spacing: 1px; text-transform: none; border-radius: var(--r-sm);
   }
   .reg-verdict { padding: 18px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg); display: flex; flex-direction: column; gap: 12px; }
   .reg-verdict.ok { border-color: var(--accent-dim); }
@@ -2192,13 +2567,13 @@
   .note-form .styled-input:nth-child(2) { flex: 1; min-width: 200px; }
   .note-list { display: flex; flex-direction: column; gap: 8px; }
   .note-item { padding: 12px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg); }
-  .note-veh { font: 700 10.5px var(--font); letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+  .note-veh { font: 700 10.5px var(--font); letter-spacing: 1.2px; text-transform: none; color: var(--muted); display: flex; justify-content: space-between; }
   .note-item p { font: 500 13.5px var(--font); color: var(--text); margin: 6px 0 4px; }
 
   /* caja */
   .cash-totals { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
   .cash-today, .cash-all { flex: 1; min-width: 160px; padding: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg); display: flex; flex-direction: column; gap: 4px; }
-  .cash-today span, .cash-all span { font: 700 10px var(--font); letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .cash-today span, .cash-all span { font: 700 10px var(--font); letter-spacing: 1.5px; text-transform: none; color: var(--muted); }
   .cash-today strong { font: 800 24px var(--font); color: var(--accent); }
   .cash-all strong { font: 800 24px var(--font); color: var(--text); }
   .cash-form { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
@@ -2229,7 +2604,7 @@
 
   /* conectar */
   .conn-form { margin-bottom: 10px; }
-  .conn-title { font: 700 11px var(--font); letter-spacing: 1.4px; text-transform: uppercase; color: var(--label); margin: 20px 0 10px; }
+  .conn-title { font: 700 11px var(--font); letter-spacing: 1.4px; text-transform: none; color: var(--label); margin: 20px 0 10px; }
   .conn-item { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 11px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg); margin-bottom: 6px; font-size: 13px; }
   .conn-item strong { flex: 1; }
   .conn-item .muted { font-size: 11.5px; }
@@ -2242,19 +2617,485 @@
   .market-price { font: 800 20px var(--font); color: var(--accent); margin: 6px 0 2px; }
   .market-desc { font: 500 12.5px var(--font); color: var(--text-alt); margin-top: 8px; line-height: 1.5; }
   .market-foot { display: flex; justify-content: space-between; padding: 10px 16px; border-top: 1px solid var(--border); }
+
+  /* ==================================================================
+     MÓVIL Y APLICACIÓN INSTALADA (PWA)
+     ------------------------------------------------------------------
+     Reescribe decisiones de arriba para el celular, que es donde se usa
+     la aplicación. Tres reglas se repiten aquí y van explicadas una vez:
+     se corta por `pointer: coarse` y no por ancho (una tablet se toca con
+     el mismo dedo); 16 px es el mínimo de un `input` porque por debajo iOS
+     hace zoom al enfocar y deja el campo fuera de vista; y
+     `env(safe-area-inset-*)` es obligatorio instalada, o el último botón
+     de cada lista queda bajo la raya de inicio de Android.
+     ================================================================== */
+
+  /* ── 0. Base táctil ─────────────────────────────────────────────── */
+  /* text-size-adjust: sin él Android reescala la tipografía al girar y la
+     ficha técnica se recompone sola. */
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  /* overscroll-behavior: el rebote del final de la lista disparaba el
+     "tirar para recargar" de Android y la app se recargaba sola, perdiendo
+     lo que el mecánico llevaba escrito en un presupuesto. */
+  body { overscroll-behavior-y: contain; }
+
+  /* ── 1. Objetivos táctiles ──────────────────────────────────────── */
+  /* Medido con el robot de interfaz a 390 px: "Volver" en 38 px (y es la
+     ÚNICA salida de una micro app), campos en 39, menú superior en 35. */
+  @media (pointer: coarse) {
+    .micro-back, .tool-add-btn, .home-nav-link, .home-nav-login,
+    .styled-input, .filters input, .filters select, .filters button,
+    .link-btn.mt-small, .home-cta-ghost, .go, .conv-mode,
+    .login-tab, .login-back, .rs-toggle, .insp-btn, .quote-add, .cli-wa {
+      min-height: 44px;
+    }
+    .styled-input, .filters input, .filters select, .filters textarea,
+    input[type="text"], input[type="number"], input[type="email"],
+    input[type="password"], input[type="search"], input[type="tel"],
+    input[type="date"], input[type="datetime-local"], input[type="time"],
+    select, textarea { font-size: 16px; }
+    .link-btn { display: inline-flex; align-items: center; min-height: 40px; }
+    .skip-link { min-height: 44px; display: inline-flex; align-items: center; }
+
+    /* Estos cuatro se resistían a la regla de arriba y merecen su propia
+       línea: no era que faltara, era que perdían por especificidad o por
+       orden. Se dejan con el mismo selector que la regla que los fijaba
+       pequeños, que es la única forma de ganarle sin recurrir a !important.
+         · `.rs-head .rs-toggle` (0,2,0) le ganaba a `.rs-toggle` (0,1,0);
+           es "★ Garage", el acceso a los vehículos guardados.
+         · `.quote-del` se declara MÁS ABAJO en la hoja, así que con la misma
+           especificidad ganaba su `min-height: 32px`. Es la ✕ que borra una
+           línea del presupuesto: 32 px con el dedo se falla y se borra la
+           línea equivocada.
+         · Los filtros del buscador llevaban 14,5 px con `.search-pane
+           .filters …` (0,3,0), justo por debajo del umbral donde iOS hace
+           zoom al enfocar.
+         · Los enlaces del pie llegaban a 37 px solo con relleno. */
+    .rs-head .rs-toggle { min-height: 44px; }
+    .quote-line .quote-del { width: 44px; min-height: 44px; }
+    .search-pane .filters select, .search-pane .filters input { font-size: 16px; }
+    .app-footer .footer-links a { min-height: 44px; display: inline-flex; align-items: center; }
+    /* "cotizar" dentro de la tabla de tiempos: `.mic-tbl td .link-btn` (0,2,1)
+       le ganaba a la regla general y lo dejaba en 34 px. */
+    .mic-tbl td .link-btn { min-height: 44px; }
+    /* Enlaces sueltos dentro de un aviso, como el de compartir la ruta de
+       diagnóstico: el relleno se compensa con margen para no separar líneas. */
+    .alert a { display: inline-block; padding: 12px 0; margin: -12px 0; }
+  }
+
+  /* ── 2. Barra inferior de secciones (celular) ───────────────────── */
+  /* El menú de seis categorías se envolvía en dos filas de 35 px pegadas
+     arriba: 78 px de alto, lejos del pulgar y por delante del contenido.
+     Abajo caben cuatro destinos y un "Más" donde ya está el dedo. */
+  .home-tabbar, .home-sheet, .home-sheet-backdrop { display: none; }
+
+  @media (max-width: 720px) {
+    .home-tabbar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      background: var(--bg-glass); backdrop-filter: blur(14px);
+      border-top: 1px solid var(--border);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .home-tab {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; min-height: 56px; padding: 7px 2px 8px;
+      background: none; border: 0; cursor: pointer; touch-action: manipulation;
+      color: var(--muted); font: 500 10px var(--font); letter-spacing: 0;
+      /* si no, mantener pulsado abre el menú de selección de texto de Android */
+      -webkit-user-select: none; user-select: none;
+    }
+    .home-tab-ic { display: inline-flex; }
+    .home-tab-txt { line-height: 1.1; text-align: center; }
+    .home-tab.is-active { color: var(--accent); }
+    /* la pastilla marca el destino sin depender solo del color, que al sol y
+       con el brillo bajo no se distingue */
+    .home-tab.is-active .home-tab-ic {
+      background: var(--accent-soft-2); border-radius: var(--r-full);
+      padding: 3px 14px; margin-bottom: -1px;
+    }
+    .home-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+    /* hueco para la barra: sin él tapa el último botón de cada pantalla */
+    .home-footer { padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
+    /* Mismo canalón que la barra y el hero: 20 px. Iban a 18 y el borde de
+       las tarjetas no caía en el eje del logotipo ni del titular. */
+    .home-body { padding-inline: 20px; padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+
+    .home-sheet-backdrop {
+      display: block; position: fixed; inset: 0; z-index: 70;
+      background: rgba(0, 0, 0, .45); backdrop-filter: blur(2px);
+    }
+    .home-sheet {
+      display: flex; flex-direction: column; gap: 2px;
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 71;
+      background: var(--panel); border-top: 1px solid var(--border-hi);
+      border-radius: 18px 18px 0 0;
+      padding: 8px 12px calc(14px + env(safe-area-inset-bottom));
+      max-height: 82vh; overflow-y: auto; animation: sheet-in .18s ease-out;
+    }
+    @keyframes sheet-in { from { transform: translateY(14px); opacity: .6; } to { transform: none; opacity: 1; } }
+    .home-sheet-grip {
+      width: 38px; height: 4px; border-radius: 2px; background: var(--border-hi);
+      margin: 4px auto 10px;
+    }
+    .home-sheet-item {
+      display: flex; align-items: center; gap: 14px; width: 100%;
+      min-height: 56px; padding: 10px 8px; text-align: left;
+      background: none; border: 0; border-radius: var(--r); cursor: pointer;
+      color: var(--text); font: inherit; touch-action: manipulation;
+    }
+    .home-sheet-item:active { background: var(--panel2); }
+    .home-sheet-ic { display: inline-flex; flex: none; color: var(--icon); }
+    .home-sheet-item strong { display: block; font: 600 14.5px var(--font); }
+    .home-sheet-item em { display: block; font: 500 12px var(--font); font-style: normal; color: var(--muted); }
+    .home-sheet-cerrar {
+      margin-top: 8px; min-height: 46px; border-radius: var(--r);
+      background: var(--panel2); border: 1px solid var(--border-hi); color: var(--text);
+      font: 600 13px var(--font); cursor: pointer; touch-action: manipulation;
+    }
+
+    /* ── 3. Cabecera superior: solo marca y cuenta ────────────────── */
+    /* Envuelve a propósito: marca y cuenta en la primera fila, el buscador
+       entero en la segunda. Con `nowrap` el campo se quedaba en 90 px. */
+    .home-nav { padding: 10px 20px 12px; gap: 10px 12px; flex-wrap: wrap; }
+    .home-nav-links { display: none; }
+    .home-buscador { order: 3; flex: 1 1 100%; max-width: none; }
+    .home-nav-user { margin-left: auto; }
+    .home-nav-logo img { height: 28px; }
+    .home-nav-login { padding: 10px 14px; font-size: 12.5px; }
+    .home-nav-who { font-size: 12px; max-width: 46vw; }
+    .home-nav-who > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── 4. Grilla de herramientas ────────────────────────────────── */
+    /* Una tarjeta por fila daba tres por pantalla: llegar a la décima de
+       Consulta costaba tres pantallas de scroll. En dos columnas entran
+       ocho y la categoría se abarca de un vistazo. */
+    .home-group-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .micro-card { padding: 14px 12px 13px; gap: 7px; border-radius: var(--r); }
+    .micro-card-title { font-size: 13px; line-height: 1.25; }
+    /* dos líneas y elipsis: con la descripción entera, tarjetas contiguas
+       quedaban de alturas muy distintas y la retícula se veía rota */
+    .micro-card-desc {
+      font-size: 11px; line-height: 1.45;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .micro-card-icon svg { width: 21px; height: 21px; }
+    .home-cat-desc { font-size: 13px; line-height: 1.6; }
+
+    /* ── 5. Concha de micro app ───────────────────────────────────── */
+    /* Medido a 390 px: entre el aire de la vista, el marco de `.panel` y el
+       relleno del cuerpo se perdían 73 px —el 19 % del ancho— y los datos se
+       leían en 317. Una tarjeta dentro de una página tiene sentido en el
+       escritorio, donde sobra sitio; en el celular la herramienta ES la
+       pantalla, así que el marco se retira y quedan 362 px útiles. */
+    .micro-app-view { padding: 0 0 calc(30px + env(safe-area-inset-bottom)); }
+    .micro-shell {
+      max-width: none; border: 0; border-radius: 0; padding: 0;
+      background: none; box-shadow: none;
+    }
+    /* cabecera pegada: en una lista de 90 códigos DTC el botón de volver
+       quedaba a pantallas de distancia */
+    .micro-shell-head {
+      position: sticky; top: 0; z-index: 40;
+      display: grid; grid-template-columns: auto auto 1fr; align-items: center;
+      gap: 10px; margin: 0 0 14px; padding: 8px 12px;
+      background: var(--bg-glass); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .micro-shell-head h2 {
+      font-size: 15.5px; line-height: 1.25; overflow: hidden;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+    .micro-back { padding: 9px 12px 9px 9px; font-size: 10.5px; }
+    .micro-shell-body { padding: 0 14px; }
+    /* El campo de búsqueda de una herramienta ocupa todo el ancho: limitarlo
+       a 320-420 px con estilo en línea tenía sentido en el escritorio, pero
+       en 390 px cortaba el texto de ayuda del propio campo. */
+    .micro-shell-body > .styled-input { max-width: none !important; }
+    /* buscar era el motivo de abrir la herramienta y desaparecía al primer
+       scroll: se queda a la vista bajo la cabecera */
+    .micro-shell-body > .styled-input:first-child {
+      position: sticky; top: 58px; z-index: 30;
+      background: var(--panel); box-shadow: 0 6px 12px -8px var(--sunken);
+    }
+
+    /* ── 6. Tablas densas ─────────────────────────────────────────── */
+    /* Torques, fusibles, pinouts y tiempos son tablas de 4-5 columnas. Con la
+       tipografía a 12,5 px caben las cinco en 390 px sin partir palabras: se
+       comprobó con las 30 pantallas de la auditoría, ninguna desborda. */
+    .mic-tbl { font-size: 12.5px; }
+    .mic-tbl th, .mic-tbl td { padding: 8px; }
+
+    /* ── 7. Buscador principal ────────────────────────────────────── */
+    /* el logotipo se llevaba media pantalla antes del primer filtro */
+    .search-pane { padding-left: 14px; padding-right: 14px; }
+    .search-pane .logo-block .logo-img { height: 38px; }
+    .search-pane .logo-block { margin-bottom: 12px; }
+    .preview-inner { padding-left: 14px; padding-right: 14px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .home-sheet { animation: none; } }
+  /* Teléfono estrecho (360 px): una columna antes que dos ilegibles. */
+  @media (max-width: 359px) { .home-group-grid { grid-template-columns: 1fr; } }
+
+  /* ── 8. Herramientas recientes ──────────────────────────────────── */
+  /* Con 38 apps en cinco pestañas, quien viene cada día a lo mismo tenía
+     que volver a navegar el menú. Vive en el navegador y no en la cuenta
+     porque es preferencia del aparato: el celular del taller y la
+     computadora del mostrador no se usan para lo mismo. */
+  .home-recientes { margin: 0 0 22px; }
+  .home-recientes-t {
+    display: flex; align-items: center; gap: 7px; margin-bottom: 10px;
+    font: 600 11px var(--font); letter-spacing: 1px; color: var(--label);
+  }
+  .home-recientes-lista { display: flex; gap: 8px; flex-wrap: wrap; }
+  .home-reciente {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px; max-width: 100%;
+    padding: 8px 14px 8px 11px; border-radius: var(--r-full);
+    background: var(--panel); border: 1px solid var(--border-hi); color: var(--text);
+    font: 600 12.5px var(--font); cursor: pointer; touch-action: manipulation;
+  }
+  .home-reciente span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .home-reciente:hover { border-color: var(--accent-dim); background: var(--accent-soft); }
+
+  /* ── 9. Aplicación instalada ────────────────────────────────────── */
+  /* app.js pone `body.pwa` cuando el sistema la abre sin barra de
+     direcciones. Cambia lo que sobra, no el aspecto: hay que reservar el
+     notch a mano y las invitaciones a instalar dejan de tener sentido. */
+  body.pwa .home-nav { padding-top: calc(10px + env(safe-area-inset-top)); }
+  body.pwa .micro-shell-head { padding-top: calc(8px + env(safe-area-inset-top)); }
+  body.pwa .app-shell { padding-top: env(safe-area-inset-top); }
+  body.pwa .instalar-banner { display: none !important; }
+  /* sin barra del navegador, arrastrar sobre un título dejaba media
+     interfaz seleccionada; el contenido que sí se copia queda intacto */
+  body.pwa .home-nav, body.pwa .home-tabbar, body.pwa .micro-shell-head {
+    -webkit-user-select: none; user-select: none;
+  }
+
+  /* ── 10. Invitación a instalar ──────────────────────────────────── */
+  .instalar-banner {
+    position: fixed; z-index: 65; left: 12px; right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 12px 12px 14px; border-radius: var(--r-lg);
+    background: var(--panel); border: 1px solid var(--border-hi);
+    box-shadow: 0 12px 32px var(--sunken); animation: instalar-in .22s ease-out;
+  }
+  @keyframes instalar-in { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .instalar-banner { animation: none; } }
+  @media (max-width: 720px) { .instalar-banner { bottom: calc(72px + env(safe-area-inset-bottom)); } }
+  @media (min-width: 721px) { .instalar-banner { left: auto; width: 380px; max-width: calc(100vw - 24px); } }
+  .instalar-txt { flex: 1; min-width: 0; }
+  .instalar-txt strong { display: block; font: 600 13.5px var(--font); color: var(--text); }
+  .instalar-txt span { display: block; font: 500 11.5px var(--font); color: var(--muted); line-height: 1.45; }
+  .instalar-si {
+    flex: none; min-height: 42px; padding: 10px 15px; border-radius: var(--r-sm);
+    background: var(--accent-fill); border: 1px solid var(--accent-fill); color: var(--accent-ink);
+    font: 700 11.5px var(--font); cursor: pointer; touch-action: manipulation;
+  }
+  .instalar-no {
+    flex: none; width: 40px; min-height: 42px; border-radius: var(--r-sm);
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    cursor: pointer; touch-action: manipulation;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  /* ── 11. Sin conexión ───────────────────────────────────────────── */
+  /* En el taller la señal se cae en la fosa y detrás de la cortina de
+     metal. Que la app siga respondiendo con lo cacheado pero sin decirlo
+     es peor que no funcionar: el mecánico no sabe si el dato es de hoy. */
+  .sin-red {
+    position: fixed; z-index: 80; left: 0; right: 0; top: 0;
+    padding: calc(7px + env(safe-area-inset-top)) 14px 7px;
+    background: var(--amber-soft); border-bottom: 1px solid var(--amber-dim);
+    color: var(--amber); font: 600 12px var(--font); text-align: center;
+  }
+  body.sin-red-activo .home-nav { top: 34px; }
+
+  /* ── 12. Teléfono en horizontal ─────────────────────────────────── */
+  /* Girado quedan 390 px de ALTO y el hero se los comía entero. Pasa de
+     verdad: el celular apoyado en el guardabarros se gira para ver una
+     tabla ancha. */
+  @media (max-height: 460px) and (orientation: landscape) {
+    .home-hero { padding-top: 22px; padding-bottom: 22px; }
+    .home-hero-title { font-size: clamp(24px, 5vw, 34px); }
+    .home-hero-visual { display: none; }
+    .home-tabbar { position: static; }
+    .home-body { padding-bottom: 24px; }
+  }
+
+  /* ── 13. Buscador de herramientas (dentro de la barra) ──────────────
+     Va en la barra superior como en el brief de marca. Antes era una banda
+     suelta debajo: se leía como un añadido y en el celular se iba con el
+     scroll, justo cuando más falta hace para no recorrer 38 tarjetas. */
+  .home-buscador { position: relative; flex: 1 1 260px; max-width: 400px; }
+  .home-buscador .styled-input {
+    padding-left: 38px; padding-right: 40px; border-radius: var(--r-full);
+    background: var(--panel2); border-color: transparent;
+  }
+  .home-buscador .styled-input:focus-visible { border-color: var(--accent); background: var(--panel); }
+  .home-buscador-ic {
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    color: var(--icon); display: inline-flex; pointer-events: none;
+  }
+  .home-buscador-x {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    width: 34px; height: 34px; border-radius: 50%; background: none; border: 0;
+    color: var(--muted); cursor: pointer; touch-action: manipulation;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  .home-cat-desc--corta { display: none; }
+  @media (max-width: 720px) {
+    .home-cat-desc--larga { display: none; }
+    .home-cat-desc--corta { display: block; }
+    /* el titular de categoría no compite con las tarjetas, que es a lo que
+       se viene: baja de 28 a 21 px y el bloque entero de 300 a 90 px */
+    .home-cat-title { font-size: 21px; }
+    .home-cat-head { margin-bottom: 16px; }
+    .home-cat-desc { margin-top: 6px; }
+  }
+
+  /* ── 14. Botón secundario y cotizador ───────────────────────────────
+     `.home-cta-ghost` no tenía NINGUNA regla: se pintaba con el botón por
+     defecto del navegador —gris de sistema, tipografía ajena, sin estados—
+     en el segundo CTA del hero ("Ver guías") y en los dos "+ Agregar" del
+     cotizador. Es el secundario del sistema, así que se define aquí con el
+     mismo lenguaje que `.tool-add-btn`: mismo alto, mismo radio, relleno
+     vacío y borde en vez de acento. */
+  .home-cta-ghost {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 12px 18px; border-radius: var(--r-sm); cursor: pointer;
+    touch-action: manipulation;
+    background: transparent; border: 1px solid var(--border-hi); color: var(--text);
+    font: 600 13px var(--font); letter-spacing: 0;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .home-cta-ghost:hover { background: var(--accent-soft); border-color: var(--accent-dim); color: var(--accent); }
+  .home-cta-ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media (max-width: 720px) {
+    /* Los datos del cliente son campos de texto con etiquetas largas
+       ("WhatsApp (con código de país)"): en dos columnas de 175 px la
+       etiqueta se partía en dos líneas y descuadraba los campos entre sí.
+       Los de tarifas son números cortos y sí caben pareados. */
+    .quote-params--ancho { grid-template-columns: 1fr; }
+    /* La línea de presupuesto envolvía dejando la ✕ sola en una fila. En dos
+       filas explícitas —qué es arriba, cuánto y borrar abajo— cada control
+       cae donde se espera y el subtotal queda junto a su línea. */
+    .quote-line {
+      display: grid; grid-template-columns: 1fr auto auto; gap: 8px;
+      align-items: center; padding-bottom: 10px; margin-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .quote-line > .styled-input:first-child { grid-column: 1 / -1; }
+    .quote-line .quote-narrow { flex: none !important; width: 92px; min-width: 0 !important; }
+    .quote-line .quote-sub { min-width: 0; margin-left: auto; }
+    .quote-add { width: 100%; }
+  }
+
+  /* ── 15. Tableta y portátil estrecho (721-1023 px) ──────────────────
+     Por encima de 720 px vuelve el menú superior, pero las seis categorías
+     más la marca y la cuenta no caben en una fila hasta pasados los 1000 px:
+     medido a 768 px, la barra se envolvía en dos filas de 121 px de alto y
+     volvía a empujar el contenido hacia abajo, que es justo lo que se acaba
+     de arreglar en el celular. Se deja UNA fila que se desliza con el dedo,
+     que es como se recorre un menú largo en una tableta. */
+  @media (min-width: 721px) and (max-width: 1023px) {
+    .home-nav { flex-wrap: nowrap; }
+    .home-nav-links { margin: 0 4px 0 auto; }
+  }
+
+  /* ── 16. Ilustraciones de marca ─────────────────────────────────────
+     Dos dibujos a lápiz del brief: el personaje y la fachada del taller. */
+
+
+  /* La fachada del taller, sólo en la sección del ecosistema. El dibujo trae un
+     cartel en blanco arriba —x 29-71 %, y 5,5-29 % de la imagen, medido— y ahí
+     es donde tiene que caer el titular de la sección: por eso el fondo se ancla
+     arriba y centrado, y el relleno superior está calculado para que el
+     bloque del encabezado aterrice dentro del cartel. */
+  .home-ecosystem { position: relative; isolation: isolate; }
+  .home-ecosystem::before {
+    content: ''; position: absolute; inset: 0; z-index: -1;
+    background: url('/media/fondo-taller.jpg') top center / cover no-repeat;
+  }
+  /* Es lápiz sobre papel blanco: en tema oscuro hay que apagarlo, pero NO
+     invirtiéndolo. `invert(1)` lo dejaba en negativo —papel negro, trazo
+     blanco, el taller en rayos X— y se leía como un error de render en mitad
+     de la página. Bajar el brillo conserva el dibujo: papel gris oscuro, trazo
+     casi negro, y el rótulo queda en un gris sobre el que el titular crema
+     mide ~8:1, de sobra para AA. */
+  :root[data-theme="dark"] .home-ecosystem::before,
+  :root[data-theme="dark"] .home-ecosystem::after { filter: brightness(.22) contrast(1.05); opacity: .85; }
+  /* El encabezado se sienta dentro del cartel. El cartel mide el 23,5 % del
+     alto de la imagen, así que el bloque tiene que quedar corto: la bajada se
+     recorta a dos líneas y el aire de debajo lo pone la rejilla. */
+  /* El relleno superior de la sección se recorta para que el bloque suba al
+     cartel: medido a 1440, el titular caía 40 px por debajo del marco. */
+  /* El relleno de abajo no es aire: con `cover`, la escala la manda el alto de
+     la sección, así que agrandarla agranda el cartel —siempre el 23,5 % del
+     alto— hasta que caben los tres bloques de texto. Y lo que ocupa ese hueco
+     es la propia ilustración: el suelo del taller bajo las tarjetas. */
+  .home-ecosystem { padding-top: clamp(66px, 5.6vw, 82px); padding-bottom: clamp(120px, 25vw, 380px); }
+  @media (max-width: 720px) { .home-ecosystem { padding-top: 100px; } }
+  /* La bajada baja de 16 a 15 px y estrecha su caja: son tres bloques dentro
+     de un cartel que mide el 23,5 % del alto de la sección, y cada línea de
+     más los empuja fuera del marco. */
+  .home-ecosystem-head p { font-size: 15px; max-width: 52ch; }
+  /* Sin degradado: la ilustración se ve de arriba abajo y las tarjetas se
+     apoyan encima. Son opacas (--panel), así que el dibujo no les estorba la
+     lectura; lo único que hacía falta era subir su sombra para despegarlas. */
+  .home-eco-card { box-shadow: 0 10px 30px -14px rgba(31, 42, 26, .45); }
+
+  /* Celular. Va DESPUÉS de la regla de escritorio a propósito: estaba escrito
+     200 líneas más arriba y, al tener la misma especificidad, la de escritorio
+     le ganaba por orden y el degradado móvil no se aplicaba nunca. */
+
+
+  /* ── 17. La sección del ecosistema en celular ───────────────────────
+     En escritorio una sola capa basta: la sección se acerca a la relación de
+     la ilustración y `cover` deja el cartel arriba y el taller detrás de las
+     tarjetas. En un celular la sección es 3,5 veces más alta que ancha, y con
+     `cover` la escala la manda el alto: la imagen se amplía al 640 % y el
+     taller se convierte en un montón de líneas sueltas.
+
+     Se parte en dos capas, cada una con su trabajo:
+       ::before  sólo el cartel, muy ampliado, para que quepan los TRES bloques
+                 de texto. A esa escala se ve el interior blanco del rótulo,
+                 sin marco: es un panel limpio donde el titular se lee.
+       ::after   el taller a tamaño reconocible, anclado abajo, detrás de las
+                 tarjetas. */
+  @media (max-width: 720px) {
+    .home-ecosystem::before {
+      background-size: 500% auto;
+      -webkit-mask-image: linear-gradient(180deg, #000 0, #000 24%, transparent 33%);
+      mask-image: linear-gradient(180deg, #000 0, #000 24%, transparent 33%);
+    }
+    .home-ecosystem::after {
+      content: ''; position: absolute; left: 0; right: 0; bottom: 0; z-index: -1;
+      height: 72%;
+      background: url('/media/fondo-taller.jpg') bottom center / 148% auto no-repeat;
+      -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 22%, #000 100%);
+      mask-image: linear-gradient(180deg, transparent 0, #000 22%, #000 100%);
+    }
+  }
+
 </style>
+
+<!-- (capa "trazo de taller" eliminada — la dirección editorial del sistema
+     "llave" pide superficies limpias y radios suaves, no marcos dibujados
+     a mano. Ver DESIGN.md §0.) -->
 </head>
 <body>
 <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
-<canvas id="bg" aria-hidden="true"></canvas>
-<noscript>FuelTech Master requiere JavaScript: consulta técnica de presión de riel (PSI/Bar), ubicación de módulos y pilas de gasolina compatibles para vehículos de Latinoamérica.</noscript>
+<noscript>llave requiere JavaScript: consulta técnica de presión de riel (PSI/Bar), ubicación de módulos y pilas de gasolina compatibles para vehículos de Latinoamérica.</noscript>
 <div id="root">
   <!--ROOT-CONTENT-START-->
   <div class="app-shell" style="opacity:0.6;filter:blur(1px);pointer-events:none;transition:opacity .4s,filter .4s">
     <aside class="search-pane">
       <div class="logo-block" style="opacity:0.4">
-        <img class="logo-lockup on-dark" src="/brand/logo-dark.png" width="760" height="205" alt="FuelTech Master">
-        <img class="logo-lockup on-light" src="/brand/logo-light.png" width="760" height="193" alt="">
+        <img class="logo-img logo-img--light" src="/brand/logo-llave.svg" alt="llave">
+        <img class="logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="">
       </div>
       <div class="panel" aria-busy="true">
         <div class="skel" aria-hidden="true">
@@ -2289,9 +3130,17 @@
 <script src="/vendor/react-dom.production.min.js"></script>
 <script src="/vendor/htm.js"></script>
 <script src="/vendor/lucide.js"></script>
-<script src="/fx.js"></script>
+<!-- (GSAP y ScrollTrigger eliminados: el hero ya no usa scrub, las
+     animaciones de entrada se hacen con IntersectionObserver nativo en
+     microapps.js. Menos JS para el primer pintado.) -->
 <script type="module" src="/three3d.js?v=4"></script>
-<script src="/microapps.js?v=5"></script>
+<!-- datos.js ANTES que microapps.js: son las tablas de referencia (DTC,
+     torques, bujías, sincronización, VIN, mano de obra) y microapps.js las
+     desestructura de window.FT_DATOS al evaluarse. Si se cargara después,
+     saldrían todas vacías y sin un solo error que lo delatara. -->
+<script src="/datos.js?v=1"></script>
+<script src="/microapps.js?v=7"></script>
+<script src="/microapps-taller.js?v=6"></script>
 <script src="/app.js?v=5"></script>
 </body>
 </html>

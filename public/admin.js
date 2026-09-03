@@ -1,4 +1,4 @@
-/* FuelTech Master — Panel de administración (vanilla JS, sin scripts inline por CSP) */
+/* llave — Panel de administración (vanilla JS, sin scripts inline por CSP) */
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = 'ft_admin_token';
 let token = sessionStorage.getItem(TOKEN_KEY) || '';

@@ -1,28 +1,33 @@
 # Informe de calidad — FuelTech Master
 
-_Generado el 2026-08-12 17:54 por `npm run metrics`. No lo edites a mano._
+_Generado el 2026-09-03 18:28 por `npm run metrics`. No lo edites a mano._
 
-## ✅ Todos los presupuestos se cumplen
+## ❌ 3 presupuesto(s) roto(s)
 
-Nada que corregir.
+- 26 rutas sin proteger, el tope es 24
+- el archivo más largo tiene 3086 líneas, el tope es 3000
+- public/index.html pesa 173.2 KB, el presupuesto es 172 KB
 
 ## Resumen
 
 | Métrica | Valor | Estado |
 | --- | --- | --- |
-| Pruebas que pasan | 407 / 407 | ✅ |
-| Duración de la suite | 7.3 s | ✅ |
+| Pruebas que pasan | 503 / 503 | ✅ |
+| Duración de la suite | 9.7 s | ✅ |
 | Reglas de restricción | 18 reglas, 0 violaciones | ✅ |
-| Rutas de API probadas | 100% de 79 | ✅ |
+| Rutas de API probadas | 100% de 81 | ✅ |
 | Deuda conocida aceptada | 5 de 5 | ✅ |
-| Razón prueba/código | 0.76x | ✅ |
+| Razón prueba/código | 0.7x | ✅ |
 
 ## Cobertura de las reglas del taller (lib/)
 
 ```
 ✓ lib/catalog.js     ████████████████████████   100%  (mínimo 80%)
 ✓ lib/domain.js      ████████████████████████   100%  (mínimo 90%)
+  lib/errores.js     ████████████████████████   100%
+  lib/portada.js     ████████████████████████   100%
 ✓ lib/pure.js        ████████████████████████   100%  (mínimo 95%)
+  lib/ruta.js        ████████████████████████   100%
 ```
 
 ## Catálogo
@@ -34,17 +39,28 @@ Nada que corregir.
 ## Tamaño de los archivos que descarga el usuario
 
 ```
-✓ public/app.js              110.2 KB  de 130 KB
-✓ public/microapps.js        184.5 KB  de 200 KB
-✓ public/index.html          134.8 KB  de 140 KB
-✓ public/three3d.js             35 KB  de 45 KB
-✓ public/sw.js                 2.2 KB  de 8 KB
-✓ server-pg.js               177.1 KB  de 200 KB
+✓ public/app.js              123.9 KB  de 130 KB
+✓ public/microapps.js        174.3 KB  de 175 KB
+✓ public/microapps-taller.js    60.4 KB  de 75 KB
+✓ public/datos.js              9.8 KB  de 16 KB
+✗ public/index.html          173.2 KB  de 172 KB
+✓ public/three3d.js           34.9 KB  de 45 KB
+✓ public/sw.js                 4.9 KB  de 8 KB
+✓ server-pg.js                 196 KB  de 200 KB
 ```
 
 ## Evolución respecto a la referencia
 
-Sin cambios respecto a la última referencia aceptada.
+**Mejoras:**
+
+- pruebas_total: 491 → 503
+
+**Retrocesos (bloquean):**
+
+- rutas_api_sin_proteger: 24 → 26
+- archivos_sobre_presupuesto: 0 → 1
+- max_lineas_archivo: 2963 → 3086
+
 
 ## Deuda conocida pendiente de decisión
 

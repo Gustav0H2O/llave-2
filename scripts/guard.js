@@ -32,7 +32,7 @@ const existe = (p) => fs.existsSync(path.join(RAIZ, p));
 /* Archivos que se analizan, por categoría. */
 const SERVIDOR = ['server-pg.js', 'db.js', 'seed.js', 'migrate.js', 'og-gen.js'].filter(existe);
 const LIBRERIA = existe('lib') ? fs.readdirSync(path.join(RAIZ, 'lib')).filter(f => f.endsWith('.js')).map(f => `lib/${f}`) : [];
-const FRONTEND = ['public/app.js', 'public/microapps.js', 'public/three3d.js', 'public/admin.js', 'public/sw.js', 'public/fx.js'].filter(existe);
+const FRONTEND = ['public/app.js', 'public/microapps.js', 'public/microapps-taller.js', 'public/three3d.js', 'public/admin.js', 'public/sw.js'].filter(existe);
 
 /* Un hallazgo siempre dice DÓNDE y POR QUÉ importa. */
 const hallazgo = (archivo, linea, mensaje) => ({ archivo, linea, mensaje });

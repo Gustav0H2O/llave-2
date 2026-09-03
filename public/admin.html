@@ -4,24 +4,28 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>FuelTech · Panel de administración</title>
-<meta name="theme-color" content="#0F1113">
+<title>llave · Panel de administración</title>
+<meta name="theme-color" content="#111311">
 <style>
   :root{
-    /* Paleta de marca FuelTech Master: lima #AECC3A sobre grafito neutro.
-       --red/--red-dim quedan como alias del acento para no tocar admin.js. */
-    --bg:#0F1113;--panel:#1a1e21;--panel2:#24292d;--border:#3a403f;--border-hi:#4e5453;
-    --text:#E8EAE6;--muted:#969C99;--accent:#AECC3A;--accent-strong:#C2DE4C;--accent-ink:#101310;
-    --red:var(--accent);--red-dim:rgba(174,204,58,.42);--amber:#F0B429;--green:var(--accent);
-    --font:'Montserrat',system-ui,-apple-system,sans-serif;
-    --input-bg:#080a0b;--danger:#F2555A;--danger-dim:rgba(242,85,90,.45);
+    /* Paleta de marca "llave" — admin en dark mode por defecto: las tablas
+       densas se leen mejor en grafito. Acento verde #3F5132 + oliva #7B8968
+       en roles secundarios. --red sigue siendo alias del acento para no
+       tocar admin.js. */
+    --bg:#111311;--panel:#1A1C18;--panel2:#232620;--border:rgba(248,247,243,.10);--border-hi:rgba(248,247,243,.20);
+    --text:#F8F7F3;--muted:#9A9B91;--accent:#6F8A5A;--accent-strong:#8AA571;--accent-ink:#111311;
+    --accent-olive:#7B8968;--olive-soft:rgba(123,137,104,.16);
+    --red:var(--accent);--red-dim:rgba(111,138,90,.42);--amber:#E6B14A;--green:var(--accent);
+    --font:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --input-bg:#1A1C18;--danger:#E0635A;--danger-dim:rgba(224,99,90,.45);
   }
   @media (prefers-color-scheme: light) {
     :root{
-      --bg:#F4F5F2;--panel:#FFFFFF;--panel2:#E8EBE3;--border:rgba(120,128,118,.55);--border-hi:rgba(70,76,68,.75);
-      --text:#14161A;--muted:#4B514C;--accent:#55700D;--accent-strong:#435A08;--accent-ink:#101310;
-      --red:var(--accent);--red-dim:rgba(85,112,13,.35);--amber:#8A5A00;--green:var(--accent);
-      --input-bg:#FFFFFF;--danger:#C0272D;--danger-dim:rgba(192,39,45,.4);
+      --bg:#F8F7F3;--panel:#FFFFFF;--panel2:#F1EFEA;--border:#E5E2DA;--border-hi:#C9C6BC;
+      --text:#111311;--muted:#6B6D64;--accent:#3F5132;--accent-strong:#2E3D24;--accent-ink:#F8F7F3;
+      --accent-olive:#7B8968;--olive-soft:rgba(63,81,50,.16);
+      --red:var(--accent);--red-dim:rgba(63,81,50,.42);--amber:#8A5A00;--green:var(--accent);
+      --input-bg:#FFFFFF;--danger:#B8341E;--danger-dim:rgba(184,52,30,.4);
     }
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -70,7 +74,7 @@
   .hidden{display:none}
   .counts{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
   .counts b{color:var(--text)}
-  .brand-lockup{width:190px;height:auto;display:block;margin:0 auto 6px}
+  .brand-lockup{height:52px;width:auto;display:block;margin:0 auto 6px}
   .brand-lockup.dark{display:block}
   .brand-lockup.light{display:none}
   @media (prefers-color-scheme: light) {
@@ -83,11 +87,11 @@
 <body>
 <!-- LOGIN -->
 <div id="login" class="center">
-  <img class="brand-lockup dark" src="/brand/logo-dark.png" width="760" height="205" alt="FuelTech Master">
-  <img class="brand-lockup light" src="/brand/logo-light.png" width="760" height="193" alt="FuelTech Master">
+  <img class="brand-lockup dark" src="/brand/logo-llave-light.svg" alt="llave">
+  <img class="brand-lockup light" src="/brand/logo-llave.svg" alt="llave">
   <div class="brand">ADMIN</div>
   <p class="muted" style="margin:8px 0 18px;font-size:12px">Panel de carga de datos</p>
-  <div class="field"><input id="pass" type="password" placeholder="Contraseña" autocomplete="current-password"></div>
+  <div class="field"><label for="pass" style="display:block;text-align:left;font-size:11px;margin-bottom:4px">Contraseña del panel</label><input id="pass" type="password" placeholder="Contraseña" autocomplete="current-password"></div>
   <button id="loginBtn" class="primary" style="width:100%">Entrar</button>
   <p id="loginErr" class="msg err"></p>
   <p class="hint">Se activa con la variable de entorno <code>ADMIN_PASSWORD</code> en el servidor.</p>
@@ -97,8 +101,8 @@
 <div id="app" class="wrap hidden">
   <div class="row" style="justify-content:space-between;align-items:center">
     <div>
-      <img class="brand-lockup dark" src="/brand/logo-dark.png" width="760" height="205" alt="FuelTech Master">
-      <img class="brand-lockup light" src="/brand/logo-light.png" width="760" height="193" alt="FuelTech Master">
+      <img class="brand-lockup dark" src="/brand/logo-llave-light.svg" alt="llave">
+      <img class="brand-lockup light" src="/brand/logo-llave.svg" alt="llave">
       <div class="brand">ADMIN</div>
       <div class="counts" id="counts"></div>
     </div>

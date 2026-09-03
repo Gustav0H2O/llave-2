@@ -24,7 +24,7 @@ const SCHEMA_PG = leer('schema-pg.sql');
 const PKG = JSON.parse(leer('package.json'));
 
 /* Archivos JS del frontend que se sirven tal cual (sin build step). */
-const FRONTEND = ['public/app.js', 'public/microapps.js', 'public/three3d.js', 'public/admin.js'];
+const FRONTEND = ['public/app.js', 'public/microapps.js', 'public/microapps-taller.js', 'public/three3d.js', 'public/admin.js'];
 
 describe('Coherencia entre los dos esquemas SQL', () => {
   const tablas = (sql) => [...sql.matchAll(/CREATE TABLE (?:IF NOT EXISTS )?(\w+)/gi)].map(m => m[1].toLowerCase());

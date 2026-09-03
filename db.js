@@ -30,7 +30,7 @@ if (USE_TURSO) {
   });
   console.log('🔗 Conectado a PostgreSQL');
 } else {
-  sqliteDb = new Database(path.join(__dirname, 'fueltech.db'));
+  sqliteDb = new Database(path.join(__dirname, 'llave.db'));
   sqliteDb.pragma('journal_mode = WAL');
   sqliteDb.pragma('foreign_keys = ON');
 
