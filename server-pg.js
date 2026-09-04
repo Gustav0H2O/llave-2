@@ -1929,7 +1929,10 @@ ${dbContext}`;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Correo inválido' });
     if (pass.length < 8) return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
     if (!name) return res.status(400).json({ error: 'Nombre del taller requerido' });
-    const exists = await db.get('SELECT id FROM workshops WHERE email = ?', email);
+    const exists = await db.get('SELECT id, pass_hash FROM workshops WHERE email = ?', email);
+    if (exists && exists.pass_hash === 'google_oauth') {
+      return res.status(409).json({ error: 'Ese correo ya tiene una cuenta con Google: usa "Continuar con Google".' });
+    }
     if (exists) return res.status(409).json({ error: 'Ya existe una cuenta con ese correo' });
     const passHash = await hashPassword(pass);
     /* FT-0003: al volver el hash asíncrono, DOS altas del mismo correo pueden
@@ -1961,6 +1964,14 @@ ${dbContext}`;
     const email = str(req.body?.email, 120).toLowerCase();
     const pass = typeof req.body?.password === 'string' ? req.body.password : '';
     const ws = await db.get('SELECT * FROM workshops WHERE email = ?', email);
+    /* Una cuenta creada por "Continuar con Google" no tiene contraseña
+       (pass_hash='google_oauth' es una marca, no un hash). Avisar en vez de
+       responder el genérico "correo o contraseña incorrectos": si el alta de
+       Google falló a medias (bug del lastID ya corregido) la cuenta existe y el
+       usuario no entendería por qué su contraseña "no vale". */
+    if (ws && ws.pass_hash === 'google_oauth') {
+      return res.status(401).json({ error: 'Esta cuenta usa Google. Entra con "Continuar con Google".' });
+    }
     if (!ws || !(await verifyPassword(pass, ws.pass_hash))) {
       return res.status(401).json({ error: 'Correo o contraseña incorrectos' });
     }
@@ -2191,13 +2202,34 @@ ${dbContext}`;
   /* ---- Google Sign-In (OAuth 2.0) ---- */
   const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
   const GOOGLE_CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
-  const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || (PROD ? 'https://llave.onrender.com/api/auth/google/callback' : 'http://localhost:3000/api/auth/google/callback');
+  /* El redirect_uri que se manda a Google debe coincidir EXACTO con una de las
+     "Authorized redirect URIs" del proyecto en Google Cloud Console. Autorizadas:
+     https://llave-d3me.onrender.com/api/auth/google/callback (producción) y
+     http://localhost:3000/api/auth/google/callback (local). Se deriva del Host
+     de la petición para acertar en ambos entornos sin depender de NODE_ENV
+     (que en Windows puede venir global como "production" y hacía que local
+     usara la URI de producción, o el redirect_uri hardcodeado apuntara a un
+     dominio que ya no era el sitio). GOOGLE_REDIRECT_URI explícita en el
+     entorno sigue teniendo la última palabra (dominio propio). */
+  const googleRedirectUri = (req) => {
+    if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
+    const host = req.headers.host || '';
+    // Detrás de Render/Cloudflare el Host público viaja en X-Forwarded-Host
+    const fwd = (req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+    const h = fwd || host || (BASE_URL ? new URL(BASE_URL).host : '');
+    const proto = req.headers['x-forwarded-proto']
+      ? String(req.headers['x-forwarded-proto']).split(',')[0].trim()
+      : (PROD ? 'https' : 'http');
+    return `${proto}://${h}/api/auth/google/callback`;
+  };
 
   // Iniciar flujo Google OAuth
   app.get('/api/auth/google', (req, res) => {
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
       return res.status(503).json({ error: 'Google Sign-In no configurado' });
     }
+    const GOOGLE_REDIRECT_URI = googleRedirectUri(req);
+    console.log('[Google OAuth] redirect_uri:', GOOGLE_REDIRECT_URI);
     const state = crypto.randomBytes(16).toString('hex');
     // Guardar state en cookie temporal para validar respuesta
     res.cookie('google_oauth_state', state, { httpOnly: true, sameSite: 'lax', secure: PROD, maxAge: 600_000 });
@@ -2216,17 +2248,28 @@ ${dbContext}`;
   // Callback de Google OAuth
   app.get('/api/auth/google/callback', async (req, res) => {
     const { code, state } = req.query;
-    const savedState = req.cookies?.google_oauth_state;
+    // cookie-parser NO está montado: req.cookies es undefined. La cookie del
+    // state se guardó con res.cookie() en /api/auth/google, así que hay que
+    // leerla del header crudo (mismo patrón que requireWorkshop con ftm_session).
+    // Sin esto savedState siempre es undefined y el state "nunca coincide":
+    // Google devolvía el code bien y el callback caía en google_error siempre.
+    const rawCookies = req.headers.cookie || '';
+    const mState = rawCookies.match(/(?:^|;\s*)google_oauth_state=([^;]+)/);
+    const savedState = mState ? decodeURIComponent(mState[1]) : null;
+
+    console.log('[Google OAuth] callback:', { code: code ? 'si' : 'no', state, savedState: savedState ? 'si' : 'no' });
 
     // Limpiar cookie de estado
     res.clearCookie('google_oauth_state');
 
-    if (!code || !state || state !== savedState) {
+    if (!code || !state || !savedState || state !== savedState) {
+      console.log('[Google OAuth] error: state mismatch o falta code');
       return res.redirect('/?login=google_error');
     }
 
     try {
-      // Intercambiar código por tokens
+      // Intercambiar código por tokens. El redirect_uri debe ser EL MISMO que
+      // se usó al autorizar (Google lo valida): se recalcula del Host.
       const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -2234,12 +2277,16 @@ ${dbContext}`;
           code,
           client_id: GOOGLE_CLIENT_ID,
           client_secret: GOOGLE_CLIENT_SECRET,
-          redirect_uri: GOOGLE_REDIRECT_URI,
+          redirect_uri: googleRedirectUri(req),
           grant_type: 'authorization_code',
         }),
       });
 
-      if (!tokenRes.ok) throw new Error('Error al obtener tokens de Google');
+      if (!tokenRes.ok) {
+        const errText = await tokenRes.text();
+        console.log('[Google OAuth] token error:', tokenRes.status, errText);
+        throw new Error('Error al obtener tokens de Google');
+      }
       const tokenData = await tokenRes.json();
 
       // Obtener info del usuario
@@ -2249,20 +2296,29 @@ ${dbContext}`;
 
       if (!userRes.ok) throw new Error('Error al obtener datos del usuario');
       const googleUser = await userRes.json();
+      console.log('[Google OAuth] usuario:', googleUser.email);
 
       if (!googleUser.email) throw new Error('Google no proporcionó el email');
 
       // Buscar o crear usuario
       let ws = await db.get('SELECT * FROM workshops WHERE email = ?', googleUser.email.toLowerCase());
       if (!ws) {
-        // Crear cuenta automáticamente
+        // Crear cuenta automáticamente. OJO: db.run() NO devuelve lastID — en
+        // Turso devuelve { changes, lastInsertRowid } y en PG { changes }, así
+        // que hay que usar insertReturningId como en /api/auth/register, o el
+        // SELECT posterior no encuentra la fila recién creada y el alta de
+        // Google "no se refleja" (bug visto en producción).
         const name = googleUser.name || googleUser.email.split('@')[0];
-        const result = await db.run(
+        const id = await db.insertReturningId(
           'INSERT INTO workshops (email, pass_hash, name, email_verified) VALUES (?, ?, ?, 1)',
           [googleUser.email.toLowerCase(), 'google_oauth', name]
         );
-        ws = await db.get('SELECT * FROM workshops WHERE id = ?', result.lastID);
+        ws = await db.get('SELECT * FROM workshops WHERE id = ?', id);
+        console.log('[Google OAuth] cuenta creada:', ws?.id, ws?.email);
+      } else {
+        console.log('[Google OAuth] cuenta existente:', ws.id, ws.email);
       }
+      if (!ws) throw new Error('No se pudo crear la cuenta');
 
       // Crear sesión
       const token = crypto.randomBytes(32).toString('base64url');
@@ -2270,6 +2326,7 @@ ${dbContext}`;
         'INSERT INTO sessions (token_hash, workshop_id, expires_at) VALUES (?, ?, ?)',
         [hashToken(token), ws.id, new Date(Date.now() + SESSION_TTL_MS).toISOString()]
       );
+      console.log('[Google OAuth] sesion creada para workshop:', ws.id);
 
       res.cookie(SESSION_COOKIE, token, tokenCookieOpts());
       res.redirect('/?login=google_ok');

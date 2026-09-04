@@ -1384,7 +1384,7 @@ function Calculators() {
 }
 
 /* ---------- Login / registro del taller ---------- */
-function LoginScreen({ onLogin, onBack }) {
+function LoginScreen({ onLogin, onBack, notice }) {
   const [mode, setMode] = useState('login');
   /* Sin cifras. El panel izquierdo prometía "144 vehículos de 19 marcas" y "38
      herramientas": números que el catálogo mueve cada vez que el dueño da de
@@ -1467,6 +1467,7 @@ function LoginScreen({ onLogin, onBack }) {
           <p class="login-h1-sub">${mode === 'register' ? 'Tarda menos de un minuto. Solo necesitas un correo.' : 'Entra con tu correo y contraseña.'}</p>
 
           ${done && html`<div class="alert blue" style=${{ marginBottom: '14px' }}><span>¡Bienvenido! Tu sesión está activa.</span></div>`}
+          ${notice && html`<div class="alert" style=${{ marginBottom: '14px' }}><span>${notice}</span></div>`}
 
           <form onSubmit=${submit} class="login-form">
             ${mode === 'register' && html`
@@ -1576,6 +1577,29 @@ function App() {
     url.searchParams.delete('verificado');
     history.replaceState(null, '', url);
     const t = setTimeout(() => setVerifyMsg(''), 6000);
+    return () => clearTimeout(t);
+  }, []);
+
+  /* Vuelta del flujo "Continuar con Google": /?login=google_ok|google_error.
+     google_ok ya deja la cookie de sesión puesta — refrescar /api/auth/me es lo
+     que hace que la cuenta "aparezca" en la app. Sin este efecto el redirect
+     del servidor caía en saco roto y el alta no se reflejaba. */
+  useEffect(() => {
+    const p = new URLSearchParams(location.search).get('login');
+    if (!p || !p.startsWith('google_')) return;
+    const ok = p === 'google_ok';
+    if (ok) {
+      refreshUser();
+      setShowLogin(false);
+      setVerifyMsg('Sesión iniciada con Google ✓');
+    } else {
+      setVerifyMsg('No se pudo iniciar con Google. Prueba de nuevo o usa correo y contraseña.');
+      setShowLogin(true); // el error llega con estado fresco: reabrir el login para reintentar
+    }
+    const url = new URL(location.href);
+    url.searchParams.delete('login');
+    history.replaceState(null, '', url);
+    const t = setTimeout(() => setVerifyMsg(''), 7000);
     return () => clearTimeout(t);
   }, []);
   const garage = useGarage();
@@ -1838,7 +1862,7 @@ function App() {
          para el anónimo (candados en las apps de taller, "$0 sin cuenta", specs
          públicas) y exigir sesión para verlo escondía el producto — incluido el
          <h1> del hero, que es lo que indexan los buscadores. */
-      if (showLogin && !user) return html`<${LoginScreen} onLogin=${setUser} onBack=${() => setShowLogin(false)} />`;
+      if (showLogin && !user) return html`<${LoginScreen} onLogin=${(u) => { setVerifyMsg(''); setUser(u); }} onBack=${() => setShowLogin(false)} notice=${verifyMsg} />`;
       return html`
         ${verifyMsg && html`<div class="toast-stack"><div class="toast" role="status">${verifyMsg}</div></div>`}
         <${FT.Home} onOpen=${openMicro} user=${user} onLogout=${logout} onLogin=${() => setShowLogin(true)} onUserChange=${refreshUser} />`;
