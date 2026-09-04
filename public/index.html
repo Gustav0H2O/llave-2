@@ -508,6 +508,9 @@
     animation: toast-in .22s ease-out;
   }
   .toast .icon { color: var(--accent); }
+  /* Toast de error: borde y acento en rojo para distinguirlo del verde de éxito. */
+  .toast-error { border-color: rgba(220, 80, 70, .55); border-left-color: #d45046; }
+  .toast-error .icon { color: #d45046; }
   @keyframes toast-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
 
@@ -1428,14 +1431,25 @@
      none }` a secas escondía el sol y la luna junto con la etiqueta y dejaba el
      control como una píldora vacía de 52x24 px. */
   .home-nav .theme-switch button span:not(.icon) { display: none; }
-  .home-nav-who { display: inline-flex; align-items: center; gap: 8px; font: 600 11px var(--font); color: var(--muted); }
-  /* "salir" medía 14px de alto: imposible de acertar con el dedo */
-  .home-nav-who .link-btn {
-    display: inline-flex; align-items: center; min-height: 34px; padding: 4px 10px;
-    text-decoration: none; border: 1px solid var(--border); border-radius: var(--r-sm);
-    font: 500 12px var(--font); letter-spacing: 0; text-transform: none; color: var(--muted);
+  .home-nav-who { display: inline-flex; align-items: center; gap: 10px; font: 600 11px var(--font); color: var(--muted); }
+  .home-nav-who-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Botón dedicado de cerrar sesión. Antes era un link-btn minúsculo pegado
+     al nombre del taller: se deformaba en cualquier resize y el área tocable
+     quedaba bajo 30 px. Ahora es un botón con icono, separador visual y foco
+     visible: área de toque ≥ 36 px y borde claro al tabular. */
+  .home-nav-who-divider { width: 1px; height: 16px; background: var(--border); }
+  .home-nav-logout {
+    display: inline-flex; align-items: center; gap: 6px;
+    min-height: 36px; padding: 0 12px;
+    background: transparent; border: 1px solid var(--border); border-radius: var(--r-sm);
+    color: var(--muted); font: 500 12px var(--font); letter-spacing: 0; text-transform: none;
+    cursor: pointer; touch-action: manipulation;
+    transition: color .15s, border-color .15s, background .15s;
   }
-  .home-nav-who .link-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+  .home-nav-logout:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-soft); }
+  .home-nav-logout:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .home-nav-logout:active { transform: translateY(1px); }
+  .home-nav-logout-label { display: inline; }
   .home-nav-login {
     display: inline-flex; align-items: center; cursor: pointer; touch-action: manipulation;
     padding: 9px 15px; border-radius: var(--r-sm);
@@ -2763,8 +2777,11 @@
     .home-nav-user { margin-left: auto; }
     .home-nav-logo img { height: 28px; }
     .home-nav-login { padding: 10px 14px; font-size: 12.5px; }
-    .home-nav-who { font-size: 12px; max-width: 46vw; }
-    .home-nav-who > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .home-nav-who { font-size: 12px; }
+    .home-nav-who-name { max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .home-nav-who-divider { display: none; }
+    .home-nav-logout { padding: 0 10px; min-height: 36px; }
+    .home-nav-logout-label { display: none; }
 
     /* ── 4. Grilla de herramientas ────────────────────────────────── */
     /* Una tarjeta por fila daba tres por pantalla: llegar a la décima de

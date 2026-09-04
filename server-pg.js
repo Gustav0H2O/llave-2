@@ -1904,15 +1904,15 @@ ${dbContext}`;
       const m = raw.match(/(?:^|;\s*)ftm_session=([^;]+)/);
       if (m) token = decodeURIComponent(m[1]);
     }
-    if (!token) return res.status(401).json({ error: 'Inicia sesión primero' });
+    if (!token) return res.status(401).json({ code: 'auth_required', error: 'Inicia sesión primero' });
     const sess = await db.get(
       `SELECT workshop_id, expires_at FROM sessions WHERE token_hash = ?`,
       hashToken(token)
     );
-    if (!sess) return res.status(401).json({ error: 'Sesión inválida' });
+    if (!sess) return res.status(401).json({ code: 'auth_invalid', error: 'Sesión inválida. Inicia sesión de nuevo.' });
     if (new Date(sess.expires_at).getTime() < Date.now()) {
       await db.run('DELETE FROM sessions WHERE token_hash = ?', hashToken(token));
-      return res.status(401).json({ error: 'Sesión expirada' });
+      return res.status(401).json({ code: 'auth_expired', error: 'Tu sesión expiró. Inicia sesión de nuevo.' });
     }
     req.workshopId = sess.workshop_id;
     req.sessionTokenHash = hashToken(token);
@@ -1931,9 +1931,9 @@ ${dbContext}`;
     if (!name) return res.status(400).json({ error: 'Nombre del taller requerido' });
     const exists = await db.get('SELECT id, pass_hash FROM workshops WHERE email = ?', email);
     if (exists && exists.pass_hash === 'google_oauth') {
-      return res.status(409).json({ error: 'Ese correo ya tiene una cuenta con Google: usa "Continuar con Google".' });
+      return res.status(409).json({ code: 'oauth_account', error: 'Ese correo ya tiene una cuenta con Google: usa "Continuar con Google".' });
     }
-    if (exists) return res.status(409).json({ error: 'Ya existe una cuenta con ese correo' });
+    if (exists) return res.status(409).json({ code: 'email_taken', error: 'Ya existe una cuenta con ese correo. ¿Quieres iniciar sesión?' });
     const passHash = await hashPassword(pass);
     /* FT-0003: al volver el hash asíncrono, DOS altas del mismo correo pueden
        pasar ambas la consulta previa mientras las dos esperan su scrypt. La
@@ -1947,7 +1947,7 @@ ${dbContext}`;
       );
     } catch (e) {
       if (/UNIQUE/i.test(String(e.message))) {
-        return res.status(409).json({ error: 'Ya existe una cuenta con ese correo' });
+        return res.status(409).json({ code: 'email_taken', error: 'Ya existe una cuenta con ese correo. ¿Quieres iniciar sesión?' });
       }
       throw e;
     }
@@ -1970,10 +1970,15 @@ ${dbContext}`;
        Google falló a medias (bug del lastID ya corregido) la cuenta existe y el
        usuario no entendería por qué su contraseña "no vale". */
     if (ws && ws.pass_hash === 'google_oauth') {
-      return res.status(401).json({ error: 'Esta cuenta usa Google. Entra con "Continuar con Google".' });
+      return res.status(401).json({ code: 'oauth_account', error: 'Esta cuenta usa Google. Entra con "Continuar con Google".' });
     }
+    /* Cuenta inexistente y contraseña incorrecta devuelven el MISMO código y
+       mensaje: no enumerar cuentas (un atacante podría saber qué correos están
+       registrados). El rate limit + el mensaje genérico cubren el riesgo.
+       El cliente detecta el caso "no tengo cuenta" desde el formulario de
+       REGISTRO con el mismo email, no desde el login. */
     if (!ws || !(await verifyPassword(pass, ws.pass_hash))) {
-      return res.status(401).json({ error: 'Correo o contraseña incorrectos' });
+      return res.status(401).json({ code: 'bad_credentials', error: 'Correo o contraseña incorrectos' });
     }
     const token = crypto.randomBytes(32).toString('base64url');
     await db.run('INSERT INTO sessions (token_hash, workshop_id, expires_at) VALUES (?, ?, ?)',

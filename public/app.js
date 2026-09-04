@@ -121,24 +121,64 @@ function useMediaQuery(consulta) {
    el mecánico repite el gesto sin saber si funcionó. Se emiten con un evento
    para poder avisar desde cualquier componente sin pasar props por toda la app. */
 const toast = (text) => window.dispatchEvent(new CustomEvent('ft-toast', { detail: text }));
+/* Variante de error: misma pila visual pero con icono de alerta y duración
+   mayor. Se usa para fallos de red, 4xx/5xx y avisos que requieren atención. */
+toast.error = (text) => window.dispatchEvent(new CustomEvent('ft-toast-error', { detail: text }));
+
+/* Sube al backend los datos del taller guardados en localStorage (datos
+   creados sin cuenta que se conservan al cambiar de dispositivo si la persona
+   tenía cuenta). Es best-effort: si una fila falla, sigue con las demás.
+   Devuelve un resumen { ok, error, count }. */
+const importTallerFromLocal = async () => {
+  const grab = (k) => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch { return []; } };
+  const inv = grab('ft_inventory'), cli = grab('ft_clients'), ord = grab('ft_orders'), notes = grab('ft_notes'), cash = grab('ft_cash');
+  const total = inv.length + cli.length + ord.length + notes.length + cash.length;
+  if (total === 0) return { ok: false, error: 'sin_datos' };
+  const post = async (path, body) => {
+    const r = await fetch(path, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(`${path} → ${r.status}`);
+    return r;
+  };
+  let count = 0;
+  try {
+    for (const i of inv) { await post('/api/inventory', { name: i.name, qty: i.qty, min_qty: i.min, unit_price: i.price || 0 }); count++; }
+    for (const c of cli) { await post('/api/clients', { name: c.name, phone: c.phone, notes: [c.veh, c.plate].filter(Boolean).join(' · ') }); count++; }
+    for (const o of ord) { await post('/api/orders', { title: o.desc || o.title || 'Orden importada', descr: o.desc, status: o.status }); count++; }
+    for (const n of notes) { await post('/api/notes', { text: n.t, vehicle_ref: n.veh }); count++; }
+    for (const m of cash) { await post('/api/cash', { concept: m.concept, amount: m.amount, type: m.type }); count++; }
+    ['ft_inventory', 'ft_clients', 'ft_orders', 'ft_notes', 'ft_cash', 'ft_pressure_log'].forEach(k => localStorage.removeItem(k));
+    return { ok: true, count };
+  } catch (e) {
+    return { ok: false, error: e.message, count };
+  }
+};
 
 function ToastStack() {
   const [items, setItems] = useState([]);
   useEffect(() => {
     let n = 0;
-    const onToast = (e) => {
+    const push = (text, kind) => {
       const id = ++n;
-      setItems(list => [...list, { id, text: e.detail }]);
-      setTimeout(() => setItems(list => list.filter(t => t.id !== id)), 2600);
+      setItems(list => [...list, { id, text, kind }]);
+      const ttl = kind === 'error' ? 4500 : 2600;
+      setTimeout(() => setItems(list => list.filter(t => t.id !== id)), ttl);
     };
-    window.addEventListener('ft-toast', onToast);
-    return () => window.removeEventListener('ft-toast', onToast);
+    const onOk = (e) => push(e.detail, 'ok');
+    const onErr = (e) => push(e.detail, 'error');
+    window.addEventListener('ft-toast', onOk);
+    window.addEventListener('ft-toast-error', onErr);
+    return () => {
+      window.removeEventListener('ft-toast', onOk);
+      window.removeEventListener('ft-toast-error', onErr);
+    };
   }, []);
   if (!items.length) return null;
   // aria-live: el lector de pantalla anuncia el acuse sin robar el foco
   return html`
     <div class="toast-stack" role="status" aria-live="polite">
-      ${items.map(t => html`<div key=${t.id} class="toast"><${Icon} name="CheckCircle2" size=${15} />${t.text}</div>`)}
+      ${items.map(t => html`<div key=${t.id} class=${'toast toast-' + t.kind}>
+        <${Icon} name=${t.kind === 'error' ? 'AlertCircle' : 'CheckCircle2'} size=${15} />${t.text}
+      </div>`)}
     </div>`;
 }
 
@@ -1408,26 +1448,32 @@ function LoginScreen({ onLogin, onBack, notice }) {
         body: JSON.stringify(form)
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || 'Error');
+      if (!res.ok) {
+        /* Códigos del backend → mensajes más claros en cliente. Los códigos
+           los añade el server para que la UI reaccione sin "leer la mente".
+           Importante: el login NO distingue "cuenta no existe" de
+           "contraseña mal" (no enumerar cuentas). Eso se resuelve en el
+           formulario de REGISTRO con el mismo email. */
+        if (body.code === 'email_taken' && mode === 'register') {
+          setMode('login'); // saltar a Iniciar sesión, email pre-rellenado
+          setErr('Ya tienes cuenta. Inicia sesión.');
+          return;
+        }
+        throw new Error(body.error || 'Error');
+      }
       setDone(true); onLogin(body);
     } catch (e2) { setErr(e2.message); }
     setBusy(false);
   };
-  // Migración best-effort desde localStorage (datos viejos del taller)
+  // Botón "Importar mis datos del navegador" del login: usa el helper global
+  // para no duplicar la lógica (la sincronización automática al iniciar sesión
+  // también lo usa). Aquí solo se muestra el mensaje en el formulario.
   const importLocal = async () => {
-    const grab = (k) => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch { return []; } };
-    const inv = grab('ft_inventory'), cli = grab('ft_clients'), ord = grab('ft_orders'), notes = grab('ft_notes'), cash = grab('ft_cash');
-    if (!inv.length && !cli.length && !ord.length && !notes.length && !cash.length) { setErr('No se encontraron datos locales para importar'); return; }
     setBusy(true); setErr('');
-    try {
-      for (const i of inv) await fetch('/api/inventory', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: i.name, qty: i.qty, min_qty: i.min, unit_price: i.price || 0 }) });
-      for (const c of cli) await fetch('/api/clients', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: c.name, phone: c.phone, notes: [c.veh, c.plate].filter(Boolean).join(' · ') }) });
-      for (const o of ord) await fetch('/api/orders', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: o.desc || o.title || 'Orden importada', descr: o.desc, status: o.status }) });
-      for (const n of notes) await fetch('/api/notes', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: n.t, vehicle_ref: n.veh }) });
-      for (const m of cash) await fetch('/api/cash', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ concept: m.concept, amount: m.amount, type: m.type }) });
-      setErr('Datos importados del navegador ✓');
-      ['ft_inventory', 'ft_clients', 'ft_orders', 'ft_notes', 'ft_cash', 'ft_pressure_log'].forEach(k => localStorage.removeItem(k));
-    } catch (e) { setErr('Error al importar: ' + e.message); }
+    const r = await importTallerFromLocal();
+    if (r.ok) setErr(`Datos importados del navegador ✓ (${r.count})`);
+    else if (r.error === 'sin_datos') setErr('No se encontraron datos locales para importar');
+    else setErr('Error al importar: ' + r.error);
     setBusy(false);
   };
   return html`
@@ -1539,17 +1585,90 @@ function App() {
   const [verifyMsg, setVerifyMsg] = useState('');      // acuse al volver del enlace de confirmación
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'same-origin' })
-      .then(r => { if (!r.ok) throw new Error('no-session'); return r.json(); })
+       .then(r => { if (!r.ok) throw new Error('no-session'); return r.json(); })
       .then(setUser).catch(() => setUser(null))
       .finally(() => setAuthChecked(true));
   }, []);
+  /* Cachés locales de las herramientas del taller: keys que importLocal borra
+     tras subirlas al backend. Mantener la lista aquí evita que se "cuelen" al
+     cerrar sesión y mezclen datos de dos cuentas en el mismo navegador. */
+  const TALLER_LOCAL_KEYS = ['ft_inventory', 'ft_clients', 'ft_orders', 'ft_notes', 'ft_cash', 'ft_pressure_log'];
   const logout = () => {
-    fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).finally(() => setUser(null));
+    fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
+      .finally(() => {
+        // Limpiar caches locales del taller para que la siguiente cuenta en
+        // este mismo navegador no vea datos de la cuenta anterior.
+        for (const k of TALLER_LOCAL_KEYS) { try { localStorage.removeItem(k); } catch (e) {} }
+        setUser(null);
+        setVerifyMsg('Sesión cerrada ✓');
+      });
   };
   const refreshUser = () => {
     fetch('/api/auth/me', { credentials: 'same-origin' })
       .then(r => r.ok ? r.json() : null).then(u => u && setUser(u)).catch(() => {});
   };
+  /* apiFetch: wrapper para llamadas al backend autenticadas. Si el server
+     responde 401 con código de sesión expirada/inválida, limpia la sesión local
+     y avisa en vez de quedar en un estado roto en el que la app cree estar
+     logueada. */
+  const apiFetch = async (path, opts = {}) => {
+    const r = await fetch(path, { credentials: 'same-origin', ...opts });
+    if (r.status === 401) {
+      const body = await r.clone().json().catch(() => ({}));
+      if (body.code === 'auth_expired' || body.code === 'auth_invalid') {
+        setUser(null);
+        setVerifyMsg(body.error || 'Tu sesión terminó. Inicia sesión de nuevo.');
+      }
+    }
+    return r;
+  };
+  /* Sincroniza los datos del taller desde el backend hacia las caches locales.
+     El server es la fuente persistente (sobrevive a borrar caché/cambiar de
+     dispositivo); localStorage queda como espejo para que las herramientas
+     puedan leer offline. Al cerrar sesión esas caches se borran en `logout`. */
+  const syncFromBackend = async () => {
+    try {
+      const r = await fetch('/api/backup', { credentials: 'same-origin' });
+      if (!r.ok) return;
+      const body = await r.json();
+      const d = body?.data || {};
+      const totalServidor = (d.inventory?.length || 0) + (d.clients?.length || 0) + (d.orders?.length || 0) + (d.notes?.length || 0) + (d.cash?.length || 0);
+      // Mapeo: claves del JSON del backup → claves de localStorage que usan
+      // las herramientas de taller (microapps.js).
+      const map = { inventory: 'ft_inventory', clients: 'ft_clients', orders: 'ft_orders', notes: 'ft_notes', cash: 'ft_cash' };
+      for (const k of Object.keys(map)) {
+        try {
+          // Normalizamos a la forma simple que esperan las herramientas (la
+          // forma completa del backend trae columnas extra como workshop_id).
+          const rows = (d[k] || []).map(row => {
+            if (k === 'inventory') return { id: row.id, name: row.name, qty: row.qty, min: row.min_qty, price: row.unit_price, sku: row.sku, category: row.category };
+            if (k === 'clients') return { id: row.id, name: row.name, phone: row.phone, email: row.email, address: row.address };
+            if (k === 'orders') return { id: row.id, desc: row.descr || row.title, title: row.title, status: row.status, total: row.total };
+            if (k === 'notes') return { id: row.id, t: row.text, veh: row.vehicle_ref };
+            if (k === 'cash') return { id: row.id, concept: row.concept, amount: row.amount, type: row.type };
+            return row;
+          });
+          localStorage.setItem(map[k], JSON.stringify(rows));
+        } catch (e) { /* cuota llena / modo privado */ }
+      }
+      // Migración automática la primera vez: si el server está vacío y hay
+      // datos locales, subirlos sin pedir al usuario que pulse "Importar".
+      if (totalServidor === 0) {
+        const hayLocal = TALLER_LOCAL_KEYS.some(k => { try { const v = localStorage.getItem(k); return v && JSON.parse(v).length > 0; } catch { return false; } });
+        if (hayLocal) {
+          const r = await importTallerFromLocal();
+          if (r.ok) toast(`Datos importados del navegador ✓ (${r.count})`);
+        }
+      }
+      toast('Datos del taller sincronizados ✓');
+    } catch (e) { /* sin red: la app sigue con localStorage si lo hay */ }
+  };
+  /* Cuando hay sesión, sincronizar desde el servidor una sola vez por montaje
+     de la sesión. Sin esto, los datos de la cuenta no aparecen hasta que el
+     usuario pulse "Importar del navegador". */
+  useEffect(() => {
+    if (user && user.id) syncFromBackend();
+  }, [user?.id]);
   /* Entrada directa por /taller/:slug — el servidor ya pintó la versión SSR
      (la que ve el previsualizador de WhatsApp); aquí la app monta la versión
      interactiva encima, con el formulario de reseña. */

@@ -450,7 +450,14 @@ El hero es tipografía grande sobre el lienzo editorial — sin video,
                   este archivo carga ANTES que app.js; se resuelve en tiempo de
                   render, igual que MarkIcon. */''}
             ${window.FT_APP?.ThemeSwitch && html`<${window.FT_APP.ThemeSwitch} />`}
-            ${user ? html`<span class="home-nav-who">${user.name} <button type="button" class="link-btn" onClick=${onLogout}>salir</button></span>`
+            ${user ? html`<span class="home-nav-who">
+                <span class="home-nav-who-name" title=${user.name}>${user.name}</span>
+                <span class="home-nav-who-divider" aria-hidden="true"></span>
+                <button type="button" class="home-nav-logout" onClick=${onLogout} aria-label="Cerrar sesión">
+                  <${CatIc} n="LogOut" s=${14} />
+                  <span class="home-nav-logout-label">Salir</span>
+                </button>
+              </span>`
               : html`<button type="button" class="home-nav-login" onClick=${onLogin}>Iniciar sesión</button>`}
           </div>
         </nav>
