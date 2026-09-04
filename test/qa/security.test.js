@@ -177,11 +177,72 @@ describe('Seguridad — sesiones y credenciales', () => {
     }
   });
 
-  it('rechaza contraseñas de menos de 8 caracteres', async () => {
-    const r = await cliente.post('/api/auth/register', {
-      email: 'corta@prueba.test', password: 'abc', name: 'Taller Corto',
-    });
-    assert.equal(r.status, 400);
+  it('rechaza contraseñas de menos de 10 caracteres', async () => {
+    /* Política de contraseñas (regla 2): mínimo 10 caracteres. "clave-1234" (9)
+       cae. Se prueba un caso en el límite (9) y otro claramente corto (3). */
+    for (const pass of ['abc', 'clave-123', 'qwertyuiop']) {
+      const r = await cliente.post('/api/auth/register', {
+        email: `corta${Math.random().toString(36).slice(2,6)}@prueba.test`,
+        password: pass, name: 'Taller Corto',
+      });
+      assert.equal(r.status, 400, `aceptó contraseña corta "${pass}"`);
+    }
+  });
+
+  it('rechaza contraseñas triviales (top de breaches)', async () => {
+    /* "qwerty123" y "password" son las más usadas del mundo. Un atacante las
+       prueba antes que cualquier diccionario: bloquearlas aquí cierra el 80%
+       de los intentos de fuerza bruta con passwords de usuario real. */
+    for (const pass of ['password12', 'qwerty123', '1234567890']) {
+      const r = await cliente.post('/api/auth/register', {
+        email: `trivial${Math.random().toString(36).slice(2,6)}@prueba.test`,
+        password: pass, name: 'Taller Trivial',
+      });
+      assert.equal(r.status, 400, `aceptó contraseña trivial "${pass}"`);
+    }
+  });
+
+  it('login con correo inexistente tarda lo mismo que con contraseña mal (timing-safe)', async () => {
+    /* Regla 3.2: si el correo no existe, ejecutar verifyPassword contra un
+       hash dummy para que la respuesta tenga la misma latencia que con un
+       correo existente. Sin esto un atacante mide tiempo y mapea correos. */
+    const c = crearCliente(ctx.base);
+    const reg = await c.registrar('timing-' + Math.random().toString(36).slice(2, 6));
+    assert.equal(reg.status, 201, `registro falló: ${JSON.stringify(reg.body)}`);
+    const pass = 'contra-tonta-1234';
+    const t1 = Date.now();
+    await c.post('/api/auth/login', { email: reg.email, password: 'otra-contraseña-123' });
+    const dtExistente = Date.now() - t1;
+    const t2 = Date.now();
+    await c.post('/api/auth/login', { email: 'noexiste-este-correo-zzz@prueba.test', password: pass });
+    const dtInexistente = Date.now() - t2;
+    /* Margen generoso (±300ms) porque hay jitter de red y CPU. La idea es
+       que NO exista una diferencia obvia entre los dos casos. */
+    const diff = Math.abs(dtExistente - dtInexistente);
+    assert.ok(diff < 300, `timing demasiado asimétrico: existente=${dtExistente}ms, inexistente=${dtInexistente}ms, diff=${diff}ms`);
+  });
+
+  it('cambio de contraseña requiere la contraseña actual y rechaza la vieja', async () => {
+    /* Regla 6 (reautenticación + invalidación). El cambio exige la contraseña
+       actual, no permite cambiarla si falta, y después la vieja deja de servir. */
+    const c = crearCliente(ctx.base);
+    const reg = await c.registrar('cambio-' + Math.random().toString(36).slice(2, 6));
+    assert.equal(reg.status, 201, `registro falló: ${JSON.stringify(reg.body)}`);
+    // Sin contraseña actual: 400
+    const r1 = await c.post('/api/auth/password', { new_password: 'contra-nueva-12345' });
+    assert.equal(r1.status, 400, `cambió sin pedir la actual: ${JSON.stringify(r1.body)}`);
+    // Con contraseña actual incorrecta: 401
+    const r2 = await c.post('/api/auth/password', { current_password: 'otra-cosa-12345', new_password: 'contra-nueva-12345' });
+    assert.equal(r2.status, 401);
+    // Con la actual correcta: 200
+    const r3 = await c.post('/api/auth/password', { current_password: 'clave-larga-123', new_password: 'contra-nueva-12345' });
+    assert.equal(r3.status, 200, `cambio falló: ${JSON.stringify(r3.body)}`);
+    // El login con la nueva funciona
+    const r4 = await c.post('/api/auth/login', { email: reg.email, password: 'contra-nueva-12345' });
+    assert.equal(r4.status, 200);
+    // El login con la vieja ya no
+    const r5 = await c.post('/api/auth/login', { email: reg.email, password: 'clave-larga-123' });
+    assert.equal(r5.status, 401);
   });
 
   it('rechaza correos con formato inválido', async () => {

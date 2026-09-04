@@ -152,6 +152,14 @@ async function createApp(dbOverride, statsOverride) {
     `ALTER TABLE workshops ADD COLUMN bio TEXT`,
     `ALTER TABLE workshops ADD COLUMN city TEXT`,
     `ALTER TABLE workshops ADD COLUMN services TEXT`,
+    /* Estado de cuenta y bloqueo temporal (regla 3.3). DEFAULT 'active' para
+       que las filas preexistentes cuenten como activas sin migración adicional. */
+    `ALTER TABLE workshops ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`,
+    `ALTER TABLE workshops ADD COLUMN locked_until TEXT`,
+    /* Huella de seguridad (regla 7): última IP y fecha de login exitoso,
+       para auditoría. NO guarda contraseñas, tokens ni datos sensibles. */
+    `ALTER TABLE workshops ADD COLUMN last_login_at TEXT`,
+    `ALTER TABLE workshops ADD COLUMN last_login_ip TEXT`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_ws_slug ON workshops(slug)`,
     `CREATE TABLE IF NOT EXISTS workshop_reviews (
        id INTEGER PRIMARY KEY, workshop_id INTEGER NOT NULL,
@@ -1873,6 +1881,17 @@ ${dbContext}`;
   const scryptAsync = (pass, salt, len, opts) => new Promise((resolve, reject) => {
     crypto.scrypt(pass, salt, len, opts, (err, key) => err ? reject(err) : resolve(key));
   });
+  /* Hash precomputado de un dummy para mitigar timing attacks: cuando el
+     correo no existe, ejecutamos verifyPassword contra este hash para que
+     la respuesta tarde lo mismo que con un correo existente (~scrypt cost).
+     Sin esto un atacante mide latencia y mapea qué correos están registrados. */
+  let DUMMY_HASH_PROMISE = null;
+  const getDummyHash = () => {
+    if (!DUMMY_HASH_PROMISE) {
+      DUMMY_HASH_PROMISE = hashPassword('__ftm_anti_timing_dummy__');
+    }
+    return DUMMY_HASH_PROMISE;
+  };
   async function hashPassword(pass) {
     const salt = crypto.randomBytes(16);
     const hash = await scryptAsync(pass, salt, 64);
@@ -1889,6 +1908,11 @@ ${dbContext}`;
       return calc.length === hash.length && crypto.timingSafeEqual(calc, hash);
     } catch { return false; }
   }
+  /* Sanitiza el correo para consultas: lowercase + trim. El UNIQUE de la BD
+     garantiza la unicidad; este normalizado evita duplicados visuales tipo
+     "Foo@bar.com" vs "foo@bar.com". El UNIQUE existente no es COLLATE NOCASE
+     así que confiamos en normalizar SIEMPRE del lado del server. */
+  const normEmail = (s) => String(s || '').trim().toLowerCase().slice(0, 120);
   const hashToken = (t) => crypto.createHash('sha256').update(t).digest('hex');
   const tokenCookieOpts = () => ({
     httpOnly: true, sameSite: 'lax', path: '/',
@@ -1919,70 +1943,133 @@ ${dbContext}`;
     next();
   };
 
-  const authLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false });
+  /* Regla 3.4 (rate limit): 20 intentos por minuto por IP. Suficiente para
+     usuarios reales (un humano no intenta loguearse 20 veces en un minuto)
+     pero frena ataques automatizados. En tests se sube a 2000 para que la
+     suite pueda ejecutar muchas altas/logins sin chocar con el limitador
+     (los tests de seguridad disparan muchos en pocos segundos). */
+  const authLimiter = rateLimit({
+    windowMs: 60_000,
+    limit: process.env.NODE_ENV === 'test' ? 2000 : 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  /* Top de contraseñas triviales más filtradas en breaches públicos. NO es
+     exhaustivo (la versión 10k pesa >100 KB): cubre las que un usuario elige
+     "para salir del paso". El bloqueo se aplica SIEMPRE: un atacante ya
+     tiene esta lista. */
+  const WEAK_PASSWORDS = new Set([
+    '1234567890', '123456789', '12345678', 'qwerty123', 'qwertyuiop',
+    'password', 'password1', 'password12', 'iloveyou', 'admin1234',
+    'welcome1', 'welcome12', 'monkey123', 'dragon123', 'letmein123',
+    'football1', 'baseball1', 'sunshine1', 'trustno1', 'master1234',
+    'shadow123', 'jordan123', 'superman1', 'harley123', 'ranger123',
+    'jordan23', 'abc12345', 'abcdef12', 'asdf1234', 'qwer1234',
+    '11111111', '00000000', '12121212', '69696969', '98765432',
+    'qwerty12', 'abc12345', 'ninja123', 'mustang1', 'access123',
+    '696969', 'qazwsx12', 'michael1', 'password!', 'charlie1',
+  ]);
 
   // Registro: crea taller + sesión
   app.post('/api/auth/register', authLimiter, async (req, res) => {
-    const email = str(req.body?.email, 120).toLowerCase();
+    const email = normEmail(req.body?.email);
     const pass = typeof req.body?.password === 'string' ? req.body.password : '';
     const name = str(req.body?.name, 120);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Correo inválido' });
-    if (pass.length < 8) return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
+    /* Política de contraseñas (regla 2): mínimo 10 caracteres y bloqueo de
+       contraseñas triviales (las del top de breaches públicos). Pide mínimo
+       10 porque "qwerty123" (9) es trivial; "una-cuenta-mía-2026" pasa. */
+    if (pass.length < 10) return res.status(400).json({ error: 'La contraseña debe tener al menos 10 caracteres' });
+    if (WEAK_PASSWORDS.has(pass.toLowerCase())) {
+      return res.status(400).json({ error: 'Contraseña demasiado común. Elige otra distinta.' });
+    }
     if (!name) return res.status(400).json({ error: 'Nombre del taller requerido' });
-    const exists = await db.get('SELECT id, pass_hash FROM workshops WHERE email = ?', email);
+    const exists = await db.get('SELECT id, pass_hash, status, locked_until FROM workshops WHERE email = ?', email);
     if (exists && exists.pass_hash === 'google_oauth') {
       return res.status(409).json({ code: 'oauth_account', error: 'Ese correo ya tiene una cuenta con Google: usa "Continuar con Google".' });
     }
     if (exists) return res.status(409).json({ code: 'email_taken', error: 'Ya existe una cuenta con ese correo. ¿Quieres iniciar sesión?' });
     const passHash = await hashPassword(pass);
-    /* FT-0003: al volver el hash asíncrono, DOS altas del mismo correo pueden
-       pasar ambas la consulta previa mientras las dos esperan su scrypt. La
-       carrera la cierra el UNIQUE de la tabla: se convierte en 409 en vez de
-       escapar como 500 (el robot registro dispara 12 altas simultáneas). */
+    /* Transacción atómica (regla 1.4): INSERT del taller + INSERT de la
+       sesión dentro de un BEGIN/COMMIT. Si el INSERT de la sesión falla, el
+       taller se crea igual pero el usuario no puede iniciar sesión — antes
+       pasaba y dejaba cuentas a medias que nadie podía usar. */
     let id;
     try {
-      id = await db.insertReturningId(
-        'INSERT INTO workshops (email, pass_hash, name) VALUES (?, ?, ?)',
-        [email, passHash, name]
-      );
+      await db.exec('BEGIN');
+      try {
+        id = await db.insertReturningId(
+          'INSERT INTO workshops (email, pass_hash, name) VALUES (?, ?, ?)',
+          [email, passHash, name]
+        );
+        const token = crypto.randomBytes(32).toString('base64url');
+        await db.run(
+          'INSERT INTO sessions (token_hash, workshop_id, expires_at) VALUES (?, ?, ?)',
+          [hashToken(token), id, new Date(Date.now() + SESSION_TTL_MS).toISOString()]
+        );
+        await db.exec('COMMIT');
+        return res.set('Cache-Control', 'no-store')
+          .cookie(SESSION_COOKIE, token, tokenCookieOpts())
+          .status(201).json({ id, name, email });
+      } catch (e) {
+        await db.exec('ROLLBACK').catch(() => {});
+        throw e;
+      }
     } catch (e) {
       if (/UNIQUE/i.test(String(e.message))) {
         return res.status(409).json({ code: 'email_taken', error: 'Ya existe una cuenta con ese correo. ¿Quieres iniciar sesión?' });
       }
       throw e;
     }
-    const token = crypto.randomBytes(32).toString('base64url');
-    await db.run('INSERT INTO sessions (token_hash, workshop_id, expires_at) VALUES (?, ?, ?)',
-      [hashToken(token), id, new Date(Date.now() + SESSION_TTL_MS).toISOString()]);
-    res.set('Cache-Control', 'no-store')
-      .cookie(SESSION_COOKIE, token, tokenCookieOpts())
-      .status(201).json({ id, name, email });
   });
 
   // Login
   app.post('/api/auth/login', authLimiter, async (req, res) => {
-    const email = str(req.body?.email, 120).toLowerCase();
+    const email = normEmail(req.body?.email);
     const pass = typeof req.body?.password === 'string' ? req.body.password : '';
-    const ws = await db.get('SELECT * FROM workshops WHERE email = ?', email);
-    /* Una cuenta creada por "Continuar con Google" no tiene contraseña
-       (pass_hash='google_oauth' es una marca, no un hash). Avisar en vez de
-       responder el genérico "correo o contraseña incorrectos": si el alta de
-       Google falló a medias (bug del lastID ya corregido) la cuenta existe y el
-       usuario no entendería por qué su contraseña "no vale". */
-    if (ws && ws.pass_hash === 'google_oauth') {
-      return res.status(401).json({ code: 'oauth_account', error: 'Esta cuenta usa Google. Entra con "Continuar con Google".' });
+    const ws = await db.get('SELECT id, email, pass_hash, status, locked_until FROM workshops WHERE email = ?', email);
+
+    /* Mitigación de timing attack (regla 3.2): si el correo no existe,
+       ejecutamos verifyPassword contra un hash dummy. Sin esto, "no existe"
+       responde en ~5ms y "contraseña mal" en ~250ms (costo de scrypt):
+       medir la latencia mapea qué correos están registrados. */
+    let passwordOk = false;
+    if (ws) {
+      passwordOk = await verifyPassword(pass, ws.pass_hash);
+    } else {
+      const dummy = await getDummyHash();
+      await verifyPassword(pass, dummy);
     }
-    /* Cuenta inexistente y contraseña incorrecta devuelven el MISMO código y
-       mensaje: no enumerar cuentas (un atacante podría saber qué correos están
-       registrados). El rate limit + el mensaje genérico cubren el riesgo.
-       El cliente detecta el caso "no tengo cuenta" desde el formulario de
-       REGISTRO con el mismo email, no desde el login. */
-    if (!ws || !(await verifyPassword(pass, ws.pass_hash))) {
+    /* Verificación de estado de cuenta (regla 3.3): rechazamos cuentas
+       suspendidas o con bloqueo temporal antes de emitir sesión. El bloqueo
+       temporal expira por sí solo (locked_until en el pasado). */
+    if (!ws) {
       return res.status(401).json({ code: 'bad_credentials', error: 'Correo o contraseña incorrectos' });
     }
+    if (ws.status && ws.status !== 'active') {
+      return res.status(403).json({ code: 'account_suspended', error: 'Tu cuenta está suspendida. Contacta a soporte.' });
+    }
+    if (ws.locked_until && new Date(ws.locked_until).getTime() > Date.now()) {
+      return res.status(423).json({ code: 'account_locked', error: 'Cuenta bloqueada temporalmente. Intenta más tarde.' });
+    }
+    if (!passwordOk || ws.pass_hash === 'google_oauth') {
+      return res.status(401).json({ code: 'bad_credentials', error: 'Correo o contraseña incorrectos' });
+    }
+    /* Regeneración de sesión (regla 5.2): emitimos un token nuevo. La sesión
+       vieja queda en BD y se borrará por el middleware requireWorkshop si
+       se usa otra vez. Aquí no la borramos para no cerrar otras pestañas
+       activas del mismo usuario en distintos dispositivos. */
     const token = crypto.randomBytes(32).toString('base64url');
     await db.run('INSERT INTO sessions (token_hash, workshop_id, expires_at) VALUES (?, ?, ?)',
       [hashToken(token), ws.id, new Date(Date.now() + SESSION_TTL_MS).toISOString()]);
+    /* Huella de auditoría (regla 7): guardamos los primeros 16 chars del
+       SHA-256 de la IP (no la IP en claro). Suficiente para agrupar eventos
+       sin filtrar datos personales ni PII. */
+    const ipHash = req.headers['x-forwarded-for'] || req.ip || '';
+    const safeIp = ipHash ? crypto.createHash('sha256').update(String(ipHash).split(',')[0].trim()).digest('hex').slice(0, 16) : '';
+    await db.run('UPDATE workshops SET last_login_at = ?, last_login_ip = ? WHERE id = ?',
+      [new Date().toISOString(), safeIp, ws.id]).catch(() => {});
     res.set('Cache-Control', 'no-store')
       .cookie(SESSION_COOKIE, token, tokenCookieOpts())
       .json({ id: ws.id, name: ws.name, email: ws.email });
@@ -2000,6 +2087,41 @@ ${dbContext}`;
     const ws = await db.get(`SELECT ${CAMPOS_PERFIL} FROM workshops WHERE id = ?`, req.workshopId);
     if (!ws) return res.status(401).json({ error: 'Cuenta no encontrada' });
     res.set('Cache-Control', 'no-store').json(normalizaPerfil(ws));
+  });
+
+  /* Regla 6 — Recuperación y cambios críticos:
+     - Reautenticación obligatoria (pedir contraseña actual).
+     - Invalidar TODAS las demás sesiones del usuario (excepto la actual). */
+  app.post('/api/auth/password', requireWorkshop, async (req, res) => {
+    const current = typeof req.body?.current_password === 'string' ? req.body.current_password : '';
+    const next = typeof req.body?.new_password === 'string' ? req.body.new_password : '';
+    /* Validamos los campos ANTES de tocar la BD: 400 si faltan o son débiles
+       (es "falta input"), 401 SOLO si el campo está pero la contraseña actual
+       no coincide. Mezclar ambos casos en 401 filtra menos información pero
+       hace indistinguible "olvidé el campo" de "escribí mal la contraseña". */
+    if (!current) return res.status(400).json({ error: 'Debes escribir tu contraseña actual' });
+    if (!next) return res.status(400).json({ error: 'Debes escribir la nueva contraseña' });
+    if (next.length < 10) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 10 caracteres' });
+    if (WEAK_PASSWORDS.has(next.toLowerCase())) {
+      return res.status(400).json({ error: 'Contraseña demasiado común. Elige otra distinta.' });
+    }
+    const ws = await db.get('SELECT id, pass_hash FROM workshops WHERE id = ?', req.workshopId);
+    if (!ws) return res.status(404).json({ error: 'Cuenta no encontrada' });
+    /* Cuentas creadas por Google no tienen contraseña: si el dueño quiere
+       ponerle una, debe primero verificar el correo y luego ya entra al
+       flujo normal. Por ahora: devolver mensaje claro. */
+    if (ws.pass_hash === 'google_oauth') {
+      return res.status(400).json({ error: 'Esta cuenta usa Google. No tiene contraseña que cambiar.' });
+    }
+    const ok = await verifyPassword(current, ws.pass_hash);
+    if (!ok) return res.status(401).json({ error: 'La contraseña actual es incorrecta' });
+    const newHash = await hashPassword(next);
+    await db.run('UPDATE workshops SET pass_hash = ? WHERE id = ?', [newHash, req.workshopId]);
+    /* Cerrar TODAS las demás sesiones (mantener la actual). Token hasheado
+       guardado en req.sessionTokenHash por requireWorkshop. */
+    await db.run('DELETE FROM sessions WHERE workshop_id = ? AND token_hash <> ?',
+      [req.workshopId, req.sessionTokenHash]);
+    res.set('Cache-Control', 'no-store').json({ ok: true });
   });
 
   /* ---- Perfil del taller ---- */
