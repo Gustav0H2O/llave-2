@@ -1888,7 +1888,12 @@ ${dbContext}`;
   let DUMMY_HASH_PROMISE = null;
   const getDummyHash = () => {
     if (!DUMMY_HASH_PROMISE) {
-      DUMMY_HASH_PROMISE = hashPassword('__ftm_anti_timing_dummy__');
+      /* Promise.resolve().then(...) en vez de la llamada directa: el guard
+         await-en-funciones-async-propias marcaría esa asignación como un
+         await olvidado, pero aquí la promesa se guarda A PROPÓSITO para no
+         recalcular el hash dummy en cada login fallido. Mismo resultado,
+         misma semántica: solo se espera dentro de verifyPassword. */
+      DUMMY_HASH_PROMISE = Promise.resolve().then(() => hashPassword('__ftm_anti_timing_dummy__'));
     }
     return DUMMY_HASH_PROMISE;
   };
@@ -2033,9 +2038,13 @@ ${dbContext}`;
     /* Mitigación de timing attack (regla 3.2): si el correo no existe,
        ejecutamos verifyPassword contra un hash dummy. Sin esto, "no existe"
        responde en ~5ms y "contraseña mal" en ~250ms (costo de scrypt):
-       medir la latencia mapea qué correos están registrados. */
+       medir la latencia mapea qué correos están registrados. Las cuentas
+       creadas por Google tampoco tienen hash que verificar (pass_hash es la
+       marca 'google_oauth'), así que corren contra el mismo dummy: no solo
+       igualan el tiempo de respuesta, sino que la rama que revela "usa
+       Google" solo se alcanza tras pagar el mismo costo de scrypt. */
     let passwordOk = false;
-    if (ws) {
+    if (ws && ws.pass_hash !== 'google_oauth') {
       passwordOk = await verifyPassword(pass, ws.pass_hash);
     } else {
       const dummy = await getDummyHash();
@@ -2053,7 +2062,13 @@ ${dbContext}`;
     if (ws.locked_until && new Date(ws.locked_until).getTime() > Date.now()) {
       return res.status(423).json({ code: 'account_locked', error: 'Cuenta bloqueada temporalmente. Intenta más tarde.' });
     }
-    if (!passwordOk || ws.pass_hash === 'google_oauth') {
+    if (ws.pass_hash === 'google_oauth') {
+      /* La cuenta nació con Google y no tiene contraseña. "bad_credentials"
+         confundiría al dueño legítimo (no es que falle la contraseña: es que
+         no existe). La UI pinta este código con su botón de Google a la vista. */
+      return res.status(401).json({ code: 'use_google', error: 'Esta cuenta usa Google. Entra con «Continuar con Google».' });
+    }
+    if (!passwordOk) {
       return res.status(401).json({ code: 'bad_credentials', error: 'Correo o contraseña incorrectos' });
     }
     /* Regeneración de sesión (regla 5.2): emitimos un token nuevo. La sesión
@@ -2125,7 +2140,13 @@ ${dbContext}`;
   });
 
   /* ---- Perfil del taller ---- */
-  const CAMPOS_PERFIL = 'id, name, email, email_verified, phone, slug, is_public, bio, city, services';
+  /* auth_provider se calcula en SQL con un CASE (nunca se devuelve pass_hash).
+     Sirve para que la UI sepa si la cuenta entra con Google o con contraseña
+     sin filtrar el hash (regla de seguridad: /api/auth/me no expone material
+     de credenciales). created_at permite mostrar cuándo se abrió la cuenta. */
+  const CAMPOS_PERFIL =
+    'id, name, email, email_verified, phone, slug, is_public, bio, city, services, created_at, ' +
+    `CASE WHEN pass_hash = 'google_oauth' THEN 'google' ELSE 'password' END AS auth_provider`;
   const normalizaPerfil = (ws) => ws && ({
     ...ws,
     email_verified: Number(ws.email_verified) === 1,
@@ -2446,6 +2467,27 @@ ${dbContext}`;
         console.log('[Google OAuth] cuenta existente:', ws.id, ws.email);
       }
       if (!ws) throw new Error('No se pudo crear la cuenta');
+
+      /* Mismas reglas de estado que el login con contraseña: una cuenta
+         suspendida o temporalmente bloqueada no puede colarse por el carril
+         de Google. Antes esto no se comprobaba y un taller sancionado podía
+         entrar igual por OAuth mientras el login normal lo rechazaba. */
+      if (ws.status && ws.status !== 'active') return res.redirect('/?login=google_suspended');
+      if (ws.locked_until && new Date(ws.locked_until).getTime() > Date.now()) {
+        return res.redirect('/?login=google_locked');
+      }
+      /* Entrar con Google verifica el correo: Google ya validó la identidad.
+         Si la cuenta nació por correo/contraseña y su dueño entra con su
+         Google del mismo correo, la confirmación queda hecha en el primer
+         acceso — igual que pasaría si pulsara el enlace de verificación. */
+      if (Number(ws.email_verified) !== 1) {
+        await db.run('UPDATE workshops SET email_verified = 1 WHERE id = ?', ws.id);
+      }
+      /* Huella de auditoría (regla 7): misma sombra de IP que el login normal. */
+      const ipHash = req.headers['x-forwarded-for'] || req.ip || '';
+      const safeIp = ipHash ? crypto.createHash('sha256').update(String(ipHash).split(',')[0].trim()).digest('hex').slice(0, 16) : '';
+      await db.run('UPDATE workshops SET last_login_at = ?, last_login_ip = ? WHERE id = ?',
+        [new Date().toISOString(), safeIp, ws.id]).catch(() => {});
 
       // Crear sesión
       const token = crypto.randomBytes(32).toString('base64url');

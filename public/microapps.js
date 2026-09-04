@@ -451,9 +451,19 @@ El hero es tipografía grande sobre el lienzo editorial — sin video,
                   render, igual que MarkIcon. */''}
             ${window.FT_APP?.ThemeSwitch && html`<${window.FT_APP.ThemeSwitch} />`}
             ${user ? html`<span class="home-nav-who">
-                <span class="home-nav-who-name" title=${user.name}>${user.name}</span>
+                ${/* El nombre es la puerta a la cuenta: lleva a «Mi taller»,
+                      donde se ve y se edita la información. Antes era texto
+                      muerto y el único camino al perfil era buscarlo entre 38
+                      tarjetas. Se marca como botón con title y aria-label. */''}
+                <button type="button" class="home-nav-who-btn" title="Ver o editar los datos de tu cuenta" aria-label="Abrir Mi taller"
+                  onClick=${() => onOpen('profile')}>
+                  <span class="home-nav-who-name">${user.name}</span>
+                  <${CatIc} n="ChevronDown" s=${13} />
+                </button>
                 <span class="home-nav-who-divider" aria-hidden="true"></span>
-                <button type="button" class="home-nav-logout" onClick=${onLogout} aria-label="Cerrar sesión">
+                <button type="button" class="home-nav-logout"
+                  onClick=${() => { if (confirm('¿Cerrar sesión en este dispositivo?')) onLogout(); }}
+                  aria-label="Cerrar sesión">
                   <${CatIc} n="LogOut" s=${14} />
                   <span class="home-nav-logout-label">Salir</span>
                 </button>
@@ -653,10 +663,10 @@ El hero es tipografía grande sobre el lienzo editorial — sin video,
               </button>`)}
             <button type="button" class="home-sheet-item" onClick=${() => { setHoja(false); onOpen('profile'); }}>
               <span class="home-sheet-ic"><${CatIc} n="Store" s=${20} /></span>
-              <span><strong>Mi taller</strong><em>${user ? user.name : 'Entra o crea tu cuenta'}</em></span>
+              <span><strong>Mi taller</strong><em>${user ? 'Ver y editar los datos de tu cuenta' : 'Entra o crea tu cuenta'}</em></span>
             </button>
             ${user && html`
-              <button type="button" class="home-sheet-item" onClick=${() => { setHoja(false); onLogout(); }}>
+              <button type="button" class="home-sheet-item" onClick=${() => { setHoja(false); if (confirm('¿Cerrar sesión en este dispositivo?')) onLogout(); }}>
                 <span class="home-sheet-ic"><${CatIc} n="LogOut" s=${20} /></span>
                 <span><strong>Cerrar sesión</strong><em>${user.email || ''}</em></span>
               </button>`}

@@ -72,6 +72,17 @@ function parseQuery(sql, params) {
   return toPgQuery(sql, params);
 }
 
+/* Parámetro escalar para SQLite. better-sqlite3 recibe `?` posicionales y
+   espera un array o un objeto con claves @named — pero un string vacío es
+   falsy y `params || {}` lo convertía en {} → "Too few parameter values".
+   Los escalares (string/número) se envuelven SIEMPRE en [valor], vacíos
+   incluidos; null/undefined significan "sin parámetros" y van como {}. */
+function normalizeScalar(params) {
+  if (params === null || params === undefined) return {};
+  if (typeof params === 'object') return params; // objeto @named o ya array
+  return [params];
+}
+
 class DBAdapter {
   // mode: 'auto' (usa USE_TURSO/USE_PG global) | 'local' | 'turso' | 'pg'
   // 'local' fuerza el backend SQLite de la instancia (lo usan los tests con
@@ -108,7 +119,7 @@ class DBAdapter {
       const res = await pgPool.query(pgSql, arr);
       return res.rows[0] || null;
     } else {
-      return Array.isArray(params) ? this.sqlite.prepare(sql).get(...params) : this.sqlite.prepare(sql).get(params || {});
+      return Array.isArray(params) ? this.sqlite.prepare(sql).get(...params) : this.sqlite.prepare(sql).get(normalizeScalar(params));
     }
   }
 
@@ -122,7 +133,7 @@ class DBAdapter {
       const res = await pgPool.query(pgSql, arr);
       return res.rows;
     } else {
-      return Array.isArray(params) ? this.sqlite.prepare(sql).all(...params) : this.sqlite.prepare(sql).all(params || {});
+      return Array.isArray(params) ? this.sqlite.prepare(sql).all(...params) : this.sqlite.prepare(sql).all(normalizeScalar(params));
     }
   }
 
@@ -144,7 +155,7 @@ class DBAdapter {
       const res = await pgPool.query(finalSql, arr);
       return { changes: res.rowCount, lastInsertRowid: null };
     } else {
-      return Array.isArray(params) ? this.sqlite.prepare(sql).run(...params) : this.sqlite.prepare(sql).run(params || {});
+      return Array.isArray(params) ? this.sqlite.prepare(sql).run(...params) : this.sqlite.prepare(sql).run(normalizeScalar(params));
     }
   }
 

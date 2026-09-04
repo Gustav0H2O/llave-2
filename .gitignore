@@ -6,6 +6,10 @@ fueltech.db
 fueltech.db-wal
 fueltech.db-shm
 
+llave.db
+llave.db-wal
+llave.db-shm
+
 stats.db
 stats.db-wal
 stats.db-shm

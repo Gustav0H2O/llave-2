@@ -1431,8 +1431,24 @@
      none }` a secas escondía el sol y la luna junto con la etiqueta y dejaba el
      control como una píldora vacía de 52x24 px. */
   .home-nav .theme-switch button span:not(.icon) { display: none; }
-  .home-nav-who { display: inline-flex; align-items: center; gap: 10px; font: 600 11px var(--font); color: var(--muted); }
+  .home-nav-who { display: inline-flex; align-items: center; gap: 8px; font: 600 11px var(--font); color: var(--muted); }
   .home-nav-who-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* El nombre del taller es ahora la puerta a «Mi taller» (ver/editar cuenta).
+     Antes era un <span> informativo; al volverse botón necesita su propio
+     estilo: área táctil mínima, hover y foco visible como los demás controles
+     de la barra, y el chevron que anuncia que despliega una pantalla. */
+  .home-nav-who-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    max-width: 170px; min-height: 36px; padding: 0 6px 0 10px;
+    background: transparent; border: 1px solid transparent; border-radius: var(--r-sm);
+    color: var(--ink); font: 600 12px var(--font); letter-spacing: 0; text-transform: none;
+    cursor: pointer; touch-action: manipulation;
+    transition: border-color .15s, background .15s, color .15s;
+  }
+  .home-nav-who-btn:hover { border-color: var(--border-hi); background: var(--panel2); color: var(--accent); }
+  .home-nav-who-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .home-nav-who-btn:active { transform: translateY(1px); }
+  .home-nav-who-btn svg { flex: none; color: var(--muted); }
   /* Botón dedicado de cerrar sesión. Antes era un link-btn minúsculo pegado
      al nombre del taller: se deformaba en cualquier resize y el área tocable
      quedaba bajo 30 px. Ahora es un botón con icono, separador visual y foco
@@ -1971,6 +1987,22 @@
   .login-google:hover {
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
     border-color: #bdc1c6;
+  }
+  /* Cuando la cuenta que se intentó usar es de Google (use_google /
+     oauth_account) el botón se resalta con un anillo suave para que el
+     siguiente paso sea obvio. La animación es muy corta y solo de borde/sombra,
+     respetando prefers-reduced-motion. */
+  .login-google--sugerido {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft, rgba(98, 160, 74, .25));
+    animation: login-google-sugerido 1.6s ease-in-out infinite;
+  }
+  @keyframes login-google-sugerido {
+    0%, 100% { box-shadow: 0 0 0 3px var(--accent-soft, rgba(98, 160, 74, .25)); }
+    50% { box-shadow: 0 0 0 6px var(--accent-soft, rgba(98, 160, 74, .12)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .login-google--sugerido { animation: none; }
   }
   .login-footer-note {
     font: 400 12px/1.55 var(--font); color: var(--muted); margin: 0;
@@ -2692,6 +2724,10 @@
     /* "cotizar" dentro de la tabla de tiempos: `.mic-tbl td .link-btn` (0,2,1)
        le ganaba a la regla general y lo dejaba en 34 px. */
     .mic-tbl td .link-btn { min-height: 44px; }
+    /* Salir en la barra superior: nació con su propio min-height de 36 px y la
+       regla general de objetivos táctiles no lo alcanzaba. Con el dedo, 36 px
+       se falla; sube a 44 como el resto de controles de la barra. */
+    .home-nav-logout { min-height: 44px; }
     /* Enlaces sueltos dentro de un aviso, como el de compartir la ruta de
        diagnóstico: el relleno se compensa con margen para no separar líneas. */
     .alert a { display: inline-block; padding: 12px 0; margin: -12px 0; }
@@ -2779,6 +2815,7 @@
     .home-nav-login { padding: 10px 14px; font-size: 12.5px; }
     .home-nav-who { font-size: 12px; }
     .home-nav-who-name { max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .home-nav-who-btn { max-width: 42vw; min-height: 44px; padding: 0 4px 0 8px; font-size: 12px; }
     .home-nav-who-divider { display: none; }
     .home-nav-logout { padding: 0 10px; min-height: 36px; }
     .home-nav-logout-label { display: none; }

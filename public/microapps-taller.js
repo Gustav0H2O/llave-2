@@ -607,13 +607,17 @@
      guarda aquí y no en cada presupuesto: es el remitente, no el
      destinatario.
      ================================================================ */
-  const ProfileApp = ({ onBack }) => {
+  const ProfileApp = ({ onBack, onLogout, onUserChange }) => {
     const [me, setMe] = useState(null);
     const [f, setF] = useState({ name: '', phone: '', bio: '', city: '', services: '', is_public: false });
     const [copiado, setCopiado] = useState(false);
     const [estado, setEstado] = useState('cargando');   // cargando | listo | guardando | guardado | error
     const [msg, setMsg] = useState('');
     const [verif, setVerif] = useState('');
+    /* Cambio de contraseña (sección Cuenta y seguridad) */
+    const [pass, setPass] = useState({ current: '', next: '', confirm: '' });
+    const [passEstado, setPassEstado] = useState('');  // '' | enviando | ok | error
+    const [passMsg, setPassMsg] = useState('');
 
     useEffect(() => {
       fetch('/api/auth/me', { credentials: 'same-origin' })
@@ -640,6 +644,8 @@
         const b = await r.json();
         if (!r.ok) throw new Error(b.error || 'No se pudo guardar');
         setMe(b); setEstado('guardado');
+        /* Refresca el nombre/slug en el header del Home (user vive en App). */
+        onUserChange && onUserChange();
         setTimeout(() => setEstado('listo'), 2000);
       } catch (e) { setEstado('error'); setMsg(e.message); }
     };
@@ -652,6 +658,32 @@
         setVerif(b.ok || b.link ? 'enviado' : 'error');
         if (b.link) setMsg('Sin proveedor de correo configurado. Enlace: ' + b.link);
       } catch (e) { setVerif('error'); setMsg(e.message); }
+    };
+
+    /* Regla 6 del backend: exige la contraseña actual, valida la nueva, y al
+       cambiar cierra las demás sesiones (la actual se mantiene). Las cuentas
+       de Google no llegan aquí: no tienen contraseña y el servidor lo rechaza
+       con un mensaje claro. */
+    const cambiarPass = async () => {
+      if (pass.next.length < 10) {
+        setPassEstado('error'); setPassMsg('La nueva contraseña debe tener al menos 10 caracteres'); return;
+      }
+      if (pass.next !== pass.confirm) {
+        setPassEstado('error'); setPassMsg('Las contraseñas no coinciden'); return;
+      }
+      setPassEstado('enviando'); setPassMsg('');
+      try {
+        const r = await fetch('/api/auth/password', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ current_password: pass.current, new_password: pass.next }),
+        });
+        const b = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(b.error || 'No se pudo cambiar la contraseña');
+        setPass({ current: '', next: '', confirm: '' });
+        setPassEstado('ok'); setPassMsg('Contraseña actualizada ✓ Se cerraron las demás sesiones en otros dispositivos.');
+        setTimeout(() => { setPassEstado(''); setPassMsg(''); }, 4000);
+      } catch (e) { setPassEstado('error'); setPassMsg(e.message); }
     };
 
     if (estado === 'cargando') return html`<${MicroShell} title="Mi Taller" icon="Store" onBack=${onBack}><div class="skel"><div class="skel-line"></div><div class="skel-line"></div></div></${MicroShell}>`;
@@ -722,6 +754,41 @@
         ${telValido(f.phone) && html`<button type="button" class="home-cta-ghost"
           onClick=${() => enviarWhatsApp(f.phone, 'Prueba de llave: si te llega esto, el número está bien.')}>Probar el número</button>`}
       </div>
+
+      <h3 class="mic-sub">Cuenta y seguridad</h3>
+      <p class="mic-lead">Datos de acceso de tu cuenta. El correo no se puede cambiar aquí porque es tu identidad de inicio de sesión.</p>
+      <div class="quote-params">
+        <label><span class="mic-lbl">Método de inicio de sesión</span>
+          <span style=${{ display: 'block', padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border-hi)', borderRadius: '8px', color: 'var(--text)' }}>${me.auth_provider === 'google' ? 'Google' : 'Correo y contraseña'}</span></label>
+        ${me.created_at && html`<label><span class="mic-lbl">Cuenta creada</span>
+          <span style=${{ display: 'block', padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border-hi)', borderRadius: '8px', color: 'var(--text)' }}>${new Date(me.created_at).toLocaleDateString()}</span></label>`}
+      </div>
+
+      ${me.auth_provider === 'google'
+        ? html`<div class="alert blue" style=${{ marginTop: '12px' }}><span>Esta cuenta se inicia con Google, así que no tiene contraseña. Si pierdes el acceso a tu correo de Google, escríbenos a soporte para recuperarla.</span></div>`
+        : html`
+        <div class="quote-params" style=${{ marginTop: '14px' }}>
+          <label><span class="mic-lbl">Contraseña actual</span>
+            <input type="password" class="styled-input" autocomplete="current-password" value=${pass.current} onChange=${e => setPass({ ...pass, current: e.target.value })} /></label>
+          <label><span class="mic-lbl">Nueva contraseña</span>
+            <input type="password" class="styled-input" autocomplete="new-password" placeholder="Mínimo 10 caracteres" value=${pass.next} onChange=${e => setPass({ ...pass, next: e.target.value })} /></label>
+          <label><span class="mic-lbl">Repetir nueva contraseña</span>
+            <input type="password" class="styled-input" autocomplete="new-password" value=${pass.confirm} onChange=${e => setPass({ ...pass, confirm: e.target.value })} /></label>
+        </div>
+        <div class="insp-actions">
+          <button type="button" class="tool-add-btn" onClick=${cambiarPass}
+            disabled=${passEstado === 'enviando' || !pass.current || !pass.next || !pass.confirm}>
+            ${passEstado === 'enviando' ? 'Cambiando…' : 'Cambiar contraseña'}
+          </button>
+        </div>`}
+      ${passMsg && html`<div class=${'alert' + (passEstado === 'ok' ? ' blue' : '')} style=${{ marginTop: '12px' }}><span>${passMsg}</span></div>`}
+
+      ${onLogout && html`<div class="insp-actions" style=${{ marginTop: '18px' }}>
+        <button type="button" class="home-cta-ghost" style=${{ color: 'var(--danger, #c0392b)', borderColor: 'currentColor' }}
+          onClick=${() => { if (confirm('¿Cerrar sesión en este dispositivo?')) onLogout(); }}>
+          <${CatIc} n="LogOut" s=${16} /> Cerrar sesión
+        </button>
+      </div>`}
     </${MicroShell}>`;
   };
 
