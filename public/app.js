@@ -229,6 +229,7 @@ const MARK_ICONS = {
   Calculator: 'Calculator', FileText: 'FileText', Store: 'Store',
   MailWarn: 'MailWarning', MailCheck: 'MailCheck', Phone: 'Phone',
   Battery: 'Battery', Key: 'KeyRound', ChevronLeft: 'ChevronLeft',
+  ChevronDown: 'ChevronDown',
   Play: 'Play', Pause: 'Pause', ArrowRight: 'ArrowRight', ArrowLeft: 'ArrowLeft',
   Menu: 'Menu', Home: 'House', LogOut: 'LogOut', Download: 'Download',
   Clock: 'Clock', Close: 'X', Upload: 'Upload', LayoutGrid: 'LayoutGrid',
@@ -1438,6 +1439,9 @@ function LoginScreen({ onLogin, onBack, notice }) {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  /* Cuando la cuenta es de Google (use_google / oauth_account) se resalta el
+     botón «Continuar con Google» para que el siguiente paso sea evidente. */
+  const [sugerirGoogle, setSugerirGoogle] = useState(false);
   const submit = async (e) => {
     e.preventDefault();
     if (form.password.length < 8) { setErr('La contraseña debe tener al menos 8 caracteres'); return; }
@@ -1457,6 +1461,32 @@ function LoginScreen({ onLogin, onBack, notice }) {
         if (body.code === 'email_taken' && mode === 'register') {
           setMode('login'); // saltar a Iniciar sesión, email pre-rellenado
           setErr('Ya tienes cuenta. Inicia sesión.');
+          return;
+        }
+        if (body.code === 'oauth_account' && mode === 'register') {
+          /* La cuenta ya existe pero nació con Google: saltar al tab de login
+             con contraseña sería un callejón sin salida (no tiene contraseña).
+             Mejor quedarse en registro y señalar el botón de Google de abajo. */
+          setMode('login');
+          setSugerirGoogle(true);
+          setErr('Ese correo ya tiene una cuenta con Google. Entra con el botón «Continuar con Google» que está debajo del formulario.');
+          return;
+        }
+        if (body.code === 'use_google') {
+          /* El usuario escribió en el formulario de LOGIN un correo que
+             pertenece a una cuenta creada con Google: no tiene contraseña.
+             En vez del genérico "correo o contraseña incorrectos" se salta al
+             tab de Google (el botón está justo debajo) con el correo ya puesto. */
+          setMode('login');
+          setSugerirGoogle(true);
+          setErr('Esta cuenta usa Google, así que no tiene contraseña. Entra con el botón «Continuar con Google» de abajo.');
+          return;
+        }
+        if (body.code === 'email_taken' && mode === 'login') {
+          /* Alguien intenta CREAR una cuenta con un correo que ya existe (o el
+             server lo detecta por UNIQUE). En login no debería llegar, pero si
+             ocurre se le redirige a entrar con su contraseña. */
+          setErr(body.error || 'Ya existe una cuenta con ese correo. Inicia sesión.');
           return;
         }
         throw new Error(body.error || 'Error');
@@ -1505,8 +1535,8 @@ function LoginScreen({ onLogin, onBack, notice }) {
           <img class="login-form-logo logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" />
 
           <div class="login-tabs" role="tablist">
-            <button type="button" role="tab" aria-selected=${mode === 'login'} class=${'login-tab' + (mode === 'login' ? ' is-active' : '')} onClick=${() => { setMode('login'); setErr(''); }}>Iniciar sesión</button>
-            <button type="button" role="tab" aria-selected=${mode === 'register'} class=${'login-tab' + (mode === 'register' ? ' is-active' : '')} onClick=${() => { setMode('register'); setErr(''); }}>Crear cuenta</button>
+            <button type="button" role="tab" aria-selected=${mode === 'login'} class=${'login-tab' + (mode === 'login' ? ' is-active' : '')} onClick=${() => { setMode('login'); setErr(''); setSugerirGoogle(false); }}>Iniciar sesión</button>
+            <button type="button" role="tab" aria-selected=${mode === 'register'} class=${'login-tab' + (mode === 'register' ? ' is-active' : '')} onClick=${() => { setMode('register'); setErr(''); setSugerirGoogle(false); }}>Crear cuenta</button>
           </div>
 
           <h1 class="login-h1">${mode === 'register' ? 'Crea tu cuenta del taller' : 'Bienvenido de vuelta'}</h1>
@@ -1539,7 +1569,7 @@ function LoginScreen({ onLogin, onBack, notice }) {
 
           <div class="login-divider"><span>o</span></div>
 
-          <a href="/api/auth/google" class="login-google">
+          <a href="/api/auth/google" class=${'login-google' + (sugerirGoogle ? ' login-google--sugerido' : '')} role="button" tabindex="0">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -1594,13 +1624,30 @@ function App() {
      cerrar sesión y mezclen datos de dos cuentas en el mismo navegador. */
   const TALLER_LOCAL_KEYS = ['ft_inventory', 'ft_clients', 'ft_orders', 'ft_notes', 'ft_cash', 'ft_pressure_log'];
   const logout = () => {
+    setVerifyMsg('Cerrando sesión…');
     fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
+      .catch(() => {})
       .finally(() => {
         // Limpiar caches locales del taller para que la siguiente cuenta en
         // este mismo navegador no vea datos de la cuenta anterior.
         for (const k of TALLER_LOCAL_KEYS) { try { localStorage.removeItem(k); } catch (e) {} }
         setUser(null);
+        // Salir desde dentro de una herramienta (por ejemplo Mi Taller) tenía
+        // un agujero: la micro-app quedaba montada pidiendo datos de una sesión
+        // que ya no existe, y el gesto de atrás reabría la herramienta. Se
+        // cierra todo y se vuelve al inicio limpio.
+        setMicroApp(null);
+        setViewState('home');
+        setShowLogin(false);
         setVerifyMsg('Sesión cerrada ✓');
+        // Quitar ?app=… / ?cat=… de la URL: sin esto el botón atrás del
+        // navegador volvía a abrir la herramienta recién cerrada.
+        const p = new URLSearchParams(location.search);
+        if (p.has('app') || p.has('cat')) {
+          p.delete('app'); p.delete('cat');
+          const qs = p.toString();
+          history.replaceState(null, '', qs ? `${location.pathname}?${qs}` : location.pathname);
+        }
       });
   };
   const refreshUser = () => {
@@ -1699,20 +1746,26 @@ function App() {
     return () => clearTimeout(t);
   }, []);
 
-  /* Vuelta del flujo "Continuar con Google": /?login=google_ok|google_error.
-     google_ok ya deja la cookie de sesión puesta — refrescar /api/auth/me es lo
-     que hace que la cuenta "aparezca" en la app. Sin este efecto el redirect
-     del servidor caía en saco roto y el alta no se reflejaba. */
+  /* Vuelta del flujo "Continuar con Google": /?login=google_ok|google_error|
+     google_suspended|google_locked. google_ok ya deja la cookie de sesión
+     puesta — refrescar /api/auth/me es lo que hace que la cuenta "aparezca" en
+     la app. Sin este efecto el redirect del servidor caía en saco roto y el
+     alta no se reflejaba. Los motivos de rechazo vienen del callback, que ahora
+     aplica las mismas reglas de estado que el login con contraseña. */
   useEffect(() => {
     const p = new URLSearchParams(location.search).get('login');
     if (!p || !p.startsWith('google_')) return;
-    const ok = p === 'google_ok';
-    if (ok) {
+    if (p === 'google_ok') {
       refreshUser();
       setShowLogin(false);
       setVerifyMsg('Sesión iniciada con Google ✓');
     } else {
-      setVerifyMsg('No se pudo iniciar con Google. Prueba de nuevo o usa correo y contraseña.');
+      const textos = {
+        google_error: 'No se pudo iniciar con Google. Prueba de nuevo o usa correo y contraseña.',
+        google_suspended: 'Tu cuenta está suspendida. Contacta a soporte para reactivarla.',
+        google_locked: 'Tu cuenta está bloqueada temporalmente. Intenta más tarde.',
+      };
+      setVerifyMsg(textos[p] || textos.google_error);
       setShowLogin(true); // el error llega con estado fresco: reabrir el login para reintentar
     }
     const url = new URL(location.href);
@@ -1973,7 +2026,7 @@ function App() {
       /* onOpen va a todas: algunas herramientas encadenan con otra ("no
          enciende" manda a batería o a compresión) y sin esto el usuario
          tendría que volver al inicio y buscarla de nuevo. */
-      return html`<div class="micro-app-view">${html`<${AppComp} onBack=${closeMicro} onOpen=${openMicro} />`}</div>`;
+      return html`<div class="micro-app-view">${html`<${AppComp} onBack=${closeMicro} onOpen=${openMicro} onLogout=${logout} onUserChange=${refreshUser} user=${user} />`}</div>`;
     }
     if (!authChecked) return html`<div class="home"><div class="empty">Cargando…</div></div>`;
     if (FT.Home) {
@@ -1981,7 +2034,7 @@ function App() {
          para el anónimo (candados en las apps de taller, "$0 sin cuenta", specs
          públicas) y exigir sesión para verlo escondía el producto — incluido el
          <h1> del hero, que es lo que indexan los buscadores. */
-      if (showLogin && !user) return html`<${LoginScreen} onLogin=${(u) => { setVerifyMsg(''); setUser(u); }} onBack=${() => setShowLogin(false)} notice=${verifyMsg} />`;
+      if (showLogin && !user) return html`<${LoginScreen} onLogin=${(u) => { setVerifyMsg(''); /* El login devuelve un perfil parcial (id, name, email); el Home y el VerifyBanner necesitan email_verified, slug, auth_provider… así que se re-hidrata con /api/auth/me. */ refreshUser(); }} onBack=${() => setShowLogin(false)} notice=${verifyMsg} />`;
       return html`
         ${verifyMsg && html`<div class="toast-stack"><div class="toast" role="status">${verifyMsg}</div></div>`}
         <${FT.Home} onOpen=${openMicro} user=${user} onLogout=${logout} onLogin=${() => setShowLogin(true)} onUserChange=${refreshUser} />`;

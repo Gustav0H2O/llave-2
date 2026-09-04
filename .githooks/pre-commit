@@ -11,6 +11,14 @@
 
 set -e
 
+# Las pruebas levantan el servidor con el adaptador en memoria pero el
+# limitador de intentos de /api/auth (authLimiter) solo sube su tope cuando
+# NODE_ENV=test. Sin esta variable, las suites de seguridad disparan más de
+# 20 intentos por minuto desde 127.0.0.1 y el hook falla con 429 aunque el
+# código esté bien. En CI se hereda igual (npm test no la pone): se fija aquí
+# para que local y CI corran exactamente las mismas reglas.
+export NODE_ENV=test
+
 echo ""
 echo "🛡️  pre-commit: restricciones del proyecto…"
 if ! node scripts/guard.js; then
