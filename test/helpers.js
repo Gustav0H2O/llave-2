@@ -1,4 +1,5 @@
 'use strict';
+process.env.NODE_ENV = process.env.NODE_ENV || 'test';
 /* ============================================================================
    Utilidades compartidas por las suites de prueba.
 

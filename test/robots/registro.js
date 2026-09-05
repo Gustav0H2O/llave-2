@@ -46,7 +46,7 @@ const CASOS = [
   ['correo numérico',              { email: 12345, password: CLAVE, name: 'T' }, 400],
   ['correo objeto',                { email: { a: 1 }, password: CLAVE, name: 'T' }, 400],
   ['correo array',                 { email: ['a@b.test'], password: CLAVE, name: 'T' }, 400],
-  ['clave de 7 caracteres',        { email: 'c7@prueba.test', password: '1234567', name: 'T' }, 400],
+  ['clave de 9 caracteres',        { email: 'c9@prueba.test', password: '123456789', name: 'T' }, 400],
   ['clave vacía',                  { email: 'c0@prueba.test', password: '', name: 'T' }, 400],
   ['clave ausente',                { email: 'cx@prueba.test', name: 'T' }, 400],
   ['clave numérica',               { email: 'cn@prueba.test', password: 12345678, name: 'T' }, 400],
@@ -54,7 +54,7 @@ const CASOS = [
   ['nombre solo espacios',         { email: 'ne@prueba.test', password: CLAVE, name: '   ' }, 400],
   ['nombre ausente',               { email: 'na@prueba.test', password: CLAVE }, 400],
   ['cuerpo vacío',                 {}, 400],
-  ['clave de exactamente 8',       { email: 'c8@prueba.test', password: '12345678', name: 'T' }, 201],
+  ['clave de exactamente 10',      { email: 'c10@prueba.test', password: 'clave10seg', name: 'T' }, 201],
   ['correo con +etiqueta',         { email: 'taller+sucursal@prueba.test', password: CLAVE, name: 'T' }, 201],
   ['correo con guiones',           { email: 'mi-taller.sur@pru-eba.test', password: CLAVE, name: 'T' }, 201],
   ['nombre con acentos y ñ',       { email: 'ac@prueba.test', password: CLAVE, name: 'Taller Muñoz Diésel' }, 201],
@@ -120,8 +120,11 @@ async function normalizacion(rep) {
    ------------------------------------------------------------------------ */
 async function limitador(rep) {
   rep.seccion('C. Limitador de altas (authLimiter: 20/min por IP)');
-  const ctx = await nuevoServidor();
+  process.env.AUTH_LIMIT = '20';
+  let ctx;
   try {
+    ctx = await nuevoServidor();
+    delete process.env.AUTH_LIMIT;
     const estados = [];
     for (let i = 0; i < 30; i++) {
       const c = crearCliente(ctx.base);
@@ -139,7 +142,10 @@ async function limitador(rep) {
        sirviendo el catálogo, que no está detrás de este limitador. */
     const publico = await crearCliente(ctx.base).get('/api/meta');
     rep.comprobar(publico.status === 200, 'con el limitador activo el catálogo público sigue respondiendo', `estado ${publico.status}`);
-  } finally { ctx.cerrar(); }
+  } finally {
+    delete process.env.AUTH_LIMIT;
+    if (ctx) ctx.cerrar();
+  }
 }
 
 /* --------------------------------------------------------------------------

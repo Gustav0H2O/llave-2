@@ -8,7 +8,16 @@ const Database = require('better-sqlite3');
 const { createApp } = require('../server-pg');
 const { DBAdapter } = require('../db');
 const { seedTestDb } = require('./seed-test');
-const puppeteer = require('puppeteer');
+let puppeteer;
+try {
+  puppeteer = require('puppeteer');
+} catch {
+  try {
+    puppeteer = require('puppeteer-core');
+  } catch {
+    puppeteer = null;
+  }
+}
 
 const SCREENSHOT_DIR = path.join(__dirname, 'screenshots');
 const APP_URL = process.env.E2E_BASE_URL;
@@ -36,7 +45,7 @@ async function startServer() {
   });
 }
 
-describe('FuelTech Master E2E', { timeout: 300_000 }, () => {
+describe('FuelTech Master E2E', { timeout: 300_000, skip: !puppeteer && 'puppeteer no está disponible' }, () => {
   let ctx, browser, page;
   const browserErrors = [];
 

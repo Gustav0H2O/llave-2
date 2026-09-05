@@ -48,6 +48,7 @@ const PELIGROSAS = ['TURSO_URL', 'TURSO_AUTH_TOKEN', 'DATABASE_URL'];
    depender de que quien lanza el robot se acuerde de nada. */
 const neutralizadas = PELIGROSAS.filter(v => (process.env[v] || '').trim() !== '');
 for (const v of PELIGROSAS) process.env[v] = '';
+process.env.NODE_ENV = 'test';
 
 function exigirEntornoSeguro() {
   const vivas = PELIGROSAS.filter(v => (process.env[v] || '').trim() !== '');

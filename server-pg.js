@@ -160,6 +160,7 @@ async function createApp(dbOverride, statsOverride) {
        para auditoría. NO guarda contraseñas, tokens ni datos sensibles. */
     `ALTER TABLE workshops ADD COLUMN last_login_at TEXT`,
     `ALTER TABLE workshops ADD COLUMN last_login_ip TEXT`,
+    `ALTER TABLE workshops ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_ws_slug ON workshops(slug)`,
     `CREATE TABLE IF NOT EXISTS workshop_reviews (
        id INTEGER PRIMARY KEY, workshop_id INTEGER NOT NULL,
@@ -331,7 +332,7 @@ async function createApp(dbOverride, statsOverride) {
   // Rate limit solo en /api
   app.use('/api', rateLimit({
     windowMs: 60_000,
-    limit: 120,
+    limit: process.env.NODE_ENV === 'test' ? 5000 : 120,
     standardHeaders: true,
     legacyHeaders: false
   }));
@@ -1917,7 +1918,7 @@ ${dbContext}`;
      garantiza la unicidad; este normalizado evita duplicados visuales tipo
      "Foo@bar.com" vs "foo@bar.com". El UNIQUE existente no es COLLATE NOCASE
      así que confiamos en normalizar SIEMPRE del lado del server. */
-  const normEmail = (s) => String(s || '').trim().toLowerCase().slice(0, 120);
+  const normEmail = (s) => typeof s === 'string' ? s.trim().toLowerCase().slice(0, 120) : '';
   const hashToken = (t) => crypto.createHash('sha256').update(t).digest('hex');
   const tokenCookieOpts = () => ({
     httpOnly: true, sameSite: 'lax', path: '/',
@@ -1955,7 +1956,7 @@ ${dbContext}`;
      (los tests de seguridad disparan muchos en pocos segundos). */
   const authLimiter = rateLimit({
     windowMs: 60_000,
-    limit: process.env.NODE_ENV === 'test' ? 2000 : 20,
+    limit: process.env.AUTH_LIMIT ? Number(process.env.AUTH_LIMIT) : (process.env.NODE_ENV === 'test' ? 2000 : 20),
     standardHeaders: true,
     legacyHeaders: false,
   });
@@ -1978,14 +1979,17 @@ ${dbContext}`;
 
   // Registro: crea taller + sesión
   app.post('/api/auth/register', authLimiter, async (req, res) => {
-    const email = normEmail(req.body?.email);
+    if (typeof req.body?.email !== 'string') return res.status(400).json({ error: 'Correo inválido' });
+    const email = normEmail(req.body.email);
     const pass = typeof req.body?.password === 'string' ? req.body.password : '';
     const name = str(req.body?.name, 120);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Correo inválido' });
     /* Política de contraseñas (regla 2): mínimo 10 caracteres y bloqueo de
        contraseñas triviales (las del top de breaches públicos). Pide mínimo
        10 porque "qwerty123" (9) es trivial; "una-cuenta-mía-2026" pasa. */
-    if (pass.length < 10) return res.status(400).json({ error: 'La contraseña debe tener al menos 10 caracteres' });
+    if (typeof req.body?.password !== 'string' || pass.length < 10) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 10 caracteres' });
+    }
     if (WEAK_PASSWORDS.has(pass.toLowerCase())) {
       return res.status(400).json({ error: 'Contraseña demasiado común. Elige otra distinta.' });
     }
@@ -2031,9 +2035,15 @@ ${dbContext}`;
 
   // Login
   app.post('/api/auth/login', authLimiter, async (req, res) => {
-    const email = normEmail(req.body?.email);
-    const pass = typeof req.body?.password === 'string' ? req.body.password : '';
-    const ws = await db.get('SELECT id, email, pass_hash, status, locked_until FROM workshops WHERE email = ?', email);
+    if (typeof req.body?.email !== 'string' || typeof req.body?.password !== 'string') {
+      return res.status(400).json({ code: 'bad_credentials', error: 'Correo o contraseña requeridos' });
+    }
+    const email = normEmail(req.body.email);
+    const pass = req.body.password;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !pass) {
+      return res.status(400).json({ code: 'bad_credentials', error: 'Correo o contraseña requeridos' });
+    }
+    const ws = await db.get('SELECT id, name, email, pass_hash, status, locked_until FROM workshops WHERE email = ?', email);
 
     /* Mitigación de timing attack (regla 3.2): si el correo no existe,
        ejecutamos verifyPassword contra un hash dummy. Sin esto, "no existe"
@@ -2364,7 +2374,11 @@ ${dbContext}`;
     const host = req.headers.host || '';
     // Detrás de Render/Cloudflare el Host público viaja en X-Forwarded-Host
     const fwd = (req.headers['x-forwarded-host'] || '').split(',')[0].trim();
-    const h = fwd || host || (BASE_URL ? new URL(BASE_URL).host : '');
+    let h = fwd || host || (BASE_URL ? new URL(BASE_URL).host : 'localhost:3000');
+    // Normalizar 127.0.0.1 a localhost para coincidir con la URI autorizada en Google Console
+    if (h.startsWith('127.0.0.1')) {
+      h = h.replace('127.0.0.1', 'localhost');
+    }
     const proto = req.headers['x-forwarded-proto']
       ? String(req.headers['x-forwarded-proto']).split(',')[0].trim()
       : (PROD ? 'https' : 'http');
@@ -2374,13 +2388,13 @@ ${dbContext}`;
   // Iniciar flujo Google OAuth
   app.get('/api/auth/google', (req, res) => {
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-      return res.status(503).json({ error: 'Google Sign-In no configurado' });
+      return res.redirect('/?login=google_unconfigured');
     }
     const GOOGLE_REDIRECT_URI = googleRedirectUri(req);
     console.log('[Google OAuth] redirect_uri:', GOOGLE_REDIRECT_URI);
     const state = crypto.randomBytes(16).toString('hex');
-    // Guardar state en cookie temporal para validar respuesta
-    res.cookie('google_oauth_state', state, { httpOnly: true, sameSite: 'lax', secure: PROD, maxAge: 600_000 });
+    // Guardar state en cookie temporal para validar respuesta (path: '/' para todo el sitio)
+    res.cookie('google_oauth_state', state, { httpOnly: true, sameSite: 'lax', path: '/', secure: PROD, maxAge: 600_000 });
     const params = new URLSearchParams({
       client_id: GOOGLE_CLIENT_ID,
       redirect_uri: GOOGLE_REDIRECT_URI,
@@ -2408,7 +2422,7 @@ ${dbContext}`;
     console.log('[Google OAuth] callback:', { code: code ? 'si' : 'no', state, savedState: savedState ? 'si' : 'no' });
 
     // Limpiar cookie de estado
-    res.clearCookie('google_oauth_state');
+    res.clearCookie('google_oauth_state', { path: '/' });
 
     if (!code || !state || !savedState || state !== savedState) {
       console.log('[Google OAuth] error: state mismatch o falta code');
@@ -2450,18 +2464,22 @@ ${dbContext}`;
 
       // Buscar o crear usuario
       let ws = await db.get('SELECT * FROM workshops WHERE email = ?', googleUser.email.toLowerCase());
+      let esCuentaNueva = false;
       if (!ws) {
-        // Crear cuenta automáticamente. OJO: db.run() NO devuelve lastID — en
-        // Turso devuelve { changes, lastInsertRowid } y en PG { changes }, así
-        // que hay que usar insertReturningId como en /api/auth/register, o el
-        // SELECT posterior no encuentra la fila recién creada y el alta de
-        // Google "no se refleja" (bug visto en producción).
-        const name = googleUser.name || googleUser.email.split('@')[0];
-        const id = await db.insertReturningId(
-          'INSERT INTO workshops (email, pass_hash, name, email_verified) VALUES (?, ?, ?, 1)',
-          [googleUser.email.toLowerCase(), 'google_oauth', name]
-        );
-        ws = await db.get('SELECT * FROM workshops WHERE id = ?', id);
+        esCuentaNueva = true;
+        const name = str(googleUser.name || googleUser.email.split('@')[0], 120) || 'Taller';
+        try {
+          const id = await db.insertReturningId(
+            'INSERT INTO workshops (email, pass_hash, name, email_verified, status) VALUES (?, ?, ?, 1, ?)',
+            [googleUser.email.toLowerCase(), 'google_oauth', name, 'active']
+          );
+          if (id) ws = await db.get('SELECT * FROM workshops WHERE id = ?', id);
+        } catch (insertErr) {
+          console.warn('[Google OAuth] aviso al insertar taller:', insertErr?.message);
+        }
+        if (!ws) {
+          ws = await db.get('SELECT * FROM workshops WHERE email = ?', googleUser.email.toLowerCase());
+        }
         console.log('[Google OAuth] cuenta creada:', ws?.id, ws?.email);
       } else {
         console.log('[Google OAuth] cuenta existente:', ws.id, ws.email);
@@ -2498,7 +2516,7 @@ ${dbContext}`;
       console.log('[Google OAuth] sesion creada para workshop:', ws.id);
 
       res.cookie(SESSION_COOKIE, token, tokenCookieOpts());
-      res.redirect('/?login=google_ok');
+      res.redirect(esCuentaNueva ? '/?login=google_registered' : '/?login=google_ok');
     } catch (err) {
       console.error('Google OAuth error:', err.message);
       res.redirect('/?login=google_error');

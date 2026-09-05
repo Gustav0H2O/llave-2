@@ -1102,6 +1102,7 @@ function ChatBot({ vehicleId, user }) {
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
@@ -1444,7 +1445,7 @@ function LoginScreen({ onLogin, onBack, notice }) {
   const [sugerirGoogle, setSugerirGoogle] = useState(false);
   const submit = async (e) => {
     e.preventDefault();
-    if (form.password.length < 8) { setErr('La contraseña debe tener al menos 8 caracteres'); return; }
+    if (form.password.length < 10) { setErr('La contraseña debe tener al menos 10 caracteres'); return; }
     setBusy(true); setErr('');
     try {
       const res = await fetch(mode === 'register' ? '/api/auth/register' : '/api/auth/login', {
@@ -1453,43 +1454,35 @@ function LoginScreen({ onLogin, onBack, notice }) {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        /* Códigos del backend → mensajes más claros en cliente. Los códigos
-           los añade el server para que la UI reaccione sin "leer la mente".
-           Importante: el login NO distingue "cuenta no existe" de
-           "contraseña mal" (no enumerar cuentas). Eso se resuelve en el
-           formulario de REGISTRO con el mismo email. */
         if (body.code === 'email_taken' && mode === 'register') {
-          setMode('login'); // saltar a Iniciar sesión, email pre-rellenado
-          setErr('Ya tienes cuenta. Inicia sesión.');
+          setMode('login');
+          setForm(f => ({ ...f, password: '' }));
+          setErr('Ya existe una cuenta con ese correo. Introduce tu contraseña para iniciar sesión.');
           return;
         }
-        if (body.code === 'oauth_account' && mode === 'register') {
-          /* La cuenta ya existe pero nació con Google: saltar al tab de login
-             con contraseña sería un callejón sin salida (no tiene contraseña).
-             Mejor quedarse en registro y señalar el botón de Google de abajo. */
+        if (body.code === 'oauth_account') {
           setMode('login');
           setSugerirGoogle(true);
-          setErr('Ese correo ya tiene una cuenta con Google. Entra con el botón «Continuar con Google» que está debajo del formulario.');
+          setForm(f => ({ ...f, password: '' }));
+          setErr('Ese correo ya está registrado con Google. Entra con el botón «Continuar con Google» de abajo.');
           return;
         }
         if (body.code === 'use_google') {
-          /* El usuario escribió en el formulario de LOGIN un correo que
-             pertenece a una cuenta creada con Google: no tiene contraseña.
-             En vez del genérico "correo o contraseña incorrectos" se salta al
-             tab de Google (el botón está justo debajo) con el correo ya puesto. */
           setMode('login');
           setSugerirGoogle(true);
-          setErr('Esta cuenta usa Google, así que no tiene contraseña. Entra con el botón «Continuar con Google» de abajo.');
+          setForm(f => ({ ...f, password: '' }));
+          setErr('Esta cuenta usa Google (sin contraseña). Entra con el botón «Continuar con Google» de abajo.');
+          return;
+        }
+        if (body.code === 'bad_credentials' && mode === 'login') {
+          setErr('Correo o contraseña incorrectos. Si aún no tienes cuenta, selecciona la pestaña «Crear cuenta».');
           return;
         }
         if (body.code === 'email_taken' && mode === 'login') {
-          /* Alguien intenta CREAR una cuenta con un correo que ya existe (o el
-             server lo detecta por UNIQUE). En login no debería llegar, pero si
-             ocurre se le redirige a entrar con su contraseña. */
-          setErr(body.error || 'Ya existe una cuenta con ese correo. Inicia sesión.');
+          setErr(body.error || 'Ya existe una cuenta con ese correo. Introduce tu contraseña para iniciar sesión.');
           return;
         }
-        throw new Error(body.error || 'Error');
+        throw new Error(body.error || 'Error al procesar la solicitud');
       }
       setDone(true); onLogin(body);
     } catch (e2) { setErr(e2.message); }
@@ -1557,7 +1550,7 @@ function LoginScreen({ onLogin, onBack, notice }) {
             </label>
             <label class="login-field">
               <span>Contraseña</span>
-              <input type="password" class="styled-input" placeholder="Mínimo 8 caracteres" value=${form.password} onChange=${e => setForm({ ...form, password: e.target.value })} required minLength=${8} />
+              <input type="password" class="styled-input" placeholder="Mínimo 10 caracteres" value=${form.password} onChange=${e => setForm({ ...form, password: e.target.value })} required minLength=${10} />
             </label>
 
             <button type="submit" class="tool-add-btn login-submit" disabled=${busy || !form.email || !form.password}>
@@ -1576,7 +1569,7 @@ function LoginScreen({ onLogin, onBack, notice }) {
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
-            Continuar con Google
+            ${mode === 'register' ? 'Registrarse con Google' : 'Continuar con Google'}
           </a>
 
           <button type="button" class="login-secondary" onClick=${importLocal} disabled=${busy}>
@@ -1612,6 +1605,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [showLogin, setShowLogin] = useState(false);   // login bajo demanda, no como peaje de entrada
+  const [pendingApp, setPendingApp] = useState(null);  // app protegida pendiente tras iniciar sesion
   const [verifyMsg, setVerifyMsg] = useState('');      // acuse al volver del enlace de confirmación
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'same-origin' })
@@ -1755,15 +1749,16 @@ function App() {
   useEffect(() => {
     const p = new URLSearchParams(location.search).get('login');
     if (!p || !p.startsWith('google_')) return;
-    if (p === 'google_ok') {
+    if (p === 'google_ok' || p === 'google_registered') {
       refreshUser();
       setShowLogin(false);
-      setVerifyMsg('Sesión iniciada con Google ✓');
+      setVerifyMsg(p === 'google_registered' ? '¡Cuenta creada con Google! Bienvenido ✓' : 'Sesión iniciada con Google ✓');
     } else {
       const textos = {
         google_error: 'No se pudo iniciar con Google. Prueba de nuevo o usa correo y contraseña.',
         google_suspended: 'Tu cuenta está suspendida. Contacta a soporte para reactivarla.',
         google_locked: 'Tu cuenta está bloqueada temporalmente. Intenta más tarde.',
+        google_unconfigured: 'El inicio de sesión con Google no está configurado en este servidor. Usa correo y contraseña.',
       };
       setVerifyMsg(textos[p] || textos.google_error);
       setShowLogin(true); // el error llega con estado fresco: reabrir el login para reintentar
@@ -1975,7 +1970,7 @@ function App() {
     const protectedIds = ['orders', 'inventory', 'clients', 'notes', 'cash', 'documents', 'pressure', 'profile'];
     // Las apps de negocio sí exigen cuenta: en vez de tragarse el clic (el candado
     // del Home explicaba el porqué pero el botón no hacía nada), lleva al login.
-    if (protectedIds.includes(id) && !user) { setShowLogin(true); return; }
+    if (protectedIds.includes(id) && !user) { setPendingApp(id); setShowLogin(true); return; }
     if (apps[id] && FT[apps[id]]) {
       if (!opciones.silencioso) rutaEscribir({ app: id });
       setMicroApp(apps[id]); setViewState('home');
@@ -2034,7 +2029,17 @@ function App() {
          para el anónimo (candados en las apps de taller, "$0 sin cuenta", specs
          públicas) y exigir sesión para verlo escondía el producto — incluido el
          <h1> del hero, que es lo que indexan los buscadores. */
-      if (showLogin && !user) return html`<${LoginScreen} onLogin=${(u) => { setVerifyMsg(''); /* El login devuelve un perfil parcial (id, name, email); el Home y el VerifyBanner necesitan email_verified, slug, auth_provider… así que se re-hidrata con /api/auth/me. */ refreshUser(); }} onBack=${() => setShowLogin(false)} notice=${verifyMsg} />`;
+      if (showLogin && !user) return html`<${LoginScreen} onLogin=${(u) => {
+        if (u) setUser(u);
+        setShowLogin(false);
+        setVerifyMsg('');
+        refreshUser();
+        if (pendingApp) {
+          const target = pendingApp;
+          setPendingApp(null);
+          openMicro(target);
+        }
+      }} onBack=${() => { setShowLogin(false); setPendingApp(null); }} notice=${verifyMsg} />`;
       return html`
         ${verifyMsg && html`<div class="toast-stack"><div class="toast" role="status">${verifyMsg}</div></div>`}
         <${FT.Home} onOpen=${openMicro} user=${user} onLogout=${logout} onLogin=${() => setShowLogin(true)} onUserChange=${refreshUser} />`;

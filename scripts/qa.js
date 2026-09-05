@@ -67,7 +67,7 @@ function main() {
     console.log(linea());
 
     const inicio = Date.now();
-    const r = spawnSync(paso.cmd[0], paso.cmd[1], { cwd: RAIZ, stdio: 'inherit' });
+    const r = spawnSync(paso.cmd[0], paso.cmd[1], { cwd: RAIZ, stdio: 'inherit', env: { ...process.env, NODE_ENV: 'test' } });
     const seg = ((Date.now() - inicio) / 1000).toFixed(1);
     const ok = r.status === 0;
 
