@@ -1121,6 +1121,7 @@ async function createApp(dbOverride, statsOverride) {
     maxAge: PROD ? '1d' : 0,
     setHeaders: (res, filePath) => {
       if (/\.(glb|png|jpg|webp)$/.test(filePath)) res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+      else if (!PROD && /\.(js|html|css)$/.test(filePath)) res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     }
   }));
 
@@ -2074,7 +2075,7 @@ ${dbContext}`;
         failedLoginAttempts.delete(email);
         return res.status(423).json({ code: 'account_locked', error: 'Has superado el límite de 5 intentos fallidos. Tu cuenta ha sido bloqueada temporalmente por 15 minutos.' });
       }
-      return res.status(401).json({ code: 'bad_credentials', error: 'Correo o contraseña incorrectos' });
+      return res.status(401).json({ code: 'bad_credentials', error: `Correo o contraseña incorrectos. Intento ${cur} de ${FAILED_LOGIN_LIMIT} (te quedan ${FAILED_LOGIN_LIMIT - cur} antes del bloqueo temporal).` });
     }
     if (ws.status && ws.status !== 'active') {
       return res.status(403).json({ code: 'account_suspended', error: 'Tu cuenta está suspendida. Contacta a soporte.' });
@@ -2098,7 +2099,7 @@ ${dbContext}`;
         failedLoginAttempts.delete(email);
         return res.status(423).json({ code: 'account_locked', error: 'Has superado el límite de 5 intentos fallidos. Tu cuenta ha sido bloqueada temporalmente por 15 minutos.' });
       }
-      return res.status(401).json({ code: 'bad_credentials', error: 'Correo o contraseña incorrectos' });
+      return res.status(401).json({ code: 'bad_credentials', error: `Correo o contraseña incorrectos. Intento ${cur} de ${FAILED_LOGIN_LIMIT} (te quedan ${FAILED_LOGIN_LIMIT - cur} antes del bloqueo temporal).` });
     }
     failedLoginAttempts.delete(email);
     /* Regeneración de sesión (regla 5.2): emitimos un token nuevo. La sesión
@@ -2412,8 +2413,9 @@ ${dbContext}`;
     }
     const GOOGLE_REDIRECT_URI = googleRedirectUri(req);
     console.log('[Google OAuth] redirect_uri:', GOOGLE_REDIRECT_URI);
-    const state = crypto.randomBytes(16).toString('hex');
     const authMode = req.query.mode === 'register' ? 'register' : 'login';
+    const randState = crypto.randomBytes(16).toString('hex');
+    const state = `${randState}_${authMode}`;
     // Guardar state y modo en cookies temporales (path: '/' para todo el sitio)
     res.cookie('google_oauth_state', state, { httpOnly: true, sameSite: 'lax', path: '/', secure: PROD, maxAge: 600_000 });
     res.cookie('google_oauth_mode', authMode, { httpOnly: true, sameSite: 'lax', path: '/', secure: PROD, maxAge: 600_000 });
@@ -2441,7 +2443,9 @@ ${dbContext}`;
     const mState = rawCookies.match(/(?:^|;\s*)google_oauth_state=([^;]+)/);
     const savedState = mState ? decodeURIComponent(mState[1]) : null;
     const mMode = rawCookies.match(/(?:^|;\s*)google_oauth_mode=([^;]+)/);
-    const oauthMode = mMode ? decodeURIComponent(mMode[1]) : 'login';
+    const cookieMode = mMode ? decodeURIComponent(mMode[1]) : null;
+    const stateMode = (state || '').includes('_') ? state.split('_')[1] : null;
+    const oauthMode = stateMode || cookieMode || 'login';
 
     console.log('[Google OAuth] callback:', { code: code ? 'si' : 'no', state, savedState: savedState ? 'si' : 'no', oauthMode });
 

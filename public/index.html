@@ -2007,6 +2007,12 @@
   .login-footer-note {
     font: 400 12px/1.55 var(--font); color: var(--muted); margin: 0;
   }
+  .login-badge { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--r-sm); font-size: 12px; margin-bottom: 14px; }
+  .login-badge--warn { background: rgba(217, 119, 6, .1); border: 1px solid rgba(217, 119, 6, .25); }
+  .login-badge--info { background: rgba(37, 99, 235, .1); border: 1px solid rgba(37, 99, 235, .25); }
+  .alert.is-danger { border-left-color: #dc2626; background: rgba(220, 38, 38, .1); }
+  .alert.is-info { border-left-color: #2563eb; background: rgba(37, 99, 235, .1); }
+  .alert.is-warn { border-left-color: #d97706; background: rgba(217, 119, 6, .12); }
 
   @media (max-width: 880px) {
     .login-screen { grid-template-columns: 1fr; }
@@ -3195,6 +3201,6 @@
 <script src="/datos.js?v=1"></script>
 <script src="/microapps.js?v=7"></script>
 <script src="/microapps-taller.js?v=6"></script>
-<script src="/app.js?v=5"></script>
+<script src="/app.js?v=7"></script>
 </body>
 </html>

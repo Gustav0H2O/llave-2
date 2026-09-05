@@ -1546,8 +1546,17 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
           <h1 class="login-h1">${mode === 'register' ? 'Crea tu cuenta del taller' : 'Bienvenido de vuelta'}</h1>
           <p class="login-h1-sub">${mode === 'register' ? 'Tarda menos de un minuto. Solo necesitas un correo.' : 'Entra con tu correo y contraseña.'}</p>
 
+          <div class=${'login-badge ' + (mode === 'register' ? 'login-badge--info' : 'login-badge--warn')}>
+            <span>🛡️</span>
+            <span><strong>${mode === 'register' ? 'Requisitos:' : 'Límites:'}</strong> ${mode === 'register' ? 'Contraseña mín. 10 caracteres. No se admiten registros duplicados.' : 'Máx. 5 intentos antes de bloqueo de 15 min. Cuentas con clave no entran por Google.'}</span>
+          </div>
+
           ${done && html`<div class="alert blue" style=${{ marginBottom: '14px' }}><span>¡Bienvenido! Tu sesión está activa.</span></div>`}
-          ${notice && html`<div class="alert" style=${{ marginBottom: '14px' }}><span>${notice}</span></div>`}
+          ${notice && html`
+            <div class="alert is-warn" style=${{ marginBottom: '14px' }}>
+              <div style=${{ fontWeight: 700, marginBottom: '3px' }}>⚠️ Aviso de Acceso</div>
+              <span>${notice}</span>
+            </div>`}
 
           <form onSubmit=${submit} class="login-form">
             ${mode === 'register' && html`
@@ -1562,23 +1571,37 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
             <label class="login-field">
               <span>Contraseña</span>
               <input type="password" class="styled-input" placeholder="Mínimo 10 caracteres" value=${form.password} onChange=${e => setForm({ ...form, password: e.target.value })} required minLength=${10} />
+              ${mode === 'register' && html`
+                <span style=${{ fontSize: '11px', color: form.password.length >= 10 ? '#16a34a' : 'var(--text-muted)' }}>
+                  ${form.password.length >= 10 ? '✓ Válida (' + form.password.length + ' caracteres)' : 'Mínimo 10 caracteres (' + form.password.length + '/10)'}
+                </span>`}
             </label>
 
             <button type="submit" class="tool-add-btn login-submit" disabled=${busy || !form.email || !form.password}>
               ${busy ? 'Procesando…' : mode === 'register' ? 'Crear cuenta' : 'Entrar'}
             </button>
 
-            ${err && html`
-              <div class="alert" style=${{ marginTop: '8px' }}>
-                <span>${err}</span>
-                ${cuentaDuplicada && html`
-                  <div style=${{ marginTop: '8px' }}>
-                    <button type="button" class="tool-add-btn" style=${{ fontSize: '13px', padding: '6px 12px', width: 'auto', display: 'inline-block' }} onClick=${() => { setMode('login'); setErr(''); setCuentaDuplicada(false); }}>
-                      ¿Es tu cuenta? Iniciar sesión con este correo →
-                    </button>
-                  </div>
-                `}
+            ${cuentaDuplicada && html`
+              <div class="alert is-danger">
+                <div style=${{ fontWeight: 700, color: '#dc2626', marginBottom: '4px' }}>🛑 Registro Duplicado Rechazado</div>
+                <div>Este correo ya está registrado. No se permiten registros duplicados.</div>
+                <div style=${{ marginTop: '8px' }}>
+                  <button type="button" class="tool-add-btn" style=${{ fontSize: '12px', padding: '6px 12px', width: 'auto' }} onClick=${() => { setMode('login'); setErr(''); setCuentaDuplicada(false); }}>
+                    Iniciar sesión con este correo →
+                  </button>
+                </div>
               </div>
+            `}
+
+            ${sugerirGoogle && html`
+              <div class="alert is-info">
+                <div style=${{ fontWeight: 700, color: '#2563eb', marginBottom: '4px' }}>ℹ️ Cuenta de Google</div>
+                <div>Esta cuenta usa Google OAuth. Entra con el botón de Google resaltado abajo.</div>
+              </div>
+            `}
+
+            ${err && !cuentaDuplicada && !sugerirGoogle && html`
+              <div class="alert is-warn"><span>${err}</span></div>
             `}
           </form>
 
@@ -1780,6 +1803,8 @@ function App() {
       setShowLogin(false);
       setVerifyMsg(p === 'google_registered' ? '¡Cuenta creada con Google! Bienvenido ✓' : 'Sesión iniciada con Google ✓');
     } else {
+      setUser(null);
+      fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
       const textos = {
         google_error: 'No se pudo iniciar con Google. Prueba de nuevo o usa correo y contraseña.',
         google_suspended: 'Tu cuenta está suspendida. Contacta a soporte para reactivarla.',
@@ -2061,7 +2086,7 @@ function App() {
          para el anónimo (candados en las apps de taller, "$0 sin cuenta", specs
          públicas) y exigir sesión para verlo escondía el producto — incluido el
          <h1> del hero, que es lo que indexan los buscadores. */
-      if (showLogin && !user) return html`<${LoginScreen} onLogin=${(u) => {
+      if (showLogin) return html`<${LoginScreen} onLogin=${(u) => {
         if (u) setUser(u);
         setShowLogin(false);
         setVerifyMsg('');
