@@ -265,6 +265,19 @@ describe('Seguridad — sesiones y credenciales', () => {
     assert.deepEqual(existente.body, inexistente.body, 'distinto mensaje permite enumerar cuentas');
   });
 
+  it('bloquea la cuenta tras 5 intentos fallidos consecutivos de login', async () => {
+    const victima = 'bloqueo-test@prueba.test';
+    await cliente.post('/api/auth/register', { email: victima, password: 'clave-larga-123', name: 'Taller Victima' });
+    for (let i = 0; i < 4; i++) {
+      const res = await cliente.post('/api/auth/login', { email: victima, password: 'clave-incorrecta' });
+      assert.equal(res.status, 401);
+      assert.equal(res.body.code, 'bad_credentials');
+    }
+    const quinto = await cliente.post('/api/auth/login', { email: victima, password: 'clave-incorrecta' });
+    assert.equal(quinto.status, 423);
+    assert.equal(quinto.body.code, 'account_locked');
+  });
+
   it('un token de sesión inventado no sirve', async () => {
     const falso = crearCliente(ctx.base);
     const r = await falso.get('/api/inventory', { headers: { cookie: 'ftm_session=token-inventado-123' } });

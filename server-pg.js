@@ -1961,6 +1961,10 @@ ${dbContext}`;
     legacyHeaders: false,
   });
 
+  const FAILED_LOGIN_LIMIT = 5;
+  const LOCKOUT_MS = 15 * 60 * 1000;
+  const failedLoginAttempts = new Map(); // email -> { count, lastAttempt }
+
   /* Top de contraseñas triviales más filtradas en breaches públicos. NO es
      exhaustivo (la versión 10k pesa >100 KB): cubre las que un usuario elige
      "para salir del paso". El bloqueo se aplica SIEMPRE: un atacante ya
@@ -2064,13 +2068,20 @@ ${dbContext}`;
        suspendidas o con bloqueo temporal antes de emitir sesión. El bloqueo
        temporal expira por sí solo (locked_until en el pasado). */
     if (!ws) {
+      const cur = (failedLoginAttempts.get(email)?.count || 0) + 1;
+      failedLoginAttempts.set(email, { count: cur, lastAttempt: Date.now() });
+      if (cur >= FAILED_LOGIN_LIMIT) {
+        failedLoginAttempts.delete(email);
+        return res.status(423).json({ code: 'account_locked', error: 'Has superado el límite de 5 intentos fallidos. Tu cuenta ha sido bloqueada temporalmente por 15 minutos.' });
+      }
       return res.status(401).json({ code: 'bad_credentials', error: 'Correo o contraseña incorrectos' });
     }
     if (ws.status && ws.status !== 'active') {
       return res.status(403).json({ code: 'account_suspended', error: 'Tu cuenta está suspendida. Contacta a soporte.' });
     }
     if (ws.locked_until && new Date(ws.locked_until).getTime() > Date.now()) {
-      return res.status(423).json({ code: 'account_locked', error: 'Cuenta bloqueada temporalmente. Intenta más tarde.' });
+      const mins = Math.max(1, Math.ceil((new Date(ws.locked_until).getTime() - Date.now()) / 60000));
+      return res.status(423).json({ code: 'account_locked', error: `Cuenta bloqueada temporalmente por seguridad. Intenta más tarde (${mins} min).` });
     }
     if (ws.pass_hash === 'google_oauth') {
       /* La cuenta nació con Google y no tiene contraseña. "bad_credentials"
@@ -2079,8 +2090,17 @@ ${dbContext}`;
       return res.status(401).json({ code: 'use_google', error: 'Esta cuenta usa Google. Entra con «Continuar con Google».' });
     }
     if (!passwordOk) {
+      const cur = (failedLoginAttempts.get(email)?.count || 0) + 1;
+      failedLoginAttempts.set(email, { count: cur, lastAttempt: Date.now() });
+      if (cur >= FAILED_LOGIN_LIMIT) {
+        const lockTime = new Date(Date.now() + LOCKOUT_MS).toISOString();
+        await db.run('UPDATE workshops SET locked_until = ? WHERE id = ?', [lockTime, ws.id]).catch(() => {});
+        failedLoginAttempts.delete(email);
+        return res.status(423).json({ code: 'account_locked', error: 'Has superado el límite de 5 intentos fallidos. Tu cuenta ha sido bloqueada temporalmente por 15 minutos.' });
+      }
       return res.status(401).json({ code: 'bad_credentials', error: 'Correo o contraseña incorrectos' });
     }
+    failedLoginAttempts.delete(email);
     /* Regeneración de sesión (regla 5.2): emitimos un token nuevo. La sesión
        vieja queda en BD y se borrará por el middleware requireWorkshop si
        se usa otra vez. Aquí no la borramos para no cerrar otras pestañas
@@ -2386,15 +2406,17 @@ ${dbContext}`;
   };
 
   // Iniciar flujo Google OAuth
-  app.get('/api/auth/google', (req, res) => {
+  app.get('/api/auth/google', authLimiter, (req, res) => {
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
       return res.redirect('/?login=google_unconfigured');
     }
     const GOOGLE_REDIRECT_URI = googleRedirectUri(req);
     console.log('[Google OAuth] redirect_uri:', GOOGLE_REDIRECT_URI);
     const state = crypto.randomBytes(16).toString('hex');
-    // Guardar state en cookie temporal para validar respuesta (path: '/' para todo el sitio)
+    const authMode = req.query.mode === 'register' ? 'register' : 'login';
+    // Guardar state y modo en cookies temporales (path: '/' para todo el sitio)
     res.cookie('google_oauth_state', state, { httpOnly: true, sameSite: 'lax', path: '/', secure: PROD, maxAge: 600_000 });
+    res.cookie('google_oauth_mode', authMode, { httpOnly: true, sameSite: 'lax', path: '/', secure: PROD, maxAge: 600_000 });
     const params = new URLSearchParams({
       client_id: GOOGLE_CLIENT_ID,
       redirect_uri: GOOGLE_REDIRECT_URI,
@@ -2418,11 +2440,14 @@ ${dbContext}`;
     const rawCookies = req.headers.cookie || '';
     const mState = rawCookies.match(/(?:^|;\s*)google_oauth_state=([^;]+)/);
     const savedState = mState ? decodeURIComponent(mState[1]) : null;
+    const mMode = rawCookies.match(/(?:^|;\s*)google_oauth_mode=([^;]+)/);
+    const oauthMode = mMode ? decodeURIComponent(mMode[1]) : 'login';
 
-    console.log('[Google OAuth] callback:', { code: code ? 'si' : 'no', state, savedState: savedState ? 'si' : 'no' });
+    console.log('[Google OAuth] callback:', { code: code ? 'si' : 'no', state, savedState: savedState ? 'si' : 'no', oauthMode });
 
-    // Limpiar cookie de estado
+    // Limpiar cookies de estado
     res.clearCookie('google_oauth_state', { path: '/' });
+    res.clearCookie('google_oauth_mode', { path: '/' });
 
     if (!code || !state || !savedState || state !== savedState) {
       console.log('[Google OAuth] error: state mismatch o falta code');
@@ -2458,27 +2483,47 @@ ${dbContext}`;
 
       if (!userRes.ok) throw new Error('Error al obtener datos del usuario');
       const googleUser = await userRes.json();
-      console.log('[Google OAuth] usuario:', googleUser.email);
+      const email = normEmail(googleUser.email);
+      console.log('[Google OAuth] usuario:', email);
 
-      if (!googleUser.email) throw new Error('Google no proporcionó el email');
+      if (!email) throw new Error('Google no proporcionó el email');
 
-      // Buscar o crear usuario
-      let ws = await db.get('SELECT * FROM workshops WHERE email = ?', googleUser.email.toLowerCase());
+      // Buscar si ya existe la cuenta
+      let ws = await db.get('SELECT * FROM workshops WHERE email = ?', email);
+
+      // Bloquear acceso por Google si la cuenta no fue creada con Google
+      if (ws && ws.pass_hash !== 'google_oauth') {
+        console.warn('[Google OAuth] Bloqueado acceso por Google a cuenta con contraseña:', email);
+        return res.redirect(`/?login=google_account_not_google&email=${encodeURIComponent(email)}`);
+      }
+
+      // Si el usuario intentó registrarse pero ya tenía cuenta de Google existente
+      if (ws && oauthMode === 'register') {
+        console.warn('[Google OAuth] Intento de registrar cuenta existente de Google:', email);
+        return res.redirect(`/?login=google_already_registered&email=${encodeURIComponent(email)}`);
+      }
+
+      // Si el usuario intentó iniciar sesión pero la cuenta no existe todavía
+      if (!ws && oauthMode === 'login') {
+        console.warn('[Google OAuth] Intento de iniciar sesión con cuenta no registrada:', email);
+        return res.redirect(`/?login=google_not_registered&email=${encodeURIComponent(email)}`);
+      }
+
       let esCuentaNueva = false;
       if (!ws) {
         esCuentaNueva = true;
-        const name = str(googleUser.name || googleUser.email.split('@')[0], 120) || 'Taller';
+        const name = str(googleUser.name || email.split('@')[0], 120) || 'Taller';
         try {
           const id = await db.insertReturningId(
             'INSERT INTO workshops (email, pass_hash, name, email_verified, status) VALUES (?, ?, ?, 1, ?)',
-            [googleUser.email.toLowerCase(), 'google_oauth', name, 'active']
+            [email, 'google_oauth', name, 'active']
           );
           if (id) ws = await db.get('SELECT * FROM workshops WHERE id = ?', id);
         } catch (insertErr) {
           console.warn('[Google OAuth] aviso al insertar taller:', insertErr?.message);
         }
         if (!ws) {
-          ws = await db.get('SELECT * FROM workshops WHERE email = ?', googleUser.email.toLowerCase());
+          ws = await db.get('SELECT * FROM workshops WHERE email = ?', email);
         }
         console.log('[Google OAuth] cuenta creada:', ws?.id, ws?.email);
       } else {
