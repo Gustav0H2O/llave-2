@@ -22,7 +22,7 @@
    v7: las tablas de referencia salen a datos.js, y entran las cinco láminas de
        las pantallas de error — que tienen que estar EN CACHÉ, porque el sitio
        las necesita justo cuando algo va mal (sin red, por ejemplo). */
-const CACHE = 'llave-v9';
+const CACHE = 'llave-v10';
 const SHELL = [
   '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',

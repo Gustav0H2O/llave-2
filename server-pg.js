@@ -2049,15 +2049,12 @@ ${dbContext}`;
       return res.status(400).json({ code: 'bad_credentials', error: 'Correo o contraseña requeridos' });
     }
     const ws = await db.get('SELECT id, name, email, pass_hash, status, locked_until FROM workshops WHERE email = ?', email);
-
-    /* Mitigación de timing attack (regla 3.2): si el correo no existe,
-       ejecutamos verifyPassword contra un hash dummy. Sin esto, "no existe"
-       responde en ~5ms y "contraseña mal" en ~250ms (costo de scrypt):
-       medir la latencia mapea qué correos están registrados. Las cuentas
-       creadas por Google tampoco tienen hash que verificar (pass_hash es la
-       marca 'google_oauth'), así que corren contra el mismo dummy: no solo
-       igualan el tiempo de respuesta, sino que la rama que revela "usa
-       Google" solo se alcanza tras pagar el mismo costo de scrypt. */
+    const memLock = failedLoginAttempts.get(email);
+    if (memLock?.lockedUntil && memLock.lockedUntil > Date.now()) {
+      const mins = Math.max(1, Math.ceil((memLock.lockedUntil - Date.now()) / 60000));
+      return res.status(423).json({ code: 'account_locked', error: `Cuenta bloqueada temporalmente por seguridad. Intenta más tarde (${mins} min).` });
+    }
+    /* Mitigación de timing attack (regla 3.2): verifyPassword contra hash dummy si no existe. */
     let passwordOk = false;
     if (ws && ws.pass_hash !== 'google_oauth') {
       passwordOk = await verifyPassword(pass, ws.pass_hash);
@@ -2065,16 +2062,15 @@ ${dbContext}`;
       const dummy = await getDummyHash();
       await verifyPassword(pass, dummy);
     }
-    /* Verificación de estado de cuenta (regla 3.3): rechazamos cuentas
-       suspendidas o con bloqueo temporal antes de emitir sesión. El bloqueo
-       temporal expira por sí solo (locked_until en el pasado). */
     if (!ws) {
-      const cur = (failedLoginAttempts.get(email)?.count || 0) + 1;
-      failedLoginAttempts.set(email, { count: cur, lastAttempt: Date.now() });
+      const prev = failedLoginAttempts.get(email);
+      const isExp = prev?.lastAttempt && (Date.now() - prev.lastAttempt > LOCKOUT_MS);
+      const cur = (isExp ? 0 : (prev?.count || 0)) + 1;
       if (cur >= FAILED_LOGIN_LIMIT) {
-        failedLoginAttempts.delete(email);
+        failedLoginAttempts.set(email, { count: cur, lastAttempt: Date.now(), lockedUntil: Date.now() + LOCKOUT_MS });
         return res.status(423).json({ code: 'account_locked', error: 'Has superado el límite de 5 intentos fallidos. Tu cuenta ha sido bloqueada temporalmente por 15 minutos.' });
       }
+      failedLoginAttempts.set(email, { count: cur, lastAttempt: Date.now(), lockedUntil: null });
       return res.status(401).json({ code: 'bad_credentials', error: `Correo o contraseña incorrectos. Intento ${cur} de ${FAILED_LOGIN_LIMIT} (te quedan ${FAILED_LOGIN_LIMIT - cur} antes del bloqueo temporal).` });
     }
     if (ws.status && ws.status !== 'active') {
@@ -2085,23 +2081,23 @@ ${dbContext}`;
       return res.status(423).json({ code: 'account_locked', error: `Cuenta bloqueada temporalmente por seguridad. Intenta más tarde (${mins} min).` });
     }
     if (ws.pass_hash === 'google_oauth') {
-      /* La cuenta nació con Google y no tiene contraseña. "bad_credentials"
-         confundiría al dueño legítimo (no es que falle la contraseña: es que
-         no existe). La UI pinta este código con su botón de Google a la vista. */
       return res.status(401).json({ code: 'use_google', error: 'Esta cuenta usa Google. Entra con «Continuar con Google».' });
     }
     if (!passwordOk) {
-      const cur = (failedLoginAttempts.get(email)?.count || 0) + 1;
-      failedLoginAttempts.set(email, { count: cur, lastAttempt: Date.now() });
+      const prev = failedLoginAttempts.get(email);
+      const isExp = prev?.lastAttempt && (Date.now() - prev.lastAttempt > LOCKOUT_MS);
+      const cur = (isExp ? 0 : (prev?.count || 0)) + 1;
       if (cur >= FAILED_LOGIN_LIMIT) {
-        const lockTime = new Date(Date.now() + LOCKOUT_MS).toISOString();
-        await db.run('UPDATE workshops SET locked_until = ? WHERE id = ?', [lockTime, ws.id]).catch(() => {});
-        failedLoginAttempts.delete(email);
+        const lockUntil = Date.now() + LOCKOUT_MS;
+        failedLoginAttempts.set(email, { count: cur, lastAttempt: Date.now(), lockedUntil: lockUntil });
+        await db.run('UPDATE workshops SET locked_until = ? WHERE id = ?', [new Date(lockUntil).toISOString(), ws.id]).catch(() => {});
         return res.status(423).json({ code: 'account_locked', error: 'Has superado el límite de 5 intentos fallidos. Tu cuenta ha sido bloqueada temporalmente por 15 minutos.' });
       }
+      failedLoginAttempts.set(email, { count: cur, lastAttempt: Date.now(), lockedUntil: null });
       return res.status(401).json({ code: 'bad_credentials', error: `Correo o contraseña incorrectos. Intento ${cur} de ${FAILED_LOGIN_LIMIT} (te quedan ${FAILED_LOGIN_LIMIT - cur} antes del bloqueo temporal).` });
     }
     failedLoginAttempts.delete(email);
+    if (ws.locked_until) await db.run('UPDATE workshops SET locked_until = NULL WHERE id = ?', [ws.id]).catch(() => {});
     /* Regeneración de sesión (regla 5.2): emitimos un token nuevo. La sesión
        vieja queda en BD y se borrará por el middleware requireWorkshop si
        se usa otra vez. Aquí no la borramos para no cerrar otras pestañas

@@ -1428,22 +1428,13 @@ function Calculators() {
 /* ---------- Login / registro del taller ---------- */
 function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
   const [mode, setMode] = useState(initialMode || 'login');
-  /* Sin cifras. El panel izquierdo prometía "144 vehículos de 19 marcas" y "38
-     herramientas": números que el catálogo mueve cada vez que el dueño da de
-     alta un vehículo, y que además se quedaban clavados en el respaldo escrito
-     a mano cuando /api/meta tardaba o fallaba. Una promesa que envejece sola es
-     peor que ninguna, así que el argumento se cuenta con lo que no cambia: qué
-     hay dentro y qué se puede hacer con ello. (Antes esto era peor: las tres
-     constantes eran variables locales de la Home de microapps.js, así que aquí
-     ni existían y el ReferenceError tumbaba el render entero de React.) */
   const [form, setForm] = useState({ name: '', email: initialEmail || '', password: '' });
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
-  /* Cuando la cuenta es de Google (use_google / oauth_account) se resalta el
-     botón «Continuar con Google» para que el siguiente paso sea evidente. */
   const [sugerirGoogle, setSugerirGoogle] = useState(false);
   const [cuentaDuplicada, setCuentaDuplicada] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
     if (initialMode) setMode(initialMode);
@@ -1482,6 +1473,7 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
           return;
         }
         if (body.code === 'account_locked') {
+          setIsLocked(true);
           setErr(body.error || 'Acceso bloqueado temporalmente por exceder los intentos fallidos. Intenta más tarde.');
           return;
         }
@@ -1539,8 +1531,8 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
           <img class="login-form-logo logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" />
 
           <div class="login-tabs" role="tablist">
-            <button type="button" role="tab" aria-selected=${mode === 'login'} class=${'login-tab' + (mode === 'login' ? ' is-active' : '')} onClick=${() => { setMode('login'); setErr(''); setCuentaDuplicada(false); setSugerirGoogle(false); }}>Iniciar sesión</button>
-            <button type="button" role="tab" aria-selected=${mode === 'register'} class=${'login-tab' + (mode === 'register' ? ' is-active' : '')} onClick=${() => { setMode('register'); setErr(''); setCuentaDuplicada(false); setSugerirGoogle(false); }}>Crear cuenta</button>
+            <button type="button" role="tab" aria-selected=${mode === 'login'} class=${'login-tab' + (mode === 'login' ? ' is-active' : '')} onClick=${() => { setMode('login'); setErr(''); setCuentaDuplicada(false); setSugerirGoogle(false); setIsLocked(false); }}>Iniciar sesión</button>
+            <button type="button" role="tab" aria-selected=${mode === 'register'} class=${'login-tab' + (mode === 'register' ? ' is-active' : '')} onClick=${() => { setMode('register'); setErr(''); setCuentaDuplicada(false); setSugerirGoogle(false); setIsLocked(false); }}>Crear cuenta</button>
           </div>
 
           <h1 class="login-h1">${mode === 'register' ? 'Crea tu cuenta del taller' : 'Bienvenido de vuelta'}</h1>
@@ -1579,9 +1571,18 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
                 </span>`}
             </label>
 
-            <button type="submit" class="tool-add-btn login-submit" disabled=${busy || !form.email || !form.password}>
-              ${busy ? 'Procesando…' : mode === 'register' ? 'Crear cuenta' : 'Entrar'}
+            <button type="submit" class="tool-add-btn login-submit" disabled=${busy || isLocked || (mode === 'register' && (cuentaDuplicada || form.password.length < 10)) || !form.email || !form.password}>
+              ${busy ? 'Procesando…' : isLocked ? 'Acceso bloqueado (15 min)' : mode === 'register' ? 'Crear cuenta' : 'Entrar'}
             </button>
+
+            ${isLocked && html`
+              <div class="alert is-danger">
+                <div style=${{ width: '100%' }}>
+                  <div style=${{ fontWeight: 700, color: '#dc2626', marginBottom: '4px' }}>Acceso bloqueado por seguridad</div>
+                  <div>${err || 'Has superado el límite de 5 intentos fallidos. Tu cuenta ha sido bloqueada temporalmente por 15 minutos.'}</div>
+                </div>
+              </div>
+            `}
 
             ${cuentaDuplicada && html`
               <div class="alert is-danger">
@@ -1606,7 +1607,7 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
               </div>
             `}
 
-            ${err && !cuentaDuplicada && !sugerirGoogle && html`
+            ${err && !cuentaDuplicada && !sugerirGoogle && !isLocked && html`
               <div class="alert is-warn"><span>${err}</span></div>
             `}
           </form>
@@ -1808,6 +1809,7 @@ function App() {
       refreshUser();
       setShowLogin(false);
       setVerifyMsg(p === 'google_registered' ? 'Cuenta creada con Google. Bienvenido' : 'Sesión iniciada con Google');
+      setTimeout(() => setVerifyMsg(''), 6000);
     } else {
       setUser(null);
       fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
@@ -1816,36 +1818,22 @@ function App() {
         google_suspended: 'Tu cuenta está suspendida. Contacta a soporte para reactivarla.',
         google_locked: 'Tu cuenta está bloqueada temporalmente por intentos fallidos. Intenta más tarde.',
         google_unconfigured: 'El inicio de sesión con Google no está configurado en este servidor. Usa correo y contraseña.',
-        google_account_not_google: 'Esta cuenta fue registrada con correo y contraseña, no con Google. Introduce tu contraseña para entrar.',
-        google_already_registered: 'Ya existe una cuenta asociada a este correo. Inicia sesión con tu cuenta.',
-        google_not_registered: 'No existe una cuenta registrada con este correo de Google. Selecciona «Crear cuenta» para registrarte.',
+        google_account_not_google: 'Esta cuenta fue registrada con contraseña. Introduce tu contraseña para entrar.',
+        google_already_registered: 'Ya existe una cuenta asociada a este correo. Inicia sesión con tu contraseña.',
+        google_not_registered: 'No existe una cuenta registrada con este correo de Google. Selecciona «Crear cuenta» para darla de alta.',
       };
       setVerifyMsg(textos[p] || textos.google_error);
       if (emailParam) setLoginInitialEmail(emailParam);
-      setLoginInitialMode(p === 'google_not_registered' ? 'register' : 'login');
-      setShowLogin(true); // el error llega con estado fresco: reabrir el login para reintentar
+      setLoginInitialMode('login');
+      setShowLogin(true);
     }
     const url = new URL(location.href);
     url.searchParams.delete('login');
     url.searchParams.delete('email');
     history.replaceState(null, '', url);
-    const t = setTimeout(() => setVerifyMsg(''), 8000);
-    return () => clearTimeout(t);
   }, []);
   const garage = useGarage();
-  /* Dónde va el pie del panel de filtros. En escritorio cierra la columna, que
-     es su sitio de siempre. En el celular NO hay columna: el panel se apila
-     ENCIMA de los resultados, así que el pie caía entre los filtros y el primer
-     vehículo — media pantalla de enlaces legales antes del dato que el mecánico
-     vino a ver. Abajo del todo, tras la ficha, es donde se espera un pie. Se
-     decide en el marcado y no con CSS porque `order` no saca un elemento de su
-     contenedor.
-
-     Va AQUÍ, con el resto de hooks, y no junto al bloque que lo usa: más abajo
-     hay un `return` para la vista del dashboard, y un hook después de un return
-     condicional cambia el número de hooks entre renders. Eso es el error #310
-     de React, y tumba la pantalla entera del catálogo — es la misma regla que
-     ya avisa el comentario de `useGarage` unas líneas más arriba. */
+  /* Ubicación del pie según resolución (en móvil encima de resultados, en desktop al final). */
   const esMovil = useMediaQuery('(max-width: 900px)');
   const seqRef = useRef(0);
   const listRef = useRef(null);
