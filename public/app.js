@@ -1117,12 +1117,12 @@ function ChatBot({ vehicleId, user }) {
       if (data.limitReached) {
         setLimitReached(true);
         setRemaining(0);
-        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ ' + data.message }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
       } else if (data.noKey) {
         setNoKey(true);
-        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Chat no disponible en este momento.' }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: 'Chat no disponible en este momento.' }]);
       } else if (data.error) {
-        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ ' + data.error }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: data.error }]);
       } else {
         setRemaining(data.remaining);
         if (data.response) {
@@ -1131,7 +1131,7 @@ function ChatBot({ vehicleId, user }) {
         if (data.remaining <= 0) setLimitReached(true);
       }
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Error de conexión. Verifica tu conexión a internet.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Error de conexión. Verifica tu conexión a internet.' }]);
     }
     setLoading(false);
   };
@@ -1199,7 +1199,7 @@ function ChatBot({ vehicleId, user }) {
                     <button type="button" onClick=${() => send('¿Qué presión debe tener un sistema Vortec?')}>Presión Vortec</button>
                   </div>
                 `}
-                ${noKey && html`<p class="chat-warn">⚠️ Chat no disponible</p>`}
+                ${noKey && html`<p class="chat-warn">Chat no disponible</p>`}
               </div>
             `}
             ${messages.map((m, i) => html`
@@ -1466,23 +1466,23 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
       if (!res.ok) {
         if (body.code === 'email_taken' && mode === 'register') {
           setCuentaDuplicada(true);
-          setErr('⚠️ Ya existe una cuenta registrada con este correo. No puedes volver a registrar una cuenta existente.');
+          setErr('Ya existe una cuenta registrada con este correo. Inicia sesión o utiliza otro correo.');
           return;
         }
         if (body.code === 'oauth_account') {
           setSugerirGoogle(true);
           setForm(f => ({ ...f, password: '' }));
-          setErr('⚠️ Este correo ya está registrado mediante Google. Usa el botón «Continuar con Google» de abajo.');
+          setErr('Esta cuenta está vinculada a Google. Continúa con el botón de Google a continuación.');
           return;
         }
         if (body.code === 'use_google') {
           setSugerirGoogle(true);
           setForm(f => ({ ...f, password: '' }));
-          setErr('⚠️ Esta cuenta fue registrada con Google (sin contraseña). Usa el botón «Continuar con Google» de abajo.');
+          setErr('Esta cuenta fue registrada mediante Google OAuth. Usa el botón de Google para acceder.');
           return;
         }
         if (body.code === 'account_locked') {
-          setErr(body.error || '⚠️ Cuenta bloqueada temporalmente por seguridad. Intenta más tarde.');
+          setErr(body.error || 'Acceso bloqueado temporalmente por exceder los intentos fallidos. Intenta más tarde.');
           return;
         }
         if (body.code === 'bad_credentials' && mode === 'login') {
@@ -1505,7 +1505,7 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
   const importLocal = async () => {
     setBusy(true); setErr('');
     const r = await importTallerFromLocal();
-    if (r.ok) setErr(`Datos importados del navegador ✓ (${r.count})`);
+    if (r.ok) setErr(`Datos importados del navegador (${r.count})`);
     else if (r.error === 'sin_datos') setErr('No se encontraron datos locales para importar');
     else setErr('Error al importar: ' + r.error);
     setBusy(false);
@@ -1547,15 +1547,17 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
           <p class="login-h1-sub">${mode === 'register' ? 'Tarda menos de un minuto. Solo necesitas un correo.' : 'Entra con tu correo y contraseña.'}</p>
 
           <div class=${'login-badge ' + (mode === 'register' ? 'login-badge--info' : 'login-badge--warn')}>
-            <span>🛡️</span>
-            <span><strong>${mode === 'register' ? 'Requisitos:' : 'Límites:'}</strong> ${mode === 'register' ? 'Contraseña mín. 10 caracteres. No se admiten registros duplicados.' : 'Máx. 5 intentos antes de bloqueo de 15 min. Cuentas con clave no entran por Google.'}</span>
+            <span class="login-badge-tag">${mode === 'register' ? 'Requisitos' : 'Seguridad'}</span>
+            <span>${mode === 'register' ? 'Contraseña mínimo 10 caracteres. No se admiten registros duplicados.' : 'Límite de 5 intentos fallidos antes de bloqueo de 15 minutos. Cuentas con contraseña no entran por Google.'}</span>
           </div>
 
-          ${done && html`<div class="alert blue" style=${{ marginBottom: '14px' }}><span>¡Bienvenido! Tu sesión está activa.</span></div>`}
+          ${done && html`<div class="alert blue" style=${{ marginBottom: '14px' }}><span>Bienvenido. Tu sesión está activa.</span></div>`}
           ${notice && html`
             <div class="alert is-warn" style=${{ marginBottom: '14px' }}>
-              <div style=${{ fontWeight: 700, marginBottom: '3px' }}>⚠️ Aviso de Acceso</div>
-              <span>${notice}</span>
+              <div style=${{ width: '100%' }}>
+                <div style=${{ fontWeight: 700, marginBottom: '3px' }}>Aviso de acceso</div>
+                <span>${notice}</span>
+              </div>
             </div>`}
 
           <form onSubmit=${submit} class="login-form">
@@ -1573,7 +1575,7 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
               <input type="password" class="styled-input" placeholder="Mínimo 10 caracteres" value=${form.password} onChange=${e => setForm({ ...form, password: e.target.value })} required minLength=${10} />
               ${mode === 'register' && html`
                 <span style=${{ fontSize: '11px', color: form.password.length >= 10 ? '#16a34a' : 'var(--text-muted)' }}>
-                  ${form.password.length >= 10 ? '✓ Válida (' + form.password.length + ' caracteres)' : 'Mínimo 10 caracteres (' + form.password.length + '/10)'}
+                  ${form.password.length >= 10 ? 'Longitud válida (' + form.password.length + ' caracteres)' : 'Mínimo 10 caracteres requeridos (' + form.password.length + '/10)'}
                 </span>`}
             </label>
 
@@ -1583,20 +1585,24 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
 
             ${cuentaDuplicada && html`
               <div class="alert is-danger">
-                <div style=${{ fontWeight: 700, color: '#dc2626', marginBottom: '4px' }}>🛑 Registro Duplicado Rechazado</div>
-                <div>Este correo ya está registrado. No se permiten registros duplicados.</div>
-                <div style=${{ marginTop: '8px' }}>
-                  <button type="button" class="tool-add-btn" style=${{ fontSize: '12px', padding: '6px 12px', width: 'auto' }} onClick=${() => { setMode('login'); setErr(''); setCuentaDuplicada(false); }}>
-                    Iniciar sesión con este correo →
-                  </button>
+                <div style=${{ width: '100%' }}>
+                  <div style=${{ fontWeight: 700, color: '#dc2626', marginBottom: '4px' }}>Registro duplicado</div>
+                  <div>Este correo ya está registrado en el sistema. No se permite crear dos cuentas con el mismo correo.</div>
+                  <div style=${{ marginTop: '8px' }}>
+                    <button type="button" class="tool-add-btn" style=${{ fontSize: '12px', padding: '6px 12px', width: 'auto' }} onClick=${() => { setMode('login'); setErr(''); setCuentaDuplicada(false); }}>
+                      Iniciar sesión con este correo →
+                    </button>
+                  </div>
                 </div>
               </div>
             `}
 
             ${sugerirGoogle && html`
               <div class="alert is-info">
-                <div style=${{ fontWeight: 700, color: '#2563eb', marginBottom: '4px' }}>ℹ️ Cuenta de Google</div>
-                <div>Esta cuenta usa Google OAuth. Entra con el botón de Google resaltado abajo.</div>
+                <div style=${{ width: '100%' }}>
+                  <div style=${{ fontWeight: 700, color: '#2563eb', marginBottom: '4px' }}>Acceso con Google</div>
+                  <div>Esta cuenta fue vinculada con Google. Utiliza el botón destacado a continuación para entrar.</div>
+                </div>
               </div>
             `}
 
@@ -1680,7 +1686,7 @@ function App() {
         setMicroApp(null);
         setViewState('home');
         setShowLogin(false);
-        setVerifyMsg('Sesión cerrada ✓');
+        setVerifyMsg('Sesión cerrada');
         // Quitar ?app=… / ?cat=… de la URL: sin esto el botón atrás del
         // navegador volvía a abrir la herramienta recién cerrada.
         const p = new URLSearchParams(location.search);
@@ -1745,10 +1751,10 @@ function App() {
         const hayLocal = TALLER_LOCAL_KEYS.some(k => { try { const v = localStorage.getItem(k); return v && JSON.parse(v).length > 0; } catch { return false; } });
         if (hayLocal) {
           const r = await importTallerFromLocal();
-          if (r.ok) toast(`Datos importados del navegador ✓ (${r.count})`);
+          if (r.ok) toast(`Datos importados del navegador (${r.count})`);
         }
       }
-      toast('Datos del taller sincronizados ✓');
+      toast('Datos del taller sincronizados');
     } catch (e) { /* sin red: la app sigue con localStorage si lo hay */ }
   };
   /* Cuando hay sesión, sincronizar desde el servidor una sola vez por montaje
@@ -1773,7 +1779,7 @@ function App() {
     const p = new URLSearchParams(location.search).get('verificado');
     if (!p) return;
     const textos = {
-      '1': 'Correo confirmado ✓',
+      '1': 'Correo confirmado exitosamente',
       'invalido': 'Ese enlace de confirmación no es válido',
       'vencido': 'El enlace venció: pide uno nuevo',
       'falta-token': 'Enlace de confirmación incompleto',
@@ -1801,7 +1807,7 @@ function App() {
     if (p === 'google_ok' || p === 'google_registered') {
       refreshUser();
       setShowLogin(false);
-      setVerifyMsg(p === 'google_registered' ? '¡Cuenta creada con Google! Bienvenido ✓' : 'Sesión iniciada con Google ✓');
+      setVerifyMsg(p === 'google_registered' ? 'Cuenta creada con Google. Bienvenido' : 'Sesión iniciada con Google');
     } else {
       setUser(null);
       fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
@@ -1810,9 +1816,9 @@ function App() {
         google_suspended: 'Tu cuenta está suspendida. Contacta a soporte para reactivarla.',
         google_locked: 'Tu cuenta está bloqueada temporalmente por intentos fallidos. Intenta más tarde.',
         google_unconfigured: 'El inicio de sesión con Google no está configurado en este servidor. Usa correo y contraseña.',
-        google_account_not_google: '⚠️ Esta cuenta fue registrada con correo y contraseña, no con Google. Introduce tu contraseña para entrar.',
-        google_already_registered: '⚠️ Ya existe una cuenta asociada a este correo. Inicia sesión con tu cuenta.',
-        google_not_registered: '⚠️ No existe una cuenta registrada con este correo de Google. Selecciona «Crear cuenta» para registrarte.',
+        google_account_not_google: 'Esta cuenta fue registrada con correo y contraseña, no con Google. Introduce tu contraseña para entrar.',
+        google_already_registered: 'Ya existe una cuenta asociada a este correo. Inicia sesión con tu cuenta.',
+        google_not_registered: 'No existe una cuenta registrada con este correo de Google. Selecciona «Crear cuenta» para registrarte.',
       };
       setVerifyMsg(textos[p] || textos.google_error);
       if (emailParam) setLoginInitialEmail(emailParam);
