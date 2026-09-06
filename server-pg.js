@@ -2411,7 +2411,8 @@ ${dbContext}`;
     console.log('[Google OAuth] redirect_uri:', GOOGLE_REDIRECT_URI);
     const authMode = req.query.mode === 'register' ? 'register' : 'login';
     const randState = crypto.randomBytes(16).toString('hex');
-    const state = `${randState}_${authMode}`;
+    const sig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${randState}_${authMode}`).digest('hex');
+    const state = `${randState}_${authMode}_${sig}`;
     // Guardar state y modo en cookies temporales (path: '/' para todo el sitio)
     res.cookie('google_oauth_state', state, { httpOnly: true, sameSite: 'lax', path: '/', secure: PROD, maxAge: 600_000 });
     res.cookie('google_oauth_mode', authMode, { httpOnly: true, sameSite: 'lax', path: '/', secure: PROD, maxAge: 600_000 });
@@ -2433,23 +2434,29 @@ ${dbContext}`;
     // cookie-parser NO está montado: req.cookies es undefined. La cookie del
     // state se guardó con res.cookie() en /api/auth/google, así que hay que
     // leerla del header crudo (mismo patrón que requireWorkshop con ftm_session).
-    // Sin esto savedState siempre es undefined y el state "nunca coincide":
-    // Google devolvía el code bien y el callback caía en google_error siempre.
     const rawCookies = req.headers.cookie || '';
     const mState = rawCookies.match(/(?:^|;\s*)google_oauth_state=([^;]+)/);
     const savedState = mState ? decodeURIComponent(mState[1]) : null;
     const mMode = rawCookies.match(/(?:^|;\s*)google_oauth_mode=([^;]+)/);
     const cookieMode = mMode ? decodeURIComponent(mMode[1]) : null;
-    const stateMode = (state || '').includes('_') ? state.split('_')[1] : null;
-    const oauthMode = stateMode || cookieMode || 'login';
+    const parts = (state || '').split('_');
+    const stateMode = parts.length >= 2 ? parts[1] : null;
+    const oauthMode = stateMode === 'register' ? 'register' : (cookieMode === 'register' ? 'register' : 'login');
+    let isStateValid = false;
+    if (savedState && state === savedState) {
+      isStateValid = true;
+    } else if (parts.length === 3 && GOOGLE_CLIENT_SECRET) {
+      const expectedSig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${parts[0]}_${parts[1]}`).digest('hex');
+      if (parts[2] === expectedSig) isStateValid = true;
+    }
 
-    console.log('[Google OAuth] callback:', { code: code ? 'si' : 'no', state, savedState: savedState ? 'si' : 'no', oauthMode });
+    console.log('[Google OAuth] callback:', { code: code ? 'si' : 'no', stateValid: isStateValid, oauthMode });
 
     // Limpiar cookies de estado
     res.clearCookie('google_oauth_state', { path: '/' });
     res.clearCookie('google_oauth_mode', { path: '/' });
 
-    if (!code || !state || !savedState || state !== savedState) {
+    if (!code || !state || !isStateValid) {
       console.log('[Google OAuth] error: state mismatch o falta code');
       return res.redirect('/?login=google_error');
     }

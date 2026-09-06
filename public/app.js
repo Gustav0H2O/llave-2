@@ -1426,15 +1426,16 @@ function Calculators() {
 }
 
 /* ---------- Login / registro del taller ---------- */
-function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
+function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initialSugerirGoogle }) {
   const [mode, setMode] = useState(initialMode || 'login');
   const [form, setForm] = useState({ name: '', email: initialEmail || '', password: '' });
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
-  const [sugerirGoogle, setSugerirGoogle] = useState(false);
+  const [sugerirGoogle, setSugerirGoogle] = useState(Boolean(initialSugerirGoogle));
   const [cuentaDuplicada, setCuentaDuplicada] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [activeNotice, setActiveNotice] = useState(notice || '');
 
   useEffect(() => {
     if (initialMode) setMode(initialMode);
@@ -1443,6 +1444,14 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
   useEffect(() => {
     if (initialEmail) setForm(f => ({ ...f, email: initialEmail }));
   }, [initialEmail]);
+
+  useEffect(() => {
+    setActiveNotice(notice || '');
+  }, [notice]);
+
+  useEffect(() => {
+    if (initialSugerirGoogle !== undefined) setSugerirGoogle(Boolean(initialSugerirGoogle));
+  }, [initialSugerirGoogle]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -1461,15 +1470,17 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
           return;
         }
         if (body.code === 'oauth_account') {
+          setMode('login');
           setSugerirGoogle(true);
           setForm(f => ({ ...f, password: '' }));
-          setErr('Esta cuenta está vinculada a Google. Continúa con el botón de Google a continuación.');
+          setErr('Esta cuenta fue creada con Google. Pulsa el botón Iniciar sesión con Google a continuación.');
           return;
         }
         if (body.code === 'use_google') {
+          setMode('login');
           setSugerirGoogle(true);
           setForm(f => ({ ...f, password: '' }));
-          setErr('Esta cuenta fue registrada mediante Google OAuth. Usa el botón de Google para acceder.');
+          setErr('Esta cuenta fue registrada mediante Google OAuth. Usa el botón Iniciar sesión con Google para entrar.');
           return;
         }
         if (body.code === 'account_locked') {
@@ -1478,7 +1489,7 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
           return;
         }
         if (body.code === 'bad_credentials' && mode === 'login') {
-          setErr(body.error || 'Correo o contraseña incorrectos. Si aún no tienes cuenta, selecciona la pestaña «Crear cuenta».');
+          setErr(body.error || 'Correo o contraseña incorrectos. Si aún no tienes cuenta, selecciona la pestaña Crear cuenta.');
           return;
         }
         if (body.code === 'email_taken' && mode === 'login') {
@@ -1531,8 +1542,8 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
           <img class="login-form-logo logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" />
 
           <div class="login-tabs" role="tablist">
-            <button type="button" role="tab" aria-selected=${mode === 'login'} class=${'login-tab' + (mode === 'login' ? ' is-active' : '')} onClick=${() => { setMode('login'); setErr(''); setCuentaDuplicada(false); setSugerirGoogle(false); setIsLocked(false); }}>Iniciar sesión</button>
-            <button type="button" role="tab" aria-selected=${mode === 'register'} class=${'login-tab' + (mode === 'register' ? ' is-active' : '')} onClick=${() => { setMode('register'); setErr(''); setCuentaDuplicada(false); setSugerirGoogle(false); setIsLocked(false); }}>Crear cuenta</button>
+            <button type="button" role="tab" aria-selected=${mode === 'login'} class=${'login-tab' + (mode === 'login' ? ' is-active' : '')} onClick=${() => { setMode('login'); setErr(''); setCuentaDuplicada(false); setSugerirGoogle(false); setIsLocked(false); setActiveNotice(''); }}>Iniciar sesión</button>
+            <button type="button" role="tab" aria-selected=${mode === 'register'} class=${'login-tab' + (mode === 'register' ? ' is-active' : '')} onClick=${() => { setMode('register'); setErr(''); setCuentaDuplicada(false); setSugerirGoogle(false); setIsLocked(false); setActiveNotice(''); }}>Crear cuenta</button>
           </div>
 
           <h1 class="login-h1">${mode === 'register' ? 'Crea tu cuenta del taller' : 'Bienvenido de vuelta'}</h1>
@@ -1544,11 +1555,11 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
           </div>
 
           ${done && html`<div class="alert blue" style=${{ marginBottom: '14px' }}><span>Bienvenido. Tu sesión está activa.</span></div>`}
-          ${notice && html`
-            <div class="alert is-warn" style=${{ marginBottom: '14px' }}>
+          ${activeNotice && html`
+            <div class=${'alert ' + (sugerirGoogle ? 'is-info' : 'is-warn')} style=${{ marginBottom: '14px' }}>
               <div style=${{ width: '100%' }}>
                 <div style=${{ fontWeight: 700, marginBottom: '3px' }}>Aviso de acceso</div>
-                <span>${notice}</span>
+                <span>${activeNotice}</span>
               </div>
             </div>`}
 
@@ -1590,7 +1601,7 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
                   <div style=${{ fontWeight: 700, color: '#dc2626', marginBottom: '4px' }}>Registro duplicado</div>
                   <div>Este correo ya está registrado en el sistema. No se permite crear dos cuentas con el mismo correo.</div>
                   <div style=${{ marginTop: '8px' }}>
-                    <button type="button" class="tool-add-btn" style=${{ fontSize: '12px', padding: '6px 12px', width: 'auto' }} onClick=${() => { setMode('login'); setErr(''); setCuentaDuplicada(false); }}>
+                    <button type="button" class="tool-add-btn" style=${{ fontSize: '12px', padding: '6px 12px', width: 'auto' }} onClick=${() => { setMode('login'); setErr(''); setCuentaDuplicada(false); setActiveNotice(''); }}>
                       Iniciar sesión con este correo →
                     </button>
                   </div>
@@ -1621,7 +1632,7 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode }) {
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
-            ${mode === 'register' ? 'Registrarse con Google' : 'Continuar con Google'}
+            ${mode === 'register' ? 'Registrarse con Google' : 'Iniciar sesión con Google'}
           </a>
 
           <button type="button" class="login-secondary" onClick=${importLocal} disabled=${busy}>
@@ -1659,6 +1670,7 @@ function App() {
   const [showLogin, setShowLogin] = useState(false);   // login bajo demanda, no como peaje de entrada
   const [loginInitialEmail, setLoginInitialEmail] = useState('');
   const [loginInitialMode, setLoginInitialMode] = useState('login');
+  const [loginSugerirGoogle, setLoginSugerirGoogle] = useState(false);
   const [pendingApp, setPendingApp] = useState(null);  // app protegida pendiente tras iniciar sesion
   const [verifyMsg, setVerifyMsg] = useState('');      // acuse al volver del enlace de confirmación
   useEffect(() => {
@@ -1819,12 +1831,13 @@ function App() {
         google_locked: 'Tu cuenta está bloqueada temporalmente por intentos fallidos. Intenta más tarde.',
         google_unconfigured: 'El inicio de sesión con Google no está configurado en este servidor. Usa correo y contraseña.',
         google_account_not_google: 'Esta cuenta fue registrada con contraseña. Introduce tu contraseña para entrar.',
-        google_already_registered: 'Ya existe una cuenta asociada a este correo. Inicia sesión con tu contraseña.',
-        google_not_registered: 'No existe una cuenta registrada con este correo de Google. Selecciona «Crear cuenta» para darla de alta.',
+        google_already_registered: 'Esta cuenta ya está registrada con Google. Inicia sesión usando el botón Iniciar sesión con Google.',
+        google_not_registered: 'No existe una cuenta registrada con este correo de Google. Selecciona Crear cuenta para darla de alta.',
       };
       setVerifyMsg(textos[p] || textos.google_error);
       if (emailParam) setLoginInitialEmail(emailParam);
-      setLoginInitialMode('login');
+      setLoginInitialMode(p === 'google_not_registered' ? 'register' : 'login');
+      setLoginSugerirGoogle(p === 'google_already_registered');
       setShowLogin(true);
     }
     const url = new URL(location.href);
@@ -2090,10 +2103,10 @@ function App() {
           setPendingApp(null);
           openMicro(target);
         }
-      }} onBack=${() => { setShowLogin(false); setPendingApp(null); }} notice=${verifyMsg} initialEmail=${loginInitialEmail} initialMode=${loginInitialMode} />`;
+      }} onBack=${() => { setShowLogin(false); setPendingApp(null); }} notice=${verifyMsg} initialEmail=${loginInitialEmail} initialMode=${loginInitialMode} initialSugerirGoogle=${loginSugerirGoogle} />`;
       return html`
         ${verifyMsg && html`<div class="toast-stack"><div class="toast" role="status">${verifyMsg}</div></div>`}
-        <${FT.Home} onOpen=${openMicro} user=${user} onLogout=${logout} onLogin=${() => { setLoginInitialEmail(''); setLoginInitialMode('login'); setShowLogin(true); }} onUserChange=${refreshUser} />`;
+        <${FT.Home} onOpen=${openMicro} user=${user} onLogout=${logout} onLogin=${() => { setLoginInitialEmail(''); setLoginInitialMode('login'); setLoginSugerirGoogle(false); setShowLogin(true); }} onUserChange=${refreshUser} />`;
     }
   }
 
