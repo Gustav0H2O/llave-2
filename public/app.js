@@ -1549,18 +1549,10 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initi
           <h1 class="login-h1">${mode === 'register' ? 'Crea tu cuenta del taller' : 'Bienvenido de vuelta'}</h1>
           <p class="login-h1-sub">${mode === 'register' ? 'Tarda menos de un minuto. Solo necesitas un correo.' : 'Entra con tu correo y contraseña.'}</p>
 
-          <div class=${'login-badge ' + (mode === 'register' ? 'login-badge--info' : 'login-badge--warn')}>
-            <span class="login-badge-tag">${mode === 'register' ? 'Requisitos' : 'Seguridad'}</span>
-            <span>${mode === 'register' ? 'Contraseña mínimo 10 caracteres. No se admiten registros duplicados.' : 'Límite de 5 intentos fallidos antes de bloqueo de 15 minutos. Cuentas con contraseña no entran por Google.'}</span>
-          </div>
-
-          ${done && html`<div class="alert blue" style=${{ marginBottom: '14px' }}><span>Bienvenido. Tu sesión está activa.</span></div>`}
+          ${done && html`<div class="login-msg login-msg--top login-msg--info"><span>Bienvenido. Tu sesión está activa.</span></div>`}
           ${activeNotice && html`
-            <div class=${'alert ' + (sugerirGoogle ? 'is-info' : 'is-warn')} style=${{ marginBottom: '14px' }}>
-              <div style=${{ width: '100%' }}>
-                <div style=${{ fontWeight: 700, marginBottom: '3px' }}>Aviso de acceso</div>
-                <span>${activeNotice}</span>
-              </div>
+            <div class=${'login-msg login-msg--top ' + (sugerirGoogle ? 'login-msg--info' : 'login-msg--warn')}>
+              <span>${activeNotice}</span>
             </div>`}
 
           <form onSubmit=${submit} class="login-form">
@@ -1576,7 +1568,7 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initi
             <label class="login-field">
               <span>Contraseña</span>
               <input type="password" class="styled-input" placeholder="Mínimo 10 caracteres" value=${form.password} onChange=${e => setForm({ ...form, password: e.target.value })} required minLength=${10} />
-              ${mode === 'register' && html`
+              ${mode === 'register' && form.password.length > 0 && html`
                 <span style=${{ fontSize: '11px', color: form.password.length >= 10 ? '#16a34a' : 'var(--text-muted)' }}>
                   ${form.password.length >= 10 ? 'Longitud válida (' + form.password.length + ' caracteres)' : 'Mínimo 10 caracteres requeridos (' + form.password.length + '/10)'}
                 </span>`}
@@ -1586,41 +1578,24 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initi
               ${busy ? 'Procesando…' : isLocked ? 'Acceso bloqueado (15 min)' : mode === 'register' ? 'Crear cuenta' : 'Entrar'}
             </button>
 
-            ${isLocked && html`
-              <div class="alert is-danger">
-                <div style=${{ width: '100%' }}>
-                  <div style=${{ fontWeight: 700, color: '#dc2626', marginBottom: '4px' }}>Acceso bloqueado por seguridad</div>
-                  <div>${err || 'Has superado el límite de 5 intentos fallidos. Tu cuenta ha sido bloqueada temporalmente por 15 minutos.'}</div>
-                </div>
+            ${isLocked ? html`
+              <div class="login-msg login-msg--danger">
+                <span>${err || 'Demasiados intentos fallidos. Acceso bloqueado por 15 min.'}</span>
               </div>
-            `}
-
-            ${cuentaDuplicada && html`
-              <div class="alert is-danger">
-                <div style=${{ width: '100%' }}>
-                  <div style=${{ fontWeight: 700, color: '#dc2626', marginBottom: '4px' }}>Registro duplicado</div>
-                  <div>Este correo ya está registrado en el sistema. No se permite crear dos cuentas con el mismo correo.</div>
-                  <div style=${{ marginTop: '8px' }}>
-                    <button type="button" class="tool-add-btn" style=${{ fontSize: '12px', padding: '6px 12px', width: 'auto' }} onClick=${() => { setMode('login'); setErr(''); setCuentaDuplicada(false); setActiveNotice(''); }}>
-                      Iniciar sesión con este correo →
-                    </button>
-                  </div>
-                </div>
+            ` : cuentaDuplicada ? html`
+              <div class="login-msg login-msg--warn">
+                <span>Ya existe una cuenta con este correo.</span>
+                <button type="button" class="login-msg-link" onClick=${() => { setMode('login'); setErr(''); setCuentaDuplicada(false); setActiveNotice(''); }}>
+                  Iniciar sesión →
+                </button>
               </div>
-            `}
-
-            ${sugerirGoogle && html`
-              <div class="alert is-info">
-                <div style=${{ width: '100%' }}>
-                  <div style=${{ fontWeight: 700, color: '#2563eb', marginBottom: '4px' }}>Acceso con Google</div>
-                  <div>Esta cuenta fue vinculada con Google. Utiliza el botón destacado a continuación para entrar.</div>
-                </div>
+            ` : sugerirGoogle ? html`
+              <div class="login-msg login-msg--info">
+                <span>Esta cuenta usa Google. Pulsa el botón de abajo para entrar.</span>
               </div>
-            `}
-
-            ${err && !cuentaDuplicada && !sugerirGoogle && !isLocked && html`
-              <div class="alert is-warn"><span>${err}</span></div>
-            `}
+            ` : err ? html`
+              <div class="login-msg login-msg--warn"><span>${err}</span></div>
+            ` : null}
           </form>
 
           <div class="login-divider"><span>o</span></div>

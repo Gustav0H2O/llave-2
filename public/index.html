@@ -2007,12 +2007,20 @@
   .login-footer-note {
     font: 400 12px/1.55 var(--font); color: var(--muted); margin: 0;
   }
-  .login-badge { display: flex; align-items: flex-start; gap: 10px; padding: 9px 12px; border-radius: var(--r-sm); font-size: 12px; line-height: 1.45; margin-bottom: 14px; }
-  .login-badge-tag { font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
-  .login-badge--warn { background: rgba(217, 119, 6, .08); border: 1px solid rgba(217, 119, 6, .2); color: var(--text); }
-  .login-badge--warn .login-badge-tag { background: rgba(217, 119, 6, .2); color: #d97706; }
-  .login-badge--info { background: rgba(37, 99, 235, .08); border: 1px solid rgba(37, 99, 235, .2); color: var(--text); }
-  .login-badge--info .login-badge-tag { background: rgba(37, 99, 235, .2); color: #2563eb; }
+  .login-msg {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+    padding: 7px 11px; border-radius: var(--r-sm, 6px); font-size: 12px; line-height: 1.4;
+    margin: 8px 0 0; text-align: left;
+  }
+  .login-msg--top { margin: 0 0 12px; }
+  .login-msg--warn { background: rgba(217, 119, 6, .08); border: 1px solid rgba(217, 119, 6, .2); color: var(--text); }
+  .login-msg--info { background: rgba(37, 99, 235, .08); border: 1px solid rgba(37, 99, 235, .2); color: var(--text); }
+  .login-msg--danger { background: rgba(220, 38, 38, .08); border: 1px solid rgba(220, 38, 38, .2); color: #dc2626; font-weight: 500; }
+  .login-msg-link {
+    background: none; border: none; padding: 0; color: #2563eb; font: 600 12px var(--font);
+    cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+  }
+  .login-msg-link:hover { color: #1d4ed8; }
   .alert.is-danger { border-left-color: #dc2626; background: rgba(220, 38, 38, .08); }
   .alert.is-info { border-left-color: #2563eb; background: rgba(37, 99, 235, .08); }
   .alert.is-warn { border-left-color: #d97706; background: rgba(217, 119, 6, .1); }
@@ -3204,6 +3212,6 @@
 <script src="/datos.js?v=1"></script>
 <script src="/microapps.js?v=7"></script>
 <script src="/microapps-taller.js?v=6"></script>
-<script src="/app.js?v=10"></script>
+<script src="/app.js?v=11"></script>
 </body>
 </html>

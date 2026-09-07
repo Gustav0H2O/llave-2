@@ -2062,17 +2062,20 @@ ${dbContext}`;
       const dummy = await getDummyHash();
       await verifyPassword(pass, dummy);
     }
-    if (!ws) {
+    const registrarFalloLogin = async (wsId) => {
       const prev = failedLoginAttempts.get(email);
       const isExp = prev?.lastAttempt && (Date.now() - prev.lastAttempt > LOCKOUT_MS);
       const cur = (isExp ? 0 : (prev?.count || 0)) + 1;
       if (cur >= FAILED_LOGIN_LIMIT) {
-        failedLoginAttempts.set(email, { count: cur, lastAttempt: Date.now(), lockedUntil: Date.now() + LOCKOUT_MS });
+        const lockUntil = Date.now() + LOCKOUT_MS;
+        failedLoginAttempts.set(email, { count: cur, lastAttempt: Date.now(), lockedUntil: lockUntil });
+        if (wsId) await db.run('UPDATE workshops SET locked_until = ? WHERE id = ?', [new Date(lockUntil).toISOString(), wsId]).catch(() => {});
         return res.status(423).json({ code: 'account_locked', error: 'Has superado el límite de 5 intentos fallidos. Tu cuenta ha sido bloqueada temporalmente por 15 minutos.' });
       }
       failedLoginAttempts.set(email, { count: cur, lastAttempt: Date.now(), lockedUntil: null });
       return res.status(401).json({ code: 'bad_credentials', error: `Correo o contraseña incorrectos. Intento ${cur} de ${FAILED_LOGIN_LIMIT} (te quedan ${FAILED_LOGIN_LIMIT - cur} antes del bloqueo temporal).` });
-    }
+    };
+    if (!ws) return registrarFalloLogin(null);
     if (ws.status && ws.status !== 'active') {
       return res.status(403).json({ code: 'account_suspended', error: 'Tu cuenta está suspendida. Contacta a soporte.' });
     }
@@ -2083,19 +2086,7 @@ ${dbContext}`;
     if (ws.pass_hash === 'google_oauth') {
       return res.status(401).json({ code: 'use_google', error: 'Esta cuenta usa Google. Entra con «Continuar con Google».' });
     }
-    if (!passwordOk) {
-      const prev = failedLoginAttempts.get(email);
-      const isExp = prev?.lastAttempt && (Date.now() - prev.lastAttempt > LOCKOUT_MS);
-      const cur = (isExp ? 0 : (prev?.count || 0)) + 1;
-      if (cur >= FAILED_LOGIN_LIMIT) {
-        const lockUntil = Date.now() + LOCKOUT_MS;
-        failedLoginAttempts.set(email, { count: cur, lastAttempt: Date.now(), lockedUntil: lockUntil });
-        await db.run('UPDATE workshops SET locked_until = ? WHERE id = ?', [new Date(lockUntil).toISOString(), ws.id]).catch(() => {});
-        return res.status(423).json({ code: 'account_locked', error: 'Has superado el límite de 5 intentos fallidos. Tu cuenta ha sido bloqueada temporalmente por 15 minutos.' });
-      }
-      failedLoginAttempts.set(email, { count: cur, lastAttempt: Date.now(), lockedUntil: null });
-      return res.status(401).json({ code: 'bad_credentials', error: `Correo o contraseña incorrectos. Intento ${cur} de ${FAILED_LOGIN_LIMIT} (te quedan ${FAILED_LOGIN_LIMIT - cur} antes del bloqueo temporal).` });
-    }
+    if (!passwordOk) return registrarFalloLogin(ws.id);
     failedLoginAttempts.delete(email);
     if (ws.locked_until) await db.run('UPDATE workshops SET locked_until = NULL WHERE id = ?', [ws.id]).catch(() => {});
     /* Regeneración de sesión (regla 5.2): emitimos un token nuevo. La sesión
