@@ -310,7 +310,52 @@
       if (window.FT_RUTA) window.FT_RUTA.escribir({ cat: id === 'inicio' ? null : id });
       window.scrollTo({ top: 0, behavior: 'auto' });
     };
-    useEffect(() => {
+
+    const [engineExplode, setEngineExplode] = useState(0.42);
+    const [engineView, setEngineView] = useState('full');
+    const [selectedPart, setSelectedPart] = useState({
+      id: 'fuelrail',
+      name: 'Riel de Combustible e Inyectores de Presión',
+      sub: 'Sistema de Alimentación e Inyección',
+      desc: 'Flauta presurizada con toma Schrader para manómetro y 4 inyectores electromagnéticos multipunto/GDI.',
+      spec: 'Presión nominal: 38-48 PSI (MFI) / 290-350 PSI (GDI) · Caudal: 210 cc/min · Resistencia: 12.5 Ω',
+      linkId: 'search',
+      linkText: 'Consultar Presión de Riel'
+    });
+    const [selectedCountry, setSelectedCountry] = useState('venezuela');
+    const [quickBrand, setQuickBrand] = useState('Toyota');
+
+    const LATAM_HUBS = [
+      { id: 'venezuela', flag: '🇻🇪', name: 'Venezuela', hub: 'Caracas / Valencia / Maracaibo',
+        desc: 'Parque automotor mixto con alta concentración de marcas americanas clásicas, japonesas y asiáticas/chinas (Chery Arauca/Orinoco, Dongfeng, JAC, Changan). Alta exigencia en diagnósticos de presión por degradación térmica de combustible y sedimentos en tanque.',
+        spec: 'Presión habitual: 38 - 44 PSI (MFI) · 290 - 350 PSI (GDI)',
+        action: 'search'
+      },
+      { id: 'colombia', flag: '🇨🇴', name: 'Colombia', hub: 'Bogotá / Medellín / Cali',
+        desc: 'Ecosistema de taller liderado por Renault (Logan, Sandero, Duster), Chevrolet, Kia y Mazda. Requiere calibración y lectura diferencial de presión considerando altitud barométrica en ciudades sobre el nivel del mar (Bogotá 2.600 msnm).',
+        spec: 'Presión habitual: 40 - 50 PSI (MFI) · 12 - 15 PSI (TBI antiguos)',
+        action: 'search'
+      },
+      { id: 'mexico', flag: '🇲🇽', name: 'México', hub: 'CDMX / Monterrey / Guadalajara',
+        desc: 'Alta presencia de GM, Ford, Nissan y VW con estándares OBD-II y protocolos EPA estrictos. Módulos integrados sin retorno y sistemas CSFI/Vortec con regulador interno.',
+        spec: 'Vortec CSFI: 56 - 64 PSI · GDI EcoBoost: 290 - 350 PSI',
+        action: 'search'
+      },
+      { id: 'conosur', flag: '🇦🇷', name: 'Cono Sur', hub: 'Buenos Aires / Santiago / Lima',
+        desc: 'Flota regida por normas Mercosur / Euro con alto volumen de pickups medianas (Toyota Hilux, Amarok) y utilitarios nafteros/flex (Fiat, Peugeot, VW). Diagnóstico de alta presión y pre-filtros.',
+        spec: 'MFI / Flex: 42 - 45 PSI · Common Rail diésel',
+        action: 'search'
+      },
+      { id: 'centroamerica', flag: '🇵🇦', name: 'Centroamérica', hub: 'Panamá / San José / Sto. Domingo',
+        desc: 'Mercado multimarca alimentado por importaciones directas de EE.UU. y Japón. Gran demanda de cross-reference entre códigos de pilas OEM y reemplazos universales tipo Walbro/Bosch.',
+        spec: 'MFI universal: 38 - 45 PSI · Conectores de 2 a 4 pines',
+        action: 'cross'
+      },
+    ];
+
+    const QUICK_BRANDS = ['Toyota', 'Chevrolet', 'Nissan', 'Ford', 'Renault', 'Volkswagen', 'JAC', 'Changan'];
+    const quickVeh = DEMO_VEHICLES.find(v => v.brand.toLowerCase() === quickBrand.toLowerCase()) || DEMO_VEHICLES[0];
+
       const alVolver = () => {
         const c = window.FT_RUTA ? window.FT_RUTA.leer().cat : null;
         setTab((c && GRUPOS[c]) ? c : 'inicio');
@@ -479,65 +524,99 @@ El hero es tipografía grande sobre el lienzo editorial — sin video,
           <header class="home-hero">
             <div class="home-hero-inner">
               <div class="home-hero-text">
-                <h1 class="home-hero-title">Todo lo que necesitas, en una sola llave.</h1>
-                <p class="home-hero-tagline">La plataforma integral con herramientas, repuestos y conocimiento para el taller moderno y sus clientes.</p>
+                <div class="hero-tech-badge">
+                  <span class="hero-tech-dot" aria-hidden="true"></span>
+                  <span>BANCO TÉCNICO DE INYECCIÓN & DIAGNÓSTICO</span>
+                </div>
+                <h1 class="home-hero-title">Presión de riel, despiece 3D y especificaciones de taller.</h1>
+                <p class="home-hero-tagline">Datos técnicos exactos verificados contra manuales de fabricante, anatomía de inyección y procedimientos de diagnóstico para el parque automotor de Latinoamérica.</p>
 
-                <div class="home-hero-cta">
-                  ${user ? html`<button type="button" class="tool-add-btn" onClick=${() => irA('taller')}>Ir a mi taller →</button>`
-                    : html`<button type="button" class="tool-add-btn" onClick=${() => onOpen('search')}>Buscar mi vehículo →</button>`}
-                  <button type="button" class="home-cta-ghost" onClick=${() => irA('aprende')}>Ver guías</button>
+                <div class="hero-quick-lookup panel">
+                  <div class="hero-quick-head">
+                    <span class="hero-quick-title"><${CatIc} n="Gauge" s=${16} /> Consulta rápida de presión de riel</span>
+                    <span class="hero-quick-badge">${quickVeh.injection} · ${quickVeh.rail_pressure_psi_min}–${quickVeh.rail_pressure_psi_max} PSI</span>
+                  </div>
+                  <div class="hero-quick-controls">
+                    <div class="hero-quick-field">
+                      <label class="hero-quick-label" htmlFor="hero-quick-brand-select">Marca:</label>
+                      <select id="hero-quick-brand-select" class="styled-input hero-quick-select" value=${quickBrand} onChange=${e => setQuickBrand(e.target.value)}>
+                        ${QUICK_BRANDS.map(b => html`<option key=${b} value=${b}>${b}</option>`)}
+                      </select>
+                    </div>
+                    <div class="hero-quick-preview">
+                      <div class="hero-quick-model"><strong>${quickVeh.brand} ${quickVeh.model}</strong> <span>(${quickVeh.engine})</span></div>
+                      <div class="hero-quick-specs">
+                        <span>Riel: <strong>${quickVeh.rail_pressure_psi_min} – ${quickVeh.rail_pressure_psi_max} PSI</strong></span>
+                        <span>Módulo: <strong>${quickVeh.module_location}</strong></span>
+                      </div>
+                    </div>
+                    <button type="button" class="tool-add-btn hero-quick-btn" onClick=${() => onOpen('search')}>
+                      Catálogo completo →
+                    </button>
+                  </div>
                 </div>
 
-                ${/* Sin cifras: el catálogo y el menú de herramientas crecen y
-                      encogen con el trabajo del taller, así que "144 vehículos"
-                      y "38 herramientas" caducan solos —y con /api/meta caído se
-                      quedaban clavados en un respaldo escrito a mano que ya no
-                      era cierto. Se promete lo que no cambia. */''}
                 <div class="home-hero-trust">
                   <div class="home-hero-trust-item">
-                    <span class="home-hero-trust-ic"><${CatIc} n="Check" s=${19} /></span>
+                    <span class="home-hero-trust-ic"><${CatIc} n="Check" s=${18} /></span>
                     <div>
-                      <strong>Datos de calidad</strong>
-                      <span>Verificados contra manual</span>
+                      <strong>Banco & Fichas OEM</strong>
+                      <span>Tolerancias verificadas</span>
                     </div>
                   </div>
                   <div class="home-hero-trust-item">
-                    <span class="home-hero-trust-ic"><${CatIc} n="Wrench" s=${19} /></span>
+                    <span class="home-hero-trust-ic"><${CatIc} n="Fuel" s=${18} /></span>
                     <div>
-                      <strong>Herramientas del taller</strong>
-                      <span>Diagnóstico y gestión</span>
+                      <strong>Flota Regional LATAM</strong>
+                      <span>Mercosur, Andina y chinas</span>
+                    </div>
+                  </div>
+                  <div class="home-hero-trust-item">
+                    <span class="home-hero-trust-ic"><${CatIc} n="Zap" s=${18} /></span>
+                    <div>
+                      <strong>PWA 100% Offline</strong>
+                      <span>Disponible en fosa y elevador</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div class="home-hero-visual">
-                ${/* Una sola pieza: la foto recortada con la silueta y el
-                      personaje asomándose vienen ya compuestos del archivo de
-                      marca. Antes se montaban por CSS —máscara SVG, foto de
-                      fondo y personaje suelto con su giro— y la posición
-                      relativa entre los dos había que recalcularla en cada
-                      ancho. */''}
-                ${/* El personaje saluda con la mano levantada en la propia
-                      ilustración, así que el bocadillo solo pone en palabras lo
-                      que ya está haciendo. `aria-hidden`: es decoración, y un
-                      lector de pantalla que anuncie "Hola, llave" entre el
-                      titular y la foto solo estorba. */''}
-                <span class="home-hero-saludo" aria-hidden="true">¡Hola, llave!</span>
-                <img class="home-hero-img" src="/media/hero-llave.webp" width="900" height="734"
-                  alt="Mecánico ajustando una culata en el banco de trabajo" decoding="async" />
-                ${/* Fuera la tarjeta flotante "Catálogo verificado · Presión,
-                      módulo y pilas": repetía lo que ya dicen el titular y los
-                      dos sellos de confianza de al lado, y se comía una esquina
-                      de la ilustración para no aportar nada nuevo. */''}
+              <div class="home-hero-preview">
+                <div class="hero-hub-card panel">
+                  <div class="hero-hub-header">
+                    <span class="hero-hub-tag">INSTRUMENTO DE TALLER</span>
+                    <span class="hero-hub-status"><span class="pulse-dot"></span> 38 Apps Activas</span>
+                  </div>
+                  <h3>Laboratorio & Diagnóstico</h3>
+                  <p>Herramientas de cálculo de presión, torques, calibración de bujías y despiece tridimensional de componentes de combustión.</p>
+                  <div class="hero-hub-actions">
+                    <button type="button" class="tool-add-btn" onClick=${() => irA('consulta')}>
+                      <${CatIc} n="Fuel" s=${15} /> Explorar Catálogo
+                    </button>
+                    <button type="button" class="home-cta-ghost" onClick=${() => irA('diag')}>
+                      <${CatIc} n="Stethoscope" s=${15} /> Diagnóstico Rápido
+                    </button>
+                  </div>
+                  <div class="hero-hub-metrics">
+                    <div class="hero-hub-m-item">
+                      <span class="hero-hub-m-val">38–48</span>
+                      <span class="hero-hub-m-lbl">PSI MFI Promedio</span>
+                    </div>
+                    <div class="hero-hub-m-item">
+                      <span class="hero-hub-m-val">290+</span>
+                      <span class="hero-hub-m-lbl">PSI GDI Inyección</span>
+                    </div>
+                    <div class="hero-hub-m-item">
+                      <span class="hero-hub-m-val">0$</span>
+                      <span class="hero-hub-m-lbl">Sin Cuenta Requerida</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </header>
 
-          ${/* Buscar desde el hero no desmonta el hero (antes ponía tab=null y el
-                propio input desaparecía al primer carácter): la losa explicativa
-                se cambia por los resultados y al vaciar la caja vuelve sola. */
-            q ? html`
+          ${q ? html`
           <div class="home-body">
             <section class="home-group">
               <div class="home-group-grid">${filtered.map(a => card(a))}</div>
@@ -545,52 +624,170 @@ El hero es tipografía grande sobre el lienzo editorial — sin video,
             </section>
           </div>
           ` : html`
-          <section class="home-ecosystem">
+
+          <!-- SECCIÓN 1: MOTOR 4 CILINDROS DOHC DESPIEZADO CON INSPECCIÓN INTERACTIVA -->
+          <section class="home-engine-section">
             <div class="home-ecosystem-inner">
-              <div class="home-ecosystem-head">
-                <h2>Una suite completa para el nicho mecánico</h2>
-                <p>Diseñada para optimizar cada aspecto de la reparación y el mantenimiento automotriz. Datos de taller, comunidad y herramientas digitales en un solo lugar.</p>
+              <div class="home-engine-head">
+                <div class="section-badge-wrap">
+                  <span class="eyebrow"><${CatIc} n="Wrench" s=${14} /> MODELO 3D INTERACTIVO</span>
+                </div>
+                <h2>Anatomía de Inyección & Bloque Motor (4 Cilindros DOHC)</h2>
+                <p>Despiece técnico interactivo con 14 subsistemas de potencia e inyección. Desliza el control para separar los componentes y pulsa cualquier elemento para consultar especificaciones de apriete, tolerancias de combustión y diagnósticos.</p>
               </div>
-              <div class="home-ecosystem-grid">
 
-                <article class="home-eco-card">
-                  <span class="home-eco-card-ic"><${CatIc} n="Store" s=${22} /></span>
-                    <h3>Para el Taller</h3>
-                  <p>Gestión integral, guías técnicas detalladas y sistema de pedidos optimizado para profesionales.</p>
-                  <ul>
-                    <li>Gestión de inventario</li>
-                    <li>Guías de reparación</li>
-                    <li>Pedidos mayoristas</li>
-                  </ul>
-                </article>
-
-                <article class="home-eco-card">
-                  <span class="home-eco-card-ic"><${CatIc} n="Car" s=${22} /></span>
-                    <h3>Para el Cliente</h3>
-                  <p>Transparencia total con historial de servicios, consejos preventivos y gestión de citas.</p>
-                  <ul>
-                    <li>Historial de vehículo</li>
-                    <li>Consejos de cuidado</li>
-                    <li>Agenda de citas</li>
-                  </ul>
-                </article>
-
-                <article class="home-eco-card home-eco-card--dark">
-                  <span class="home-eco-card-ic"><${CatIc} n="LayoutGrid" s=${22} /></span>
-                    <h3>Micro-apps</h3>
-                  <p>Herramientas digitales específicas integradas directamente en tu flujo de trabajo diario.</p>
-                  <div class="tags">
-                    <span class="tag">Calc. Torque</span>
-                    <span class="tag">Diag. Eléctricos</span>
-                    <span class="tag">Medidas</span>
-                    <span class="tag">DTC</span>
-                    <span class="tag">Conversor</span>
+              <div class="engine-workbench panel">
+                <div class="engine-topbar">
+                  <div class="engine-slider-wrap">
+                    <label htmlFor="engine-explode-slider" class="engine-slider-label">
+                      <span>Despiece Mecánico:</span>
+                      <strong>${Math.round(engineExplode * 100)}%</strong>
+                    </label>
+                    <input type="range" id="engine-explode-slider" min="0" max="1" step="0.01"
+                           value=${engineExplode}
+                           onInput=${e => setEngineExplode(parseFloat(e.target.value))}
+                           class="engine-range-input" />
+                    <div class="engine-slider-ticks">
+                      <button type="button" class="engine-tick-btn" onClick=${() => setEngineExplode(0)}>0% Armado</button>
+                      <button type="button" class="engine-tick-btn" onClick=${() => setEngineExplode(0.45)}>45% Servicio</button>
+                      <button type="button" class="engine-tick-btn" onClick=${() => setEngineExplode(1)}>100% Despiece</button>
+                    </div>
                   </div>
-                  <button type="button" class="go" onClick=${() => irA('consulta')}>
-                    Explorar catálogo digital
-                  </button>
-                </article>
 
+                  <div class="engine-cam-btns" role="group" aria-label="Enfoques de cámara">
+                    <button type="button" class=${'engine-cam-btn' + (engineView === 'full' ? ' is-active' : '')}
+                            onClick=${() => setEngineView('full')}>Vista General</button>
+                    <button type="button" class=${'engine-cam-btn' + (engineView === 'fuel' ? ' is-active' : '')}
+                            onClick=${() => setEngineView('fuel')}>Riel & Inyección</button>
+                    <button type="button" class=${'engine-cam-btn' + (engineView === 'pistons' ? ' is-active' : '')}
+                            onClick=${() => setEngineView('pistons')}>Cigüeñal & Pistones</button>
+                    <button type="button" class=${'engine-cam-btn' + (engineView === 'valves' ? ' is-active' : '')}
+                            onClick=${() => setEngineView('valves')}>Tren de Válvulas</button>
+                  </div>
+                </div>
+
+                <div class="engine-canvas-layout">
+                  <div class="engine-3d-box">
+                    ${window.FT_APP?.Engine3D && html`
+                      <${window.FT_APP.Engine3D}
+                        explode=${engineExplode}
+                        cameraView=${engineView}
+                        onSelectPart=${(part) => setSelectedPart(part)} />
+                    `}
+                    <div class="engine-3d-hint">
+                      <span><${CatIc} n="RotateCw" s=${13} /> Arrastra para orbitar 360° · Rueda = Zoom · Toca cualquier pieza para inspección</span>
+                    </div>
+                  </div>
+
+                  <div class="engine-part-inspector">
+                    <div class="part-inspector-header">
+                      <span class="part-inspector-kicker">${selectedPart.sub || 'Componente Seleccionado'}</span>
+                      <h3 class="part-inspector-title">${selectedPart.name}</h3>
+                    </div>
+                    <p class="part-inspector-desc">${selectedPart.desc}</p>
+
+                    <div class="part-inspector-specbox">
+                      <span class="part-spec-lbl"><${CatIc} n="ClipboardCheck" s=${14} /> Tolerancia y Especificación:</span>
+                      <div class="part-spec-val">${selectedPart.spec}</div>
+                    </div>
+
+                    <div class="part-inspector-actions">
+                      <button type="button" class="tool-add-btn part-action-btn" onClick=${() => onOpen(selectedPart.linkId || 'search')}>
+                        ${selectedPart.linkText || 'Consultar especificación'} →
+                      </button>
+                    </div>
+
+                    <div class="part-inspector-list">
+                      <span class="part-list-title">Atajos de Inspección Rápida:</span>
+                      <div class="part-chips">
+                        <button type="button" class="part-chip-btn" onClick=${() => { setEngineView('fuel'); setSelectedPart({ id: 'fuelrail', name: 'Riel de Combustible e Inyectores de Presión', sub: 'Sistema de Alimentación', desc: 'Flauta presurizada con toma Schrader para manómetro y 4 inyectores electromagnéticos.', spec: 'Presión: 38-48 PSI (MFI) / 290-350 PSI (GDI) · Caudal: 210 cc/min', linkId: 'search', linkText: 'Consultar Presión de Riel' }); }}>
+                          Riel & Inyectores
+                        </button>
+                        <button type="button" class="part-chip-btn" onClick=${() => { setEngineView('pistons'); setSelectedPart({ id: 'pistons', name: 'Pistones Forjados y Bielas H', sub: 'Conjunto Móvil de Compresión', desc: 'Pistones con faldas grafitadas y aros de compresión/aceite.', spec: 'Compresión: 175-190 PSI · Desviación máx: 10%', linkId: 'compression', linkText: 'Prueba Compresión' }); }}>
+                          Pistones & Bielas
+                        </button>
+                        <button type="button" class="part-chip-btn" onClick=${() => { setEngineView('valves'); setSelectedPart({ id: 'spark', name: 'Bujías de Iridio y Bobinas Individuales COP', sub: 'Sistema de Encendido', desc: 'Bujías de electrodo fino de iridio de 0.6 mm y bobinas directas.', spec: 'Calibración (Gap): 0.040 in (1.0 mm) · Torque: 22 Nm', linkId: 'spark', linkText: 'Tabla de Bujías' }); }}>
+                          Bujías & Encendido
+                        </button>
+                        <button type="button" class="part-chip-btn" onClick=${() => { setEngineView('valves'); setSelectedPart({ id: 'timing', name: 'Cadena de Tiempo, Guías y Tensor', sub: 'Sincronización Cinemática', desc: 'Cadena silenciosa de distribución con tensor hidráulico asistido por aceite.', spec: 'Sincronización exacta 2:1 · Puntos de alineación en PMS', linkId: 'timing', linkText: 'Marcas de Tiempo' }); }}>
+                          Kit de Tiempo
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECCIÓN 2: MAPA TERRÁQUEO 3D DE COBERTURA LATINOAMÉRICA -->
+          <section class="home-globe-section">
+            <div class="home-ecosystem-inner">
+              <div class="home-globe-head">
+                <div class="section-badge-wrap">
+                  <span class="eyebrow"><${CatIc} n="MapPin" s=${14} /> COBERTURA REGIONAL 3D</span>
+                </div>
+                <h2>Dirigido al Parque Automotor de Latinoamérica</h2>
+                <p>Nuestra plataforma está calibrada para los requerimientos reales del taller en la región: variaciones de calidad de combustible, sedimentación en tanque, adaptaciones de bombas sumergibles y la convivencia entre modelos clásicos americanos/asiáticos y marcas chinas de alto volumen (Chery, JAC, Changan, Dongfeng).</p>
+              </div>
+
+              <div class="globe-workbench panel">
+                <div class="globe-countries-nav" role="tablist" aria-label="Países de cobertura">
+                  ${LATAM_HUBS.map(h => html`
+                    <button type="button" key=${h.id}
+                            class=${'globe-country-btn' + (selectedCountry === h.id ? ' is-active' : '')}
+                            onClick=${() => setSelectedCountry(h.id)}>
+                      <span class="globe-country-flag">${h.flag}</span>
+                      <span class="globe-country-name">${h.name}</span>
+                    </button>
+                  `)}
+                </div>
+
+                <div class="globe-content-layout">
+                  <div class="globe-3d-box">
+                    ${window.FT_APP?.Globe3D && html`
+                      <${window.FT_APP.Globe3D}
+                        selectedCountry=${selectedCountry}
+                        onSelectCountry=${(c) => setSelectedCountry(c.id)} />
+                    `}
+                    <div class="globe-3d-hint">
+                      <span><${CatIc} n="RotateCw" s=${13} /> Gira libremente el globo terráqueo en 3D · Toca cualquier baliza para inspeccionar el mercado</span>
+                    </div>
+                  </div>
+
+                  <div class="globe-country-detail">
+                    ${(() => {
+                      const hub = LATAM_HUBS.find(x => x.id === selectedCountry) || LATAM_HUBS[0];
+                      return html`
+                        <div class="globe-hub-card">
+                          <div class="globe-hub-head">
+                            <span class="globe-hub-flag">${hub.flag}</span>
+                            <div>
+                              <h3 class="globe-hub-title">${hub.name}</h3>
+                              <span class="globe-hub-cities">${hub.hub}</span>
+                            </div>
+                          </div>
+
+                          <div class="globe-hub-block">
+                            <strong>Composición del Parque Automotor:</strong>
+                            <p>${hub.desc}</p>
+                          </div>
+
+                          <div class="globe-hub-block globe-hub-block--spec">
+                            <strong>Presiones Habituales en el Mercado Local:</strong>
+                            <span class="globe-hub-pressure">${hub.spec}</span>
+                          </div>
+
+                          <div class="globe-hub-footer">
+                            <button type="button" class="tool-add-btn" onClick=${() => onOpen(hub.action || 'search')}>
+                              Consultar Vehículos de la Región →
+                            </button>
+                          </div>
+                        </div>
+                      `;
+                    })()}
+                  </div>
+                </div>
               </div>
             </div>
           </section>

@@ -233,6 +233,7 @@ const MARK_ICONS = {
   Play: 'Play', Pause: 'Pause', ArrowRight: 'ArrowRight', ArrowLeft: 'ArrowLeft',
   Menu: 'Menu', Home: 'House', LogOut: 'LogOut', Download: 'Download',
   Clock: 'Clock', Close: 'X', Upload: 'Upload', LayoutGrid: 'LayoutGrid',
+  RotateCw: 'RotateCw',
 };
 /* Se conserva el nombre MarkIcon: lo usan app.js, microapps.js y
    microapps-taller.js en ~40 sitios, y window.FT_APP.MarkIcon es el puente. */
@@ -725,11 +726,48 @@ function Pump3D({ psi, style, code }) {
   const ref = use3D((el, FT3D) => FT3D.pump(el, { psi, style, code }), [psi, code, tk]);
   return html`<div class="v3d" ref=${ref}></div>`;
 }
-/* Al puente: el Cross-Reference de microapps.js enseñaba la pila solo con
-   texto, y una equivalencia se decide mirando la forma —entrada, salida,
-   terminales—, no leyendo una tabla. Es el MISMO visor de la ficha del
-   vehículo, así que la pieza se ve igual en los dos sitios. */
+
+function Engine3D({ onSelectPart, explode = 0.4, cameraView = 'full' }) {
+  const tk = useThemeKey();
+  const ctrlRef = useRef(null);
+  const ref = use3D((el, FT3D) => {
+    if (!FT3D.engine) return;
+    const inst = FT3D.engine(el, { onSelectPart, initialExplode: explode });
+    ctrlRef.current = inst;
+    return () => inst.dispose();
+  }, [tk]);
+
+  useEffect(() => {
+    if (ctrlRef.current) ctrlRef.current.setExplode(explode);
+  }, [explode]);
+
+  useEffect(() => {
+    if (ctrlRef.current && cameraView) ctrlRef.current.setView(cameraView);
+  }, [cameraView]);
+
+  return html`<div class="v3d v3d-engine" ref=${ref}></div>`;
+}
+
+function Globe3D({ onSelectCountry, selectedCountry = 'venezuela' }) {
+  const tk = useThemeKey();
+  const ctrlRef = useRef(null);
+  const ref = use3D((el, FT3D) => {
+    if (!FT3D.globe) return;
+    const inst = FT3D.globe(el, { onSelectCountry, initialCountry: selectedCountry });
+    ctrlRef.current = inst;
+    return () => inst.dispose();
+  }, [tk]);
+
+  useEffect(() => {
+    if (ctrlRef.current && selectedCountry) ctrlRef.current.setFocusCountry(selectedCountry);
+  }, [selectedCountry]);
+
+  return html`<div class="v3d v3d-globe" ref=${ref}></div>`;
+}
+
 window.FT_APP.Pump3D = Pump3D;
+window.FT_APP.Engine3D = Engine3D;
+window.FT_APP.Globe3D = Globe3D;
 
 /* ---------- Tarjeta de pila (detalle de vehículo) ---------- */
 function PumpCard({ pump }) {

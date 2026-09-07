@@ -753,5 +753,767 @@ function pump(el, { psi = '', style = '', code = '' } = {}) {
   return v.dispose;
 }
 
-window.FT3D = { car, module: module_, pump };
+/* ================= 4. MOTOR 4 CILINDROS DOHC — DESPIECE TÉCNICO INTERACTIVO ================= */
+function engine(el, { onSelectPart = null, initialExplode = 0.45, height = 440 } = {}) {
+  syncTheme();
+  const v = createViewer(el, { camPos: [4.8, 3.4, 6.2], height, target: [0, 0.4, 0], groundY: -2.3 });
+  const g = new THREE.Group();
+  v.scene.add(g);
+
+  const parts = [];
+  const hoverables = [];
+  let currentExplode = initialExplode;
+  let targetExplode = initialExplode;
+
+  const registerPart = (group, meta, basePos, expOffset) => {
+    group.position.set(...basePos);
+    group.userData = { ...meta, basePos: new THREE.Vector3(...basePos), expOffset: new THREE.Vector3(...expOffset) };
+    g.add(group);
+    parts.push(group);
+    group.traverse(o => {
+      if (o.isMesh && !o.material.transparent) {
+        o.userData.partId = meta.id;
+        o.userData.name = meta.name;
+        o.userData.partData = meta;
+        hoverables.push(o);
+      }
+    });
+    return group;
+  };
+
+  // 1. Bloque de motor (base central)
+  const blockG = new THREE.Group();
+  const blockMain = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.4, 1.7), MAT.steel());
+  blockG.add(blockMain);
+  for (let i = 0; i < 4; i++) {
+    const cx = -1.35 + i * 0.9;
+    const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1.42, 24, 1, true), MAT.chrome());
+    sleeve.position.x = cx;
+    blockG.add(sleeve);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.02, 8, 24), MAT.brass());
+    rim.rotation.x = Math.PI / 2;
+    rim.position.set(cx, 0.71, 0);
+    blockG.add(rim);
+  }
+  for (let nx = -1.2; nx <= 1.2; nx += 0.6) {
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.3, 1.76), MAT.steel());
+    rib.position.x = nx;
+    blockG.add(rib);
+  }
+  const oilFilter = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.45, 20), MAT.glow(0x3F5132));
+  oilFilter.rotation.z = Math.PI / 3;
+  oilFilter.position.set(1.9, -0.2, 0.7);
+  oilFilter.userData.name = 'Filtro de Aceite de Alta Presión';
+  blockG.add(oilFilter);
+  registerPart(blockG, {
+    id: 'block',
+    name: 'Bloque de Cilindros (4 en línea)',
+    sub: 'Estructura Principal de Motor',
+    desc: 'Bloque en fundición maquinada con camisas húmedas rectificadas, galerías de aceite y camisas de agua.',
+    spec: 'Diámetro de cilindro: 79.0 mm · Holgura de pistón: 0.025-0.040 mm',
+    linkId: 'compression',
+    linkText: 'Prueba de Compresión'
+  }, [0, 0, 0], [0, 0, 0]);
+
+  // 2. Cigüeñal forjado y cojinetes
+  const crankG = new THREE.Group();
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.8, 24), MAT.chrome());
+  shaft.rotation.z = Math.PI / 2;
+  crankG.add(shaft);
+  for (let i = 0; i < 4; i++) {
+    const cx = -1.35 + i * 0.9;
+    const angle = (i % 2 === 0 ? 0 : Math.PI);
+    for (const s of [-0.18, 0.18]) {
+      const cw = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.08, 16, 1, false, 0, Math.PI), MAT.steel());
+      cw.position.set(cx + s, 0, 0);
+      cw.rotation.x = Math.PI / 2;
+      cw.rotation.z = angle + Math.PI;
+      crankG.add(cw);
+    }
+    const rodJournal = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.25, 16), MAT.chrome());
+    rodJournal.position.set(cx, Math.sin(angle) * 0.28, Math.cos(angle) * 0.28);
+    rodJournal.rotation.z = Math.PI / 2;
+    crankG.add(rodJournal);
+  }
+  const flywheel = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.14, 32), MAT.steel());
+  flywheel.rotation.z = Math.PI / 2;
+  flywheel.position.x = -1.95;
+  crankG.add(flywheel);
+  const ringGear = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.02, 8, 32), MAT.brass());
+  ringGear.rotation.y = Math.PI / 2;
+  ringGear.position.x = -1.95;
+  crankG.add(ringGear);
+  const crankPulley = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.18, 24), MAT.blackPl());
+  crankPulley.rotation.z = Math.PI / 2;
+  crankPulley.position.x = 1.95;
+  crankG.add(crankPulley);
+  registerPart(crankG, {
+    id: 'crank',
+    name: 'Cigüeñal Forjado y Bancada',
+    sub: 'Eje de Transmisión de Potencia',
+    desc: 'Cigüeñal en acero microaleado con 8 contrapesos dinámicos y 5 apoyos con cojinetes trimetálicos.',
+    spec: 'Torque de bancada: 55 Nm + 60° · Juego axial: 0.08 - 0.24 mm',
+    linkId: 'torque',
+    linkText: 'Torques de Apriete'
+  }, [0, -0.7, 0], [0, -1.3, 0]);
+
+  // 3. Pistones y Bielas
+  const pistonsG = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    const cx = -1.35 + i * 0.9;
+    const pGroup = new THREE.Group();
+    pGroup.position.x = cx;
+    const pBody = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.45, 24), MAT.zinc());
+    pGroup.add(pBody);
+    for (const ry of [0.08, 0.14, 0.19]) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.335, 0.012, 6, 24), MAT.steel());
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = ry;
+      pGroup.add(ring);
+    }
+    const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.55, 12), MAT.chrome());
+    pin.rotation.z = Math.PI / 2;
+    pGroup.add(pin);
+    const rod = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.85, 0.14), MAT.steel());
+    rod.position.y = -0.55;
+    pGroup.add(rod);
+    const rodCap = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.18, 16), MAT.steel());
+    rodCap.rotation.z = Math.PI / 2;
+    rodCap.position.y = -1.0;
+    pGroup.add(rodCap);
+    pistonsG.add(pGroup);
+  }
+  registerPart(pistonsG, {
+    id: 'pistons',
+    name: 'Pistones Forjados y Bielas H',
+    sub: 'Conjunto Móvil de Compresión',
+    desc: 'Pistones con faldas grafitadas de baja fricción y bielas forjadas templadas con cojinetes de biela.',
+    spec: 'Presión de compresión: 175-190 PSI · Diferencia máxima entre cilindros: 10%',
+    linkId: 'compression',
+    linkText: 'Prueba de Compresión'
+  }, [0, 0.1, 0], [0, 1.4, 0]);
+
+  // 4. Cárter inferior de aceite
+  const panG = new THREE.Group();
+  const panBody = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.6, 1.6), MAT.blackPl());
+  panG.add(panBody);
+  const drainPlug = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.1, 10), MAT.brass());
+  drainPlug.position.set(-1.4, -0.32, 0.4);
+  panG.add(drainPlug);
+  const pickup = tube([V3(0.2, 0.4, 0), V3(0.2, 0.0, 0), V3(-0.4, -0.15, 0)], 0.04, MAT.steel());
+  panG.add(pickup);
+  const pickupStrainer = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.08, 16), MAT.brass());
+  pickupStrainer.position.set(-0.4, -0.18, 0);
+  panG.add(pickupStrainer);
+  registerPart(panG, {
+    id: 'oilpan',
+    name: 'Cárter y Tubo Chupador con Malla',
+    sub: 'Sistema de Lubricación',
+    desc: 'Cárter estampado con rompeolas interior y chupador sumergido con malla filtrante metálica.',
+    spec: 'Capacidad nominal: 4.2 L · Torque tapón de drenaje: 38 Nm',
+    linkId: 'maintenance',
+    linkText: 'Plan de Servicio'
+  }, [0, -1.0, 0], [0, -2.4, 0]);
+
+  // 5. Empaque de culata MLS
+  const gasketG = new THREE.Group();
+  const gPlate = new THREE.Mesh(new THREE.BoxGeometry(3.55, 0.03, 1.65), MAT.brass());
+  gasketG.add(gPlate);
+  for (let i = 0; i < 4; i++) {
+    const cx = -1.35 + i * 0.9;
+    const fireRing = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.025, 6, 24), MAT.chrome());
+    fireRing.rotation.x = Math.PI / 2;
+    fireRing.position.x = cx;
+    gasketG.add(fireRing);
+  }
+  registerPart(gasketG, {
+    id: 'gasket',
+    name: 'Empaque de Culata Multicapa (MLS)',
+    sub: 'Sellado Térmico y Combustión',
+    desc: 'Junta de acero inoxidable de 3 capas con aros de fuego integrados para hermetismo de cámara.',
+    spec: 'Espesor comprimido: 0.85 mm · Inspección: No reutilizable tras desmontaje',
+    linkId: 'torque',
+    linkText: 'Secuencia de Culata'
+  }, [0, 0.72, 0], [0, 1.7, 0]);
+
+  // 6. Culata de cilindros DOHC
+  const headG = new THREE.Group();
+  const headMain = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.85, 1.7), MAT.zinc());
+  headG.add(headMain);
+  for (let i = 0; i < 4; i++) {
+    const cx = -1.35 + i * 0.9;
+    const inPort = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.2, 14), MAT.steel());
+    inPort.rotation.x = Math.PI / 2;
+    inPort.position.set(cx, 0.1, -0.85);
+    headG.add(inPort);
+    const exPort = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.2, 14), MAT.steel());
+    exPort.rotation.x = Math.PI / 2;
+    exPort.position.set(cx, 0.1, 0.85);
+    headG.add(exPort);
+  }
+  registerPart(headG, {
+    id: 'head',
+    name: 'Culata de Cilindros DOHC (Aluminio)',
+    sub: 'Cámara de Flujo Cruzado',
+    desc: 'Culata en aleación de aluminio templado con cámaras de combustión hemisféricas y guías rectificadas.',
+    spec: 'Planitud máxima: 0.05 mm · Apriete: 4 fases en espiral (hasta 78 Nm)',
+    linkId: 'torque',
+    linkText: 'Torques de Apriete'
+  }, [0, 1.25, 0], [0, 2.7, 0]);
+
+  // 7. Válvulas y resortes (16 válvulas)
+  const valvesG = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    const cx = -1.35 + i * 0.9;
+    for (const [dz, isIntake] of [[-0.32, true], [0.32, false]]) {
+      for (const dx of [-0.16, 0.16]) {
+        const vG = new THREE.Group();
+        vG.position.set(cx + dx, 0, dz);
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.65, 8), MAT.steel());
+        vG.add(stem);
+        const disc = new THREE.Mesh(new THREE.CylinderGeometry(isIntake ? 0.14 : 0.12, 0.04, 0.04, 16), MAT.chrome());
+        disc.position.y = -0.32;
+        vG.add(disc);
+        const spr = spring(0.065, 0.35, 6, 0.012);
+        spr.position.y = -0.15;
+        vG.add(spr);
+        valvesG.add(vG);
+      }
+    }
+  }
+  registerPart(valvesG, {
+    id: 'valves',
+    name: '16 Válvulas y Resortes Helicoidales',
+    sub: 'Tren Valvular de Admisión y Escape',
+    desc: 'Válvulas bimetálicas de alta disipación térmica con resortes helicoidales de tensión progresiva.',
+    spec: 'Holgura en frío: Admisión 0.20 mm / Escape 0.30 mm',
+    linkId: 'diag',
+    linkText: 'Diagnóstico de Falla'
+  }, [0, 1.7, 0], [0, 3.8, 0]);
+
+  // 8. Árboles de levas (DOHC) y poleas dentadas
+  const camsG = new THREE.Group();
+  for (const dz of [-0.35, 0.35]) {
+    const camShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.6, 16), MAT.steel());
+    camShaft.rotation.z = Math.PI / 2;
+    camShaft.position.z = dz;
+    camsG.add(camShaft);
+    for (let i = 0; i < 4; i++) {
+      const cx = -1.35 + i * 0.9;
+      for (const dx of [-0.16, 0.16]) {
+        const lobe = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.08, 0.08, 12), MAT.chrome());
+        lobe.rotation.x = Math.PI / 2;
+        lobe.position.set(cx + dx, 0.03, dz);
+        camsG.add(lobe);
+      }
+    }
+    const gear = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.1, 24), MAT.steel());
+    gear.rotation.z = Math.PI / 2;
+    gear.position.set(1.85, 0, dz);
+    camsG.add(gear);
+  }
+  registerPart(camsG, {
+    id: 'camshafts',
+    name: 'Árboles de Levas DOHC y Poleas Dentadas',
+    sub: 'Distribución Superior',
+    desc: 'Doble árbol de levas en cabeza para mando directo de válvulas mediante buzos hidráulicos.',
+    spec: 'Alzada de leva: 9.8 mm · Torque bancadas de leva: 12 Nm',
+    linkId: 'timing',
+    linkText: 'Sincronización'
+  }, [0, 2.1, 0], [0, 4.8, 0]);
+
+  // 9. Kit de sincronización / Cadena y tensor
+  const timingG = new THREE.Group();
+  const chainLoop = tube([
+    V3(1.85, -0.7, 0), V3(1.9, 0.6, -0.35), V3(1.85, 2.1, -0.35),
+    V3(1.85, 2.1, 0.35), V3(1.8, 0.6, 0.35), V3(1.85, -0.7, 0)
+  ], 0.035, MAT.steel(), 30);
+  timingG.add(chainLoop);
+  const tensioner = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.7, 0.08), MAT.blackPl());
+  tensioner.position.set(1.82, 0.6, -0.4);
+  timingG.add(tensioner);
+  registerPart(timingG, {
+    id: 'timing',
+    name: 'Cadena de Tiempo, Guías y Tensor',
+    sub: 'Sincronización Cinemática',
+    desc: 'Cadena de eslabones invertidos silenciosa con patín de guiado y tensor hidráulico asistido por aceite.',
+    spec: 'Relación 2:1 cigüeñal/árboles · Verificación de marcas de sincronización en PMS',
+    linkId: 'timing',
+    linkText: 'Kit de Tiempo'
+  }, [0, 0, 0], [1.8, 1.8, 0]);
+
+  // 10. Riel de Combustible e Inyectores (LA ESTRELLA DE LLAVE)
+  const fuelG = new THREE.Group();
+  const railTube = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.4, 24), MAT.chrome());
+  railTube.rotation.z = Math.PI / 2;
+  fuelG.add(railTube);
+  const schrader = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.22, 10), MAT.brass());
+  schrader.position.set(1.2, 0.16, 0);
+  fuelG.add(schrader);
+  const schraderCap = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.08, 10), MAT.blackPl());
+  schraderCap.position.set(1.2, 0.28, 0);
+  fuelG.add(schraderCap);
+  for (let i = 0; i < 4; i++) {
+    const cx = -1.35 + i * 0.9;
+    const injG = new THREE.Group();
+    injG.position.set(cx, -0.28, 0);
+    const injBody = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.45, 14), MAT.blackPl());
+    injG.add(injBody);
+    const conn = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.16), MAT.glow(0x3F5132));
+    conn.position.set(0, 0.08, -0.12);
+    injG.add(conn);
+    const oring = new THREE.Mesh(new THREE.TorusGeometry(0.068, 0.015, 6, 14), MAT.rubber());
+    oring.rotation.x = Math.PI / 2;
+    oring.position.y = -0.15;
+    injG.add(oring);
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.02, 0.12, 10), MAT.brass());
+    nozzle.position.y = -0.26;
+    injG.add(nozzle);
+    fuelG.add(injG);
+  }
+  registerPart(fuelG, {
+    id: 'fuelrail',
+    name: 'Riel de Combustible e Inyectores de Presión',
+    sub: 'Sistema de Alimentación e Inyección',
+    desc: 'Flauta presurizada con toma Schrader para manómetro y 4 inyectores electromagnéticos multipunto/GDI.',
+    spec: 'Presión nominal: 38-48 PSI (MFI) / 290-350 PSI (GDI) · Caudal: 210 cc/min · Resistencia: 12.5 Ω',
+    linkId: 'search',
+    linkText: 'Consultar Presión de Riel'
+  }, [0, 1.4, -0.95], [0, 2.5, -2.2]);
+
+  // 11. Múltiple de admisión y mariposa
+  const intakeG = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    const cx = -1.35 + i * 0.9;
+    const runner = tube([V3(cx, 0, 0), V3(cx, 0.2, -0.5), V3(cx, 0.0, -1.0)], 0.12, MAT.blackPl(), 16);
+    intakeG.add(runner);
+  }
+  const plenum = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 3.4, 24), MAT.blackPl());
+  plenum.rotation.z = Math.PI / 2;
+  plenum.position.set(0, 0, -1.0);
+  intakeG.add(plenum);
+  const throttle = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.35, 18), MAT.steel());
+  throttle.position.set(1.9, 0, -1.0);
+  throttle.rotation.z = Math.PI / 2;
+  intakeG.add(throttle);
+  const tps = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.16), MAT.glow(0x7B8968));
+  tps.position.set(2.05, 0.18, -1.0);
+  intakeG.add(tps);
+  registerPart(intakeG, {
+    id: 'intake',
+    name: 'Múltiple de Admisión y Cuerpo de Aceleración',
+    sub: 'Dosificación de Aire y Sensor TPS',
+    desc: 'Plenum resonador con corredores sintonizados y sensor TPS de posición de mariposa para mezcla estequiométrica.',
+    spec: 'Vacío nominal en ralentí: 18-22 in-Hg · Resistencia TPS: 0.5 a 4.5 V',
+    linkId: 'dtc',
+    linkText: 'Buscador DTC'
+  }, [0, 1.35, -0.95], [0, 2.0, -3.4]);
+
+  // 12. Múltiple de escape y sensor O2
+  const exhaustG = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    const cx = -1.35 + i * 0.9;
+    const runner = tube([V3(cx, 0, 0), V3(cx, -0.3, 0.6), V3(0, -0.7, 1.1)], 0.1, MAT.steel(), 16);
+    exhaustG.add(runner);
+  }
+  const collector = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 0.8, 16), MAT.steel());
+  collector.rotation.x = Math.PI / 3;
+  collector.position.set(0, -0.9, 1.3);
+  exhaustG.add(collector);
+  const o2Sensor = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.3, 10), MAT.brass());
+  o2Sensor.position.set(0.2, -0.75, 1.35);
+  o2Sensor.rotation.x = Math.PI / 4;
+  exhaustG.add(o2Sensor);
+  registerPart(exhaustG, {
+    id: 'exhaust',
+    name: 'Múltiple de Escape y Sonda Lambda / O2',
+    sub: 'Control de Emisiones en Lazo Cerrado',
+    desc: 'Headers tubulares en acero inoxidable con sonda de oxígeno pre-catalizador para corrección STFT/LTFT.',
+    spec: 'Rango de voltaje O2: 0.1 a 0.9 V · Calentador de sonda: 8-14 Ω',
+    linkId: 'trim',
+    linkText: 'Ajustes STFT/LTFT'
+  }, [0, 1.35, 0.95], [0, 2.0, 3.2]);
+
+  // 13. Bujías y Bobinas COP
+  const plugsG = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    const cx = -1.35 + i * 0.9;
+    const plugUnit = new THREE.Group();
+    plugUnit.position.x = cx;
+    const plugBody = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.32, 12), MAT.chrome());
+    plugUnit.add(plugBody);
+    const insulator = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 12), MAT.whitePl());
+    insulator.position.y = 0.2;
+    plugUnit.add(insulator);
+    const coil = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.45, 12), MAT.blackPl());
+    coil.position.y = 0.52;
+    plugUnit.add(coil);
+    const coilHead = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.18), MAT.blackPl());
+    coilHead.position.set(0, 0.76, 0.04);
+    plugUnit.add(coilHead);
+    plugsG.add(plugUnit);
+  }
+  registerPart(plugsG, {
+    id: 'spark',
+    name: 'Bujías de Iridio y Bobinas Individuales COP',
+    sub: 'Sistema de Encendido Electrónico',
+    desc: 'Bujías de electrodo fino de iridio de 0.6 mm y bobinas de encendido directo sobre bujía sin distribuidor.',
+    spec: 'Calibración (Gap): 0.040 in (1.0 mm) · Torque: 22 Nm · Resistencia bobina: 0.8-1.2 Ω',
+    linkId: 'spark',
+    linkText: 'Tabla de Bujías'
+  }, [0, 2.3, 0], [0, 5.8, 0]);
+
+  // 14. Tapa de válvulas / Culatín
+  const coverG = new THREE.Group();
+  const coverMain = new THREE.Mesh(new THREE.BoxGeometry(3.65, 0.35, 1.7), MAT.blackPl());
+  coverG.add(coverMain);
+  const oilCap = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.08, 16), MAT.glow(0x8A5A00));
+  oilCap.position.set(-1.2, 0.2, -0.4);
+  coverG.add(oilCap);
+  const pcv = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.18, 10), MAT.steel());
+  pcv.position.set(1.4, 0.24, 0.4);
+  coverG.add(pcv);
+  registerPart(coverG, {
+    id: 'valvecover',
+    name: 'Tapa de Válvulas y Respiradero PCV',
+    sub: 'Sellado Superior',
+    desc: 'Tapa con junta de sellado elastomérica, tapón de aceite y válvula de ventilación positiva del cárter (PCV).',
+    spec: 'Torque pernos M6: 10 Nm en secuencia cruzada',
+    linkId: 'maintenance',
+    linkText: 'Mantenimiento'
+  }, [0, 2.4, 0], [0, 6.6, 0]);
+
+  blueprint(g);
+
+  v.ticks.push(() => {
+    currentExplode += (targetExplode - currentExplode) * 0.08;
+    for (const p of parts) {
+      const { basePos, expOffset } = p.userData;
+      p.position.set(
+        basePos.x + expOffset.x * currentExplode,
+        basePos.y + expOffset.y * currentExplode,
+        basePos.z + expOffset.z * currentExplode
+      );
+    }
+  });
+
+  enableHover(v, hoverables);
+
+  const ray = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  const onPointerDown = (e) => {
+    const r = v.renderer.domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    mouse.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(mouse, v.camera);
+    const hit = ray.intersectObjects(hoverables, false)[0];
+    if (hit && hit.object.userData.partData) {
+      if (onSelectPart) onSelectPart(hit.object.userData.partData);
+    }
+  };
+  v.renderer.domElement.addEventListener('pointerdown', onPointerDown);
+
+  const setExplode = (val) => {
+    targetExplode = Math.max(0, Math.min(1, val));
+  };
+
+  const setView = (viewName) => {
+    v.controls.autoRotate = false;
+    const views = {
+      full: { pos: [4.8, 3.4, 6.2], tgt: [0, 0.4, 0] },
+      fuel: { pos: [-0.6, 3.2, -5.2], tgt: [0, 1.6, -1.2] },
+      pistons: { pos: [3.8, 1.2, 4.4], tgt: [0, 0.2, 0] },
+      valves: { pos: [0.2, 6.2, 4.2], tgt: [0, 2.6, 0] },
+    };
+    const sel = views[viewName] || views.full;
+    const startPos = v.camera.position.clone();
+    const startTgt = v.controls.target.clone();
+    const endPos = new THREE.Vector3(...sel.pos);
+    const endTgt = new THREE.Vector3(...sel.tgt);
+    let step = 0;
+    const camAnim = () => {
+      step += 0.06;
+      if (step <= 1) {
+        v.camera.position.lerpVectors(startPos, endPos, step);
+        v.controls.target.lerpVectors(startTgt, endTgt, step);
+        requestAnimationFrame(camAnim);
+      }
+    };
+    camAnim();
+  };
+
+  return {
+    dispose: () => {
+      v.renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+      v.dispose();
+    },
+    setExplode,
+    setView,
+  };
+}
+
+/* ================= 5. GLOBO TERRÁQUEO 3D — COBERTURA LATINOAMÉRICA ================= */
+function globe(el, { onSelectCountry = null, initialCountry = 'venezuela', height = 380 } = {}) {
+  syncTheme();
+  const v = createViewer(el, { camPos: [0, 0.6, 4.8], height, target: [0, 0, 0], groundY: -3.0 });
+  v.scene.children.forEach(c => { if (c.isGridHelper) c.visible = false; });
+  v.controls.autoRotateSpeed = 0.5;
+  v.controls.minDistance = 2.6;
+  v.controls.maxDistance = 7.5;
+
+  const R = 2.0;
+  const globeGrp = new THREE.Group();
+  v.scene.add(globeGrp);
+
+  const sphereMat = new THREE.MeshStandardMaterial({
+    color: _isLight ? 0xe9ede5 : 0x141814,
+    roughness: 0.9,
+    metalness: 0.1,
+    transparent: true,
+    opacity: _isLight ? 0.85 : 0.75,
+  });
+  const sphere = new THREE.Mesh(new THREE.SphereGeometry(R, 48, 48), sphereMat);
+  globeGrp.add(sphere);
+
+  const graticuleMat = new THREE.LineBasicMaterial({
+    color: _isLight ? 0x9fa899 : 0x3d473a,
+    transparent: true,
+    opacity: _isLight ? 0.35 : 0.45,
+  });
+  for (let lat = -75; lat <= 75; lat += 15) {
+    const rad = (lat * Math.PI) / 180;
+    const ringR = Math.cos(rad) * R;
+    const ringY = Math.sin(rad) * R;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(ringR, 0.006, 6, 48), graticuleMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = ringY;
+    globeGrp.add(ring);
+  }
+  for (let lon = 0; lon < 180; lon += 30) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(R, 0.006, 6, 48), graticuleMat);
+    ring.rotation.y = (lon * Math.PI) / 180;
+    globeGrp.add(ring);
+  }
+
+  const ll2v = (lat, lon, radius = R) => {
+    const phi = (90 - lat) * (Math.PI / 180);
+    const theta = (lon + 180) * (Math.PI / 180);
+    return new THREE.Vector3(
+      -(radius * Math.sin(phi) * Math.cos(theta)),
+      radius * Math.cos(phi),
+      radius * Math.sin(phi) * Math.sin(theta)
+    );
+  };
+
+  const LAND_REGIONS = [
+    { latMin: -55, latMax: 12, lonMin: -80, lonMax: -35, density: 160, isTarget: true },
+    { latMin: 7, latMax: 22, lonMin: -92, lonMax: -60, density: 80, isTarget: true },
+    { latMin: 14, latMax: 32, lonMin: -116, lonMax: -86, density: 90, isTarget: true },
+    { latMin: 32, latMax: 65, lonMin: -125, lonMax: -65, density: 110, isTarget: false },
+    { latMin: 36, latMax: 65, lonMin: -10, lonMax: 40, density: 90, isTarget: false },
+    { latMin: -35, latMax: 35, lonMin: -15, lonMax: 50, density: 110, isTarget: false },
+    { latMin: 10, latMax: 65, lonMin: 50, lonMax: 140, density: 130, isTarget: false },
+  ];
+
+  const dotGeo = new THREE.BoxGeometry(0.032, 0.032, 0.032);
+  const targetDotMat = new THREE.MeshBasicMaterial({ color: 0x3F5132 });
+  const otherDotMat = new THREE.MeshBasicMaterial({ color: _isLight ? 0x8a9284 : 0x556052, transparent: true, opacity: 0.6 });
+
+  for (const reg of LAND_REGIONS) {
+    const mat = reg.isTarget ? targetDotMat : otherDotMat;
+    for (let i = 0; i < reg.density; i++) {
+      const lat = reg.latMin + Math.random() * (reg.latMax - reg.latMin);
+      const lon = reg.lonMin + Math.random() * (reg.lonMax - reg.lonMin);
+      const pt = ll2v(lat, lon, R + 0.015);
+      const m = new THREE.Mesh(dotGeo, mat);
+      m.position.copy(pt);
+      m.lookAt(0, 0, 0);
+      globeGrp.add(m);
+    }
+  }
+
+  const TARGET_COUNTRIES = [
+    {
+      id: 'venezuela',
+      name: 'Venezuela',
+      lat: 10.48,
+      lon: -66.90,
+      hub: 'Caracas / Valencia / Maracaibo',
+      fleet: 'Parque mixto: Chevrolet, Ford, Toyota + alta densidad Chery, JAC, Changan.',
+      challenge: 'Fallas por temperatura y sedimentación. Adaptaciones de pilas y filtración.',
+      pressure: 'MFI: 38-44 PSI · GDI: 290-350 PSI',
+    },
+    {
+      id: 'colombia',
+      name: 'Colombia',
+      lat: 4.71,
+      lon: -74.07,
+      hub: 'Bogotá / Medellín / Cali',
+      fleet: 'Líderes Renault, Chevrolet, Kia, Mazda, Hyundai.',
+      challenge: 'Compensación de presión y altitud barométrica (Bogotá a 2.600 msnm).',
+      pressure: 'MFI: 40-50 PSI · TBI: 12-15 PSI',
+    },
+    {
+      id: 'mexico',
+      name: 'México',
+      lat: 19.43,
+      lon: -99.13,
+      hub: 'CDMX / Monterrey / Guadalajara',
+      fleet: 'Alta concentración GM, Ford, Nissan, VW + pickups y camiones ligeros.',
+      challenge: 'Estándar OBD-II, inspecciones EPA y módulos integrados sin retorno.',
+      pressure: 'Vortec CSFI: 56-64 PSI · GDI: 300+ PSI',
+    },
+    {
+      id: 'conosur',
+      name: 'Cono Sur (Arg / Chile / Perú)',
+      lat: -34.60,
+      lon: -58.38,
+      hub: 'Buenos Aires / Santiago / Lima',
+      fleet: 'Plataformas Mercosur: VW, Fiat, Peugeot, Toyota Hilux diésel/nafta.',
+      challenge: 'Diagnóstico en flotas de trabajo pesado y pickups medianas.',
+      pressure: 'MFI / Flex: 42-45 PSI · Common Rail diésel',
+    },
+    {
+      id: 'centroamerica',
+      name: 'Centroamérica y Caribe',
+      lat: 8.98,
+      lon: -79.52,
+      hub: 'Panamá / San José / Sto. Domingo',
+      fleet: 'Importaciones directas americanas y asiáticas, multimarca.',
+      challenge: 'Cross-reference de pilas y compatibilidad de conectores OEM.',
+      pressure: 'MFI / Directa multi-aplicación',
+    },
+  ];
+
+  const pins = [];
+  const radarRings = [];
+  const hoverables = [];
+
+  for (const c of TARGET_COUNTRIES) {
+    const pos = ll2v(c.lat, c.lon, R);
+    const pinG = new THREE.Group();
+    pinG.position.copy(pos);
+    pinG.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), pos.clone().normalize());
+
+    const pinStem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.28, 8), MAT.brass());
+    pinStem.position.y = 0.14;
+    pinG.add(pinStem);
+
+    const pinHead = new THREE.Mesh(new THREE.SphereGeometry(0.065, 12, 12), MAT.glow(0x3F5132));
+    pinHead.position.y = 0.28;
+    pinHead.userData.country = c;
+    pinHead.userData.name = `${c.name} (${c.hub})`;
+    pinG.add(pinHead);
+    hoverables.push(pinHead);
+
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x3F5132,
+      transparent: true,
+      opacity: 0.7,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const radar = new THREE.Mesh(new THREE.RingGeometry(0.04, 0.08, 20), ringMat);
+    radar.rotation.x = Math.PI / 2;
+    radar.position.y = 0.01;
+    pinG.add(radar);
+    radarRings.push({ mesh: radar, speed: 1.5 + Math.random() * 0.5 });
+
+    const lbl = makeLabel(c.name.toUpperCase(), _isLight ? '#3F5132' : '#7B8968', 0.007);
+    lbl.position.y = 0.42;
+    pinG.add(lbl);
+
+    globeGrp.add(pinG);
+    pins.push({ id: c.id, group: pinG, data: c, lat: c.lat, lon: c.lon });
+  }
+
+  const arcs = [
+    { from: [40, -10], to: [10.48, -66.90] },
+    { from: [38, -95], to: [19.43, -99.13] },
+    { from: [19.43, -99.13], to: [4.71, -74.07] },
+    { from: [4.71, -74.07], to: [-34.60, -58.38] },
+    { from: [8.98, -79.52], to: [10.48, -66.90] },
+  ];
+
+  const pulseParticles = [];
+  for (const arc of arcs) {
+    const v1 = ll2v(arc.from[0], arc.from[1], R);
+    const v2 = ll2v(arc.to[0], arc.to[1], R);
+    const mid = v1.clone().add(v2).multiplyScalar(0.5).normalize().multiplyScalar(R * 1.35);
+    const curve = new THREE.QuadraticBezierCurve3(v1, mid, v2);
+
+    const lineMat = new THREE.LineBasicMaterial({
+      color: 0x7B8968,
+      transparent: true,
+      opacity: 0.35,
+    });
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(30)), lineMat);
+    globeGrp.add(line);
+
+    const pMesh = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), MAT.glow(0x3F5132));
+    globeGrp.add(pMesh);
+    pulseParticles.push({ mesh: pMesh, curve, t: Math.random(), speed: 0.2 + Math.random() * 0.15 });
+  }
+
+  globeGrp.rotation.y = (70 * Math.PI) / 180;
+  globeGrp.rotation.x = (15 * Math.PI) / 180;
+
+  let rotTargetY = globeGrp.rotation.y;
+  let rotTargetX = globeGrp.rotation.x;
+
+  v.ticks.push(t => {
+    radarRings.forEach((r, idx) => {
+      const s = 1 + (Math.sin(t * r.speed * 3 + idx) + 1) * 0.8;
+      r.mesh.scale.setScalar(s);
+      r.mesh.material.opacity = Math.max(0, 0.8 - (s - 1) * 0.5);
+    });
+
+    pulseParticles.forEach(p => {
+      p.t = (p.t + 0.006 * p.speed * 4) % 1;
+      p.mesh.position.copy(p.curve.getPoint(p.t));
+    });
+
+    globeGrp.rotation.y += (rotTargetY - globeGrp.rotation.y) * 0.05;
+    globeGrp.rotation.x += (rotTargetX - globeGrp.rotation.x) * 0.05;
+  });
+
+  enableHover(v, hoverables);
+
+  const ray = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  const onPointerDown = (e) => {
+    const rect = v.renderer.domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    ray.setFromCamera(mouse, v.camera);
+    const hit = ray.intersectObjects(hoverables, false)[0];
+    if (hit && hit.object.userData.country) {
+      if (onSelectCountry) onSelectCountry(hit.object.userData.country);
+      setFocusCountry(hit.object.userData.country.id);
+    }
+  };
+  v.renderer.domElement.addEventListener('pointerdown', onPointerDown);
+
+  const setFocusCountry = (countryId) => {
+    const c = TARGET_COUNTRIES.find(x => x.id === countryId);
+    if (!c) return;
+    v.controls.autoRotate = false;
+    rotTargetY = ((-c.lon - 90) * Math.PI) / 180;
+    rotTargetX = ((c.lat * 0.5) * Math.PI) / 180;
+  };
+
+  if (initialCountry) setFocusCountry(initialCountry);
+
+  return {
+    dispose: () => {
+      v.renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+      v.dispose();
+    },
+    setFocusCountry,
+    countries: TARGET_COUNTRIES,
+  };
+}
+
+window.FT3D = { car, module: module_, pump, engine, globe };
 window.dispatchEvent(new Event('ft3d-ready'));
+
