@@ -23,8 +23,10 @@
        las pantallas de error — que tienen que estar EN CACHÉ, porque el sitio
        las necesita justo cuando algo va mal (sin red, por ejemplo).
    v13: reparación del useEffect sin abrir que tumbaba el home (commit d825673):
-       microapps.js v8 con el archivo arreglado. */
-const CACHE = 'llave-v13';
+       microapps.js v8 con el archivo arreglado.
+   v14: mapa vectorial sutil de cobertura técnica para toda América y extensión global,
+       y restauración de la portada clásica editorial (hero-llave.webp). */
+const CACHE = 'llave-v14';
 const SHELL = [
   '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',

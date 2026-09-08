@@ -311,50 +311,103 @@
       window.scrollTo({ top: 0, behavior: 'auto' });
     };
 
-    const [engineExplode, setEngineExplode] = useState(0.42);
-    const [engineView, setEngineView] = useState('full');
-    const [selectedPart, setSelectedPart] = useState({
-      id: 'fuelrail',
-      name: 'Riel de Combustible e Inyectores de Presión',
-      sub: 'Sistema de Alimentación e Inyección',
-      desc: 'Flauta presurizada con toma Schrader para manómetro y 4 inyectores electromagnéticos multipunto/GDI.',
-      spec: 'Presión nominal: 38-48 PSI (MFI) / 290-350 PSI (GDI) · Caudal: 210 cc/min · Resistencia: 12.5 Ω',
-      linkId: 'search',
-      linkText: 'Consultar Presión de Riel'
-    });
-    const [selectedCountry, setSelectedCountry] = useState('venezuela');
-    const [quickBrand, setQuickBrand] = useState('Toyota');
+    /* ---------- Estado del Mapa de Cobertura (América + Extensión Global) ---------- */
+    const [mapScope, setMapScope] = useState('america'); // 'america' | 'global'
+    const [activeRegion, setActiveRegion] = useState('andina');
 
-    const LATAM_HUBS = [
-      { id: 'venezuela', flag: '🇻🇪', name: 'Venezuela', hub: 'Caracas / Valencia / Maracaibo',
-        desc: 'Parque automotor mixto con alta concentración de marcas americanas clásicas, japonesas y asiáticas/chinas (Chery Arauca/Orinoco, Dongfeng, JAC, Changan). Alta exigencia en diagnósticos de presión por degradación térmica de combustible y sedimentos en tanque.',
-        spec: 'Presión habitual: 38 - 44 PSI (MFI) · 290 - 350 PSI (GDI)',
-        action: 'search'
+    const MAP_REGIONS = [
+      {
+        id: 'andina',
+        scope: 'america',
+        flag: '🇨🇴 🇻🇪 🇪🇨 🇵🇪',
+        name: 'Región Andina & Caribe',
+        hubs: 'Bogotá · Caracas · Quito · Lima · Maracaibo',
+        purpose: 'Calibrado para responder a la pérdida de presión barométrica en altitudes andinas (hasta 3.600 msnm) y a combustibles con sedimentación en tanque. Incluye especificaciones de cedazo fino (100 micras), prueba de estanqueidad y tablas de cruce para bombas universales.',
+        pressure: '38 - 45 PSI (MFI) · 290 - 350 PSI (GDI) · Caudal: 110 - 220 LPH',
+        brands: ['Toyota', 'Chevrolet', 'Renault', 'Nissan', 'Chery', 'JAC', 'Changan'],
+        actionText: 'Ver vehículos de la región',
+        actionId: 'search',
+        pin: { x: 255, y: 290, lx: 14, ly: 6, anchor: 'start' },
       },
-      { id: 'colombia', flag: '🇨🇴', name: 'Colombia', hub: 'Bogotá / Medellín / Cali',
-        desc: 'Ecosistema de taller liderado por Renault (Logan, Sandero, Duster), Chevrolet, Kia y Mazda. Requiere calibración y lectura diferencial de presión considerando altitud barométrica en ciudades sobre el nivel del mar (Bogotá 2.600 msnm).',
-        spec: 'Presión habitual: 40 - 50 PSI (MFI) · 12 - 15 PSI (TBI antiguos)',
-        action: 'search'
+      {
+        id: 'norteamerica',
+        scope: 'america',
+        flag: '🇲🇽 🇺🇸 🇨🇦',
+        name: 'Norteamérica & México',
+        hubs: 'CDMX · Monterrey · Guadalajara · Los Ángeles · Detroit',
+        purpose: 'Estandarizado para protocolos estrictos OBD-II / EPA y plataformas de gran cilindrada (Vortec V6/V8, Triton, EcoTec). Resuelve diagnósticos de riel de combustible en sistemas sin retorno (deadhead) y calibración precisa en bombas de alta presión directa (GDI / EcoBoost).',
+        pressure: '55 - 64 PSI (Vortec CSFI) · 45 - 55 PSI (MFI) · Hasta 2.100 PSI (GDI)',
+        brands: ['Ford', 'Chevrolet / GM', 'Nissan', 'Dodge / RAM', 'Volkswagen'],
+        actionText: 'Consultar presiones de riel',
+        actionId: 'pressure',
+        pin: { x: 195, y: 205, lx: 0, ly: -12, anchor: 'middle' },
       },
-      { id: 'mexico', flag: '🇲🇽', name: 'México', hub: 'CDMX / Monterrey / Guadalajara',
-        desc: 'Alta presencia de GM, Ford, Nissan y VW con estándares OBD-II y protocolos EPA estrictos. Módulos integrados sin retorno y sistemas CSFI/Vortec con regulador interno.',
-        spec: 'Vortec CSFI: 56 - 64 PSI · GDI EcoBoost: 290 - 350 PSI',
-        action: 'search'
+      {
+        id: 'conosur',
+        scope: 'america',
+        flag: '🇧🇷 🇦🇷 🇨🇱 🇺🇾',
+        name: 'Cono Sur & Mercosur',
+        hubs: 'São Paulo · Buenos Aires · Santiago · Córdoba · Curitiba',
+        purpose: 'Diseñado para atender los desafíos de corrosión y lubricidad de los combustibles Flex (gasolina con etanol E20 a E100). Especifica bombas con sellos de vitón compatibles con alcohol, voltajes estables y amplia cobertura para utilitarios y pickups diésel/nafta.',
+        pressure: '4.0 - 4.2 Bar (Flex Fuel) · 3.0 - 3.8 Bar (MFI nafta) · Common Rail 1.600+ Bar',
+        brands: ['Volkswagen', 'Fiat', 'Renault', 'Toyota Hilux', 'Peugeot / Citroën'],
+        actionText: 'Explorar tablas de compatibilidad',
+        actionId: 'search',
+        pin: { x: 285, y: 395, lx: 0, ly: 16, anchor: 'middle' },
       },
-      { id: 'conosur', flag: '🇦🇷', name: 'Cono Sur', hub: 'Buenos Aires / Santiago / Lima',
-        desc: 'Flota regida por normas Mercosur / Euro con alto volumen de pickups medianas (Toyota Hilux, Amarok) y utilitarios nafteros/flex (Fiat, Peugeot, VW). Diagnóstico de alta presión y pre-filtros.',
-        spec: 'MFI / Flex: 42 - 45 PSI · Common Rail diésel',
-        action: 'search'
+      {
+        id: 'centroamerica',
+        scope: 'america',
+        flag: '🇵🇦 🇨🇷 🇬🇹 🇩🇴',
+        name: 'Centroamérica & Antillas',
+        hubs: 'Cd. de Panamá · San José · Guatemala · Sto. Domingo',
+        purpose: 'Enfocado en el parque vehicular mixto de importación directa (EE. UU., Japón y Corea). Permite el cruce inmediato de referencias entre números de parte OEM de fábrica y bombas universales tipo Walbro o Bosch para abastecimiento rápido en mostrador.',
+        pressure: '38 - 48 PSI (MFI universal) · Conectores planos de 2 a 6 pines',
+        brands: ['Toyota', 'Hyundai', 'Kia', 'Nissan', 'Honda', 'Isuzu'],
+        actionText: 'Buscar equivalencias de bombas',
+        actionId: 'cross',
+        pin: { x: 210, y: 250, lx: -14, ly: -6, anchor: 'end' },
       },
-      { id: 'centroamerica', flag: '🇵🇦', name: 'Centroamérica', hub: 'Panamá / San José / Sto. Domingo',
-        desc: 'Mercado multimarca alimentado por importaciones directas de EE.UU. y Japón. Gran demanda de cross-reference entre códigos de pilas OEM y reemplazos universales tipo Walbro/Bosch.',
-        spec: 'MFI universal: 38 - 45 PSI · Conectores de 2 a 4 pines',
-        action: 'cross'
+      {
+        id: 'europa',
+        scope: 'global',
+        flag: '🇪🇺',
+        name: 'Plataformas Europeas',
+        hubs: 'Frankfurt · Wolfsburg · París · Madrid · Turín',
+        purpose: 'Cubre la arquitectura de inyección directa de alta precisión: motores TSI / TFSI (Grupo Volkswagen), PureTech (Stellantis) y motores TCe (Renault). Diagnóstico de ciclo de prebomba de tanque eléctrica y su coordinación con la bomba mecánica de alta presión de riel común.',
+        pressure: 'Prebomba: 4.5 - 6.0 Bar · Riel de alta: 150 - 250 Bar',
+        brands: ['Volkswagen', 'Audi', 'SEAT', 'Renault', 'Peugeot', 'BMW', 'Mercedes-Benz'],
+        actionText: 'Consultar despiece y presiones',
+        actionId: 'search',
+        pin: { x: 485, y: 135, lx: 0, ly: -12, anchor: 'middle' },
+      },
+      {
+        id: 'asia',
+        scope: 'global',
+        flag: '🇯🇵 🇰🇷',
+        name: 'Plataformas Asiáticas',
+        hubs: 'Tokio · Yokohama · Seúl · Nagoya',
+        purpose: 'Compatibilidad técnica total con las arquitecturas mecánicas japonesas y coreanas más populares del planeta (Toyota VVT-i, Nissan HR/QR, Honda VTEC, Hyundai Gamma/Nu). Tablas de tolerancia de bujías finas, torques de culata y diagramas de distribución.',
+        pressure: 'MFI: 40 - 50 PSI · D-4S / GDI: 180 - 200 Bar',
+        brands: ['Toyota', 'Nissan', 'Honda', 'Hyundai', 'Kia', 'Mazda', 'Mitsubishi'],
+        actionText: 'Ver especificaciones de afinación',
+        actionId: 'spark',
+        pin: { x: 680, y: 170, lx: 14, ly: 4, anchor: 'start' },
+      },
+      {
+        id: 'global_emergente',
+        scope: 'global',
+        flag: '🇨🇳 🌐',
+        name: 'Nuevos Fabricantes Globales',
+        hubs: 'Shanghái · Shenzhen · Wuhu · Chongqing',
+        purpose: 'Soporte especializado para el rápido crecimiento de marcas de exportación global (Chery, JAC, Changan, Geely, BYD, MG, Dongfeng). Proporciona equivalencias de bombas y módulos cuando el repuesto original de concesionario tiene tiempos de entrega prolongados.',
+        pressure: '3.5 - 4.0 Bar en riel · Caudal nominal: 100 - 160 LPH',
+        brands: ['Chery', 'JAC', 'Changan', 'Geely', 'Great Wall / Haval', 'MG'],
+        actionText: 'Consultar repuestos equivalentes',
+        actionId: 'cross',
+        pin: { x: 625, y: 205, lx: 0, ly: 16, anchor: 'middle' },
       },
     ];
-
-    const QUICK_BRANDS = ['Toyota', 'Chevrolet', 'Nissan', 'Ford', 'Renault', 'Volkswagen', 'JAC', 'Changan'];
-    const quickVeh = DEMO_VEHICLES.find(v => v.brand.toLowerCase() === quickBrand.toLowerCase()) || DEMO_VEHICLES[0];
 
     /* ---------- botón atrás del navegador ----------
        Si la pestaña venía de la URL (app instalada con atajo a «Diagnóstico»),
@@ -368,29 +421,12 @@
       window.addEventListener('popstate', alVolver);
       return () => window.removeEventListener('popstate', alVolver);
     }, []);
-    /* ---------- video del hero: avanza fotograma a fotograma con el scroll ----------
-       No hay autoplay ni loop. El video está pausado siempre y su `currentTime`
-       se mapea a cuánto ha recorrido el hero la pantalla: el usuario "rueda" la
-El hero es tipografía grande sobre el lienzo editorial — sin video,
-        sin scrub, sin movimiento autónomo. Cumple el brief "espacio
-        negativo" y "sin elementos visuales innecesarios". El verde
-        aparece solo como banda asimétrica y como detalle en el
-        cintillo y los iconos. */
 
-    /* Ya no se pide /api/meta desde aquí. Servía solo para pintar "144
-       vehículos · 19 marcas" en el hero, y esas cifras se fueron: el catálogo
-       las mueve a diario y prometer un número exacto en la portada envejece
-       solo. Se ahorra además una petición en la primera pantalla. */
-
-    /* Pequeña entrada al cargar la página: las secciones de la losa hacen
-       un fundido muy corto y solo cuando están en viewport. Sin GSAP ni
-       scroll triggers: IntersectionObserver nativo, una sola vez. Si el
-       usuario tiene "reducir movimiento" pedido, no animamos nada. */
     const reduceMotion = () =>
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     useEffect(() => {
       const setup = () => {
-        const els = Array.from(document.querySelectorAll('.home-sec, .home-cards, .home-steps, .home-faq, .home-author, .home-stat, .home-step, .home-fact, .home-hero-aside'));
+        const els = Array.from(document.querySelectorAll('.home-sec, .home-cards, .home-steps, .home-faq, .home-author, .home-stat, .home-step, .home-fact, .home-hero-aside, .home-eco-card, .home-map-workbench'));
         if (!els.length) return;
         if (reduceMotion() || !('IntersectionObserver' in window)) {
           els.forEach(el => el.classList.add('is-in'));
@@ -402,34 +438,20 @@ El hero es tipografía grande sobre el lienzo editorial — sin video,
         }, { rootMargin: '0px 0px -6% 0px', threshold: 0.02 });
         els.forEach(el => {
           const r = el.getBoundingClientRect();
-          // Cualquier elemento que esté en viewport al cargar (incluso
-          // parcialmente) se revela inmediatamente. Es la garantía de
-          // que la primera sección nunca queda invisible.
           if (r.top < window.innerHeight * 0.95 && r.bottom > 0) reveal(el);
           else io.observe(el);
         });
       };
-      // Doble raf para garantizar que el DOM esté pintado antes de medir
       const raf = requestAnimationFrame(() => requestAnimationFrame(setup));
       return () => cancelAnimationFrame(raf);
     }, [tab]);
     const lock = (a) => a.need && !user;
 
-    /* La búsqueda ignora tildes en los DOS lados. Un mecánico teclea "bujia"
-       y "diagnostico" sin acento —con guantes y en un teclado de celular
-       nadie mantiene pulsada la vocal—, y sin normalizar las dos herramientas
-       más buscadas del catálogo no aparecían nunca. */
     const sinTildes = (t) => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const term = sinTildes(q).trim();
     const filtered = !term ? APPS : APPS.filter(a => sinTildes(a.t + ' ' + a.d + ' ' + (a.k || '')).includes(term));
     const appsOf = (g) => APPS.filter(a => a.g === g);
 
-    /* Recientes: las cuatro últimas herramientas abiertas, en el orden en que
-       se usaron. Con 38 apps repartidas en cinco pestañas, el mecánico que
-       viene todos los días a lo mismo tenía que volver a navegar el menú cada
-       vez. Vive en el navegador (no en la cuenta) porque es una preferencia
-       del aparato: el celular del taller y la computadora del mostrador no se
-       usan para lo mismo. */
     const recientes = (ls.get('ft_recientes', []) || [])
       .map(id => APPS.find(a => a.id === id)).filter(Boolean).slice(0, 4);
 
@@ -438,18 +460,10 @@ El hero es tipografía grande sobre el lienzo editorial — sin video,
       ls.set('ft_recientes', [a.id, ...prev].slice(0, 8));
       onOpen(a.id);
     };
-    /* ── Barra inferior (solo celular) ──────────────────────────────────
-       En el celular el menú de seis categorías se envolvía en dos filas
-       pegadas al borde de arriba: 78 px de alto, fuera del alcance del pulgar
-       y encima del contenido que el mecánico venía a leer. Abajo caben cuatro
-       destinos con el dedo y el quinto —"Más"— abre una hoja con el resto.
-       Las cinco entradas se eligen por uso real en el taller, no por orden
-       alfabético: consultar, diagnosticar y gestionar. */
+
     const TABS = ['inicio', 'consulta', 'diag', 'taller'];
     const [hoja, setHoja] = useState(false);
     const extras = NAV.filter(([id]) => !TABS.includes(id));
-    /* La hoja es un diálogo: mientras está abierta el fondo no debe correr
-       bajo el dedo, y Escape la cierra igual que el gesto de atrás. */
     useEffect(() => {
       if (!hoja) return;
       const alTeclear = (e) => { if (e.key === 'Escape') setHoja(false); };
@@ -467,12 +481,13 @@ El hero es tipografía grande sobre el lienzo editorial — sin video,
         <span class="micro-card-desc">${a.d}</span>
       </button>`;
 
+    const currentReg = MAP_REGIONS.find(r => r.id === activeRegion) || MAP_REGIONS[0];
+    const visibleRegions = MAP_REGIONS.filter(r => r.scope === mapScope);
+
     return html`
       <div class="home">
         <nav class="home-nav">
           <div class="home-nav-logo">
-            ${/* la clase `logo-mark` es la que lleva las reglas display:var(--logo-*);
-                 sin ella los DOS isotipos se pintaban a la vez, uno junto al otro */''}
             <img class="logo-mark logo-img--light" src="/brand/logo-llave.svg" alt="llave" />
             <img class="logo-mark logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" />
           </div>
@@ -481,9 +496,6 @@ El hero es tipografía grande sobre el lienzo editorial — sin video,
               <span class="home-nav-ic"><${CatIc} n=${icon} s=${17} /></span>${label}
             </button>`)}
           </div>
-          ${/* Buscador dentro de la barra, como en el brief. En el celular la
-                barra envuelve y ocupa la segunda fila; al ser sticky, buscar
-                entre las 38 herramientas está siempre a un toque. */''}
           <div class="home-buscador">
             <span class="home-buscador-ic"><${CatIc} n="Search" s=${16} /></span>
             <input type="search" class="styled-input" value=${q} inputMode="search"
@@ -494,25 +506,22 @@ El hero es tipografía grande sobre el lienzo editorial — sin video,
               onClick=${() => setQ('')}><${CatIc} n="Close" s=${16} /></button>`}
           </div>
           <div class="home-nav-user">
-            ${/* El selector de tema vive aquí, en la barra del inicio, y no en
-                  los filtros del Catálogo de Combustible: es una preferencia de
-                  toda la aplicación. Viene por el puente window.FT_APP porque
-                  este archivo carga ANTES que app.js; se resuelve en tiempo de
-                  render, igual que MarkIcon. */''}
-            ${window.FT_APP?.ThemeSwitch && html`<${window.FT_APP.ThemeSwitch} />`}
-            ${user ? html`<span class="home-nav-who">
-                ${/* El nombre es la puerta a la cuenta: lleva a «Mi taller»,
-                      donde se ve y se edita la información. Antes era texto
-                      muerto y el único camino al perfil era buscarlo entre 38
-                      tarjetas. Se marca como botón con title y aria-label. */''}
-                <button type="button" class="home-nav-who-btn" title="Ver o editar los datos de tu cuenta" aria-label="Abrir Mi taller"
-                  onClick=${() => onOpen('profile')}>
-                  <span class="home-nav-who-name">${user.name}</span>
-                  <${CatIc} n="ChevronDown" s=${13} />
-                </button>
-                <span class="home-nav-who-divider" aria-hidden="true"></span>
-                <button type="button" class="home-nav-logout"
-                  onClick=${() => { if (confirm('¿Cerrar sesión en este dispositivo?')) onLogout(); }}
+            <div class="theme-switch" role="radiogroup" aria-label="Tema visual">
+              ${[['auto', 'Auto', 'SunMoon'], ['light', 'Claro', 'Sun'], ['dark', 'Oscuro', 'Moon']].map(([mode, label, icon]) => html`
+                <button type="button" key=${mode} role="radio"
+                  aria-checked=${window.FT_THEME && window.FT_THEME.getPreference() === mode}
+                  class=${'theme-btn' + (window.FT_THEME && window.FT_THEME.getPreference() === mode ? ' active' : '')}
+                  onClick=${() => { if (window.FT_THEME) { window.FT_THEME.set(mode); setTimeout(() => onUserChange && onUserChange(user), 0); } }}
+                  title=${label} aria-label=${label}>
+                  <${CatIc} n=${icon} s=${14} />
+                </button>`)}
+            </div>
+            ${user ? html`
+              <span class="home-nav-user-box">
+                <button type="button" class="home-nav-user-email" onClick=${() => onOpen('profile')}
+                  title="Cuenta de taller y perfil">${user.email || 'Mi cuenta'}</button>
+                <button type="button" class="home-nav-logout" onClick=${() => { if (confirm('¿Cerrar sesión?')) onLogout(); }}
+                  title="Cerrar sesión en este dispositivo"
                   aria-label="Cerrar sesión">
                   <${CatIc} n="LogOut" s=${14} />
                   <span class="home-nav-logout-label">Salir</span>
@@ -524,99 +533,41 @@ El hero es tipografía grande sobre el lienzo editorial — sin video,
 
         <${VerifyBanner} user=${user} onDone=${onUserChange} />
 
-
         ${tab === 'inicio' ? html`
           <header class="home-hero">
             <div class="home-hero-inner">
               <div class="home-hero-text">
-                <div class="hero-tech-badge">
-                  <span class="hero-tech-dot" aria-hidden="true"></span>
-                  <span>BANCO TÉCNICO DE INYECCIÓN & DIAGNÓSTICO</span>
-                </div>
-                <h1 class="home-hero-title">Presión de riel, despiece 3D y especificaciones de taller.</h1>
-                <p class="home-hero-tagline">Datos técnicos exactos verificados contra manuales de fabricante, anatomía de inyección y procedimientos de diagnóstico para el parque automotor de Latinoamérica.</p>
+                <h1 class="home-hero-title">Todo lo que necesitas, en una sola llave.</h1>
+                <p class="home-hero-tagline">La plataforma integral con herramientas, repuestos y conocimiento para el taller moderno y sus clientes.</p>
 
-                <div class="hero-quick-lookup panel">
-                  <div class="hero-quick-head">
-                    <span class="hero-quick-title"><${CatIc} n="Gauge" s=${16} /> Consulta rápida de presión de riel</span>
-                    <span class="hero-quick-badge">${quickVeh.injection} · ${quickVeh.rail_pressure_psi_min}–${quickVeh.rail_pressure_psi_max} PSI</span>
-                  </div>
-                  <div class="hero-quick-controls">
-                    <div class="hero-quick-field">
-                      <label class="hero-quick-label" htmlFor="hero-quick-brand-select">Marca:</label>
-                      <select id="hero-quick-brand-select" class="styled-input hero-quick-select" value=${quickBrand} onChange=${e => setQuickBrand(e.target.value)}>
-                        ${QUICK_BRANDS.map(b => html`<option key=${b} value=${b}>${b}</option>`)}
-                      </select>
-                    </div>
-                    <div class="hero-quick-preview">
-                      <div class="hero-quick-model"><strong>${quickVeh.brand} ${quickVeh.model}</strong> <span>(${quickVeh.engine})</span></div>
-                      <div class="hero-quick-specs">
-                        <span>Riel: <strong>${quickVeh.rail_pressure_psi_min} – ${quickVeh.rail_pressure_psi_max} PSI</strong></span>
-                        <span>Módulo: <strong>${quickVeh.module_location}</strong></span>
-                      </div>
-                    </div>
-                    <button type="button" class="tool-add-btn hero-quick-btn" onClick=${() => onOpen('search')}>
-                      Catálogo completo →
-                    </button>
-                  </div>
+                <div class="home-hero-cta">
+                  ${user ? html`<button type="button" class="tool-add-btn" onClick=${() => irA('taller')}>Ir a mi taller →</button>`
+                    : html`<button type="button" class="tool-add-btn" onClick=${() => onOpen('search')}>Buscar mi vehículo →</button>`}
+                  <button type="button" class="home-cta-ghost" onClick=${() => irA('aprende')}>Ver guías</button>
                 </div>
 
                 <div class="home-hero-trust">
                   <div class="home-hero-trust-item">
-                    <span class="home-hero-trust-ic"><${CatIc} n="Check" s=${18} /></span>
+                    <span class="home-hero-trust-ic"><${CatIc} n="Check" s=${19} /></span>
                     <div>
-                      <strong>Banco & Fichas OEM</strong>
-                      <span>Tolerancias verificadas</span>
+                      <strong>Datos de calidad</strong>
+                      <span>Verificados contra manual</span>
                     </div>
                   </div>
                   <div class="home-hero-trust-item">
-                    <span class="home-hero-trust-ic"><${CatIc} n="Fuel" s=${18} /></span>
+                    <span class="home-hero-trust-ic"><${CatIc} n="Wrench" s=${19} /></span>
                     <div>
-                      <strong>Flota Regional LATAM</strong>
-                      <span>Mercosur, Andina y chinas</span>
-                    </div>
-                  </div>
-                  <div class="home-hero-trust-item">
-                    <span class="home-hero-trust-ic"><${CatIc} n="Zap" s=${18} /></span>
-                    <div>
-                      <strong>PWA 100% Offline</strong>
-                      <span>Disponible en fosa y elevador</span>
+                      <strong>Herramientas del taller</strong>
+                      <span>Diagnóstico y gestión</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div class="home-hero-preview">
-                <div class="hero-hub-card panel">
-                  <div class="hero-hub-header">
-                    <span class="hero-hub-tag">INSTRUMENTO DE TALLER</span>
-                    <span class="hero-hub-status"><span class="pulse-dot"></span> 38 Apps Activas</span>
-                  </div>
-                  <h3>Laboratorio & Diagnóstico</h3>
-                  <p>Herramientas de cálculo de presión, torques, calibración de bujías y despiece tridimensional de componentes de combustión.</p>
-                  <div class="hero-hub-actions">
-                    <button type="button" class="tool-add-btn" onClick=${() => irA('consulta')}>
-                      <${CatIc} n="Fuel" s=${15} /> Explorar Catálogo
-                    </button>
-                    <button type="button" class="home-cta-ghost" onClick=${() => irA('diag')}>
-                      <${CatIc} n="Stethoscope" s=${15} /> Diagnóstico Rápido
-                    </button>
-                  </div>
-                  <div class="hero-hub-metrics">
-                    <div class="hero-hub-m-item">
-                      <span class="hero-hub-m-val">38–48</span>
-                      <span class="hero-hub-m-lbl">PSI MFI Promedio</span>
-                    </div>
-                    <div class="hero-hub-m-item">
-                      <span class="hero-hub-m-val">290+</span>
-                      <span class="hero-hub-m-lbl">PSI GDI Inyección</span>
-                    </div>
-                    <div class="hero-hub-m-item">
-                      <span class="hero-hub-m-val">0$</span>
-                      <span class="hero-hub-m-lbl">Sin Cuenta Requerida</span>
-                    </div>
-                  </div>
-                </div>
+              <div class="home-hero-visual">
+                <span class="home-hero-saludo" aria-hidden="true">¡Hola, llave!</span>
+                <img class="home-hero-img" src="/media/hero-llave.webp" width="900" height="734"
+                  alt="Mecánico ajustando una culata en el banco de trabajo" decoding="async" />
               </div>
             </div>
           </header>
@@ -629,169 +580,189 @@ El hero es tipografía grande sobre el lienzo editorial — sin video,
             </section>
           </div>
           ` : html`
-
-          <!-- SECCIÓN 1: MOTOR 4 CILINDROS DOHC DESPIEZADO CON INSPECCIÓN INTERACTIVA -->
-          <section class="home-engine-section">
+          <section class="home-ecosystem">
             <div class="home-ecosystem-inner">
-              <div class="home-engine-head">
-                <div class="section-badge-wrap">
-                  <span class="eyebrow"><${CatIc} n="Wrench" s=${14} /> MODELO 3D INTERACTIVO</span>
-                </div>
-                <h2>Anatomía de Inyección & Bloque Motor (4 Cilindros DOHC)</h2>
-                <p>Despiece técnico interactivo con 14 subsistemas de potencia e inyección. Desliza el control para separar los componentes y pulsa cualquier elemento para consultar especificaciones de apriete, tolerancias de combustión y diagnósticos.</p>
+              <div class="home-ecosystem-head">
+                <h2>Una suite completa para el nicho mecánico</h2>
+                <p>Diseñada para optimizar cada aspecto de la reparación y el mantenimiento automotriz. Datos de taller, comunidad y herramientas digitales en un solo lugar.</p>
               </div>
+              <div class="home-ecosystem-grid">
 
-              <div class="engine-workbench panel">
-                <div class="engine-topbar">
-                  <div class="engine-slider-wrap">
-                    <label htmlFor="engine-explode-slider" class="engine-slider-label">
-                      <span>Despiece Mecánico:</span>
-                      <strong>${Math.round(engineExplode * 100)}%</strong>
-                    </label>
-                    <input type="range" id="engine-explode-slider" min="0" max="1" step="0.01"
-                           value=${engineExplode}
-                           onInput=${e => setEngineExplode(parseFloat(e.target.value))}
-                           class="engine-range-input" />
-                    <div class="engine-slider-ticks">
-                      <button type="button" class="engine-tick-btn" onClick=${() => setEngineExplode(0)}>0% Armado</button>
-                      <button type="button" class="engine-tick-btn" onClick=${() => setEngineExplode(0.45)}>45% Servicio</button>
-                      <button type="button" class="engine-tick-btn" onClick=${() => setEngineExplode(1)}>100% Despiece</button>
-                    </div>
+                <article class="home-eco-card">
+                  <span class="home-eco-card-ic"><${CatIc} n="Store" s=${22} /></span>
+                  <h3>Para el Taller</h3>
+                  <p>Gestión integral, guías técnicas detalladas y sistema de pedidos optimizado para profesionales.</p>
+                  <ul>
+                    <li>Gestión de inventario</li>
+                    <li>Guías de reparación</li>
+                    <li>Pedidos mayoristas</li>
+                  </ul>
+                </article>
+
+                <article class="home-eco-card">
+                  <span class="home-eco-card-ic"><${CatIc} n="Car" s=${22} /></span>
+                  <h3>Para el Cliente</h3>
+                  <p>Transparencia total con historial de servicios, consejos preventivos y gestión de citas.</p>
+                  <ul>
+                    <li>Historial de vehículo</li>
+                    <li>Consejos de cuidado</li>
+                    <li>Agenda de citas</li>
+                  </ul>
+                </article>
+
+                <article class="home-eco-card home-eco-card--dark">
+                  <span class="home-eco-card-ic"><${CatIc} n="LayoutGrid" s=${22} /></span>
+                  <h3>Micro-apps</h3>
+                  <p>Herramientas digitales específicas integradas directamente en tu flujo de trabajo diario.</p>
+                  <div class="tags">
+                    <span class="tag">Calc. Torque</span>
+                    <span class="tag">Diag. Eléctricos</span>
+                    <span class="tag">Medidas</span>
+                    <span class="tag">DTC</span>
+                    <span class="tag">Conversor</span>
                   </div>
+                  <button type="button" class="go" onClick=${() => irA('consulta')}>
+                    Explorar catálogo digital
+                  </button>
+                </article>
 
-                  <div class="engine-cam-btns" role="group" aria-label="Enfoques de cámara">
-                    <button type="button" class=${'engine-cam-btn' + (engineView === 'full' ? ' is-active' : '')}
-                            onClick=${() => setEngineView('full')}>Vista General</button>
-                    <button type="button" class=${'engine-cam-btn' + (engineView === 'fuel' ? ' is-active' : '')}
-                            onClick=${() => setEngineView('fuel')}>Riel & Inyección</button>
-                    <button type="button" class=${'engine-cam-btn' + (engineView === 'pistons' ? ' is-active' : '')}
-                            onClick=${() => setEngineView('pistons')}>Cigüeñal & Pistones</button>
-                    <button type="button" class=${'engine-cam-btn' + (engineView === 'valves' ? ' is-active' : '')}
-                            onClick=${() => setEngineView('valves')}>Tren de Válvulas</button>
-                  </div>
-                </div>
-
-                <div class="engine-canvas-layout">
-                  <div class="engine-3d-box">
-                    ${window.FT_APP?.Engine3D && html`
-                      <${window.FT_APP.Engine3D}
-                        explode=${engineExplode}
-                        cameraView=${engineView}
-                        onSelectPart=${(part) => setSelectedPart(part)} />
-                    `}
-                    <div class="engine-3d-hint">
-                      <span><${CatIc} n="RotateCw" s=${13} /> Arrastra para orbitar 360° · Rueda = Zoom · Toca cualquier pieza para inspección</span>
-                    </div>
-                  </div>
-
-                  <div class="engine-part-inspector">
-                    <div class="part-inspector-header">
-                      <span class="part-inspector-kicker">${selectedPart.sub || 'Componente Seleccionado'}</span>
-                      <h3 class="part-inspector-title">${selectedPart.name}</h3>
-                    </div>
-                    <p class="part-inspector-desc">${selectedPart.desc}</p>
-
-                    <div class="part-inspector-specbox">
-                      <span class="part-spec-lbl"><${CatIc} n="ClipboardCheck" s=${14} /> Tolerancia y Especificación:</span>
-                      <div class="part-spec-val">${selectedPart.spec}</div>
-                    </div>
-
-                    <div class="part-inspector-actions">
-                      <button type="button" class="tool-add-btn part-action-btn" onClick=${() => onOpen(selectedPart.linkId || 'search')}>
-                        ${selectedPart.linkText || 'Consultar especificación'} →
-                      </button>
-                    </div>
-
-                    <div class="part-inspector-list">
-                      <span class="part-list-title">Atajos de Inspección Rápida:</span>
-                      <div class="part-chips">
-                        <button type="button" class="part-chip-btn" onClick=${() => { setEngineView('fuel'); setSelectedPart({ id: 'fuelrail', name: 'Riel de Combustible e Inyectores de Presión', sub: 'Sistema de Alimentación', desc: 'Flauta presurizada con toma Schrader para manómetro y 4 inyectores electromagnéticos.', spec: 'Presión: 38-48 PSI (MFI) / 290-350 PSI (GDI) · Caudal: 210 cc/min', linkId: 'search', linkText: 'Consultar Presión de Riel' }); }}>
-                          Riel & Inyectores
-                        </button>
-                        <button type="button" class="part-chip-btn" onClick=${() => { setEngineView('pistons'); setSelectedPart({ id: 'pistons', name: 'Pistones Forjados y Bielas H', sub: 'Conjunto Móvil de Compresión', desc: 'Pistones con faldas grafitadas y aros de compresión/aceite.', spec: 'Compresión: 175-190 PSI · Desviación máx: 10%', linkId: 'compression', linkText: 'Prueba Compresión' }); }}>
-                          Pistones & Bielas
-                        </button>
-                        <button type="button" class="part-chip-btn" onClick=${() => { setEngineView('valves'); setSelectedPart({ id: 'spark', name: 'Bujías de Iridio y Bobinas Individuales COP', sub: 'Sistema de Encendido', desc: 'Bujías de electrodo fino de iridio de 0.6 mm y bobinas directas.', spec: 'Calibración (Gap): 0.040 in (1.0 mm) · Torque: 22 Nm', linkId: 'spark', linkText: 'Tabla de Bujías' }); }}>
-                          Bujías & Encendido
-                        </button>
-                        <button type="button" class="part-chip-btn" onClick=${() => { setEngineView('valves'); setSelectedPart({ id: 'timing', name: 'Cadena de Tiempo, Guías y Tensor', sub: 'Sincronización Cinemática', desc: 'Cadena silenciosa de distribución con tensor hidráulico asistido por aceite.', spec: 'Sincronización exacta 2:1 · Puntos de alineación en PMS', linkId: 'timing', linkText: 'Marcas de Tiempo' }); }}>
-                          Kit de Tiempo
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </section>
 
-          <!-- SECCIÓN 2: MAPA TERRÁQUEO 3D DE COBERTURA LATINOAMÉRICA -->
-          <section class="home-globe-section">
-            <div class="home-ecosystem-inner">
-              <div class="home-globe-head">
-                <div class="section-badge-wrap">
-                  <span class="eyebrow"><${CatIc} n="MapPin" s=${14} /> COBERTURA REGIONAL 3D</span>
-                </div>
-                <h2>Dirigido al Parque Automotor de Latinoamérica</h2>
-                <p>Nuestra plataforma está calibrada para los requerimientos reales del taller en la región: variaciones de calidad de combustible, sedimentación en tanque, adaptaciones de bombas sumergibles y la convivencia entre modelos clásicos americanos/asiáticos y marcas chinas de alto volumen (Chery, JAC, Changan, Dongfeng).</p>
+          <!-- SECCIÓN: COBERTURA TÉCNICA (TODA AMÉRICA Y EXTENSIÓN GLOBAL) -->
+          <section class="home-map-section">
+            <div class="home-map-inner">
+              <div class="home-map-head">
+                <span class="eyebrow"><${CatIc} n="MapPin" s=${14} /> COBERTURA TÉCNICA & MERCADOS</span>
+                <h2>Calibrado para Toda América, Compatible con el Resto del Mundo</h2>
+                <p>Diseñado desde la realidad de taller en las Américas: variaciones de calidad de combustible, sedimentación en tanque, altitudes andinas sobre 2.600 msnm, mezclas con etanol y adaptaciones de bombas sumergibles. A su vez, nuestra arquitectura técnica se extiende y aplica a plataformas motrices de cualquier mercado global.</p>
               </div>
 
-              <div class="globe-workbench panel">
-                <div class="globe-countries-nav" role="tablist" aria-label="Países de cobertura">
-                  ${LATAM_HUBS.map(h => html`
-                    <button type="button" key=${h.id}
-                            class=${'globe-country-btn' + (selectedCountry === h.id ? ' is-active' : '')}
-                            onClick=${() => setSelectedCountry(h.id)}>
-                      <span class="globe-country-flag">${h.flag}</span>
-                      <span class="globe-country-name">${h.name}</span>
-                    </button>
-                  `)}
+              <div class="home-map-scope-tabs" role="tablist" aria-label="Alcance geográfico">
+                <button type="button"
+                        class=${'scope-tab-btn' + (mapScope === 'america' ? ' is-active' : '')}
+                        onClick=${() => { setMapScope('america'); if (currentReg.scope !== 'america') setActiveRegion('andina'); }}>
+                  <span>📍 Toda América (Cobertura Principal)</span>
+                </button>
+                <button type="button"
+                        class=${'scope-tab-btn' + (mapScope === 'global' ? ' is-active' : '')}
+                        onClick=${() => { setMapScope('global'); if (currentReg.scope !== 'global') setActiveRegion('europa'); }}>
+                  <span>🌐 Alcance Global (Resto del Mundo)</span>
+                </button>
+              </div>
+
+              <div class="home-map-workbench">
+                <div class="map-canvas-container">
+                  <div class="map-sub-pills">
+                    ${visibleRegions.map(r => html`
+                      <button type="button" key=${r.id}
+                              class=${'map-sub-pill' + (activeRegion === r.id ? ' is-active' : '')}
+                              onClick=${() => setActiveRegion(r.id)}>
+                        ${r.name}
+                      </button>
+                    `)}
+                  </div>
+
+                  <svg class="map-interactive-svg" viewBox="0 0 760 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mapa cartográfico técnico de cobertura automotriz">
+                    <defs>
+                      <linearGradient id="mapOcean" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="var(--panel)" stop-opacity="0.3" />
+                        <stop offset="100%" stop-color="var(--bg)" stop-opacity="0.7" />
+                      </linearGradient>
+                    </defs>
+
+                    <!-- Fondo y retícula técnica -->
+                    <rect width="760" height="440" fill="url(#mapOcean)" rx="8" />
+                    <line x1="60" y1="120" x2="700" y2="120" class="map-svg-grid" />
+                    <line x1="60" y1="220" x2="700" y2="220" class="map-svg-grid" />
+                    <line x1="60" y1="320" x2="700" y2="320" class="map-svg-grid" />
+                    <line x1="195" y1="40" x2="195" y2="420" class="map-svg-grid" />
+                    <line x1="360" y1="40" x2="360" y2="420" class="map-svg-grid" />
+                    <line x1="520" y1="40" x2="520" y2="420" class="map-svg-grid" />
+                    <text x="70" y="215" font-size="9" fill="var(--muted)" font-family="var(--font)">Ecuador 0°</text>
+                    <text x="70" y="115" font-size="9" fill="var(--muted)" font-family="var(--font)">Trópico de Cáncer</text>
+                    <text x="70" y="315" font-size="9" fill="var(--muted)" font-family="var(--font)">Trópico de Capricornio</text>
+
+                    <!-- Siluetas continentales (Vector plano estilizado) -->
+                    <!-- Europa -->
+                    <path class=${'map-svg-land map-svg-land--world' + (activeRegion === 'europa' ? ' map-svg-land--highlight' : '')}
+                          d="M 450 115 L 475 105 L 505 110 L 525 130 L 515 155 L 485 165 L 465 155 L 450 140 Z" />
+                    <!-- África -->
+                    <path class="map-svg-land map-svg-land--world"
+                          d="M 460 180 L 510 180 L 530 220 L 525 280 L 495 330 L 470 290 L 455 230 Z" />
+                    <!-- Asia & Plataformas globales -->
+                    <path class=${'map-svg-land map-svg-land--world' + ((activeRegion === 'asia' || activeRegion === 'global_emergente') ? ' map-svg-land--highlight' : '')}
+                          d="M 530 110 L 610 95 L 690 115 L 720 155 L 705 210 L 650 235 L 590 220 L 550 170 Z" />
+
+                    <!-- Silueta destacada: TODA AMÉRICA -->
+                    <!-- América del Norte -->
+                    <path class=${'map-svg-land' + (activeRegion === 'norteamerica' ? ' map-svg-land--highlight' : '')}
+                          d="M 120 70 L 160 55 L 210 50 L 250 65 L 295 80 L 290 120 L 260 135 L 275 160 L 285 195 L 255 205 L 235 225 L 210 240 L 195 245 L 180 230 L 165 210 L 155 180 L 140 160 L 125 120 Z" />
+                    <!-- Centroamérica & Caribe -->
+                    <path class=${'map-svg-land' + (activeRegion === 'centroamerica' ? ' map-svg-land--highlight' : '')}
+                          d="M 195 245 L 215 250 L 235 265 L 245 272 L 238 276 L 220 266 L 205 255 Z" />
+                    <path class="map-svg-land" d="M 235 238 Q 248 240 258 245 M 264 248 Q 275 250 282 254" stroke="var(--accent)" stroke-width="2" fill="none" />
+                    <!-- América del Sur -->
+                    <path class=${'map-svg-land' + ((activeRegion === 'andina' || activeRegion === 'conosur') ? ' map-svg-land--highlight' : '')}
+                          d="M 238 276 L 260 272 L 280 278 L 305 288 L 340 315 L 355 345 L 340 375 L 305 385 L 285 410 L 265 415 L 250 380 L 240 345 L 235 315 L 230 290 Z" />
+
+                    <!-- Enlaces de extensión global (arcos de tecnología compartida) -->
+                    <path d="M 260 200 Q 360 130 480 140" fill="none" class="map-svg-link" />
+                    <path d="M 270 320 Q 420 240 620 180" fill="none" class="map-svg-link" />
+                    <path d="M 160 180 Q 90 90 40 80" fill="none" class="map-svg-link" />
+                    <path d="M 720 120 Q 670 150 640 190" fill="none" class="map-svg-link" />
+
+                    <!-- Marcadores interactivos (Pins con posicionamiento anti-colisión) -->
+                    ${MAP_REGIONS.map(reg => {
+                      const isSel = activeRegion === reg.id;
+                      return html`
+                        <g class=${'map-pin' + (isSel ? ' is-active' : '')}
+                           onClick=${() => { setActiveRegion(reg.id); setMapScope(reg.scope); }}
+                           key=${reg.id} transform=${'translate(' + reg.pin.x + ', ' + reg.pin.y + ')'}>
+                          ${isSel && html`<circle cx="0" cy="0" r="14" class="map-pin-pulse" />`}
+                          <circle cx="0" cy="0" r=${isSel ? 6.5 : 4.5} class="map-pin-core" />
+                          <text x=${reg.pin.lx || 0} y=${reg.pin.ly || -10} text-anchor=${reg.pin.anchor || 'middle'} class="map-pin-label">${reg.name}</text>
+                        </g>
+                      `;
+                    })}
+                  </svg>
                 </div>
 
-                <div class="globe-content-layout">
-                  <div class="globe-3d-box">
-                    ${window.FT_APP?.Globe3D && html`
-                      <${window.FT_APP.Globe3D}
-                        selectedCountry=${selectedCountry}
-                        onSelectCountry=${(c) => setSelectedCountry(c.id)} />
-                    `}
-                    <div class="globe-3d-hint">
-                      <span><${CatIc} n="RotateCw" s=${13} /> Gira libremente el globo terráqueo en 3D · Toca cualquier baliza para inspeccionar el mercado</span>
+                <div class="home-map-detail">
+                  <span class="map-detail-badge">
+                    ${currentReg.scope === 'america' ? 'Cobertura Central · América' : 'Compatibilidad · Resto del Mundo'}
+                  </span>
+                  <div class="map-detail-head">
+                    <span class="map-detail-flag">${currentReg.flag}</span>
+                    <div>
+                      <h3 class="map-detail-title">${currentReg.name}</h3>
+                      <span class="map-detail-hubs">${currentReg.hubs}</span>
                     </div>
                   </div>
 
-                  <div class="globe-country-detail">
-                    ${(() => {
-                      const hub = LATAM_HUBS.find(x => x.id === selectedCountry) || LATAM_HUBS[0];
-                      return html`
-                        <div class="globe-hub-card">
-                          <div class="globe-hub-head">
-                            <span class="globe-hub-flag">${hub.flag}</span>
-                            <div>
-                              <h3 class="globe-hub-title">${hub.name}</h3>
-                              <span class="globe-hub-cities">${hub.hub}</span>
-                            </div>
-                          </div>
-
-                          <div class="globe-hub-block">
-                            <strong>Composición del Parque Automotor:</strong>
-                            <p>${hub.desc}</p>
-                          </div>
-
-                          <div class="globe-hub-block globe-hub-block--spec">
-                            <strong>Presiones Habituales en el Mercado Local:</strong>
-                            <span class="globe-hub-pressure">${hub.spec}</span>
-                          </div>
-
-                          <div class="globe-hub-footer">
-                            <button type="button" class="tool-add-btn" onClick=${() => onOpen(hub.action || 'search')}>
-                              Consultar Vehículos de la Región →
-                            </button>
-                          </div>
-                        </div>
-                      `;
-                    })()}
+                  <div class="map-detail-block">
+                    <strong>¿Para qué sirve en este mercado?</strong>
+                    <p>${currentReg.purpose}</p>
                   </div>
+
+                  <div class="map-detail-block">
+                    <strong>Presión y Tolerancias Habituales:</strong>
+                    <div class="map-spec-box">
+                      <span class="map-spec-val">${currentReg.pressure}</span>
+                    </div>
+                  </div>
+
+                  <div class="map-detail-block">
+                    <strong>Marcas y Plataformas Clave:</strong>
+                    <div class="map-detail-chips">
+                      ${currentReg.brands.map(b => html`<span class="map-chip" key=${b}>${b}</span>`)}
+                    </div>
+                  </div>
+
+                  <button type="button" class="tool-add-btn map-action-btn" onClick=${() => onOpen(currentReg.actionId)}>
+                    ${currentReg.actionText} →
+                  </button>
                 </div>
               </div>
             </div>
@@ -809,10 +780,9 @@ El hero es tipografía grande sobre el lienzo editorial — sin video,
                   <div class="home-group-grid">${appsOf(g).slice(0, 8).map(a => card(a))}</div>
                 </div>` : null)}
             </div>
-           </section>
-
-           `}
-         ` : html`
+          </section>
+          `}
+        ` : html`
           <div class="home-body">
             ${q ? html`<section class="home-group">
                 <p class="home-cat-desc" role="status">${filtered.length} ${filtered.length === 1 ? 'herramienta' : 'herramientas'} para “${q}”</p>
@@ -838,8 +808,7 @@ El hero es tipografía grande sobre el lienzo editorial — sin video,
               `}
           </div>
         `}
-        ${/* Barra inferior fija — el CSS la esconde por encima de 720 px, donde
-              el menú de arriba ya cabe entero en una fila. */''}
+        ${/* Barra inferior fija */''}
         <nav class="home-tabbar" aria-label="Secciones">
           ${NAV.filter(([id]) => TABS.includes(id)).map(([id, label, icon, corto]) => html`
             <button type="button" key=${id} aria-current=${tab === id ? 'page' : undefined}
