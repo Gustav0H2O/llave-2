@@ -23,6 +23,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 
 const RAIZ = path.join(__dirname, '..');
 const rel = (p) => path.relative(RAIZ, p).replace(/\\/g, '/');
@@ -322,6 +323,28 @@ const REGLAS = [
           if (/\smaxlength=/.test(linea)) return 'usa maxlength: React espera maxLength';
           return null;
         }).forEach(h => out.push(h));
+      }
+      return out;
+    },
+  },
+
+  {
+    id: 'frontend-compila',
+    gravedad: 'error',
+    rapida: true,
+    porque: 'Un error de sintaxis en un archivo del frontend tumba la SPA entera sin que el servidor se entere: pasó de verdad con un useEffect sin abrir (commit d825673) y el home desplegado se quedó en el catálogo de combustible.',
+    revisar() {
+      const out = [];
+      /* three3d.js queda fuera: es módulo ES (import/export) y vm.Script
+         espera script clásico; parsear módulos exige el flag experimental
+         de Node. El resto son IIFE/scripts clásicos y sí entran. */
+      for (const archivo of FRONTEND.filter(a => a !== 'public/three3d.js')) {
+        try {
+          new vm.Script(leer(archivo), { filename: archivo }); // solo parsea, no ejecuta
+        } catch (e) {
+          out.push(hallazgo(archivo, e.lineNumber || 0,
+            `no compila: ${String(e.message).slice(0, 120)}`));
+        }
       }
       return out;
     },

@@ -356,6 +356,11 @@
     const QUICK_BRANDS = ['Toyota', 'Chevrolet', 'Nissan', 'Ford', 'Renault', 'Volkswagen', 'JAC', 'Changan'];
     const quickVeh = DEMO_VEHICLES.find(v => v.brand.toLowerCase() === quickBrand.toLowerCase()) || DEMO_VEHICLES[0];
 
+    /* ---------- botón atrás del navegador ----------
+       Si la pestaña venía de la URL (app instalada con atajo a «Diagnóstico»),
+       el gesto de atrás del celular devuelve a inicio en vez de cerrar la app
+       de golpe: hay un escalón intermedio entre la herramienta y la salida. */
+    useEffect(() => {
       const alVolver = () => {
         const c = window.FT_RUTA ? window.FT_RUTA.leer().cat : null;
         setTab((c && GRUPOS[c]) ? c : 'inicio');
