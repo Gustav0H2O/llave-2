@@ -319,20 +319,20 @@
       {
         id: 'andina',
         scope: 'america',
-        flag: '🇨🇴 🇻🇪 🇪🇨 🇵🇪',
+        codes: ['CO', 'VE', 'EC', 'PE'],
         name: 'Región Andina & Caribe',
         hubs: 'Bogotá · Caracas · Quito · Lima · Maracaibo',
-        purpose: 'Calibrado para responder a la pérdida de presión barométrica en altitudes andinas (hasta 3.600 msnm) y a combustibles con sedimentación en tanque. Incluye especificaciones de cedazo fino (100 micras), prueba de estanqueidad y tablas de cruce para bombas universales.',
+        purpose: 'Calibrado para responder a la pérdida de presión barométrica en altitudes andinas (hasta 3.800 msnm) y a combustibles con sedimentación en fondo de tanque. Especificaciones de cedazo micrométrico (100 micras), estanqueidad de válvula check y tablas de cruce para bombas universales.',
         pressure: '38 - 45 PSI (MFI) · 290 - 350 PSI (GDI) · Caudal: 110 - 220 LPH',
         brands: ['Toyota', 'Chevrolet', 'Renault', 'Nissan', 'Chery', 'JAC', 'Changan'],
         actionText: 'Ver vehículos de la región',
         actionId: 'search',
-        pin: { x: 255, y: 290, lx: 14, ly: 6, anchor: 'start' },
+        pin: { x: 262, y: 220, lx: 14, ly: 4, anchor: 'start' },
       },
       {
         id: 'norteamerica',
         scope: 'america',
-        flag: '🇲🇽 🇺🇸 🇨🇦',
+        codes: ['MX', 'US', 'CA'],
         name: 'Norteamérica & México',
         hubs: 'CDMX · Monterrey · Guadalajara · Los Ángeles · Detroit',
         purpose: 'Estandarizado para protocolos estrictos OBD-II / EPA y plataformas de gran cilindrada (Vortec V6/V8, Triton, EcoTec). Resuelve diagnósticos de riel de combustible en sistemas sin retorno (deadhead) y calibración precisa en bombas de alta presión directa (GDI / EcoBoost).',
@@ -340,12 +340,12 @@
         brands: ['Ford', 'Chevrolet / GM', 'Nissan', 'Dodge / RAM', 'Volkswagen'],
         actionText: 'Consultar presiones de riel',
         actionId: 'pressure',
-        pin: { x: 195, y: 205, lx: 0, ly: -12, anchor: 'middle' },
+        pin: { x: 200, y: 177, lx: 0, ly: -12, anchor: 'middle' },
       },
       {
         id: 'conosur',
         scope: 'america',
-        flag: '🇧🇷 🇦🇷 🇨🇱 🇺🇾',
+        codes: ['BR', 'AR', 'CL', 'UY'],
         name: 'Cono Sur & Mercosur',
         hubs: 'São Paulo · Buenos Aires · Santiago · Córdoba · Curitiba',
         purpose: 'Diseñado para atender los desafíos de corrosión y lubricidad de los combustibles Flex (gasolina con etanol E20 a E100). Especifica bombas con sellos de vitón compatibles con alcohol, voltajes estables y amplia cobertura para utilitarios y pickups diésel/nafta.',
@@ -353,12 +353,12 @@
         brands: ['Volkswagen', 'Fiat', 'Renault', 'Toyota Hilux', 'Peugeot / Citroën'],
         actionText: 'Explorar tablas de compatibilidad',
         actionId: 'search',
-        pin: { x: 285, y: 395, lx: 0, ly: 16, anchor: 'middle' },
+        pin: { x: 301, y: 333, lx: 0, ly: 16, anchor: 'middle' },
       },
       {
         id: 'centroamerica',
         scope: 'america',
-        flag: '🇵🇦 🇨🇷 🇬🇹 🇩🇴',
+        codes: ['PA', 'CR', 'GT', 'DO'],
         name: 'Centroamérica & Antillas',
         hubs: 'Cd. de Panamá · San José · Guatemala · Sto. Domingo',
         purpose: 'Enfocado en el parque vehicular mixto de importación directa (EE. UU., Japón y Corea). Permite el cruce inmediato de referencias entre números de parte OEM de fábrica y bombas universales tipo Walbro o Bosch para abastecimiento rápido en mostrador.',
@@ -366,12 +366,12 @@
         brands: ['Toyota', 'Hyundai', 'Kia', 'Nissan', 'Honda', 'Isuzu'],
         actionText: 'Buscar equivalencias de bombas',
         actionId: 'cross',
-        pin: { x: 210, y: 250, lx: -14, ly: -6, anchor: 'end' },
+        pin: { x: 237, y: 205, lx: -14, ly: 8, anchor: 'end' },
       },
       {
         id: 'europa',
         scope: 'global',
-        flag: '🇪🇺',
+        codes: ['DE', 'FR', 'IT', 'ES'],
         name: 'Plataformas Europeas',
         hubs: 'Frankfurt · Wolfsburg · París · Madrid · Turín',
         purpose: 'Cubre la arquitectura de inyección directa de alta precisión: motores TSI / TFSI (Grupo Volkswagen), PureTech (Stellantis) y motores TCe (Renault). Diagnóstico de ciclo de prebomba de tanque eléctrica y su coordinación con la bomba mecánica de alta presión de riel común.',
@@ -379,12 +379,12 @@
         brands: ['Volkswagen', 'Audi', 'SEAT', 'Renault', 'Peugeot', 'BMW', 'Mercedes-Benz'],
         actionText: 'Consultar despiece y presiones',
         actionId: 'search',
-        pin: { x: 485, y: 135, lx: 0, ly: -12, anchor: 'middle' },
+        pin: { x: 466, y: 88, lx: 0, ly: -10, anchor: 'middle' },
       },
       {
         id: 'asia',
         scope: 'global',
-        flag: '🇯🇵 🇰🇷',
+        codes: ['JP', 'KR'],
         name: 'Plataformas Asiáticas',
         hubs: 'Tokio · Yokohama · Seúl · Nagoya',
         purpose: 'Compatibilidad técnica total con las arquitecturas mecánicas japonesas y coreanas más populares del planeta (Toyota VVT-i, Nissan HR/QR, Honda VTEC, Hyundai Gamma/Nu). Tablas de tolerancia de bujías finas, torques de culata y diagramas de distribución.',
@@ -392,20 +392,20 @@
         brands: ['Toyota', 'Nissan', 'Honda', 'Hyundai', 'Kia', 'Mazda', 'Mitsubishi'],
         actionText: 'Ver especificaciones de afinación',
         actionId: 'spark',
-        pin: { x: 680, y: 170, lx: 14, ly: 4, anchor: 'start' },
+        pin: { x: 790, y: 130, lx: -12, ly: 4, anchor: 'end' },
       },
       {
         id: 'global_emergente',
         scope: 'global',
-        flag: '🇨🇳 🌐',
+        codes: ['CN', 'IN'],
         name: 'Nuevos Fabricantes Globales',
-        hubs: 'Shanghái · Shenzhen · Wuhu · Chongqing',
-        purpose: 'Soporte especializado para el rápido crecimiento de marcas de exportación global (Chery, JAC, Changan, Geely, BYD, MG, Dongfeng). Proporciona equivalencias de bombas y módulos cuando el repuesto original de concesionario tiene tiempos de entrega prolongados.',
-        pressure: '3.5 - 4.0 Bar en riel · Caudal nominal: 100 - 160 LPH',
-        brands: ['Chery', 'JAC', 'Changan', 'Geely', 'Great Wall / Haval', 'MG'],
-        actionText: 'Consultar repuestos equivalentes',
+        hubs: 'Wuhan · Shanghái · Pune · Chennai',
+        purpose: 'Sistemas de inyección Bosch / Delphi adaptados para nuevas marcas emergentes con alta penetración en Latinoamérica. Diagnóstico de protocolos propietarios y bombas sumergibles de reemplazo directo.',
+        pressure: '3.5 - 4.5 Bar · Módulos integrados con regulador interno',
+        brands: ['Chery', 'JAC', 'Changan', 'Great Wall / Haval', 'MG / SAIC', 'Geely', 'BAIC'],
+        actionText: 'Buscar cruces de repuestos',
         actionId: 'cross',
-        pin: { x: 625, y: 205, lx: 0, ly: 16, anchor: 'middle' },
+        pin: { x: 680, y: 180, lx: 0, ly: 14, anchor: 'middle' },
       },
     ];
 
@@ -634,21 +634,41 @@
           <section class="home-map-section">
             <div class="home-map-inner">
               <div class="home-map-head">
-                <span class="eyebrow"><${CatIc} n="MapPin" s=${14} /> COBERTURA TÉCNICA & MERCADOS</span>
-                <h2>Calibrado para Toda América, Compatible con el Resto del Mundo</h2>
-                <p>Diseñado desde la realidad de taller en las Américas: variaciones de calidad de combustible, sedimentación en tanque, altitudes andinas sobre 2.600 msnm, mezclas con etanol y adaptaciones de bombas sumergibles. A su vez, nuestra arquitectura técnica se extiende y aplica a plataformas motrices de cualquier mercado global.</p>
+                <h2 class="home-map-title">Calibrado para Toda América, <span class="home-map-title-sub">Compatible con el Resto del Mundo</span></h2>
+                <p class="home-map-desc">Desarrollado desde la realidad operativa del taller mecánico en las Américas: pérdidas de presión barométrica en altitudes andinas (hasta 3.800 msnm), combustibles con sedimentación e impurezas en tanque, mezclas con etanol (E20 a E100) y adaptaciones de bombas sumergibles universales. A su vez, nuestra base técnica se homologa con los estándares de inyección y riel de los principales fabricantes de Europa, Asia y mercados globales.</p>
+              </div>
+
+              <div class="home-map-metrics">
+                <div class="map-metric-item">
+                  <span class="map-metric-lbl">Altitud Operativa</span>
+                  <strong class="map-metric-val">0 a 3.800 msnm</strong>
+                </div>
+                <div class="map-metric-item">
+                  <span class="map-metric-lbl">Combustibles</span>
+                  <strong class="map-metric-val">E0 · E20 · E100 · Diésel</strong>
+                </div>
+                <div class="map-metric-item">
+                  <span class="map-metric-lbl">Inyección y Riel</span>
+                  <strong class="map-metric-val">MFI · CSFI · GDI</strong>
+                </div>
+                <div class="map-metric-item">
+                  <span class="map-metric-lbl">Filtrado Crítico</span>
+                  <strong class="map-metric-val">70 a 100 micras</strong>
+                </div>
               </div>
 
               <div class="home-map-scope-tabs" role="tablist" aria-label="Alcance geográfico">
                 <button type="button"
                         class=${'scope-tab-btn' + (mapScope === 'america' ? ' is-active' : '')}
                         onClick=${() => { setMapScope('america'); if (currentReg.scope !== 'america') setActiveRegion('andina'); }}>
-                  <span>📍 Toda América (Cobertura Principal)</span>
+                  <span class="scope-tab-title">Toda América</span>
+                  <span class="scope-tab-badge">Cobertura Principal</span>
                 </button>
                 <button type="button"
                         class=${'scope-tab-btn' + (mapScope === 'global' ? ' is-active' : '')}
                         onClick=${() => { setMapScope('global'); if (currentReg.scope !== 'global') setActiveRegion('europa'); }}>
-                  <span>🌐 Alcance Global (Resto del Mundo)</span>
+                  <span class="scope-tab-title">Alcance Global</span>
+                  <span class="scope-tab-badge">Resto del Mundo</span>
                 </button>
               </div>
 
@@ -664,79 +684,81 @@
                     `)}
                   </div>
 
-                  <svg class="map-interactive-svg" viewBox="0 0 760 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mapa cartográfico técnico de cobertura automotriz">
-                    <defs>
-                      <linearGradient id="mapOcean" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="var(--panel)" stop-opacity="0.3" />
-                        <stop offset="100%" stop-color="var(--bg)" stop-opacity="0.7" />
-                      </linearGradient>
-                    </defs>
+                  ${(() => {
+                    const G = (typeof window !== 'undefined' && window.FT_GEO) ? window.FT_GEO : {};
+                    return html`
+                      <svg class="map-interactive-svg" viewBox="0 0 840 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mapa cartográfico técnico de cobertura automotriz">
+                        <defs>
+                          <linearGradient id="mapOcean" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="var(--panel)" stop-opacity="0.3" />
+                            <stop offset="100%" stop-color="var(--bg)" stop-opacity="0.7" />
+                          </linearGradient>
+                        </defs>
 
-                    <!-- Fondo y retícula técnica -->
-                    <rect width="760" height="440" fill="url(#mapOcean)" rx="8" />
-                    <line x1="60" y1="120" x2="700" y2="120" class="map-svg-grid" />
-                    <line x1="60" y1="220" x2="700" y2="220" class="map-svg-grid" />
-                    <line x1="60" y1="320" x2="700" y2="320" class="map-svg-grid" />
-                    <line x1="195" y1="40" x2="195" y2="420" class="map-svg-grid" />
-                    <line x1="360" y1="40" x2="360" y2="420" class="map-svg-grid" />
-                    <line x1="520" y1="40" x2="520" y2="420" class="map-svg-grid" />
-                    <text x="70" y="215" font-size="9" fill="var(--muted)" font-family="var(--font)">Ecuador 0°</text>
-                    <text x="70" y="115" font-size="9" fill="var(--muted)" font-family="var(--font)">Trópico de Cáncer</text>
-                    <text x="70" y="315" font-size="9" fill="var(--muted)" font-family="var(--font)">Trópico de Capricornio</text>
+                        <!-- Fondo y retícula técnica -->
+                        <rect width="840" height="420" fill="url(#mapOcean)" rx="8" />
+                        <line x1="30" y1="114" x2="810" y2="114" class="map-svg-grid" />
+                        <line x1="30" y1="233" x2="810" y2="233" class="map-svg-grid" />
+                        <line x1="30" y1="335" x2="810" y2="335" class="map-svg-grid" />
+                        <text x="40" y="228" font-size="9" fill="var(--muted)" font-family="var(--font)">Ecuador 0°</text>
+                        <text x="40" y="109" font-size="9" fill="var(--muted)" font-family="var(--font)">Trópico de Cáncer 23.5°N</text>
+                        <text x="40" y="330" font-size="9" fill="var(--muted)" font-family="var(--font)">Trópico de Capricornio 23.5°S</text>
 
-                    <!-- Siluetas continentales (Vector plano estilizado) -->
-                    <!-- Europa -->
-                    <path class=${'map-svg-land map-svg-land--world' + (activeRegion === 'europa' ? ' map-svg-land--highlight' : '')}
-                          d="M 450 115 L 475 105 L 505 110 L 525 130 L 515 155 L 485 165 L 465 155 L 450 140 Z" />
-                    <!-- África -->
-                    <path class="map-svg-land map-svg-land--world"
-                          d="M 460 180 L 510 180 L 530 220 L 525 280 L 495 330 L 470 290 L 455 230 Z" />
-                    <!-- Asia & Plataformas globales -->
-                    <path class=${'map-svg-land map-svg-land--world' + ((activeRegion === 'asia' || activeRegion === 'global_emergente') ? ' map-svg-land--highlight' : '')}
-                          d="M 530 110 L 610 95 L 690 115 L 720 155 L 705 210 L 650 235 L 590 220 L 550 170 Z" />
+                        <!-- Continentes base (África y Oceanía) -->
+                        <path class="map-svg-land map-svg-land--world" d=${(G.pathAfrica || '') + ' ' + (G.pathAustralia || '')} />
 
-                    <!-- Silueta destacada: TODA AMÉRICA -->
-                    <!-- América del Norte -->
-                    <path class=${'map-svg-land' + (activeRegion === 'norteamerica' ? ' map-svg-land--highlight' : '')}
-                          d="M 120 70 L 160 55 L 210 50 L 250 65 L 295 80 L 290 120 L 260 135 L 275 160 L 285 195 L 255 205 L 235 225 L 210 240 L 195 245 L 180 230 L 165 210 L 155 180 L 140 160 L 125 120 Z" />
-                    <!-- Centroamérica & Caribe -->
-                    <path class=${'map-svg-land' + (activeRegion === 'centroamerica' ? ' map-svg-land--highlight' : '')}
-                          d="M 195 245 L 215 250 L 235 265 L 245 272 L 238 276 L 220 266 L 205 255 Z" />
-                    <path class="map-svg-land" d="M 235 238 Q 248 240 258 245 M 264 248 Q 275 250 282 254" stroke="var(--accent)" stroke-width="2" fill="none" />
-                    <!-- América del Sur -->
-                    <path class=${'map-svg-land' + ((activeRegion === 'andina' || activeRegion === 'conosur') ? ' map-svg-land--highlight' : '')}
-                          d="M 238 276 L 260 272 L 280 278 L 305 288 L 340 315 L 355 345 L 340 375 L 305 385 L 285 410 L 265 415 L 250 380 L 240 345 L 235 315 L 230 290 Z" />
+                        <!-- Regiones cartográficas interactivas (Geometría real Natural Earth) -->
+                        <!-- América del Norte -->
+                        <path class=${'map-svg-land' + (activeRegion === 'norteamerica' ? ' map-svg-land--highlight' : '')}
+                              d=${G.pathNA || ''} />
+                        <!-- Centroamérica y Caribe -->
+                        <path class=${'map-svg-land' + (activeRegion === 'centroamerica' ? ' map-svg-land--highlight' : '')}
+                              d=${G.pathCA || ''} />
+                        <!-- América del Sur -->
+                        <path class=${'map-svg-land' + ((activeRegion === 'andina' || activeRegion === 'conosur') ? ' map-svg-land--highlight' : '')}
+                              d=${G.pathSA || ''} />
+                        <!-- Europa -->
+                        <path class=${'map-svg-land map-svg-land--world' + (activeRegion === 'europa' ? ' map-svg-land--highlight' : '')}
+                              d=${G.pathEurope || ''} />
+                        <!-- Asia -->
+                        <path class=${'map-svg-land map-svg-land--world' + ((activeRegion === 'asia' || activeRegion === 'global_emergente') ? ' map-svg-land--highlight' : '')}
+                              d=${G.pathAsia || ''} />
 
-                    <!-- Enlaces de extensión global (arcos de tecnología compartida) -->
-                    <path d="M 260 200 Q 360 130 480 140" fill="none" class="map-svg-link" />
-                    <path d="M 270 320 Q 420 240 620 180" fill="none" class="map-svg-link" />
-                    <path d="M 160 180 Q 90 90 40 80" fill="none" class="map-svg-link" />
-                    <path d="M 720 120 Q 670 150 640 190" fill="none" class="map-svg-link" />
+                        <!-- Enlaces tecnológicos compartidos entre América y mercados globales -->
+                        <path d="M 200 180 Q 320 100 445 100" fill="none" class="map-svg-link" />
+                        <path d="M 261 224 Q 420 180 620 200" fill="none" class="map-svg-link" />
+                        <path d="M 300 329 Q 460 280 685 145" fill="none" class="map-svg-link" />
 
-                    <!-- Marcadores interactivos (Pins con posicionamiento anti-colisión) -->
-                    ${MAP_REGIONS.map(reg => {
-                      const isSel = activeRegion === reg.id;
-                      return html`
-                        <g class=${'map-pin' + (isSel ? ' is-active' : '')}
-                           onClick=${() => { setActiveRegion(reg.id); setMapScope(reg.scope); }}
-                           key=${reg.id} transform=${'translate(' + reg.pin.x + ', ' + reg.pin.y + ')'}>
-                          ${isSel && html`<circle cx="0" cy="0" r="14" class="map-pin-pulse" />`}
-                          <circle cx="0" cy="0" r=${isSel ? 6.5 : 4.5} class="map-pin-core" />
-                          <text x=${reg.pin.lx || 0} y=${reg.pin.ly || -10} text-anchor=${reg.pin.anchor || 'middle'} class="map-pin-label">${reg.name}</text>
-                        </g>
-                      `;
-                    })}
-                  </svg>
+                        <!-- Marcadores interactivos -->
+                        ${MAP_REGIONS.map(reg => {
+                          const isSel = activeRegion === reg.id;
+                          return html`
+                            <g class=${'map-pin' + (isSel ? ' is-active' : '')}
+                               onClick=${() => { setActiveRegion(reg.id); setMapScope(reg.scope); }}
+                               key=${reg.id} transform=${'translate(' + reg.pin.x + ', ' + reg.pin.y + ')'}>
+                              ${isSel && html`<circle cx="0" cy="0" r="14" class="map-pin-pulse" />`}
+                              <circle cx="0" cy="0" r=${isSel ? 6.5 : 4.5} class="map-pin-core" />
+                              <text x=${reg.pin.lx || 0} y=${reg.pin.ly || -10} text-anchor=${reg.pin.anchor || 'middle'} class="map-pin-label">${reg.name}</text>
+                            </g>
+                          `;
+                        })}
+                      </svg>
+                    `;
+                  })()}
                 </div>
 
                 <div class="home-map-detail">
                   <span class="map-detail-badge">
-                    ${currentReg.scope === 'america' ? 'Cobertura Central · América' : 'Compatibilidad · Resto del Mundo'}
+                    ${currentReg.scope === 'america' ? 'Cobertura Principal · América' : 'Extensión de Mercado · Resto del Mundo'}
                   </span>
                   <div class="map-detail-head">
-                    <span class="map-detail-flag">${currentReg.flag}</span>
-                    <div>
-                      <h3 class="map-detail-title">${currentReg.name}</h3>
+                    <div class="map-detail-title-box">
+                      <div class="map-detail-title-row">
+                        <h3 class="map-detail-title">${currentReg.name}</h3>
+                        <div class="map-detail-codes">
+                          ${(currentReg.codes || []).map(code => html`<span class="map-code-tag" key=${code}>${code}</span>`)}
+                        </div>
+                      </div>
                       <span class="map-detail-hubs">${currentReg.hubs}</span>
                     </div>
                   </div>

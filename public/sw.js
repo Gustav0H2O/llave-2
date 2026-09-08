@@ -24,9 +24,11 @@
        las necesita justo cuando algo va mal (sin red, por ejemplo).
    v13: reparación del useEffect sin abrir que tumbaba el home (commit d825673):
        microapps.js v8 con el archivo arreglado.
-   v14: mapa vectorial sutil de cobertura técnica para toda América y extensión global,
-       y restauración de la portada clásica editorial (hero-llave.webp). */
-const CACHE = 'llave-v14';
+    v14: mapa vectorial sutil de cobertura técnica para toda América y extensión global,
+        y restauración de la portada clásica editorial (hero-llave.webp).
+    v15: mapa cartográfico realista de alta fidelidad (Natural Earth 110m), eliminación
+        total de emojis y barra de métricas técnicas de taller. */
+const CACHE = 'llave-v15';
 const SHELL = [
   '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',
