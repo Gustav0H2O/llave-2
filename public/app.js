@@ -44,53 +44,53 @@ function useGarage() {
    sistema por el listener de abajo, que es lo que hacía el media query. */
 const THEME_KEY = 'llave_theme';
 const prefersDark = () => window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-const getTheme = () => { try { return localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) { return 'auto'; } };
+const getTheme = () => {
+  if (window.FT_THEME) return window.FT_THEME.get();
+  try { return localStorage.getItem(THEME_KEY) || (prefersDark() ? 'dark' : 'light'); } catch (e) { return prefersDark() ? 'dark' : 'light'; }
+};
 const applyTheme = (t) => {
+  if (window.FT_THEME) return window.FT_THEME.set(t);
   const dark = t === 'dark' || (t === 'auto' && prefersDark());
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* modo privado */ }
-  // La barra del navegador/PWA no lee variables CSS: hay que darle el color ya resuelto.
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove());
   const meta = document.createElement('meta');
   meta.name = 'theme-color';
   meta.content = dark ? '#111311' : '#F8F7F3';
   document.head.appendChild(meta);
-  window.dispatchEvent(new Event('ft-theme-change'));
+  window.dispatchEvent(new CustomEvent('ft-theme-change', { detail: { theme: dark ? 'dark' : 'light' } }));
 };
-/* Modo automático: repintar cuando el sistema cambia de tema. Antes lo hacía
-   el media query del CSS; ahora que el atributo manda siempre, hay que
-   reaplicarlo a mano. Solo mientras la preferencia guardada sea 'auto'. */
 if (window.matchMedia) {
   window.matchMedia('(prefers-color-scheme: dark)')
-    .addEventListener('change', () => { if (getTheme() === 'auto') applyTheme('auto'); });
+    .addEventListener('change', () => {
+      const p = getTheme();
+      if (!p || p === 'auto') applyTheme('auto');
+    });
 }
 
-/* Dos estados visibles, no tres. "Auto" seguía siendo un botón que había que
-   entender y elegir; ahora es el punto de partida y ya está: mientras nadie
-   toque nada, la preferencia guardada es 'auto' y la página sigue al sistema.
-   Al primer clic el usuario pasa a mandar él, y el botón marcado indica en qué
-   modo está — que es la pregunta que se hace de verdad ("¿está en claro o en
-   oscuro?"), no cuál de tres políticas está activa. */
 function ThemeSwitch() {
-  const [theme, setTheme] = useState(getTheme);
-  const pick = (t) => { applyTheme(t); setTheme(t); track('tema_cambiar', { tema: t }); };
-  /* Mientras la preferencia sea 'auto', el sistema puede cambiar de tema por su
-     cuenta (anochece, o el usuario lo cambia en Windows). El listener global
-     reaplica el tema y avisa con `ft-theme-change`; sin escucharlo aquí, el
-     botón marcado se quedaría en el modo anterior. */
+  const [theme, setTheme] = useState(() => (window.FT_THEME ? window.FT_THEME.get() : getTheme()));
+  const pick = (t) => {
+    if (window.FT_THEME) window.FT_THEME.set(t);
+    else applyTheme(t);
+    setTheme(t);
+    track('tema_cambiar', { tema: t });
+  };
   const [, refrescar] = useState(0);
   useEffect(() => {
-    const alCambiar = () => refrescar(n => n + 1);
+    const alCambiar = (e) => {
+      const t = e?.detail?.theme || (window.FT_THEME ? window.FT_THEME.get() : getTheme());
+      if (t) setTheme(t);
+      refrescar(n => n + 1);
+    };
     window.addEventListener('ft-theme-change', alCambiar);
     return () => window.removeEventListener('ft-theme-change', alCambiar);
   }, []);
-  /* En 'auto' no hay preferencia explícita, así que se marca el que se está
-     viendo: el que el sistema pide. Así el control nunca aparece "apagado". */
-  const activo = theme === 'auto' ? (prefersDark() ? 'dark' : 'light') : theme;
   const opt = (id, icon, label) => html`
-    <button type="button" onClick=${() => pick(id)} aria-pressed=${activo === id}
+    <button type="button" class=${'theme-btn' + (theme === id ? ' is-active' : '')}
+            onClick=${() => pick(id)} aria-pressed=${theme === id}
             title=${'Modo de color: ' + label} aria-label=${'Modo de color: ' + label}>
-      <${Icon} name=${icon} size=${15} /> <span>${label}</span>
+      <${Icon} name=${icon} size=${13} />
     </button>`;
   return html`
     <div class="theme-switch" role="group" aria-label="Modo de color">
@@ -233,6 +233,7 @@ const MARK_ICONS = {
   Play: 'Play', Pause: 'Pause', ArrowRight: 'ArrowRight', ArrowLeft: 'ArrowLeft',
   Menu: 'Menu', Home: 'House', LogOut: 'LogOut', Download: 'Download',
   Clock: 'Clock', Close: 'X', Upload: 'Upload', LayoutGrid: 'LayoutGrid',
+  Sun: 'Sun', Moon: 'Moon',
 };
 /* Se conserva el nombre MarkIcon: lo usan app.js, microapps.js y
    microapps-taller.js en ~40 sitios, y window.FT_APP.MarkIcon es el puente. */

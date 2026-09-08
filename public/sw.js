@@ -27,8 +27,10 @@
     v14: mapa vectorial sutil de cobertura técnica para toda América y extensión global,
         y restauración de la portada clásica editorial (hero-llave.webp).
     v15: mapa cartográfico realista de alta fidelidad (Natural Earth 110m), eliminación
-        total de emojis y barra de métricas técnicas de taller. */
-const CACHE = 'llave-v15';
+        total de emojis y barra de métricas técnicas de taller.
+    v16: switch dual compacto de modo claro/oscuro con detección por defecto, mejora
+        de perfil con avatar y prevención de desborde del botón salir. */
+const CACHE = 'llave-v16';
 const SHELL = [
   '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',

@@ -475,6 +475,28 @@
       };
     }, [hoja]);
 
+    const [themeActive, setThemeActive] = useState(() => {
+      if (window.FT_THEME) return window.FT_THEME.get();
+      return document.documentElement.getAttribute('data-theme') || 'light';
+    });
+    useEffect(() => {
+      const onTheme = (e) => {
+        const t = e?.detail?.theme || (window.FT_THEME ? window.FT_THEME.get() : document.documentElement.getAttribute('data-theme'));
+        if (t) setThemeActive(t);
+      };
+      window.addEventListener('ft-theme-change', onTheme);
+      return () => window.removeEventListener('ft-theme-change', onTheme);
+    }, []);
+    const cambiarTema = (t) => {
+      if (window.FT_THEME) window.FT_THEME.set(t);
+      else {
+        document.documentElement.setAttribute('data-theme', t);
+        try { localStorage.setItem('llave_theme', t); } catch (e) {}
+        window.dispatchEvent(new CustomEvent('ft-theme-change', { detail: { theme: t } }));
+      }
+      setThemeActive(t);
+    };
+
     const card = (a) => html`<button type="button" class="micro-card micro-card-app" onClick=${() => abrir(a)} key=${a.id}>
         <span class="micro-card-icon"><${Ic} n=${a.i} s=${24} /></span>
         <span class="micro-card-title">${a.t}${lock(a) ? html`<em class="micro-card-lock">Cuenta</em>` : ''}</span>
@@ -506,23 +528,32 @@
               onClick=${() => setQ('')}><${CatIc} n="Close" s=${16} /></button>`}
           </div>
           <div class="home-nav-user">
-            <div class="theme-switch" role="radiogroup" aria-label="Tema visual">
-              ${[['auto', 'Auto', 'SunMoon'], ['light', 'Claro', 'Sun'], ['dark', 'Oscuro', 'Moon']].map(([mode, label, icon]) => html`
-                <button type="button" key=${mode} role="radio"
-                  aria-checked=${window.FT_THEME && window.FT_THEME.getPreference() === mode}
-                  class=${'theme-btn' + (window.FT_THEME && window.FT_THEME.getPreference() === mode ? ' active' : '')}
-                  onClick=${() => { if (window.FT_THEME) { window.FT_THEME.set(mode); setTimeout(() => onUserChange && onUserChange(user), 0); } }}
-                  title=${label} aria-label=${label}>
-                  <${CatIc} n=${icon} s=${14} />
-                </button>`)}
+            <div class="theme-switch" role="group" aria-label="Modo de color">
+              <button type="button"
+                class=${'theme-btn' + (themeActive === 'light' ? ' is-active' : '')}
+                aria-pressed=${themeActive === 'light'}
+                onClick=${() => cambiarTema('light')}
+                title="Modo claro" aria-label="Modo claro">
+                <${CatIc} n="Sun" s=${13} />
+              </button>
+              <button type="button"
+                class=${'theme-btn' + (themeActive === 'dark' ? ' is-active' : '')}
+                aria-pressed=${themeActive === 'dark'}
+                onClick=${() => cambiarTema('dark')}
+                title="Modo oscuro" aria-label="Modo oscuro">
+                <${CatIc} n="Moon" s=${13} />
+              </button>
             </div>
             ${user ? html`
-              <span class="home-nav-user-box">
-                <button type="button" class="home-nav-user-email" onClick=${() => onOpen('profile')}
-                  title="Cuenta de taller y perfil">${user.email || 'Mi cuenta'}</button>
-                <button type="button" class="home-nav-logout" onClick=${() => { if (confirm('¿Cerrar sesión?')) onLogout(); }}
-                  title="Cerrar sesión en este dispositivo"
-                  aria-label="Cerrar sesión">
+              <span class="home-nav-who">
+                <button type="button" class="home-nav-who-btn" onClick=${() => onOpen('profile')}
+                  title="Perfil y cuenta de taller" aria-label="Abrir Mi taller">
+                  <span class="home-nav-who-avatar" aria-hidden="true"><${CatIc} n="Store" s=${12} /></span>
+                  <span class="home-nav-who-name">${user.name || user.email || 'Mi taller'}</span>
+                  <span class="home-nav-who-chevron" aria-hidden="true"><${CatIc} n="ChevronDown" s=${11} /></span>
+                </button>
+                <button type="button" class="home-nav-logout" onClick=${() => { if (confirm('¿Cerrar sesión en este dispositivo?')) onLogout(); }}
+                  title="Cerrar sesión en este dispositivo" aria-label="Cerrar sesión">
                   <${CatIc} n="LogOut" s=${14} />
                   <span class="home-nav-logout-label">Salir</span>
                 </button>

@@ -11,20 +11,46 @@
 <meta name="theme-color" content="#F8F7F3" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#111311" media="(prefers-color-scheme: dark)">
 <script>
-/* Tema: se resuelve ANTES del primer pintado para que no haya destello.
-   Va inline y sin defer a propósito — un archivo externo llegaría tarde.
-   El default es "light" (lienzo editorial #F8F7F3). El usuario puede
-   elegir dark o auto (que sigue la preferencia del sistema) desde el
-   selector de tema en el panel lateral. */
+/* Tema visual: se resuelve ANTES del primer pintado para evitar destellos (FOUC).
+   Por defecto detecta la preferencia del sistema a menos que haya una elección explícita. */
 (function () {
-  try {
-    var pref = localStorage.getItem('llave_theme');        // 'light' | 'dark' | 'auto' | null
-    if (pref === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-    else if (pref === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
-      document.documentElement.setAttribute('data-theme', 'dark');
-    else document.documentElement.setAttribute('data-theme', 'light');
-  } catch (e) {
-    document.documentElement.setAttribute('data-theme', 'light');
+  function detect() {
+    try {
+      var p = localStorage.getItem('llave_theme');
+      if (p === 'dark' || p === 'light') return p;
+    } catch (e) {}
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+  var theme = detect();
+  document.documentElement.setAttribute('data-theme', theme);
+  window.FT_THEME = {
+    get: detect,
+    set: function (t) {
+      var val = (t === 'dark' || t === 'light') ? t : detect();
+      document.documentElement.setAttribute('data-theme', val);
+      try { localStorage.setItem('llave_theme', val); } catch (e) {}
+      try {
+        document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) { m.remove(); });
+        var meta = document.createElement('meta');
+        meta.name = 'theme-color';
+        meta.content = val === 'dark' ? '#111311' : '#F8F7F3';
+        document.head.appendChild(meta);
+      } catch (e) {}
+      window.dispatchEvent(new CustomEvent('ft-theme-change', { detail: { theme: val } }));
+      return val;
+    },
+    toggle: function () {
+      var cur = document.documentElement.getAttribute('data-theme') || detect();
+      return this.set(cur === 'dark' ? 'light' : 'dark');
+    }
+  };
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+      try {
+        var p = localStorage.getItem('llave_theme');
+        if (!p || p === 'auto') window.FT_THEME.set(e.matches ? 'dark' : 'light');
+      } catch (err) {}
+    });
   }
 })();
 </script>
@@ -469,26 +495,28 @@
      palabra "llave" en SVG, escalada. Mismo SVG, mismo currentColor. */
   .logo-mark { height: var(--logo-h-s); width: auto; flex: none; color: var(--accent); }
 
-  /* ---------- selector de tema ----------
-     Tres estados explícitos (auto / claro / oscuro) en vez de un interruptor de
-     dos: "auto" es el que quiere la mayoría, y sin él elegir manualmente una vez
-     dejaría al usuario clavado en ese tema para siempre. */
+  /* ---------- selector de tema (switch dual claro/oscuro) ---------- */
   .theme-switch {
-    display: flex; gap: 2px; padding: 3px; margin: 0 auto 26px;
+    display: inline-flex; align-items: center; gap: 2px; padding: 2px; margin: 0;
     background: var(--panel2); border: 1px solid var(--border); border-radius: var(--r-full);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.05); flex: none;
   }
-  .theme-switch button {
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 7px 13px; border: none; border-radius: var(--r-full); cursor: pointer;
-    background: transparent; color: var(--muted); touch-action: manipulation;
-    font: 700 9.5px var(--font); letter-spacing: 1.4px; text-transform: none;
-    transition: background .18s, color .18s;
+  .theme-switch button, .theme-switch .theme-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 26px; padding: 0; border: none; border-radius: var(--r-full);
+    cursor: pointer; background: transparent; color: var(--muted); touch-action: manipulation;
+    transition: background .16s, color .16s, box-shadow .16s;
   }
-  .theme-switch button:hover { color: var(--text); }
-  .theme-switch button[aria-pressed="true"] {
+  .theme-switch button:hover, .theme-switch .theme-btn:hover { color: var(--text); }
+  .theme-switch button[aria-pressed="true"],
+  .theme-switch button.is-active,
+  .theme-switch .theme-btn.is-active {
     background: var(--accent-fill); color: var(--accent-ink);
+    box-shadow: 0 1px 3px rgba(0,0,0,.15);
   }
-  .theme-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .theme-switch button:focus-visible, .theme-switch .theme-btn:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
 
   /* ---------- toast de confirmación ----------
      Copiar un enlace o guardar en el garage no cambiaba nada visible: sin
@@ -1380,100 +1408,78 @@
   /* ---- barra de menú superior ---- */
   .home-nav {
     position: sticky; top: 0; z-index: 50;
-    display: flex; align-items: center; gap: 14px;
-    /* El logotipo tiene que caer en el MISMO eje que el titular del hero y que
-       el logotipo del pie. Los tres bloques centran su contenido en 1280 px,
-       pero la barra iba a un relleno fijo de 22 px, así que arrancaba 58 px
-       antes que todo lo demás y la página se leía descuadrada de arriba abajo.
-       El `max()` mantiene los 22 px como mínimo en pantallas estrechas. */
-    padding: 15px max(clamp(20px, 5vw, 40px), calc((100% - 1280px) / 2));
-    background: var(--bg-glass); backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px max(clamp(16px, 4vw, 32px), calc((100% - 1280px) / 2));
+    background: var(--bg-glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border); box-sizing: border-box; width: 100%; max-width: 100vw;
   }
-  .home-nav-logo { display: flex; align-items: center; gap: 0; color: var(--accent); }
+  .home-nav-logo { display: flex; align-items: center; gap: 0; color: var(--accent); flex-shrink: 0; }
   .home-nav-logo img { height: var(--logo-h-m); width: auto; }
-  /* NUNCA envuelve: con la marca, seis categorías, el buscador y la cuenta en
-     la misma barra, por debajo de ~1400 px los enlaces se iban a una segunda
-     fila y la barra pasaba de 79 a 125 px, con el logotipo flotando a media
-     altura de un bloque de dos pisos. Si no caben, se deslizan. */
   .home-nav-links {
     display: flex; align-items: center; gap: 4px; margin: 0 auto;
     flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain;
     scrollbar-width: none; -ms-overflow-style: none;
-    /* el degradado del borde avisa de que queda menú por ver */
     -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 16px), transparent 100%);
     mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 16px), transparent 100%);
   }
   .home-nav-links::-webkit-scrollbar { display: none; }
-  .home-nav-link { flex: none; }
   .home-nav-link {
     display: inline-flex; align-items: center; gap: 6px; cursor: pointer; touch-action: manipulation;
     background: none; border: 1px solid transparent; border-radius: var(--r); color: var(--muted);
-    font: 500 13px var(--font); letter-spacing: 0; padding: 8px 13px;
+    font: 500 13px var(--font); letter-spacing: 0; padding: 8px 12px; flex: none;
     transition: background .15s, color .15s, border-color .15s;
   }
   .home-nav-link:hover { background: var(--panel2); color: var(--text); }
   .home-nav-link.active { background: var(--accent-soft-2); color: var(--accent); border-color: var(--accent-dim); }
   .home-nav-ic { display: inline-flex; }
-  .home-nav-user { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
-  /* Selector de tema en la barra: el margen inferior de 26px que trae de serie
-     era para el panel de filtros; aquí lo alinea el flex. */
-  .home-nav .theme-switch { margin: 0; padding: 2px; flex: none; }
-  /* Sol y luna, sin etiqueta. El icono ya dice de qué va el control —es el
-     patrón que todo el mundo reconoce— y con el texto puesto la barra no cabe:
-     lleva marca, seis categorías, buscador y cuenta, y a 1440 px cortaba tanto
-     "Aprender" como "Iniciar sesión". El `title` y el `aria-label` de cada
-     botón, más el `aria-pressed` que marca cuál está activo, lo dejan claro
-     para el lector de pantalla y al pasar el ratón. */
-  .home-nav .theme-switch button { padding: 9px 12px; }
-  /* `:not(.icon)` no es un detalle: el icono TAMBIÉN es un <span> —así lo monta
-     el componente Icon, que le mete el SVG dentro— así que un `span { display:
-     none }` a secas escondía el sol y la luna junto con la etiqueta y dejaba el
-     control como una píldora vacía de 52x24 px. */
-  .home-nav .theme-switch button span:not(.icon) { display: none; }
-  .home-nav-who { display: inline-flex; align-items: center; gap: 8px; font: 600 11px var(--font); color: var(--muted); }
-  .home-nav-who-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* El nombre del taller es ahora la puerta a «Mi taller» (ver/editar cuenta).
-     Antes era un <span> informativo; al volverse botón necesita su propio
-     estilo: área táctil mínima, hover y foco visible como los demás controles
-     de la barra, y el chevron que anuncia que despliega una pantalla. */
+  .home-nav-user { display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0; min-width: 0; margin-left: auto; }
+  .home-nav .theme-switch { margin: 0; }
+  .home-nav-who { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; min-width: 0; }
   .home-nav-who-btn {
-    display: inline-flex; align-items: center; gap: 4px;
-    max-width: 170px; min-height: 36px; padding: 0 6px 0 10px;
-    background: transparent; border: 1px solid transparent; border-radius: var(--r-sm);
-    color: var(--ink); font: 600 12px var(--font); letter-spacing: 0; text-transform: none;
-    cursor: pointer; touch-action: manipulation;
-    transition: border-color .15s, background .15s, color .15s;
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 32px; padding: 0 10px 0 6px;
+    background: var(--panel2); border: 1px solid var(--border); border-radius: var(--r-full);
+    color: var(--text); font: 600 12px var(--font); letter-spacing: 0; text-transform: none;
+    cursor: pointer; touch-action: manipulation; max-width: 170px;
+    transition: border-color .15s, background .15s, color .15s, box-shadow .15s;
   }
-  .home-nav-who-btn:hover { border-color: var(--border-hi); background: var(--panel2); color: var(--accent); }
+  .home-nav-who-btn:hover {
+    border-color: var(--accent-dim); background: var(--panel); color: var(--accent);
+    box-shadow: 0 2px 6px rgba(0,0,0,.06);
+  }
   .home-nav-who-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .home-nav-who-btn:active { transform: translateY(1px); }
-  .home-nav-who-btn svg { flex: none; color: var(--muted); }
-  /* Botón dedicado de cerrar sesión. Antes era un link-btn minúsculo pegado
-     al nombre del taller: se deformaba en cualquier resize y el área tocable
-     quedaba bajo 30 px. Ahora es un botón con icono, separador visual y foco
-     visible: área de toque ≥ 36 px y borde claro al tabular. */
-  .home-nav-who-divider { width: 1px; height: 16px; background: var(--border); }
+  .home-nav-who-avatar {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--accent-soft-2); color: var(--accent);
+    display: inline-flex; align-items: center; justify-content: center; flex: none;
+  }
+  .home-nav-who-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .home-nav-who-chevron { display: inline-flex; align-items: center; color: var(--muted); flex: none; }
+  .home-nav-who-btn:hover .home-nav-who-chevron { color: var(--accent); }
   .home-nav-logout {
-    display: inline-flex; align-items: center; gap: 6px;
-    min-height: 36px; padding: 0 12px;
-    background: transparent; border: 1px solid var(--border); border-radius: var(--r-sm);
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    height: 32px; padding: 0 10px; flex: none; flex-shrink: 0;
+    background: transparent; border: 1px solid var(--border); border-radius: var(--r-full);
     color: var(--muted); font: 500 12px var(--font); letter-spacing: 0; text-transform: none;
     cursor: pointer; touch-action: manipulation;
     transition: color .15s, border-color .15s, background .15s;
   }
-  .home-nav-logout:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-soft); }
-  .home-nav-logout:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .home-nav-logout:hover {
+    color: #ef4444; border-color: rgba(239, 68, 68, .35); background: rgba(239, 68, 68, .08);
+  }
+  .home-nav-logout:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
   .home-nav-logout:active { transform: translateY(1px); }
   .home-nav-logout-label { display: inline; }
   .home-nav-login {
     display: inline-flex; align-items: center; cursor: pointer; touch-action: manipulation;
-    padding: 9px 15px; border-radius: var(--r-sm);
+    height: 32px; padding: 0 14px; border-radius: var(--r-full);
     background: var(--accent-fill); border: 1px solid var(--accent-fill); color: var(--accent-ink);
-    font: 500 13px var(--font); letter-spacing: 0; text-transform: none;
-    transition: filter .15s;
+    font: 600 12.5px var(--font); letter-spacing: 0; text-transform: none;
+    transition: filter .15s, transform .15s; flex-shrink: 0;
   }
-  .home-nav-login:hover { filter: brightness(1.1); }
+  .home-nav-login:hover { filter: brightness(1.08); }
+  .home-nav-login:active { transform: translateY(1px); }
 
   /* ---- cuerpo ---- */
   .home-body { max-width: 1200px; margin: 0 auto; padding: clamp(36px, 5vw, 60px) clamp(18px, 3vw, 24px) 88px; }
@@ -2978,17 +2984,17 @@
     /* ── 3. Cabecera superior: solo marca y cuenta ────────────────── */
     /* Envuelve a propósito: marca y cuenta en la primera fila, el buscador
        entero en la segunda. Con `nowrap` el campo se quedaba en 90 px. */
-    .home-nav { padding: 10px 20px 12px; gap: 10px 12px; flex-wrap: wrap; }
+    .home-nav { padding: 10px 16px 12px; gap: 8px 10px; flex-wrap: wrap; }
     .home-nav-links { display: none; }
-    .home-buscador { order: 3; flex: 1 1 100%; max-width: none; }
-    .home-nav-user { margin-left: auto; }
-    .home-nav-logo img { height: 28px; }
-    .home-nav-login { padding: 10px 14px; font-size: 12.5px; }
-    .home-nav-who { font-size: 12px; }
-    .home-nav-who-name { max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .home-nav-who-btn { max-width: 42vw; min-height: 44px; padding: 0 4px 0 8px; font-size: 12px; }
-    .home-nav-who-divider { display: none; }
-    .home-nav-logout { padding: 0 10px; min-height: 36px; }
+    .home-buscador { order: 3; flex: 1 1 100%; max-width: none; margin-top: 2px; }
+    .home-nav-user { margin-left: auto; gap: 6px; }
+    .home-nav-logo img { height: 26px; }
+    .home-nav-login { height: 32px; padding: 0 12px; font-size: 12px; }
+    .home-nav-who { font-size: 12px; gap: 6px; }
+    .home-nav-who-btn { max-width: 120px; height: 32px; padding: 0 8px 0 5px; font-size: 11.5px; }
+    .home-nav-who-name { max-width: 68px; }
+    .home-nav-who-chevron { display: none; }
+    .home-nav-logout { width: 32px; height: 32px; padding: 0; }
     .home-nav-logout-label { display: none; }
 
     /* ── 4. Grilla de herramientas ────────────────────────────────── */
@@ -3364,7 +3370,7 @@
      desestructura de window.FT_DATOS al evaluarse. Si se cargara después,
      saldrían todas vacías y sin un solo error que lo delatara. -->
 <script src="/datos.js?v=2"></script>
-<script src="/microapps.js?v=11"></script>
+<script src="/microapps.js?v=12"></script>
 <script src="/microapps-taller.js?v=6"></script>
 <script src="/app.js?v=11"></script>
 </body>
