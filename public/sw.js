@@ -29,8 +29,10 @@
     v15: mapa cartográfico realista de alta fidelidad (Natural Earth 110m), eliminación
         total de emojis y barra de métricas técnicas de taller.
     v16: switch dual compacto de modo claro/oscuro con detección por defecto, mejora
-        de perfil con avatar y prevención de desborde del botón salir. */
-const CACHE = 'llave-v16';
+        de perfil con avatar y prevención de desborde del botón salir.
+    v17: sección editorial de aportes comunitarios (Ko-fi, Buy Me a Coffee, Binance Pay/USDT)
+        en inicio, acceso desde hoja móvil y pie sin elementos intrusivos. */
+const CACHE = 'llave-v17';
 const SHELL = [
   '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',

@@ -497,6 +497,13 @@
       setThemeActive(t);
     };
 
+    const [verCrypto, setVerCrypto] = useState(false);
+    const [copiado, setCopiado] = useState('');
+    const don = window.FT_DONACIONES || {};
+    const copiar = (txt, id) => {
+      try { navigator.clipboard.writeText(txt); setCopiado(id); setTimeout(() => setCopiado(''), 2200); } catch (e) {}
+    };
+
     const card = (a) => html`<button type="button" class="micro-card micro-card-app" onClick=${() => abrir(a)} key=${a.id}>
         <span class="micro-card-icon"><${Ic} n=${a.i} s=${24} /></span>
         <span class="micro-card-title">${a.t}${lock(a) ? html`<em class="micro-card-lock">Cuenta</em>` : ''}</span>
@@ -889,6 +896,10 @@
               <span class="home-sheet-ic"><${CatIc} n="Store" s=${20} /></span>
               <span><strong>Mi taller</strong><em>${user ? 'Ver y editar los datos de tu cuenta' : 'Entra o crea tu cuenta'}</em></span>
             </button>
+            <button type="button" class="home-sheet-item" onClick=${() => { setHoja(false); document.getElementById('apoyar')?.scrollIntoView({ behavior: 'smooth' }); }}>
+              <span class="home-sheet-ic"><${CatIc} n="Heart" s=${20} /></span>
+              <span><strong>Apoyar la evolución de llave</strong><em>Ko-fi, Buy Me a Coffee o Binance</em></span>
+            </button>
             ${user && html`
               <button type="button" class="home-sheet-item" onClick=${() => { setHoja(false); if (confirm('¿Cerrar sesión en este dispositivo?')) onLogout(); }}>
                 <span class="home-sheet-ic"><${CatIc} n="LogOut" s=${20} /></span>
@@ -897,6 +908,53 @@
             <button type="button" class="home-sheet-cerrar" onClick=${() => setHoja(false)}>Cerrar</button>
           </div>`}
 
+        <section class="home-support" id="apoyar">
+          <div class="home-support-card">
+            <div class="home-support-badge">
+              <span class="home-support-dot" aria-hidden="true"></span>
+              <span>COMUNIDAD & EVOLUCIÓN</span>
+            </div>
+            <h2 class="home-support-title">¿Te gusta llave? Apoya su evolución</h2>
+            <p class="home-support-desc">
+              llave se mantiene libre de publicidad para que consultes rápido en el taller. Si las herramientas te ahorran tiempo valioso y deseas que sigamos incorporando más marcas, manuales y utilidades, tu apoyo voluntario impulsa el proyecto.
+            </p>
+            <div class="home-support-actions">
+              <a href=${don.kofi} target="_blank" rel="noopener noreferrer" class="support-btn support-btn--kofi" title="Donar en Ko-fi con tarjeta o Apple/Google Pay">
+                <span class="support-btn-ic"><${CatIc} n="Coffee" s=${15} /></span>
+                <span>Apoyar en Ko-fi</span>
+              </a>
+              <a href=${don.buymeacoffee} target="_blank" rel="noopener noreferrer" class="support-btn support-btn--bmc" title="Invitar un café en Buy Me a Coffee">
+                <span class="support-btn-ic"><${CatIc} n="Heart" s=${15} /></span>
+                <span>Buy Me a Coffee</span>
+              </a>
+              <button type="button" class=${'support-btn support-btn--binance' + (verCrypto ? ' is-active' : '')} onClick=${() => setVerCrypto(v => !v)} title="Binance Pay & Crypto">
+                <span class="support-btn-ic"><${CatIc} n="Zap" s=${15} /></span>
+                <span>Binance Pay / USDT</span>
+              </button>
+            </div>
+            ${verCrypto && html`
+              <div class="support-crypto-box">
+                <div class="support-crypto-row">
+                  <span class="support-crypto-lbl">Binance Pay ID:</span>
+                  <code class="support-crypto-code">${don.binance?.payId}</code>
+                  <button type="button" class="support-copy-btn" onClick=${() => copiar(don.binance?.payId, 'payid')}>
+                    <${CatIc} n=${copiado === 'payid' ? 'Check' : 'Copy'} s=${13} />
+                    <span>${copiado === 'payid' ? 'Copiado' : 'Copiar'}</span>
+                  </button>
+                </div>
+                <div class="support-crypto-row">
+                  <span class="support-crypto-lbl">USDT (BEP20 / BSC):</span>
+                  <code class="support-crypto-code support-crypto-code--addr">${don.binance?.usdtBsc}</code>
+                  <button type="button" class="support-copy-btn" onClick=${() => copiar(don.binance?.usdtBsc, 'usdtbsc')}>
+                    <${CatIc} n=${copiado === 'usdtbsc' ? 'Check' : 'Copy'} s=${13} />
+                    <span>${copiado === 'usdtbsc' ? 'Copiado' : 'Copiar'}</span>
+                  </button>
+                </div>
+              </div>
+            `}
+          </div>
+        </section>
+
         <footer class="home-footer">
           <div class="home-footer-inner">
             <a class="home-footer-brand" href="/">
@@ -904,6 +962,7 @@
               <img class="logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" />
             </a>
             <nav class="home-footer-links">
+              <a href="#apoyar" onClick=${(e) => { e.preventDefault(); document.getElementById('apoyar')?.scrollIntoView({ behavior: 'smooth' }); }}>Apoyar proyecto</a>
               <a href="/privacidad">Privacidad</a>
               <a href="/terminos">Términos</a>
               <a href="mailto:newpersonal98@gmail.com">Soporte</a>
