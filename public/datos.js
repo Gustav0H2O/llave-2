@@ -147,12 +147,15 @@
 
   /* Configuración de Aportes y Donaciones de la Comunidad */
   window.FT_DONACIONES = {
-    kofi: 'https://ko-fi.com/llave',
-    buymeacoffee: 'https://buymeacoffee.com/llave',
     binance: {
       payId: '859423101',
       usdtBsc: '0x32A422D6f33d4C180bFd7c75677943F245d8b746',
-      usdtTrc: 'TM4ZqB2uFpYQ9P3UuE2qZ3eP5r7K8x9L2M',
+    },
+    zinli: {
+      email: 'newpersonal98@gmail.com',
+    },
+    contacto: {
+      email: 'newpersonal98@gmail.com',
     },
   };
 

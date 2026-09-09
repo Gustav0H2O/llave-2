@@ -233,7 +233,7 @@ const MARK_ICONS = {
   Play: 'Play', Pause: 'Pause', ArrowRight: 'ArrowRight', ArrowLeft: 'ArrowLeft',
   Menu: 'Menu', Home: 'House', LogOut: 'LogOut', Download: 'Download',
   Clock: 'Clock', Close: 'X', Upload: 'Upload', LayoutGrid: 'LayoutGrid',
-  Sun: 'Sun', Moon: 'Moon', Coffee: 'Coffee', Heart: 'Heart',
+  Sun: 'Sun', Moon: 'Moon', Heart: 'Heart', Wallet: 'Wallet', Mail: 'Mail',
 };
 /* Se conserva el nombre MarkIcon: lo usan app.js, microapps.js y
    microapps-taller.js en ~40 sitios, y window.FT_APP.MarkIcon es el puente. */
