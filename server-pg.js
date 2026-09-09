@@ -497,14 +497,14 @@ async function createApp(dbOverride, statsOverride) {
     const resumen = total
       ? `${promedio} de 5 en ${total} ${total === 1 ? 'reseña' : 'reseñas'}`
       : 'Aún sin reseñas';
-    const donorBadges = ['', '⭐ Impulsor', '🛡️ Colaborador', '✨ Destacado', '💎 Experto', '👑 Socio Fundador'];
+    const donorBadges = ['', 'Impulsor', 'Colaborador', 'Destacado', 'Experto', 'Socio Fundador'];
     const badgeHtml = ws.donor_level ? ` <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:700;background:rgba(234,179,8,0.15);color:#eab308;vertical-align:middle">${donorBadges[ws.donor_level] || 'Donador'}</span>` : '';
 
     const rootContent = `<main style="max-width:760px;margin:0 auto;padding:40px 22px;color:var(--text);font-family:Montserrat,system-ui,sans-serif">
       ${BRAND_LOCKUP}
       <h1 style="font-size:26px;margin-bottom:6px">${esc(ws.name)}${badgeHtml}</h1>
       <p style="color:var(--accent);font-weight:700;letter-spacing:1px">${estrellas(promedio || 0)} <span style="color:var(--text-alt);font-weight:500">${esc(resumen)}</span></p>
-      ${ws.city ? `<p style="color:var(--text-alt);margin-top:8px">📍 ${esc(ws.city)}</p>` : ''}
+      ${ws.city ? `<p style="color:var(--text-alt);margin-top:8px">${esc(ws.city)}</p>` : ''}
       ${ws.bio ? `<p style="color:var(--text-alt);line-height:1.7;margin-top:14px">${esc(ws.bio)}</p>` : ''}
       ${servicios.length ? `<p style="margin-top:14px;color:var(--text-alt)"><strong style="color:var(--text)">Servicios:</strong> ${servicios.map(esc).join(' · ')}</p>` : ''}
       ${ws.phone ? `<p style="margin-top:18px"><a href="https://wa.me/${esc(String(ws.phone).replace(/\D/g, ''))}" style="color:var(--accent);font-weight:700">Escribir por WhatsApp</a></p>` : ''}
@@ -1796,7 +1796,7 @@ ${dbContext}`;
         if (nuevoNivel > ws.donor_level) {
           await db.run('UPDATE workshops SET donor_level = ? WHERE id = ?', [nuevoNivel, targetWsId]);
         }
-        await notificarTaller(targetWsId, '🎉 ¡Aporte aprobado!', `Tu aporte de $${Number(montoAprobado).toFixed(2)} USD fue aprobado. Nivel de taller: ${nuevoNivel}. ¡Gracias por apoyar!`, 'success');
+        await notificarTaller(targetWsId, 'Aporte aprobado', `Tu aporte de $${Number(montoAprobado).toFixed(2)} USD fue aprobado. Nivel de taller: ${nuevoNivel}. ¡Gracias por apoyar!`, 'success');
       }
       await db.exec('COMMIT');
     } catch (e) {
@@ -1819,7 +1819,7 @@ ${dbContext}`;
       [notaFinal, id]
     );
     if (don.workshop_id) {
-      await notificarTaller(don.workshop_id, '⚠️ Aporte no acreditado', `Tu aporte con referencia "${don.reference}" fue rechazado. ${motivo ? 'Motivo: ' + motivo : 'Revisa los datos con soporte.'}`, 'warning');
+      await notificarTaller(don.workshop_id, 'Aporte no acreditado', `Tu aporte con referencia "${don.reference}" fue rechazado. ${motivo ? 'Motivo: ' + motivo : 'Revisa los datos con soporte.'}`, 'warning');
     }
     res.json({ ok: true, id, status: 'rejected' });
   });
@@ -1840,7 +1840,7 @@ ${dbContext}`;
     if (!ws) return res.status(404).json({ error: 'Taller no encontrado' });
     const newDonated = donated !== null ? Math.max(0, donated) : ws.total_donated;
     await db.run('UPDATE workshops SET donor_level = ?, total_donated = ? WHERE id = ?', [lvl, newDonated, id]);
-    await notificarTaller(id, '🎖️ Rango actualizado', `Tu rango fue actualizado a Nivel ${lvl}. Total acumulado: $${newDonated.toFixed(2)} USD.`, 'info');
+    await notificarTaller(id, 'Rango actualizado', `Tu rango fue actualizado a Nivel ${lvl}. Total acumulado: $${newDonated.toFixed(2)} USD.`, 'info');
     res.json({ ok: true, id, donor_level: lvl, total_donated: newDonated });
   });
 
@@ -1866,7 +1866,7 @@ ${dbContext}`;
       if (nuevoNivel > ws.donor_level) {
         await db.run('UPDATE workshops SET donor_level = ? WHERE id = ?', [nuevoNivel, workshop_id]);
       }
-      await notificarTaller(workshop_id, '🎉 Aporte registrado por admin', `Se acreditó un aporte de $${Number(amount).toFixed(2)} USD a tu cuenta de taller. Rango: Nivel ${nuevoNivel}.`, 'success');
+      await notificarTaller(workshop_id, 'Aporte registrado por administración', `Se acreditó un aporte de $${Number(amount).toFixed(2)} USD a tu cuenta de taller. Rango: Nivel ${nuevoNivel}.`, 'success');
     }
     res.status(201).json({ ok: true, id, status: 'approved' });
   });
@@ -3406,7 +3406,7 @@ ${dbContext}`;
         if (nuevoNivel > ws.donor_level) {
           await db.run('UPDATE workshops SET donor_level = ? WHERE id = ?', [nuevoNivel, don.workshop_id]);
         }
-        await notificarTaller(don.workshop_id, '🎉 ¡Aporte aprobado!', `Tu aporte de $${Number(don.amount).toFixed(2)} USD fue aprobado por enlace seguro. Rango: Nivel ${nuevoNivel}.`, 'success');
+        await notificarTaller(don.workshop_id, 'Aporte aprobado', `Tu aporte de $${Number(don.amount).toFixed(2)} USD fue aprobado por enlace seguro. Rango: Nivel ${nuevoNivel}.`, 'success');
       }
       await db.exec('COMMIT');
     } catch (e) {
@@ -3414,7 +3414,7 @@ ${dbContext}`;
       throw e;
     }
 
-    res.type('text/html; charset=utf-8').send(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Aporte Aprobado | llave</title><style>body{font-family:sans-serif;background:#111311;color:#f8f7f3;text-align:center;padding:50px;}</style></head><body><h1 style="color:#6f8a5a">✓ Aporte #${don.id} Aprobado</h1><p>Monto: <strong>$${don.amount} USD</strong> (${don.method.toUpperCase()} - Ref: ${don.reference})</p><p>El rango y beneficios del donador se han actualizado.</p><p><a href="/admin" style="color:#8aa571">Ir al Panel</a> | <a href="/" style="color:#8aa571">Ir al Inicio</a></p></body></html>`);
+    res.type('text/html; charset=utf-8').send(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Aporte Aprobado | llave</title><style>body{font-family:sans-serif;background:#111311;color:#f8f7f3;text-align:center;padding:50px;}</style></head><body><h1 style="color:#6f8a5a">Aporte #${don.id} Aprobado</h1><p>Monto: <strong>$${don.amount} USD</strong> (${don.method.toUpperCase()} - Ref: ${don.reference})</p><p>El rango y beneficios del donador se han actualizado.</p><p><a href="/admin" style="color:#8aa571">Ir al Panel</a> | <a href="/" style="color:#8aa571">Ir al Inicio</a></p></body></html>`);
   });
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'No encontrado' }));

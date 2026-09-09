@@ -430,12 +430,12 @@
           const { latitude: lat, longitude: lng } = pos.coords;
           await apiFetch('/api/connect/locate', { method: 'POST', body: JSON.stringify({ lat, lng }) });
           setMe(m => ({ ...m, lat: String(lat), lng: String(lng) }));
-          setLocMsg('Ubicación GPS capturada ✓');
+          setLocMsg('Ubicación GPS capturada');
         } catch (e) { setLocMsg(e.message); }
         setLocBusy(false);
       }, (err) => { setLocBusy(false); setLocMsg('No se pudo obtener el GPS (' + err.message + ')'); }, { timeout: 10000 });
     };
-    const roleLabel = (r) => r === 'mecanico' ? '🔧 Mecánico' : r === 'tienda' ? '🏪 Refaccionaria' : '🚗 Cliente';
+    const roleLabel = (r) => r === 'mecanico' ? 'Mecánico' : r === 'tienda' ? 'Refaccionaria' : 'Cliente';
     return html`<${MicroShell} title="Conectar Cliente ↔ Mecánico" icon="MapPin" onBack=${onBack}>
       <div class="alert blue" style=${{ marginBottom: '12px' }}><span>Completa tu perfil con tu ubicación y lo que ofreces/buscas. Te mostramos perfiles compatibles por cercanía y similitud.</span></div>
       <div class="conn-me panel" style=${{ padding: '14px', marginBottom: '14px' }}>
@@ -457,7 +457,7 @@
         </div>
         <div style=${{ display: 'flex', gap: '8px', marginTop: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button type="button" class="tool-add-btn" onClick=${save} disabled=${!me.name.trim() || !me.city.trim()}>Guardar perfil</button>
-          <button type="button" class="tool-add-btn" onClick=${useGps} disabled=${locBusy}>${locBusy ? '…' : '📍 Usar mi ubicación (GPS)'}</button>
+          <button type="button" class="tool-add-btn" onClick=${useGps} disabled=${locBusy}>${locBusy ? '…' : 'Usar ubicación GPS'}</button>
           ${me.lat && me.lng && html`<span class="muted" style=${{ fontSize: '11px' }}>lat ${me.lat}, lng ${me.lng}</span>`}
         </div>
         ${locMsg && html`<div class="muted" style=${{ marginTop: '6px', fontSize: '11px' }}>${locMsg}</div>`}
@@ -607,10 +607,13 @@
      guarda aquí y no en cada presupuesto: es el remitente, no el
      destinatario.
      ================================================================ */
-  const S_CARD = { padding: '10px 12px', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '8px', marginBottom: '8px' };
-  const S_BETWEEN = { display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
-  const S_FLEX = { display: 'flex', gap: '6px', alignItems: 'center' };
-  const RANGO_COLORES = ['#64748b', '#cd7f32', '#94a3b8', '#eab308', '#06b6d4', '#f59e0b'];
+  const SC = { padding: '10px 12px', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '8px', marginBottom: '8px' };
+  const SB = { display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
+  const SF = { display: 'flex', gap: '6px', alignItems: 'center' };
+  const RC = ['#64748b', '#cd7f32', '#94a3b8', '#eab308', '#06b6d4', '#f59e0b'];
+  const DN = ['', 'Impulsor', 'Colaborador', 'Destacado', 'Experto', 'Socio Fundador'];
+  const DI = ['', 'Award', 'ShieldCheck', 'Sparkles', 'TrendingUp', 'Crown'];
+  const bBadge = (l) => html`<span style=${{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '12px', fontSize: '11.5px', fontWeight: 700, color: RC[l] || RC[0], background: (RC[l] || RC[0]) + '22' }}><${CatIc} n=${DI[l] || 'Award'} s=${12} />${DN[l] || 'Taller'}</span>`;
 
   const ProfileApp = ({ onBack, onLogout, onUserChange }) => {
     const [subTab, setSubTab] = useState('taller');
@@ -683,7 +686,7 @@
         const b = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(b.error || 'Error al cambiar');
         setPass({ current: '', next: '', confirm: '' });
-        setPassEstado('ok'); setPassMsg('Contraseña actualizada ✓');
+        setPassEstado('ok'); setPassMsg('Contraseña actualizada');
         setTimeout(() => { setPassEstado(''); setPassMsg(''); }, 3000);
       } catch (e) { setPassEstado('error'); setPassMsg(e.message); }
     };
@@ -691,11 +694,11 @@
     if (estado === 'cargando') return html`<${MicroShell} title="Mi Taller" icon="Store" onBack=${onBack}><div class="skel"><div class="skel-line"></div><div class="skel-line"></div></div></${MicroShell}>`;
 
     const noLeidas = notifs.filter(n => !n.is_read).length;
-    const prog = me?.donor_progress || { puntos: me?.total_donated || 0, nivel: me?.donor_level || 0, nombre: 'Sin Rango', badge: '🔧 Mecánico', porcentaje: 0, metaProximo: 1, faltaParaProximo: 1, beneficiosDesbloqueados: [], beneficiosProximos: [] };
-    const rCol = RANGO_COLORES[prog.nivel] || RANGO_COLORES[0];
+    const prog = me?.donor_progress || { puntos: me?.total_donated || 0, nivel: me?.donor_level || 0, nombre: 'Sin Rango', badge: 'Mecánico', porcentaje: 0, metaProximo: 1, faltaParaProximo: 1, beneficiosDesbloqueados: [], beneficiosProximos: [] };
+    const rCol = RC[prog.nivel] || RC[0];
 
-    const renderPerk = (b, unlocked) => html`<div key=${b.nivel} style=${{ ...S_CARD, opacity: unlocked ? 1 : .85, background: unlocked ? 'var(--sunken)' : 'var(--panel)', borderStyle: unlocked ? 'solid' : 'dashed' }}>
-      <div style=${S_BETWEEN}><div style=${S_FLEX}><span style=${{ color: unlocked ? '#10b981' : 'var(--text-alt)', fontWeight: 700 }}>${unlocked ? '✓' : '🔒'}</span><strong style=${{ fontSize: '12px' }}>${b.nombre}</strong></div><span style=${{ fontSize: '11px', color: 'var(--accent)', fontWeight: 600 }}>${b.montoMin}+ pts</span></div>
+    const renderPerk = (b, unlocked) => html`<div key=${b.nivel} style=${{ ...SC, opacity: unlocked ? 1 : .85, background: unlocked ? 'var(--sunken)' : 'var(--panel)', borderStyle: unlocked ? 'solid' : 'dashed' }}>
+      <div style=${SB}><div style=${SF}><span style=${{ display: 'inline-flex', color: unlocked ? '#10b981' : 'var(--text-alt)' }}><${CatIc} n=${unlocked ? 'Check' : 'Lock'} s=${12} /></span><strong style=${{ fontSize: '12px' }}>${b.nombre}</strong></div><span style=${{ fontSize: '11px', color: 'var(--accent)', fontWeight: 600 }}>${b.montoMin}+ pts</span></div>
       <p style=${{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-alt)' }}>${b.perk}</p>
     </div>`;
 
@@ -708,14 +711,14 @@
       </div>
 
       ${subTab === 'taller' && html`<div>
-        ${noLeidas > 0 && html`<div class="alert blue" style=${{ marginBottom: '12px', cursor: 'pointer', ...S_BETWEEN }} onClick=${() => setSubTab('notifs')}>
+        ${noLeidas > 0 && html`<div class="alert blue" style=${{ marginBottom: '12px', cursor: 'pointer', ...SB }} onClick=${() => setSubTab('notifs')}>
           <span><${CatIc} n="Bell" s=${15} /> Tienes <strong>${noLeidas} aviso(s)</strong> sobre tus aportes.</span>
           <span style=${{ fontSize: '11px', textDecoration: 'underline', fontWeight: 700 }}>Ver avisos →</span>
         </div>`}
-        <div style=${{ ...S_BETWEEN, ...S_CARD }}>
-          <div style=${S_FLEX}>
-            <span style=${{ padding: '2px 8px', borderRadius: '12px', background: `${rCol}22`, color: rCol, fontWeight: 700, fontSize: '12px' }}>${prog.badge}</span>
-            <span style=${{ fontSize: '12px' }}>${prog.nombre} · <strong>${prog.puntos} pts</strong></span>
+        <div style=${{ ...SB, ...SC }}>
+          <div style=${SF}>
+            ${bBadge(prog.nivel)}
+            <span style=${{ fontSize: '12px' }}><strong>${prog.puntos} pts</strong></span>
           </div>
           <button type="button" class="home-cta-ghost" style=${{ fontSize: '11px', padding: '3px 8px' }} onClick=${() => setSubTab('rango')}>Progreso →</button>
         </div>
@@ -723,7 +726,7 @@
         ${me && html`<div class=${'prof-mail ' + (me.email_verified ? 'ok' : 'warn')}>
           <${CatIc} n=${me.email_verified ? 'MailCheck' : 'MailWarn'} s=${20} />
           <div><strong>${me.email}</strong><span>${me.email_verified ? 'Correo confirmado' : 'Sin confirmar — no podrás recuperar acceso si olvidas la contraseña'}</span></div>
-          ${!me.email_verified && html`<button type="button" class="home-cta-ghost" onClick=${reenviar} disabled=${verif === 'enviando'}>${verif === 'enviando' ? 'Enviando…' : verif === 'enviado' ? 'Enviado ✓' : 'Confirmar correo'}</button>`}
+          ${!me.email_verified && html`<button type="button" class="home-cta-ghost" onClick=${reenviar} disabled=${verif === 'enviando'}>${verif === 'enviando' ? 'Enviando…' : verif === 'enviado' ? 'Enviado' : 'Confirmar correo'}</button>`}
         </div>`}
         <h3 class="mic-sub">Datos del taller</h3>
         <div class="quote-params">
@@ -745,14 +748,14 @@
           <div><span class="mic-lbl">Tu enlace</span><code>${location.origin}/taller/${me.slug}</code></div>
           <div class="prof-share-cta">
             <button type="button" class="tool-add-btn" onClick=${() => enviarWhatsApp('', `Perfil de mi taller: ${location.origin}/taller/${me.slug}`)}>WhatsApp</button>
-            <button type="button" class="home-cta-ghost" onClick=${() => { navigator.clipboard?.writeText(`${location.origin}/taller/${me.slug}`).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 2000); }); }}>${copiado ? 'Copiado ✓' : 'Copiar'}</button>
+            <button type="button" class="home-cta-ghost" onClick=${() => { navigator.clipboard?.writeText(`${location.origin}/taller/${me.slug}`).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 2000); }); }}>${copiado ? 'Copiado' : 'Copiar'}</button>
             <a class="home-cta-ghost" href=${'/taller/' + me.slug} target="_blank" rel="noopener">Ver perfil</a>
           </div>
         </div>`}
         ${f.is_public && !me?.slug && html`<div class="alert blue" style=${{ marginTop: '12px' }}><span>Guarda cambios para ver el enlace de tu perfil.</span></div>`}
         ${msg && html`<div class="alert" style=${{ marginTop: '12px' }}><span>${msg}</span></div>`}
         <div class="insp-actions">
-          <button type="button" class="tool-add-btn" onClick=${guardar} disabled=${estado === 'guardando' || !f.name.trim() || (f.phone && !telValido(f.phone))}>${estado === 'guardando' ? 'Guardando…' : estado === 'guardado' ? 'Guardado ✓' : 'Guardar cambios'}</button>
+          <button type="button" class="tool-add-btn" onClick=${guardar} disabled=${estado === 'guardando' || !f.name.trim() || (f.phone && !telValido(f.phone))}>${estado === 'guardando' ? 'Guardando…' : estado === 'guardado' ? 'Guardado' : 'Guardar cambios'}</button>
           ${telValido(f.phone) && html`<button type="button" class="home-cta-ghost" onClick=${() => enviarWhatsApp(f.phone, 'Prueba de llave: número verificado.')}>Probar número</button>`}
         </div>
         <h3 class="mic-sub">Cuenta y seguridad</h3>
@@ -778,10 +781,10 @@
       </div>`}
 
       ${subTab === 'rango' && html`<div>
-        <div style=${{ ...S_CARD, padding: '14px 16px' }}>
-          <div style=${S_BETWEEN}>
+        <div style=${{ ...SC, padding: '14px 16px' }}>
+          <div style=${SB}>
             <div>
-              <span style=${{ padding: '3px 8px', borderRadius: '12px', background: `${rCol}22`, color: rCol, fontWeight: 700, fontSize: '12px' }}>${prog.badge}</span>
+              ${bBadge(prog.nivel)}
               <h3 style=${{ margin: '4px 0 0', fontSize: '16px', fontWeight: 800 }}>${prog.nombre}</h3>
             </div>
             <div style=${{ textAlign: 'right' }}>
@@ -790,15 +793,15 @@
             </div>
           </div>
           <div style=${{ marginTop: '10px' }}>
-            <div style=${{ ...S_BETWEEN, fontSize: '11px', fontWeight: 600, color: 'var(--text-alt)', marginBottom: '4px' }}>
+            <div style=${{ ...SB, fontSize: '11px', fontWeight: 600, color: 'var(--text-alt)', marginBottom: '4px' }}>
               <span>Progreso de donador</span><span>${prog.porcentaje}%</span>
             </div>
             <div style=${{ width: '100%', height: '12px', background: 'var(--sunken)', borderRadius: '99px', overflow: 'hidden', border: '1px solid var(--border)' }}>
               <div style=${{ width: `${prog.porcentaje}%`, height: '100%', background: 'linear-gradient(90deg, #10b981, var(--accent), #f59e0b)', borderRadius: '99px', transition: 'width .4s ease' }}></div>
             </div>
-            <div style=${{ ...S_BETWEEN, fontSize: '11px', color: 'var(--text-alt)', marginTop: '4px' }}>
+            <div style=${{ ...SB, fontSize: '11px', color: 'var(--text-alt)', marginTop: '4px' }}>
               <span>Puntos: <strong>${prog.puntos}</strong></span>
-              ${prog.proximoNivel ? html`<span>Meta: <strong>${prog.metaProximo} pts</strong> (faltan $${prog.faltaParaProximo} USD)</span>` : html`<span style=${{ color: '#f59e0b', fontWeight: 700 }}>¡Rango máximo! 👑</span>`}
+              ${prog.proximoNivel ? html`<span>Meta: <strong>${prog.metaProximo} pts</strong> (faltan ${prog.faltaParaProximo} USD)</span>` : html`<span style=${{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#f59e0b', fontWeight: 700 }}><${CatIc} n="Crown" s=${13} /> Nivel máximo alcanzado</span>`}
             </div>
           </div>
         </div>
@@ -813,14 +816,14 @@
           ${prog.beneficiosProximos.map(b => renderPerk(b, false))}
         </div>`}
 
-        <div class="alert blue" style=${{ ...S_BETWEEN, flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+        <div class="alert blue" style=${{ ...SB, flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
           <span>¿Deseas sumar más puntos a tu taller?</span>
           <button type="button" class="tool-add-btn" style=${{ fontSize: '11px', padding: '5px 10px' }} onClick=${() => { if (onBack) onBack(); setTimeout(() => { document.getElementById('comunidad-donaciones')?.scrollIntoView({ behavior: 'smooth' }); }, 150); }}>Aportar a la comunidad</button>
         </div>
       </div>`}
 
       ${subTab === 'notifs' && html`<div>
-        <div style=${{ ...S_BETWEEN, marginBottom: '8px' }}>
+        <div style=${{ ...SB, marginBottom: '8px' }}>
           <h3 class="mic-sub" style=${{ margin: 0 }}>Avisos del Taller</h3>
           ${notifs.some(n => !n.is_read) && html`<button type="button" class="home-cta-ghost" style=${{ fontSize: '11px', padding: '3px 8px' }} onClick=${marcarTodasLeidas}>Marcar todas leídas</button>`}
         </div>
@@ -829,9 +832,9 @@
           ${notifs.map(n => {
             const isUnread = !n.is_read;
             const bCol = n.type === 'success' ? '#10b981' : n.type === 'warning' || n.type === 'error' ? '#ef4444' : 'var(--accent)';
-            return html`<article key=${n.id} style=${{ ...S_CARD, padding: '10px 12px', borderLeft: `3px solid ${bCol}`, background: isUnread ? 'var(--accent-soft)' : 'var(--panel)', marginBottom: 0 }}>
-              <div style=${S_BETWEEN}>
-                <div style=${S_FLEX}><strong style=${{ fontSize: '12px' }}>${n.title}</strong>${isUnread && html`<span style=${{ background: 'var(--accent)', width: '6px', height: '6px', borderRadius: '50%' }}></span>`}</div>
+            return html`<article key=${n.id} style=${{ ...SC, padding: '10px 12px', borderLeft: `3px solid ${bCol}`, background: isUnread ? 'var(--accent-soft)' : 'var(--panel)', marginBottom: 0 }}>
+              <div style=${SB}>
+                <div style=${SF}><strong style=${{ fontSize: '12px' }}>${n.title}</strong>${isUnread && html`<span style=${{ background: 'var(--accent)', width: '6px', height: '6px', borderRadius: '50%' }}></span>`}</div>
                 <span style=${{ fontSize: '10px', color: 'var(--text-alt)' }}>${new Date(n.created_at).toLocaleDateString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <p style=${{ margin: '4px 0 0', fontSize: '11.5px', color: 'var(--text-alt)', lineHeight: 1.4 }}>${n.message}</p>
@@ -846,10 +849,10 @@
         ${!donations.length && html`<div class="empty" style=${{ padding: '20px', textAlign: 'center' }}>Aún no registras aportes.</div>`}
         <div style=${{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           ${donations.map(d => {
-            const st = d.status === 'approved' ? { t: '✓ Aprobado', c: '#10b981', b: '#dcfce7' } : d.status === 'pending' ? { t: '⏳ En revisión', c: '#b45309', b: '#fef3c7' } : { t: '✕ Rechazado', c: '#b91c1c', b: '#fee2e2' };
-            return html`<div key=${d.id} style=${{ ...S_CARD, marginBottom: 0, padding: '10px 12px' }}>
-              <div style=${S_BETWEEN}>
-                <div style=${S_FLEX}><span style=${{ fontWeight: 700, fontSize: '12px' }}>Aporte #${d.id}</span><span style=${{ padding: '1px 6px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, background: st.b, color: st.c }}>${st.t}</span></div>
+            const st = d.status === 'approved' ? { t: 'Aprobado', ic: 'Check', c: '#10b981', b: '#dcfce7' } : d.status === 'pending' ? { t: 'En revisión', ic: 'Clock', c: '#b45309', b: '#fef3c7' } : { t: 'Rechazado', ic: 'Close', c: '#b91c1c', b: '#fee2e2' };
+            return html`<div key=${d.id} style=${{ ...SC, marginBottom: 0, padding: '10px 12px' }}>
+              <div style=${SB}>
+                <div style=${SF}><span style=${{ fontWeight: 700, fontSize: '12px' }}>Aporte #${d.id}</span><span style=${{ ...SF, padding: '1px 6px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, background: st.b, color: st.c }}><${CatIc} n=${st.ic} s=${10} /> ${st.t}</span></div>
                 <span style=${{ fontSize: '10px', color: 'var(--text-alt)' }}>${new Date(d.created_at).toLocaleDateString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <div style=${{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '6px', fontSize: '11px', marginTop: '6px' }}>
@@ -921,7 +924,7 @@
         <div class="pp-meta">
           ${p.city && html`<span><${CatIc} n="MapPin" s=${15} /> ${p.city}</span>`}
           ${p.email_verified && html`<span class="pp-verificado"><${CatIc} n="MailCheck" s=${15} /> Correo verificado</span>`}
-          ${p.donor_level > 0 && html`<span style=${{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '12px', fontSize: '11.5px', fontWeight: 700, color: RANGO_COLORES[p.donor_level] || '#cd7f32', background: (RANGO_COLORES[p.donor_level] || '#cd7f32') + '22' }}>${['', '⭐ Impulsor', '🛡️ Colaborador', '✨ Destacado', '💎 Experto', '👑 Socio Fundador'][p.donor_level]}</span>`}
+          ${p.donor_level > 0 && bBadge(p.donor_level)}
         </div>
       </div>
       {/* El nombre en caso natural, fuera del rótulo del shell (que va en

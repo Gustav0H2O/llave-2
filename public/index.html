@@ -1399,14 +1399,19 @@
     background: var(--bg-glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--border); box-sizing: border-box; width: 100%; max-width: 100vw;
   }
-  .home-nav-logo { display: flex; align-items: center; gap: 0; color: var(--accent); flex-shrink: 0; }
+  .home-nav-logo {
+    display: flex; align-items: center; gap: 0; color: var(--accent); flex-shrink: 0;
+    text-decoration: none; cursor: pointer; border: 0; background: none; padding: 0;
+    border-radius: var(--r-sm); transition: opacity .15s, transform .12s;
+  }
+  .home-nav-logo:hover { opacity: .92; }
+  .home-nav-logo:active { transform: scale(.98); }
+  .home-nav-logo:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .home-nav-logo img { height: var(--logo-h-m); width: auto; }
   .home-nav-links {
     display: flex; align-items: center; gap: 4px; margin: 0 auto;
     flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain;
     scrollbar-width: none; -ms-overflow-style: none;
-    -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 16px), transparent 100%);
-    mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 16px), transparent 100%);
   }
   .home-nav-links::-webkit-scrollbar { display: none; }
   .home-nav-link {
@@ -3248,16 +3253,17 @@
     .quote-add { width: 100%; }
   }
 
-  /* ── 15. Tableta y portátil estrecho (721-1023 px) ──────────────────
-     Por encima de 720 px vuelve el menú superior, pero las seis categorías
-     más la marca y la cuenta no caben en una fila hasta pasados los 1000 px:
-     medido a 768 px, la barra se envolvía en dos filas de 121 px de alto y
-     volvía a empujar el contenido hacia abajo, que es justo lo que se acaba
-     de arreglar en el celular. Se deja UNA fila que se desliza con el dedo,
-     que es como se recorre un menú largo en una tableta. */
-  @media (min-width: 721px) and (max-width: 1023px) {
-    .home-nav { flex-wrap: nowrap; }
-    .home-nav-links { margin: 0 4px 0 auto; }
+  /* ── 15. Tableta y portátil estrecho (721-1199 px) ──────────────────
+     Ocultar los iconos en .home-nav-links y dejar solo la tipografía limpia
+     ahorra ~140px, asegurando que categorías, buscador y usuario encajen
+     en una sola fila sin desbordamiento ni scroll forzado. */
+  @media (min-width: 721px) and (max-width: 1199px) {
+    .home-nav { flex-wrap: nowrap; gap: 8px; }
+    .home-nav-links { margin: 0 4px 0 auto; gap: 3px; }
+    .home-nav-link { padding: 6px 9px; font-size: 12.5px; }
+    .home-nav-ic { display: none; }
+    .home-buscador { flex: 0 1 210px; min-width: 140px; }
+    .home-nav-who-name { max-width: 80px; }
   }
 
   /* ── 16. Ilustraciones de marca ─────────────────────────────────────

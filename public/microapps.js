@@ -554,10 +554,11 @@
     return html`
       <div class="home">
         <nav class="home-nav">
-          <div class="home-nav-logo">
-            <img class="logo-mark logo-img--light" src="/brand/logo-llave.svg" alt="llave" />
-            <img class="logo-mark logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" />
-          </div>
+          <a href="/" class="home-nav-logo" role="button" aria-label="Ir al inicio de llave"
+             onClick=${(e) => { e.preventDefault(); irA('inicio'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+            <img class="logo-mark logo-img--light" src="/brand/logo-llave.svg" alt="llave" width="112" height="32" />
+            <img class="logo-mark logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" width="112" height="32" />
+          </a>
           <div class="home-nav-links">
             ${NAV.map(([id, label, icon]) => html`<button type="button" class=${'home-nav-link' + (tab === id ? ' active' : '')} onClick=${() => irA(id)} key=${id}>
               <span class="home-nav-ic"><${CatIc} n=${icon} s=${17} /></span>${label}
