@@ -353,3 +353,15 @@ CREATE TABLE IF NOT EXISTS donations (
 );
 CREATE INDEX IF NOT EXISTS idx_donations_ws ON donations(workshop_id);
 CREATE INDEX IF NOT EXISTS idx_donations_status ON donations(status);
+
+-- Notificaciones internas del taller (aportes, rangos, avisos)
+CREATE TABLE IF NOT EXISTS workshop_notifications (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  workshop_id  INTEGER NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
+  title        TEXT NOT NULL,
+  message      TEXT NOT NULL,
+  type         TEXT NOT NULL DEFAULT 'info',
+  is_read      INTEGER NOT NULL DEFAULT 0,
+  created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_wn_ws ON workshop_notifications(workshop_id);

@@ -12,36 +12,17 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const PROD = process.env.NODE_ENV === 'production';
 
-/* URL base pública para canonical, sitemap y Open Graph.
-   Configurable sin tocar código: BASE_URL=https://tudominio.com
-   Cámbiala cuando conectes tu dominio propio. */
 const BASE_URL = (process.env.BASE_URL || 'https://llave.onrender.com').replace(/\/+$/, '');
-
-/* Modelo de IA configurable. OJO: 'gemini-3.5-flash' NO es un id válido de Google
-   y hacía que el chat respondiera 502. Default a un modelo real y estable. */
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
-
-// Asistente vía OpenRouter / Groq / NVIDIA
 const OPENROUTER_API_KEY = (process.env.OPENROUTER_API_KEY || '').trim();
-const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS
-  || 'google/gemma-4-26b-a4b-it:free,google/gemma-4-31b-it:free')
-  .split(',').map(s => s.trim()).filter(Boolean);
+const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS || 'google/gemma-4-26b-a4b-it:free,google/gemma-4-31b-it:free').split(',').map(s => s.trim()).filter(Boolean);
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
-
 const GROQ_API_KEY = (process.env.GROQ_API_KEY || '').trim();
-const GROQ_MODELS = (process.env.GROQ_MODELS
-  || 'llama-3.3-70b-versatile,llama-3.1-8b-instant,gemma2-9b-it')
-  .split(',').map(s => s.trim()).filter(Boolean);
+const GROQ_MODELS = (process.env.GROQ_MODELS || 'llama-3.3-70b-versatile,llama-3.1-8b-instant,gemma2-9b-it').split(',').map(s => s.trim()).filter(Boolean);
 const GROQ_BASE = 'https://api.groq.com/openai/v1';
-
-/* NVIDIA NIM (build.nvidia.com) — API compatible OpenAI */
 const NVIDIA_API_KEY = (process.env.NVIDIA_API_KEY || '').trim();
-const NVIDIA_MODELS = (process.env.NVIDIA_MODELS
-  || 'google/gemma-4-31b-it,mistralai/mistral-large-2-instruct,google/gemma-3-12b-it')
-  .split(',').map(s => s.trim()).filter(Boolean);
+const NVIDIA_MODELS = (process.env.NVIDIA_MODELS || 'google/gemma-4-31b-it,mistralai/mistral-large-2-instruct,google/gemma-3-12b-it').split(',').map(s => s.trim()).filter(Boolean);
 
-/* Quién atiende el chat; null si no hay clave compatible con OpenAI (entonces
-   manda Gemini, y si tampoco está, el 503 de siempre). */
 function proveedorChat() {
   if (GROQ_API_KEY) return {
     nombre: 'Groq', base: GROQ_BASE, clave: GROQ_API_KEY, modelos: GROQ_MODELS, cabeceras: {}
@@ -84,6 +65,7 @@ const verifyAdminToken = (token) => {
 const {
   toInt, psiToBar, str, num,
   esc, slugify, vehicleSlug, vehicleIdFromSlug, haceSlug,
+  calcularNivelDonador, calcularProgresoDonador,
 } = require('./lib/pure');
 /* La ruta de diagnóstico: estructura y HTML de /guias y /guia/:slug. Está en
    lib/ porque es una función pura de (guías) → HTML y se prueba sola. */
@@ -105,13 +87,7 @@ async function createApp(dbOverride, statsOverride) {
   const db = dbOverride || defaultDb;
   const statsDb = statsOverride || defaultStatsDb;
 
-  /* Columnas de `workshops` añadidas después del esquema original (teléfono del
-     taller y verificación de correo). Van aquí y no en el arranque del proceso
-     porque los tests montan la app con `createApp` sobre una base recién creada
-     desde schema.sql: si la migración vive fuera, /api/auth/me consulta columnas
-     que no existen, la promesa revienta sin respuesta y la petición se cuelga.
-     Una por una con try/catch: "ADD COLUMN IF NOT EXISTS" existe en PostgreSQL
-     pero no en SQLite/libSQL, y aquí corren los tres. Es idempotente. */
+  /* Migraciones idempotentes de columnas y tablas adicionales */
   for (const col of [
     `ALTER TABLE workshops ADD COLUMN phone TEXT`,
     `ALTER TABLE workshops ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0`,
@@ -148,6 +124,12 @@ async function createApp(dbOverride, statsOverride) {
        reviewed_at DATETIME, reviewed_by TEXT)`,
     `CREATE INDEX IF NOT EXISTS idx_donations_ws ON donations(workshop_id)`,
     `CREATE INDEX IF NOT EXISTS idx_donations_status ON donations(status)`,
+    `CREATE TABLE IF NOT EXISTS workshop_notifications (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       workshop_id INTEGER NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
+       title TEXT NOT NULL, message TEXT NOT NULL, type TEXT NOT NULL DEFAULT 'info',
+       is_read INTEGER NOT NULL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE INDEX IF NOT EXISTS idx_wn_ws ON workshop_notifications(workshop_id)`,
   ]) {
     try { await db.exec(col); } catch (e) { /* la columna/tabla ya existe */ }
   }
@@ -188,12 +170,7 @@ async function createApp(dbOverride, statsOverride) {
     next();
   });
 
-  /* Modo mantenimiento. Va AQUÍ arriba, después del nonce (que la pantalla
-     necesita) y antes de cualquier ruta: registrado abajo solo habría atendido
-     lo que no coincidiera con nada, que es exactamente lo contrario de un modo
-     mantenimiento. Se dejan pasar /healthz —es lo que mira el host para saber
-     si el proceso vive, y un 503 ahí provoca un reinicio en bucle— y los
-     estáticos, o la propia pantalla saldría sin estilos ni ilustración. */
+  /* Modo mantenimiento */
   if (MAINTENANCE) {
     app.use((req, res, next) => {
       if (req.path === '/healthz' || /^\/(media|brand|vendor|models|og)\//.test(req.path)
@@ -214,12 +191,7 @@ async function createApp(dbOverride, statsOverride) {
   // trust proxy ajustable para tests
   app.set('trust proxy', process.env.TRUST_PROXY !== '0' ? 1 : 0);
 
-  /* Canonicalización de host. Con www y sin www respondiendo lo mismo, el
-     buscador ve DOS sitios con el mismo contenido y reparte la autoridad
-     entre los dos. Un 301 deja una sola dirección buena: la de BASE_URL.
-     Hoy llave.onrender.com no resuelve el www, pero esta regla es
-     justo la que hace falta el día que se conecte el dominio propio, y no
-     cuesta nada tenerla puesta desde antes. */
+  /* Canonicalización de host hacia BASE_URL */
   const BASE_HOST = (() => { try { return new URL(BASE_URL).host; } catch (e) { return ''; } })();
   app.use((req, res, next) => {
     const host = String(req.headers.host || '');
@@ -227,8 +199,7 @@ async function createApp(dbOverride, statsOverride) {
     return res.redirect(301, BASE_URL + req.originalUrl);
   });
 
-  /* Orígenes que necesita AdSense. Sin esto la CSP bloquea el script y los iframes de
-     los anuncios: el sitio se ve "sin anuncios" y la revisión de AdSense falla. */
+  /* Orígenes que necesita AdSense */
   const ADS_SCRIPT = ['https://pagead2.googlesyndication.com', 'https://partner.googleadservices.com',
     'https://tpc.googlesyndication.com', 'https://www.googletagservices.com', 'https://adservice.google.com'];
   const ADS_FRAME = ['https://googleads.g.doubleclick.net', 'https://tpc.googlesyndication.com',
@@ -239,11 +210,7 @@ async function createApp(dbOverride, statsOverride) {
     'https://adservice.google.com', 'https://ep1.adtrafficquality.google', 'https://ep2.adtrafficquality.google'];
   const ads = (list) => (ADSENSE_CLIENT ? list : []);
 
-  /* Hashes CSP de los <script> inline de index.html.
-     Se calculan del archivo que realmente se sirve en vez de fijarlos a mano:
-     un hash pegado literalmente caduca en silencio al tocar el script y el
-     único síntoma es que el navegador lo bloquea (p. ej. el tema dejaría de
-     aplicarse) sin ningún error en el servidor. */
+  /* Hashes CSP de los <script> inline de index.html */
   const INLINE_SCRIPT_HASHES = (() => {
     const src = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
     const out = [];
@@ -323,24 +290,15 @@ async function createApp(dbOverride, statsOverride) {
     res.json({ total: await getTotal(), today });
   });
 
-  /* ---------- SEO: páginas renderizadas en servidor + sitemap ----------
-     La app es un SPA; sin esto Google solo ve UNA url. Aquí generamos una url
-     indexable por vehículo con <title>, meta, canonical, Open Graph, datos
-     estructurados (JSON-LD) y contenido rastreable — todo sin build step. */
+  /* ---------- SEO: páginas renderizadas en servidor + sitemap ---------- */
   const INDEX_HTML = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-  /* esc / slugify / vehicleSlug viven en lib/pure.js (importados arriba). */
 
   // Logotipo de marca para las páginas renderizadas en servidor (SEO/legales/guías).
-  // Las clases on-dark/on-light las resuelve el CSS de index.html según el tema,
-  // igual que en la app: aquí no hay JS que pueda elegir por nosotros.
   const BRAND_LOCKUP = `<a href="/" style="display:inline-block;margin-bottom:22px">
       <img class="logo-img logo-img--light" src="/brand/logo-llave.svg" alt="llave" style="height:52px;width:auto">
       <img class="logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" style="height:52px;width:auto">
     </a>`;
 
-  /* Medidos en píxeles, que es como los corta el buscador: el título cabe en
-     580 px (~60 chars) y la descripción en 1000 px (~180). Los anteriores
-     medían 656 px y 1353 px — ambos se cortaban en el resultado de búsqueda. */
   const HOME_TITLE = 'Presión de bomba de gasolina por vehículo | llave';
   const HOME_DESC = 'Presión de riel en PSI y bar, ubicación del módulo y pilas de gasolina compatibles OEM y alternativas. Consulta gratis para mecánicos de Latinoamérica.';
 
@@ -511,12 +469,8 @@ async function createApp(dbOverride, statsOverride) {
   app.get('/taller/:slug', async (req, res) => {
     const slug = String(req.params.slug || '').slice(0, 60);
     const ws = await db.get(
-      `SELECT id, name, phone, city, bio, services, email_verified FROM workshops WHERE slug = ? AND is_public = 1`, slug);
-    /* No hay catch-all de SPA en esta app: sin esto, un enlace viejo o un perfil
-       despublicado caía en el 404 crudo de Express, sin marca ni salida. Se
-       conserva el código 404 (el enlace de verdad ya no existe) pero con página
-       propia — importa porque estos enlaces circulan por WhatsApp y sobreviven
-       a que el taller decida ocultarse. */
+      `SELECT id, name, phone, city, bio, services, email_verified, donor_level FROM workshops WHERE slug = ? AND is_public = 1`, slug);
+    /* 404 con plantilla para perfiles no existentes */
     if (!ws) {
       res.status(404).set('Cache-Control', 'no-store');
       return res.type('html').send(renderShell({
@@ -543,10 +497,12 @@ async function createApp(dbOverride, statsOverride) {
     const resumen = total
       ? `${promedio} de 5 en ${total} ${total === 1 ? 'reseña' : 'reseñas'}`
       : 'Aún sin reseñas';
+    const donorBadges = ['', '⭐ Impulsor', '🛡️ Colaborador', '✨ Destacado', '💎 Experto', '👑 Socio Fundador'];
+    const badgeHtml = ws.donor_level ? ` <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:700;background:rgba(234,179,8,0.15);color:#eab308;vertical-align:middle">${donorBadges[ws.donor_level] || 'Donador'}</span>` : '';
 
     const rootContent = `<main style="max-width:760px;margin:0 auto;padding:40px 22px;color:var(--text);font-family:Montserrat,system-ui,sans-serif">
       ${BRAND_LOCKUP}
-      <h1 style="font-size:26px;margin-bottom:6px">${esc(ws.name)}</h1>
+      <h1 style="font-size:26px;margin-bottom:6px">${esc(ws.name)}${badgeHtml}</h1>
       <p style="color:var(--accent);font-weight:700;letter-spacing:1px">${estrellas(promedio || 0)} <span style="color:var(--text-alt);font-weight:500">${esc(resumen)}</span></p>
       ${ws.city ? `<p style="color:var(--text-alt);margin-top:8px">📍 ${esc(ws.city)}</p>` : ''}
       ${ws.bio ? `<p style="color:var(--text-alt);line-height:1.7;margin-top:14px">${esc(ws.bio)}</p>` : ''}
@@ -604,11 +560,7 @@ async function createApp(dbOverride, statsOverride) {
     }));
   });
 
-  /* ---------- Páginas institucionales y legales ----------
-     Requisito duro de Google AdSense: todo sitio con anuncios debe tener política de
-     privacidad accesible (con divulgación de cookies de terceros y publicidad), datos
-     de contacto e identidad del editor. Se sirven renderizadas en servidor para que el
-     revisor de AdSense y Googlebot las vean sin ejecutar JavaScript. */
+  /* ---------- Páginas institucionales y legales (AdSense / SEO) ---------- */
   const CONTACT_EMAIL = process.env.CONTACT_EMAIL || 'newpersonal98@gmail.com';
   const SITE_OWNER = process.env.SITE_OWNER || 'llave';
   const LEGAL_UPDATED = '2 de agosto de 2026';
@@ -1570,17 +1522,6 @@ ${dbContext}`;
   const ZONES = ['rear_seat', 'tank_drop', 'trunk_access', 'frame_rail'];
   const ASSEMBLY = ['external', 'hanger_tbi', 'hanger_return', 'module_returnless', 'vortec', 'gdi_low'];
 
-  /* Rangos de Donador (5 niveles por aporte acumulado en USD) */
-  const calcularNivelDonador = (monto) => {
-    const m = Number(monto || 0);
-    if (m >= 50) return 5;
-    if (m >= 30) return 4;
-    if (m >= 15) return 3;
-    if (m >= 5) return 2;
-    if (m >= 1) return 1;
-    return 0;
-  };
-
   const adminLimiter = rateLimit({ windowMs: 60_000, limit: 40, standardHeaders: true, legacyHeaders: false });
   const requireAdmin = (req, res, next) => {
     if (!ADMIN_PASSWORD) return res.status(503).json({ error: 'Panel no configurado. Define la variable ADMIN_PASSWORD.' });
@@ -1806,6 +1747,16 @@ ${dbContext}`;
     res.set('Cache-Control', 'no-store').json(rows);
   });
 
+  async function notificarTaller(wsId, title, message, type = 'info') {
+    if (!wsId) return;
+    try {
+      await db.run(
+        'INSERT INTO workshop_notifications (workshop_id, title, message, type) VALUES (?, ?, ?, ?)',
+        [wsId, str(title, 120), str(message, 500), str(type, 20) || 'info']
+      );
+    } catch (e) { /* silencioso */ }
+  }
+
   /* ---- Donaciones y Solicitudes de Rango (Admin) ---- */
   app.get('/api/admin/donations', requireAdmin, async (req, res) => {
     const status = str(req.query.status, 20);
@@ -1845,6 +1796,7 @@ ${dbContext}`;
         if (nuevoNivel > ws.donor_level) {
           await db.run('UPDATE workshops SET donor_level = ? WHERE id = ?', [nuevoNivel, targetWsId]);
         }
+        await notificarTaller(targetWsId, '🎉 ¡Aporte aprobado!', `Tu aporte de $${Number(montoAprobado).toFixed(2)} USD fue aprobado. Nivel de taller: ${nuevoNivel}. ¡Gracias por apoyar!`, 'success');
       }
       await db.exec('COMMIT');
     } catch (e) {
@@ -1866,6 +1818,9 @@ ${dbContext}`;
       `UPDATE donations SET status = 'rejected', note = ?, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = 'admin' WHERE id = ?`,
       [notaFinal, id]
     );
+    if (don.workshop_id) {
+      await notificarTaller(don.workshop_id, '⚠️ Aporte no acreditado', `Tu aporte con referencia "${don.reference}" fue rechazado. ${motivo ? 'Motivo: ' + motivo : 'Revisa los datos con soporte.'}`, 'warning');
+    }
     res.json({ ok: true, id, status: 'rejected' });
   });
 
@@ -1885,6 +1840,7 @@ ${dbContext}`;
     if (!ws) return res.status(404).json({ error: 'Taller no encontrado' });
     const newDonated = donated !== null ? Math.max(0, donated) : ws.total_donated;
     await db.run('UPDATE workshops SET donor_level = ?, total_donated = ? WHERE id = ?', [lvl, newDonated, id]);
+    await notificarTaller(id, '🎖️ Rango actualizado', `Tu rango fue actualizado a Nivel ${lvl}. Total acumulado: $${newDonated.toFixed(2)} USD.`, 'info');
     res.json({ ok: true, id, donor_level: lvl, total_donated: newDonated });
   });
 
@@ -1910,6 +1866,7 @@ ${dbContext}`;
       if (nuevoNivel > ws.donor_level) {
         await db.run('UPDATE workshops SET donor_level = ? WHERE id = ?', [nuevoNivel, workshop_id]);
       }
+      await notificarTaller(workshop_id, '🎉 Aporte registrado por admin', `Se acreditó un aporte de $${Number(amount).toFixed(2)} USD a tu cuenta de taller. Rango: Nivel ${nuevoNivel}.`, 'success');
     }
     res.status(201).json({ ok: true, id, status: 'approved' });
   });
@@ -2078,20 +2035,12 @@ ${dbContext}`;
   }, 10 * 60 * 1000);
   if (_cleanLogins.unref) _cleanLogins.unref();
 
-  /* Top de contraseñas triviales más filtradas en breaches públicos. NO es
-     exhaustivo (la versión 10k pesa >100 KB): cubre las que un usuario elige
-     "para salir del paso". El bloqueo se aplica SIEMPRE: un atacante ya
-     tiene esta lista. */
+  /* Top de contraseñas triviales bloqueadas */
   const WEAK_PASSWORDS = new Set([
-    '1234567890', '123456789', '12345678', 'qwerty123', 'qwertyuiop',
-    'password', 'password1', 'password12', 'iloveyou', 'admin1234',
-    'welcome1', 'welcome12', 'monkey123', 'dragon123', 'letmein123',
-    'football1', 'baseball1', 'sunshine1', 'trustno1', 'master1234',
-    'shadow123', 'jordan123', 'superman1', 'harley123', 'ranger123',
-    'jordan23', 'abc12345', 'abcdef12', 'asdf1234', 'qwer1234',
-    '11111111', '00000000', '12121212', '69696969', '98765432',
-    'qwerty12', 'abc12345', 'ninja123', 'mustang1', 'access123',
-    '696969', 'qazwsx12', 'michael1', 'password!', 'charlie1',
+    '1234567890', '123456789', '12345678', 'qwerty123', 'qwertyuiop', 'password', 'password1', 'password12', 'iloveyou', 'admin1234',
+    'welcome1', 'welcome12', 'monkey123', 'dragon123', 'letmein123', 'football1', 'baseball1', 'sunshine1', 'trustno1', 'master1234',
+    'shadow123', 'jordan123', 'superman1', 'harley123', 'ranger123', 'jordan23', 'abc12345', 'abcdef12', 'asdf1234', 'qwer1234',
+    '11111111', '00000000', '12121212', '69696969', '98765432', 'qwerty12', 'ninja123', 'mustang1', 'access123', '696969', 'qazwsx12', 'michael1', 'password!', 'charlie1'
   ]);
 
   // Registro: crea taller + sesión
@@ -2283,6 +2232,7 @@ ${dbContext}`;
     is_public: Number(ws.is_public) === 1,
     donor_level: Number(ws.donor_level || 0),
     total_donated: Number(ws.total_donated || 0),
+    donor_progress: calcularProgresoDonador(ws.total_donated, ws.donor_level),
   });
 
   /* haceSlug vive en lib/pure.js. Si el slug choca con otro taller, se le
@@ -2323,6 +2273,29 @@ ${dbContext}`;
     );
     const ws = await db.get(`SELECT ${CAMPOS_PERFIL} FROM workshops WHERE id = ?`, req.workshopId);
     res.set('Cache-Control', 'no-store').json(normalizaPerfil(ws));
+  });
+
+  /* ---- Notificaciones e Historial de Donaciones del Taller ---- */
+  app.get('/api/workshop/notifications', requireWorkshop, async (req, res) => {
+    const rows = await db.all('SELECT id, title, message, type, is_read, created_at FROM workshop_notifications WHERE workshop_id = ? ORDER BY id DESC LIMIT 50', req.workshopId);
+    res.set('Cache-Control', 'no-store').json(rows);
+  });
+
+  app.post('/api/workshop/notifications/:id/read', requireWorkshop, async (req, res) => {
+    const id = toInt(req.params.id, 1, 1e9);
+    if (id === null) return res.status(404).json({ error: 'No encontrado' });
+    await db.run('UPDATE workshop_notifications SET is_read = 1 WHERE id = ? AND workshop_id = ?', [id, req.workshopId]);
+    res.json({ ok: true, id });
+  });
+
+  app.post('/api/workshop/notifications/read-all', requireWorkshop, async (req, res) => {
+    await db.run('UPDATE workshop_notifications SET is_read = 1 WHERE workshop_id = ?', req.workshopId);
+    res.json({ ok: true });
+  });
+
+  app.get('/api/workshop/donations', requireWorkshop, async (req, res) => {
+    const rows = await db.all('SELECT id, amount, method, reference, note, status, reviewed_at, reviewed_by, created_at FROM donations WHERE workshop_id = ? ORDER BY id DESC LIMIT 100', req.workshopId);
+    res.set('Cache-Control', 'no-store').json(rows);
   });
 
   /* ================================================================
@@ -3397,6 +3370,9 @@ ${dbContext}`;
     enviarAvisoDonacion({
       id, amount, method, reference, donor_name, email, workshop_id, note, quickApproveUrl
     }, process.env.DONATION_WEBHOOK_URL).catch(() => {});
+    if (workshop_id) {
+      await notificarTaller(workshop_id, '⏳ Aporte registrado', `Recibimos tu reporte de $${Number(amount).toFixed(2)} USD vía ${method.toUpperCase()} (Ref: ${reference}). Está en revisión.`, 'info');
+    }
 
     res.status(201).json({
       ok: true,
@@ -3430,6 +3406,7 @@ ${dbContext}`;
         if (nuevoNivel > ws.donor_level) {
           await db.run('UPDATE workshops SET donor_level = ? WHERE id = ?', [nuevoNivel, don.workshop_id]);
         }
+        await notificarTaller(don.workshop_id, '🎉 ¡Aporte aprobado!', `Tu aporte de $${Number(don.amount).toFixed(2)} USD fue aprobado por enlace seguro. Rango: Nivel ${nuevoNivel}.`, 'success');
       }
       await db.exec('COMMIT');
     } catch (e) {
@@ -3437,13 +3414,7 @@ ${dbContext}`;
       throw e;
     }
 
-    res.type('text/html; charset=utf-8').send(`<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><title>Aporte Aprobado | llave</title>
-<style>body{font-family:sans-serif;background:#111311;color:#f8f7f3;text-align:center;padding:50px;}</style></head>
-<body><h1 style="color:#6f8a5a">✓ Aporte #${don.id} Aprobado</h1>
-<p>Monto acreditado: <strong>$${don.amount} USD</strong> (${don.method.toUpperCase()} - Ref: ${don.reference})</p>
-<p>El rango y beneficios del donador se han actualizado correctamente.</p>
-<p><a href="/admin" style="color:#8aa571">Ir al Panel de Administración</a> | <a href="/" style="color:#8aa571">Ir al Inicio</a></p></body></html>`);
+    res.type('text/html; charset=utf-8').send(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Aporte Aprobado | llave</title><style>body{font-family:sans-serif;background:#111311;color:#f8f7f3;text-align:center;padding:50px;}</style></head><body><h1 style="color:#6f8a5a">✓ Aporte #${don.id} Aprobado</h1><p>Monto: <strong>$${don.amount} USD</strong> (${don.method.toUpperCase()} - Ref: ${don.reference})</p><p>El rango y beneficios del donador se han actualizado.</p><p><a href="/admin" style="color:#8aa571">Ir al Panel</a> | <a href="/" style="color:#8aa571">Ir al Inicio</a></p></body></html>`);
   });
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'No encontrado' }));

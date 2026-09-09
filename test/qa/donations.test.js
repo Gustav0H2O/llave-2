@@ -199,4 +199,54 @@ describe('Donaciones y Rangos de Donador', () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.ok, false);
   });
+
+  it('notificaciones de taller e historial de donaciones para auditoría', async () => {
+    // Sin autenticación debe dar 401
+    const unauthNotifs = await anon.get('/api/workshop/notifications');
+    assert.equal(unauthNotifs.status, 401);
+    const unauthDonations = await anon.get('/api/workshop/donations');
+    assert.equal(unauthDonations.status, 401);
+    const unauthRead = await anon.post('/api/workshop/notifications/1/read');
+    assert.equal(unauthRead.status, 401);
+    const unauthReadAll = await anon.post('/api/workshop/notifications/read-all');
+    assert.equal(unauthReadAll.status, 401);
+
+    // Con sesión de taller
+    const notifs = await taller.get('/api/workshop/notifications');
+    assert.equal(notifs.status, 200);
+    assert.ok(Array.isArray(notifs.body));
+    assert.ok(notifs.body.length > 0, 'debe tener notificaciones generadas en los pasos previos');
+
+    const firstNotif = notifs.body[0];
+    assert.ok(firstNotif.title.length > 0);
+    assert.ok(firstNotif.message.length > 0);
+
+    // Marcar una leída con id inválido -> 404
+    const badRead = await taller.post('/api/workshop/notifications/abc/read');
+    assert.equal(badRead.status, 404);
+
+    // Marcar leída
+    const readRes = await taller.post(`/api/workshop/notifications/${firstNotif.id}/read`);
+    assert.equal(readRes.status, 200);
+    assert.equal(readRes.body.ok, true);
+
+    // Marcar todas como leídas
+    const readAllRes = await taller.post('/api/workshop/notifications/read-all');
+    assert.equal(readAllRes.status, 200);
+    assert.equal(readAllRes.body.ok, true);
+
+    // Historial de donaciones del taller
+    const donHist = await taller.get('/api/workshop/donations');
+    assert.equal(donHist.status, 200);
+    assert.ok(Array.isArray(donHist.body));
+    assert.ok(donHist.body.length > 0, 'debe incluir las donaciones acreditadas del taller');
+
+    // Progreso del donador en /api/auth/me
+    const me = await taller.get('/api/auth/me');
+    assert.equal(me.status, 200);
+    assert.ok(me.body.donor_progress);
+    assert.equal(me.body.donor_progress.nivel, 5);
+    assert.equal(me.body.donor_progress.puntos, 55);
+    assert.equal(me.body.donor_progress.porcentaje, 100);
+  });
 });

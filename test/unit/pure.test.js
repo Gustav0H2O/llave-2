@@ -9,6 +9,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   toInt, psiToBar, str, num, esc, slugify, vehicleSlug, vehicleIdFromSlug, haceSlug,
+  NIVELES_DONACION, calcularNivelDonador, calcularProgresoDonador,
 } = require('../../lib/pure');
 
 describe('toInt — saneo de enteros externos', () => {
@@ -210,5 +211,44 @@ describe('haceSlug — slug del taller', () => {
     for (const e of entradas) {
       assert.match(haceSlug(e), /^[a-z0-9-]*$/, `haceSlug(${e}) dejó caracteres inválidos`);
     }
+  });
+});
+
+describe('Rangos de donador — lógica pura de niveles y progreso', () => {
+  it('calcularNivelDonador mapea montos correctamente', () => {
+    assert.equal(calcularNivelDonador(0), 0);
+    assert.equal(calcularNivelDonador(0.5), 0);
+    assert.equal(calcularNivelDonador(1), 1);
+    assert.equal(calcularNivelDonador(4.9), 1);
+    assert.equal(calcularNivelDonador(5), 2);
+    assert.equal(calcularNivelDonador(14.9), 2);
+    assert.equal(calcularNivelDonador(15), 3);
+    assert.equal(calcularNivelDonador(29.9), 3);
+    assert.equal(calcularNivelDonador(30), 4);
+    assert.equal(calcularNivelDonador(49.9), 4);
+    assert.equal(calcularNivelDonador(50), 5);
+    assert.equal(calcularNivelDonador(150), 5);
+  });
+
+  it('calcularProgresoDonador calcula porcentaje y falta para próximo nivel', () => {
+    const p0 = calcularProgresoDonador(0, 0);
+    assert.equal(p0.nivel, 0);
+    assert.equal(p0.proximoNivel, 1);
+    assert.equal(p0.faltaParaProximo, 1);
+    assert.equal(p0.porcentaje, 0);
+
+    const p1 = calcularProgresoDonador(3, 1);
+    assert.equal(p1.nivel, 1);
+    assert.equal(p1.proximoNivel, 2);
+    assert.equal(p1.faltaParaProximo, 2);
+    assert.equal(p1.porcentaje, 50);
+
+    const pMax = calcularProgresoDonador(75, 5);
+    assert.equal(pMax.nivel, 5);
+    assert.equal(pMax.proximoNivel, null);
+    assert.equal(pMax.faltaParaProximo, 0);
+    assert.equal(pMax.porcentaje, 100);
+    assert.equal(pMax.beneficiosDesbloqueados.length, 5);
+    assert.equal(pMax.beneficiosProximos.length, 0);
   });
 });
