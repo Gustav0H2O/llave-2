@@ -106,6 +106,34 @@ describe('Business API (cuentas de taller)', () => {
     assert.equal(r.status, 400);
   });
 
+  it('permite actualizar y devolver avatar_url en perfil y en /api/auth/me', async () => {
+    const preset = await c1.put('/api/auth/profile', { name: 'Taller A', avatar_url: '/brand/avatar-preset-3.png' });
+    assert.equal(preset.status, 200);
+    assert.equal(preset.body.avatar_url, '/brand/avatar-preset-3.png');
+
+    const me = await c1.get('/api/auth/me');
+    assert.equal(me.status, 200);
+    assert.equal(me.body.avatar_url, '/brand/avatar-preset-3.png');
+
+    const dataUrl = 'data:image/webp;base64,UklGRkAAAABXRUJQVlA4IDQAAADwAQCdASoIAAgAAkA4JZwAAud3/wAA';
+    const propia = await c1.put('/api/auth/profile', { name: 'Taller A', avatar_url: dataUrl });
+    assert.equal(propia.status, 200);
+    assert.equal(propia.body.avatar_url, dataUrl);
+  });
+
+  it('onboarding antifraude /api/auth/onboarding valida y activa el taller', async () => {
+    const error = await c1.post('/api/auth/onboarding', { name: 'T' });
+    assert.equal(error.status, 400);
+
+    const ok = await c1.post('/api/auth/onboarding', {
+      name: 'Taller A', owner_name: 'Carlos Perez', doc_id: 'J-12345678-9',
+      phone: '+58 412 999 8877', city: 'Caracas', address: 'Av Principal #12', business_type: 'Inyección Electrónica'
+    });
+    assert.equal(ok.status, 200);
+    assert.equal(ok.body.onboarding_completed, true);
+    assert.equal(ok.body.doc_id, 'J-12345678-9');
+  });
+
   it('verifica el correo con el enlace y el token es de un solo uso', async () => {
     // Sin RESEND_API_KEY el servidor devuelve el enlace en la respuesta
     const envio = await c1.post('/api/auth/verify/send', {});
@@ -160,6 +188,14 @@ describe('Business API (cuentas de taller)', () => {
     assert.equal((await c1.get('/api/workshops/taller-a')).status, 404);
 
     await c1.put('/api/auth/profile', { name: 'Taller A', is_public: true });
+  });
+
+  it('el perfil público /api/workshops/:slug incluye avatar_url y donor_level', async () => {
+    await c1.put('/api/auth/profile', { name: 'Taller A', is_public: true, avatar_url: '/brand/avatar-preset-2.png' });
+    const pub = await c1.get('/api/workshops/taller-a');
+    assert.equal(pub.status, 200);
+    assert.equal(pub.body.avatar_url, '/brand/avatar-preset-2.png');
+    assert.equal(typeof pub.body.donor_level, 'number');
   });
 
   it('acepta reseñas, calcula el promedio y limita una por dispositivo', async () => {

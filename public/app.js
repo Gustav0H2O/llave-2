@@ -228,8 +228,8 @@ const MARK_ICONS = {
   Ruler: 'Ruler', Copy: 'Copy', Info: 'Info', Pencil: 'Pencil', Trash2: 'Trash2',
   Calculator: 'Calculator', FileText: 'FileText', Store: 'Store',
   MailWarn: 'MailWarning', MailCheck: 'MailCheck', Phone: 'Phone',
-  Battery: 'Battery', Key: 'KeyRound', ChevronLeft: 'ChevronLeft',
-  ChevronDown: 'ChevronDown',
+  Battery: 'Battery', Key: 'KeyRound', ChevronLeft: 'ChevronLeft', ChevronRight: 'ChevronRight',
+  ChevronDown: 'ChevronDown', Coins: 'Coins',
   Play: 'Play', Pause: 'Pause', ArrowRight: 'ArrowRight', ArrowLeft: 'ArrowLeft',
   Menu: 'Menu', Home: 'House', LogOut: 'LogOut', Download: 'Download',
   Clock: 'Clock', Close: 'X', Upload: 'Upload', LayoutGrid: 'LayoutGrid',
@@ -1426,10 +1426,126 @@ function Calculators() {
   `;
 }
 
+function TallerIdentityFields({ form, onChange }) {
+  const F = (k) => (e) => onChange({ ...form, [k]: e.target.value });
+  return html`
+    <div style=${{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
+      <label class="login-field" style=${{ margin: 0 }}>
+        <span>Nombre del taller *</span>
+        <input type="text" class="styled-input" placeholder="Taller Mecánico…" value=${form.name} onChange=${F('name')} required />
+      </label>
+      <label class="login-field" style=${{ margin: 0 }}>
+        <span>Titular / Responsable *</span>
+        <input type="text" class="styled-input" placeholder="Nombre y Apellido" value=${form.owner_name} onChange=${F('owner_name')} required />
+      </label>
+      <label class="login-field" style=${{ margin: 0 }}>
+        <span>Doc. Fiscal / Cédula / RIF *</span>
+        <input type="text" class="styled-input" placeholder="RIF, RFC, RUT o Cédula" value=${form.doc_id} onChange=${F('doc_id')} required />
+      </label>
+      <label class="login-field" style=${{ margin: 0 }}>
+        <span>WhatsApp internacional *</span>
+        <input type="tel" class="styled-input" placeholder="+58 412 1234567" value=${form.phone} onChange=${F('phone')} required />
+      </label>
+      <label class="login-field" style=${{ margin: 0 }}>
+        <span>Especialidad *</span>
+        <select class="styled-input" value=${form.business_type} onChange=${F('business_type')}>
+          <option value="Mecánica general">Mecánica general</option>
+          <option value="Inyección electrónica">Inyección electrónica</option>
+          <option value="Electroauto y baterías">Electroauto y baterías</option>
+          <option value="Frenos y suspensión">Frenos y suspensión</option>
+          <option value="Venta de repuestos">Venta de repuestos</option>
+          <option value="Taller multimarca">Taller multimarca</option>
+        </select>
+      </label>
+      <label class="login-field" style=${{ margin: 0 }}>
+        <span>Ciudad o zona *</span>
+        <input type="text" class="styled-input" placeholder="Ej. Valencia, Carabobo" value=${form.city} onChange=${F('city')} required />
+      </label>
+    </div>
+    <label class="login-field" style=${{ marginTop: '8px' }}>
+      <span>Dirección física exacta del taller *</span>
+      <input type="text" class="styled-input" placeholder="Av. o Calle, Sector, Local o Galpón" value=${form.address} onChange=${F('address')} required />
+    </label>
+  `;
+}
+
+function OnboardingModal({ user, onComplete, onLogout }) {
+  const [form, setForm] = useState({
+    name: user?.name || '',
+    owner_name: user?.owner_name || (user?.name && !user.name.toLowerCase().includes('taller') ? user.name : ''),
+    doc_id: user?.doc_id || '',
+    phone: user?.phone || '',
+    business_type: user?.business_type || 'Mecánica general',
+    city: user?.city || '',
+    address: user?.address || '',
+  });
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) { setErr('Ingresa el nombre del taller'); return; }
+    if (!form.owner_name.trim()) { setErr('Ingresa el nombre del titular o responsable'); return; }
+    if (!form.doc_id.trim() || form.doc_id.trim().length < 4) { setErr('Ingresa un documento fiscal/cédula válido (mínimo 4 caracteres)'); return; }
+    const cleanPhone = form.phone.replace(/[^\d+]/g, '');
+    if (!cleanPhone || !/^\+?\d{7,15}$/.test(cleanPhone)) { setErr('Ingresa un WhatsApp válido con código de país (ej. +584121234567)'); return; }
+    if (!form.city.trim()) { setErr('Ingresa la ciudad o zona'); return; }
+    if (!form.address.trim()) { setErr('Ingresa la dirección física del taller'); return; }
+
+    setBusy(true); setErr('');
+    try {
+      const res = await fetch('/api/auth/onboarding', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, phone: cleanPhone })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Error al procesar la verificación');
+      onComplete(body);
+    } catch (e2) { setErr(e2.message); }
+    finally { setBusy(false); }
+  };
+
+  return html`
+    <div style=${{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', overflowY: 'auto' }} role="dialog" aria-modal="true">
+      <div style=${{ background: 'var(--panel, #18181b)', border: '1px solid var(--border-hi, #3f3f46)', borderRadius: '16px', width: '100%', maxWidth: '540px', padding: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)', margin: 'auto' }}>
+        <div style=${{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '99px', background: 'rgba(16,185,129,0.12)', color: '#10b981', fontSize: '11.5px', fontWeight: 700, marginBottom: '10px' }}>
+          <${Icon} name="ShieldCheck" size=${15} /> Verificación Antifraude Obligatoria
+        </div>
+        <h2 style=${{ fontSize: '19px', fontWeight: 800, margin: '0 0 6px', color: 'var(--text)' }}>Completa los datos de tu taller</h2>
+        <p style=${{ fontSize: '12.5px', color: 'var(--text-alt)', margin: '0 0 16px', lineHeight: 1.4 }}>
+          Para proteger la comunidad contra estafas y mantener la plataforma segura y transparente, verifica la identidad fiscal y ubicación de tu taller antes de continuar.
+        </p>
+
+        <div style=${{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--sunken)', borderRadius: '10px', marginBottom: '16px', fontSize: '12px', border: '1px solid var(--border)' }}>
+          <${Icon} name="User" size=${18} color="var(--accent)" />
+          <div>
+            <strong>${user.email}</strong>
+            <span style=${{ display: 'block', fontSize: '11px', color: '#10b981', fontWeight: 600 }}>${user.auth_provider === 'google' ? 'Cuenta verificada con Google' : 'Cuenta de taller registrada'}</span>
+          </div>
+        </div>
+
+        <form onSubmit=${submit}>
+          <${TallerIdentityFields} form=${form} onChange=${setForm} />
+          ${err && html`<div class="login-msg login-msg--warn" style=${{ marginTop: '12px' }}><span>${err}</span></div>`}
+          <button type="submit" class="tool-add-btn" style=${{ width: '100%', justifyContent: 'center', marginTop: '16px', padding: '12px' }} disabled=${busy || !form.name || !form.owner_name || !form.doc_id || !form.phone || !form.city || !form.address}>
+            ${busy ? 'Verificando y activando…' : 'Verificar y activar mi taller'}
+          </button>
+        </form>
+
+        <div style=${{ textAlign: 'center', marginTop: '14px' }}>
+          <button type="button" onClick=${onLogout} style=${{ background: 'none', border: 'none', color: 'var(--text-alt)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}>
+            Cerrar sesión y salir
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 /* ---------- Login / registro del taller ---------- */
 function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initialSugerirGoogle }) {
   const [mode, setMode] = useState(initialMode || 'login');
-  const [form, setForm] = useState({ name: '', email: initialEmail || '', password: '' });
+  const [form, setForm] = useState({ name: '', owner_name: '', doc_id: '', phone: '', business_type: 'Mecánica general', city: '', address: '', email: initialEmail || '', password: '' });
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -1457,11 +1573,21 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initi
   const submit = async (e) => {
     e.preventDefault();
     if (form.password.length < 10) { setErr('La contraseña debe tener al menos 10 caracteres'); return; }
+    if (mode === 'register') {
+      if (!form.name.trim()) { setErr('Ingresa el nombre del taller'); return; }
+      if (!form.owner_name.trim()) { setErr('Ingresa el nombre del titular o responsable'); return; }
+      if (!form.doc_id.trim() || form.doc_id.trim().length < 4) { setErr('Ingresa un documento fiscal/cédula válido (mínimo 4 caracteres)'); return; }
+      const cleanPhone = form.phone.replace(/[^\d+]/g, '');
+      if (!cleanPhone || !/^\+?\d{7,15}$/.test(cleanPhone)) { setErr('Ingresa un WhatsApp válido con código de país (ej. +584121234567)'); return; }
+      if (!form.city.trim()) { setErr('Ingresa la ciudad o zona'); return; }
+      if (!form.address.trim()) { setErr('Ingresa la dirección física del taller'); return; }
+    }
     setBusy(true); setErr(''); setCuentaDuplicada(false);
     try {
+      const payload = mode === 'register' ? { ...form, phone: form.phone.replace(/[^\d+]/g, '') } : form;
       const res = await fetch(mode === 'register' ? '/api/auth/register' : '/api/auth/login', {
         method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+        body: JSON.stringify(payload)
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -1557,11 +1683,7 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initi
             </div>`}
 
           <form onSubmit=${submit} class="login-form">
-            ${mode === 'register' && html`
-              <label class="login-field">
-                <span>Nombre del taller</span>
-                <input type="text" class="styled-input" placeholder="Taller mecánico La Llave" value=${form.name} onChange=${e => setForm({ ...form, name: e.target.value })} required />
-              </label>`}
+            ${mode === 'register' && html`<${TallerIdentityFields} form=${form} onChange=${setForm} />`}
             <label class="login-field">
               <span>Correo</span>
               <input type="email" class="styled-input" placeholder="tunombre@taller.com" value=${form.email} onChange=${e => { setCuentaDuplicada(false); setForm({ ...form, email: e.target.value }); }} required />
@@ -1575,7 +1697,7 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initi
                 </span>`}
             </label>
 
-            <button type="submit" class="tool-add-btn login-submit" disabled=${busy || isLocked || (mode === 'register' && (cuentaDuplicada || form.password.length < 10)) || !form.email || !form.password}>
+            <button type="submit" class="tool-add-btn login-submit" disabled=${busy || isLocked || (mode === 'register' && (cuentaDuplicada || form.password.length < 10 || !form.name || !form.owner_name || !form.doc_id || !form.phone || !form.city || !form.address)) || !form.email || !form.password}>
               ${busy ? 'Procesando…' : isLocked ? 'Acceso bloqueado (15 min)' : mode === 'register' ? 'Crear cuenta' : 'Entrar'}
             </button>
 
@@ -2238,6 +2360,8 @@ function App() {
       ${esMovil && pie}
       <${ChatBot} vehicleId=${selected} user=${user} />
       <${ToastStack} />
+      ${user && (!user.onboarding_completed || !user.doc_id || !user.phone) && html`
+        <${OnboardingModal} user=${user} onComplete=${(u) => { setUser(u); refreshUser(); toast('Taller verificado con éxito'); }} onLogout=${logout} />`}
       ${/* Estilos en clase y no en línea: el enlace medía 179×14 px —imposible de
             acertar con el dedo— y el botón repetía a mano el relleno lima que ya
             existe como token. La clase le da el área tocable y el tema. */''}

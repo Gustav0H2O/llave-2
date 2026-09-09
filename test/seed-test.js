@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS workshops (
   name       TEXT NOT NULL,
   donor_level INTEGER NOT NULL DEFAULT 0,
   total_donated REAL NOT NULL DEFAULT 0,
+  avatar_url TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS sessions (

@@ -118,8 +118,14 @@ CREATE TABLE IF NOT EXISTS workshops (
   bio        TEXT,
   city       TEXT,
   services   TEXT,
+  owner_name TEXT,
+  doc_id     TEXT,
+  address    TEXT,
+  business_type TEXT,
+  onboarding_completed INTEGER NOT NULL DEFAULT 0,
   donor_level INTEGER NOT NULL DEFAULT 0,
   total_donated REAL NOT NULL DEFAULT 0,
+  avatar_url TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

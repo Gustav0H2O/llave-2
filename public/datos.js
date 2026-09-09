@@ -161,11 +161,96 @@
       email: 'newpersonal98@gmail.com',
     },
     niveles: [
-      { nivel: 1, nombre: 'Impulsor', montoMin: 1, icon: 'Award', color: '#cd7f32', perk: 'Insignia pública en tu perfil y directorio' },
-      { nivel: 2, nombre: 'Colaborador (Plata)', montoMin: 5, icon: 'ShieldCheck', color: '#94a3b8', perk: 'Presupuestos y notas de entrega en PDF sin marca de agua' },
-      { nivel: 3, nombre: 'Destacado (Oro)', montoMin: 15, icon: 'Sparkles', color: '#eab308', perk: 'Prioridad de aparición en el buscador y respaldo en 1 clic' },
-      { nivel: 4, nombre: 'Experto (Platino)', montoMin: 30, icon: 'TrendingUp', color: '#06b6d4', perk: 'Gráficas de rentabilidad y herramientas prioritarias' },
-      { nivel: 5, nombre: 'Socio Fundador (Diamante)', montoMin: 50, icon: 'Crown', color: '#f59e0b', perk: 'Insignia dorada permanente, máxima prioridad y línea directa' },
+      {
+        nivel: 0,
+        nombre: 'Normal',
+        titulo: 'Taller Base / Miembro Comunidad',
+        puntos: '0 pts ($0 USD)',
+        montoMin: 0,
+        icon: 'Shield',
+        color: '#64748b',
+        perk: 'Consultas libres sin publicidad en todo el catálogo técnico',
+        beneficios: [
+          'Acceso 100% libre e ilimitado a fichas de bombas y módulos',
+          'Calculadoras de torque, presiones y diagnóstico en banco',
+          'Comunidad técnica y catálogo de fallas comunes'
+        ]
+      },
+      {
+        nivel: 1,
+        nombre: 'Impulsor',
+        titulo: 'Aporte Inicial de Apoyo',
+        puntos: '1+ pts ($1+ USD)',
+        montoMin: 1,
+        icon: 'Award',
+        color: '#cd7f32',
+        perk: 'Insignia oficial verificada en tu perfil y directorio',
+        beneficios: [
+          'Insignia de Donador Verificado visible en perfil público',
+          'Aparición con badge destacado en directorio de talleres',
+          'Reconocimiento en el muro de aportantes de la comunidad'
+        ]
+      },
+      {
+        nivel: 2,
+        nombre: 'Colaborador Plata',
+        titulo: 'Impulso Operativo Profesional',
+        puntos: '5+ pts ($5+ USD)',
+        montoMin: 5,
+        icon: 'ShieldCheck',
+        color: '#94a3b8',
+        perk: 'Presupuestos y notas de entrega en PDF sin marca de agua',
+        beneficios: [
+          'Descarga de cotizaciones y notas en PDF 100% limpias',
+          'Formato corporativo con datos de tu taller para clientes',
+          'Todos los beneficios del nivel Impulsor incluidos'
+        ]
+      },
+      {
+        nivel: 3,
+        nombre: 'Destacado Oro',
+        titulo: 'Visibilidad y Seguridad en Nube',
+        puntos: '15+ pts ($15+ USD)',
+        montoMin: 15,
+        icon: 'Sparkles',
+        color: '#eab308',
+        perk: 'Prioridad en el buscador y respaldo de datos en 1 clic',
+        beneficios: [
+          'Aparición prioritaria en el buscador de mecánicos y talleres',
+          'Respaldo completo de inventario, clientes y órdenes en 1 clic',
+          'Generación ilimitada de documentos PDF sin marca de agua'
+        ]
+      },
+      {
+        nivel: 4,
+        nombre: 'Experto Platino',
+        titulo: 'Especialista y Rentabilidad',
+        puntos: '30+ pts ($30+ USD)',
+        montoMin: 30,
+        icon: 'TrendingUp',
+        color: '#06b6d4',
+        perk: 'Gráficas de rentabilidad y herramientas operativas prioritarias',
+        beneficios: [
+          'Panel de métricas y analítica de rentabilidad de mano de obra',
+          'Acceso prioritario a simuladores y despieces de motores',
+          'Máxima visibilidad destacada en tu ciudad o región'
+        ]
+      },
+      {
+        nivel: 5,
+        nombre: 'Socio Fundador Diamante',
+        titulo: 'Alianza Estratégica Permanente',
+        puntos: '50+ pts ($50+ USD)',
+        montoMin: 50,
+        icon: 'Crown',
+        color: '#f59e0b',
+        perk: 'Insignia dorada permanente, máxima prioridad y línea directa',
+        beneficios: [
+          'Insignia dorada permanente en perfil, búsquedas y directorio',
+          'Canal de comunicación directa por WhatsApp con fundadores',
+          'Voto e influencia en la hoja de ruta de nuevas funciones'
+        ]
+      },
     ],
   };
 

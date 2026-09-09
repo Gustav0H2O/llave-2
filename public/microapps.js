@@ -289,6 +289,124 @@
     }, 280);
   };
 
+  /* ---------- carrusel interactivo de rangos de donación ---------- */
+  const DonationRankCarousel = ({ niveles = [], onSelectLevel }) => {
+    const [act, setAct] = useState(0);
+    const [pausado, setPausado] = useState(false);
+    const touchX = useRef(null);
+    const total = niveles.length;
+
+    useEffect(() => {
+      if (pausado || total <= 1) return;
+      const t = setInterval(() => {
+        setAct(i => (i + 1) % total);
+      }, 5500);
+      return () => clearInterval(t);
+    }, [pausado, total]);
+
+    if (!total) return null;
+    const cur = niveles[act] || niveles[0];
+    const prev = () => setAct(i => (i - 1 + total) % total);
+    const next = () => setAct(i => (i + 1) % total);
+
+    const onTouchStart = (e) => {
+      setPausado(true);
+      touchX.current = e.touches[0].clientX;
+    };
+    const onTouchEnd = (e) => {
+      setPausado(false);
+      if (touchX.current === null) return;
+      const diff = e.changedTouches[0].clientX - touchX.current;
+      if (diff > 40) prev();
+      else if (diff < -40) next();
+      touchX.current = null;
+    };
+
+    return html`
+      <div class="rank-carousel"
+           onMouseEnter=${() => setPausado(true)}
+           onMouseLeave=${() => setPausado(false)}
+           onTouchStart=${onTouchStart}
+           onTouchEnd=${onTouchEnd}
+           onFocus=${() => setPausado(true)}
+           onBlur=${() => setPausado(false)}
+           tabIndex="0"
+           role="region"
+           aria-label="Carrusel de rangos de donación y beneficios"
+           aria-roledescription="carousel">
+        
+        <div class="rank-carousel-main">
+          <div class="rank-carousel-visual">
+            <div class="rank-carousel-glow" style=${{ background: `radial-gradient(circle, ${cur.color}28 0%, transparent 72%)` }}></div>
+            <img class="rank-carousel-hero"
+                 src=${`/brand/hero-nivel-${cur.nivel}.png`}
+                 alt=${`Héroe Nivel ${cur.nivel}: ${cur.nombre}`}
+                 onError=${(e) => { e.target.style.opacity = '0.3'; }} />
+          </div>
+
+          <div class="rank-carousel-content">
+            <div class="rank-carousel-tags">
+              <span class="rank-carousel-badge" style=${{ color: cur.color, borderColor: `${cur.color}45`, background: `${cur.color}15` }}>
+                <${CatIc} n=${cur.icon} s=${13} />
+                <span>Nivel ${cur.nivel} · ${cur.nombre}</span>
+              </span>
+              <span class="rank-carousel-pts">
+                <${CatIc} n="Coins" s=${12} />
+                <span>${cur.puntos}</span>
+              </span>
+            </div>
+
+            <h4 class="rank-carousel-title">${cur.titulo || cur.nombre}</h4>
+            <p class="rank-carousel-perk">${cur.perk}</p>
+
+            <ul class="rank-carousel-perks">
+              ${(cur.beneficios || [cur.perk]).map(b => html`
+                <li key=${b}>
+                  <span class="rank-perk-ic" style=${{ color: cur.color }}><${CatIc} n="Check" s=${13} /></span>
+                  <span>${b}</span>
+                </li>
+              `)}
+            </ul>
+
+            <div class="rank-carousel-actions">
+              <button type="button" class="rank-carousel-cta"
+                      style=${{ background: cur.color, borderColor: cur.color }}
+                      onClick=${() => onSelectLevel && onSelectLevel(cur)}>
+                <span>${cur.nivel === 0 ? 'Conocer ventajas' : `Acreditar aporte $${cur.montoMin}+ USD`}</span>
+                <${CatIc} n="ArrowRight" s=${13} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="rank-carousel-ctrls">
+          <button type="button" class="rank-carousel-nav rank-carousel-prev" onClick=${prev} aria-label="Nivel anterior">
+            <${CatIc} n="ChevronLeft" s=${16} />
+          </button>
+
+          <div class="rank-carousel-dots" role="tablist" aria-label="Selector de niveles">
+            ${niveles.map((nv, idx) => html`
+              <button type="button"
+                      key=${nv.nivel}
+                      role="tab"
+                      aria-selected=${act === idx}
+                      class=${'rank-dot' + (act === idx ? ' is-active' : '')}
+                      style=${act === idx ? { background: nv.color, borderColor: nv.color } : {}}
+                      onClick=${() => setAct(idx)}
+                      title=${`Nivel ${nv.nivel}: ${nv.nombre}`}
+                      aria-label=${`Ver nivel ${nv.nivel}: ${nv.nombre}`}>
+              </button>
+            `)}
+          </div>
+
+          <button type="button" class="rank-carousel-nav rank-carousel-next" onClick=${next} aria-label="Nivel siguiente">
+            <${CatIc} n="ChevronRight" s=${16} />
+          </button>
+        </div>
+      </div>
+    `;
+  };
+
   const Home = ({ onOpen, user, onLogout, onLogin, onUserChange }) => {
     const [q, setQ] = useState('');
     /* La pestaña arranca desde la URL: así un acceso directo de la app
@@ -896,24 +1014,21 @@
 
               <div class="home-support-grid">
                 <div class="support-panel">
-                  <h3 class="support-panel-title"><${CatIc} n="Award" s=${18} /> Rangos de Reconocimiento</h3>
-                  <p class="support-panel-desc">Insignias verificadas y ventajas técnicas según el nivel de contribución a la plataforma:</p>
-                  <div class="support-ranks-list">
-                    ${(don.niveles || []).map(nv => html`
-                      <div class="support-rank-card" key=${nv.nivel}>
-                        <div class="support-rank-info">
-                          <div class="support-rank-head">
-                            <span class="support-rank-name" style=${{ color: nv.color }}>
-                              <${CatIc} n=${nv.icon} s=${14} />
-                              <span>${nv.nombre}</span>
-                            </span>
-                          </div>
-                          <p class="support-rank-perk">${nv.perk}</p>
-                        </div>
-                        <span class="support-rank-price">$${nv.montoMin}+</span>
-                      </div>
-                    `)}
-                  </div>
+                  <h3 class="support-panel-title"><${CatIc} n="Award" s=${18} /> Rangos de Reconocimiento y Héroes</h3>
+                  <p class="support-panel-desc">Carrusel interactivo de niveles. Insignias verificadas y ventajas técnicas según tu contribución:</p>
+                  <${DonationRankCarousel}
+                    niveles=${don.niveles || []}
+                    onSelectLevel=${(nv) => {
+                      if (nv.montoMin > 0) {
+                        setRepMonto(String(nv.montoMin));
+                        setMostrarReporte(true);
+                      }
+                      setTimeout(() => {
+                        const target = document.querySelector('.support-tabs, .support-form');
+                        target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }, 60);
+                    }}
+                  />
                 </div>
 
                 <div class="support-panel">

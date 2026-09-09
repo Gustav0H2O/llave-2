@@ -129,8 +129,14 @@ CREATE TABLE IF NOT EXISTS workshops (
   bio        TEXT,
   city       TEXT,
   services   TEXT,                   -- lista separada por comas
+  owner_name TEXT,                   -- nombre y apellido del responsable legal
+  doc_id     TEXT,                   -- documento de identidad o fiscal (RIF/RFC/RUT/DNI)
+  address    TEXT,                   -- dirección física del taller
+  business_type TEXT,                -- especialidad (mecánica, inyección, electroauto...)
+  onboarding_completed INTEGER NOT NULL DEFAULT 0, -- 1 si completó verificación antifraude
   donor_level INTEGER NOT NULL DEFAULT 0,  -- 0: Normal, 1: Impulsor, 2: Colaborador, 3: Destacado, 4: Experto, 5: Socio Fundador
   total_donated REAL NOT NULL DEFAULT 0,
+  avatar_url TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

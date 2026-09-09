@@ -1,10 +1,4 @@
-/* llave — Micro apps de gestión del taller (órdenes, inventario, clientes, notas,
-   caja, foro, conectar, documentos, mercado y perfil).
-
-   Vive aparte de microapps.js por presupuesto, no por capricho: juntos pasaban de
-   3.000 líneas y de 200 KB (quality/budgets.json), y cada KB es descarga real en el
-   celular del mecánico. Se carga DESPUÉS de microapps.js y amplía window.FT_MICRO;
-   los ayudantes compartidos llegan por window.FT_MICRO_UTIL para no duplicarlos. */
+/* llave — Micro apps de gestión del taller (órdenes, inventario, clientes, notas, caja, foro, conectar, documentos, mercado, perfil). */
 (function () {
   const { useState, useEffect } = React;
   const U = window.FT_MICRO_UTIL;
@@ -614,11 +608,26 @@
   const DN = ['', 'Impulsor', 'Colaborador', 'Destacado', 'Experto', 'Socio Fundador'];
   const DI = ['', 'Award', 'ShieldCheck', 'Sparkles', 'TrendingUp', 'Crown'];
   const bBadge = (l) => html`<span style=${{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '12px', fontSize: '11.5px', fontWeight: 700, color: RC[l] || RC[0], background: (RC[l] || RC[0]) + '22' }}><${CatIc} n=${DI[l] || 'Award'} s=${12} />${DN[l] || 'Taller'}</span>`;
+  const AVATAR_PRESETS = [0, 1, 2, 3, 4, 5].map(i => `/brand/avatar-preset-${i}.png`);
+
+  /* Componente de Avatar con Marco dinámico según el nivel de donación (0 a 5) */
+  const WorkshopAvatar = ({ avatar_url, donor_level = 0, size = 56, name = 'Taller', className = '', style = {} }) => {
+    const lvl = Math.max(0, Math.min(5, Number(donor_level || 0)));
+    const marcoSrc = `/brand/marco-nivel-${lvl}.png`;
+    const defaultImg = '/brand/avatar-preset-0.png';
+    return html`<div class=${'workshop-avatar-wrap' + (className ? ' ' + className : '')} style=${{ position: 'relative', width: `${size}px`, height: `${size}px`, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', ...style }}>
+      <div style=${{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: 'var(--sunken, #1e293b)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <img src=${avatar_url || defaultImg} alt=${name} style=${{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError=${e => { if (e.target.src !== location.origin + defaultImg) e.target.src = defaultImg; }} />
+      </div>
+      <img src=${marcoSrc} alt=${'Marco nivel ' + lvl} class="workshop-avatar-marco" style=${{ position: 'absolute', inset: '-15%', width: '130%', height: '130%', pointerEvents: 'none', objectFit: 'contain', zIndex: 2 }} />
+    </div>`;
+  };
+  const UserAvatar = WorkshopAvatar;
 
   const ProfileApp = ({ onBack, onLogout, onUserChange }) => {
     const [subTab, setSubTab] = useState('taller');
     const [me, setMe] = useState(null);
-    const [f, setF] = useState({ name: '', phone: '', bio: '', city: '', services: '', is_public: false });
+    const [f, setF] = useState({ name: '', owner_name: '', phone: '', bio: '', city: '', address: '', business_type: '', services: '', is_public: false, avatar_url: '' });
     const [copiado, setCopiado] = useState(false);
     const [estado, setEstado] = useState('cargando');
     const [msg, setMsg] = useState('');
@@ -647,13 +656,36 @@
         .then(r => r.ok ? r.json() : Promise.reject(new Error('Sesión no válida')))
         .then(u => {
           setMe(u);
-          setF({ name: u.name || '', phone: u.phone || '', bio: u.bio || '', city: u.city || '', services: u.services || '', is_public: !!u.is_public });
+          setF({ name: u.name || '', owner_name: u.owner_name || '', phone: u.phone || '', bio: u.bio || '', city: u.city || '', address: u.address || '', business_type: u.business_type || '', services: u.services || '', is_public: !!u.is_public, avatar_url: u.avatar_url || '' });
           setEstado('listo');
         })
         .catch(e => { setEstado('error'); setMsg(e.message); });
       cargarNotifs();
       cargarDonations();
     }, []);
+
+    const subirFoto = (e) => {
+      const file = e.target.files?.[0];
+      if (!file || !file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 256, minSide = Math.min(img.width, img.height);
+          const sx = (img.width - minSide) / 2, sy = (img.height - minSide) / 2;
+          const canvas = document.createElement('canvas');
+          canvas.width = maxDim; canvas.height = maxDim;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, maxDim, maxDim);
+          let dataUrl = canvas.toDataURL('image/webp', 0.82);
+          if (!dataUrl.startsWith('data:image/webp')) dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          if (dataUrl.length > 65000) dataUrl = canvas.toDataURL('image/jpeg', 0.65);
+          setF(p => ({ ...p, avatar_url: dataUrl }));
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
 
     const guardar = async () => {
       setEstado('guardando'); setMsg('');
@@ -721,11 +753,48 @@
           <span><${CatIc} n="Bell" s=${15} /> Tienes <strong>${noLeidas} aviso(s)</strong> nuevo(s).</span>
           <span style=${{ fontSize: '11px', textDecoration: 'underline', fontWeight: 700 }}>Ver avisos →</span>
         </div>`}
+
+        <div style=${{ ...SC, padding: '14px', marginBottom: '16px' }}>
+          <div style=${{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            <${WorkshopAvatar} avatar_url=${f.avatar_url} donor_level=${me?.donor_level || 0} size=${76} name=${f.name || 'Taller'} />
+            <div style=${{ flex: '1 1 200px' }}>
+              <div style=${SF}>
+                <strong style=${{ fontSize: '15px' }}>${f.name || me?.name || 'Mi Taller'}</strong>
+                ${bBadge(prog.nivel)}
+              </div>
+              <p style=${{ margin: '3px 0 0', fontSize: '11px', color: 'var(--text-alt)' }}>Marco dinámico: <strong style=${{ color: prog.color || 'var(--accent)' }}>${prog.nombre}</strong> (Nivel ${prog.nivel})</p>
+              <div style=${{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
+                <label class="home-cta-ghost" style=${{ cursor: 'pointer', fontSize: '11px', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <${CatIc} n="Upload" s=${12} /> Subir foto
+                  <input type="file" accept="image/*" style=${{ display: 'none' }} onChange=${subirFoto} />
+                </label>
+                ${f.avatar_url && html`<button type="button" class="home-cta-ghost" style=${{ fontSize: '11px', padding: '3px 8px' }} onClick=${() => setF(p => ({ ...p, avatar_url: '' }))}>Quitar</button>`}
+              </div>
+            </div>
+          </div>
+          <div style=${{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+            <span class="mic-lbl" style=${{ marginBottom: '6px', display: 'block' }}>O elige un avatar predeterminado:</span>
+            <div style=${{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              ${AVATAR_PRESETS.map((src, i) => {
+                const sel = f.avatar_url === src || (!f.avatar_url && i === 0);
+                return html`<button key=${i} type="button" onClick=${() => setF(p => ({ ...p, avatar_url: src }))} style=${{ border: sel ? '2px solid var(--accent)' : '2px solid transparent', outline: sel ? '1px solid var(--accent)' : 'none', borderRadius: '50%', padding: '2px', background: 'transparent', cursor: 'pointer' }} title=${'Avatar preset ' + i}>
+                  <img src=${src} alt=${'Preset ' + i} style=${{ width: '38px', height: '38px', borderRadius: '50%', display: 'block', objectFit: 'cover' }} />
+                </button>`;
+              })}
+            </div>
+          </div>
+        </div>
+
         <h3 class="mic-sub" style=${{ marginTop: 0 }}>Datos del taller</h3>
         <div class="quote-params">
           <label><span class="mic-lbl">Nombre del taller</span><input type="text" name="taller" autocomplete="organization" class="styled-input" placeholder="Taller…" value=${f.name} onChange=${e => setF({ ...f, name: e.target.value })} /></label>
           <label><span class="mic-lbl">WhatsApp del taller</span><input type="tel" name="telefono" autocomplete="tel" inputmode="tel" class="styled-input" placeholder="+58 412 1234567" value=${f.phone} onChange=${e => setF({ ...f, phone: e.target.value })} /><span class="trim-hint">Con código de país</span></label>
         </div>
+        <div class="quote-params" style=${{ marginTop: '10px' }}>
+          <label><span class="mic-lbl">Titular o responsable</span><input type="text" class="styled-input" placeholder="Nombre completo" value=${f.owner_name} onChange=${e => setF({ ...f, owner_name: e.target.value })} /></label>
+          <label><span class="mic-lbl">Especialidad</span><input type="text" class="styled-input" placeholder="Mecánica, Inyección…" value=${f.business_type} onChange=${e => setF({ ...f, business_type: e.target.value })} /></label>
+        </div>
+        <label style=${{ display: 'block', marginTop: '10px' }}><span class="mic-lbl">Dirección física del taller</span><input type="text" class="styled-input" placeholder="Calle, sector, local o galpón…" value=${f.address} onChange=${e => setF({ ...f, address: e.target.value })} /></label>
         ${f.phone && !telValido(f.phone) && html`<div class="alert" style=${{ marginTop: '12px' }}><span>Número no válido (ej. +584121234567).</span></div>`}
         <h3 class="mic-sub">Perfil público</h3>
         <label class="prof-toggle">
@@ -846,6 +915,7 @@
           ${!me.email_verified && html`<button type="button" class="home-cta-ghost" onClick=${reenviar} disabled=${verif === 'enviando'}>${verif === 'enviando' ? 'Enviando…' : verif === 'enviado' ? 'Enviado' : 'Confirmar correo'}</button>`}
         </div>`}
         <div class="quote-params" style=${{ marginTop: '14px' }}>
+          <label><span class="mic-lbl">Doc. Fiscal (Inmutable)</span><span style=${{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 12px', background: 'var(--card)', border: '1px solid var(--border-hi)', borderRadius: '8px', fontSize: '12px' }}><code>${me.doc_id || 'No registrado'}</code><span style=${{ fontSize: '10px', color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '2px' }}><${CatIc} n="ShieldCheck" s=${12} /> Fijo</span></span></label>
           <label><span class="mic-lbl">Método de acceso</span><span style=${{ display: 'block', padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border-hi)', borderRadius: '8px' }}>${me.auth_provider === 'google' ? 'Google' : 'Correo y contraseña'}</span></label>
           ${me.created_at && html`<label><span class="mic-lbl">Cuenta creada</span><span style=${{ display: 'block', padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border-hi)', borderRadius: '8px' }}>${new Date(me.created_at).toLocaleDateString()}</span></label>`}
         </div>
@@ -917,6 +987,16 @@
     </${MicroShell}>`;
 
     return html`<${MicroShell} title=${p.name} icon="Store" onBack=${onBack}>
+      <div style=${{ display: 'flex', alignItems: 'center', gap: '16px', margin: '6px 0 16px', padding: '12px 14px', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '10px' }}>
+        <${WorkshopAvatar} avatar_url=${p.avatar_url} donor_level=${p.donor_level || 0} size=${68} name=${p.name} />
+        <div>
+          <h2 style=${{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text)' }}>${p.name}</h2>
+          <div style=${{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+            ${p.donor_level > 0 && bBadge(p.donor_level)}
+            ${p.city && html`<span style=${{ fontSize: '11.5px', color: 'var(--text-alt)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}><${CatIc} n="MapPin" s=${12} /> ${p.city}</span>`}
+          </div>
+        </div>
+      </div>
       <div class="pp-head">
         <div class="pp-rating">
           <b>${p.promedio ?? '—'}</b>
@@ -929,11 +1009,6 @@
           ${p.donor_level > 0 && bBadge(p.donor_level)}
         </div>
       </div>
-      {/* El nombre en caso natural, fuera del rótulo del shell (que va en
-          MAYÚSCULAS por CSS): quien llega desde un enlace compartido confirma
-          de un vistazo que está en el perfil correcto, y el texto del DOM
-          coincide con el que sirvió el servidor. */}
-      <p style=${{ margin: '14px 0 0', fontWeight: 600, fontSize: '15px', color: 'var(--text)' }}>${p.name}</p>
       ${p.bio && html`<p class="mic-lead" style=${{ marginTop: '8px' }}>${p.bio}</p>`}
       ${p.services && html`<div class="pp-servicios">
         ${p.services.split(',').map(s => s.trim()).filter(Boolean).map((s, i) => html`<span key=${i}>${s}</span>`)}
@@ -984,6 +1059,12 @@
      27 micro apps y machacarlo aquí las dejaría fuera del dashboard. */
   window.FT_MICRO = Object.assign(window.FT_MICRO || {}, {
     OrdersApp, InventoryApp, ClientsApp, NotesApp, CashApp, ForumApp, ConnectApp,
-    DocumentsApp, MarketApp, ProfileApp, PublicProfileApp,
+    DocumentsApp, MarketApp, ProfileApp, PublicProfileApp, WorkshopAvatar, UserAvatar,
   });
+  window.WorkshopAvatar = WorkshopAvatar;
+  window.UserAvatar = UserAvatar;
+  if (window.FT_MICRO_UTIL) {
+    window.FT_MICRO_UTIL.WorkshopAvatar = WorkshopAvatar;
+    window.FT_MICRO_UTIL.UserAvatar = UserAvatar;
+  }
 })();

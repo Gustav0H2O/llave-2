@@ -98,6 +98,11 @@ async function createApp(dbOverride, statsOverride) {
     `ALTER TABLE workshops ADD COLUMN bio TEXT`,
     `ALTER TABLE workshops ADD COLUMN city TEXT`,
     `ALTER TABLE workshops ADD COLUMN services TEXT`,
+    `ALTER TABLE workshops ADD COLUMN owner_name TEXT`,
+    `ALTER TABLE workshops ADD COLUMN doc_id TEXT`,
+    `ALTER TABLE workshops ADD COLUMN address TEXT`,
+    `ALTER TABLE workshops ADD COLUMN business_type TEXT`,
+    `ALTER TABLE workshops ADD COLUMN onboarding_completed INTEGER NOT NULL DEFAULT 0`,
     /* Estado de cuenta y bloqueo temporal (regla 3.3). DEFAULT 'active' para
        que las filas preexistentes cuenten como activas sin migración adicional. */
     `ALTER TABLE workshops ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`,
@@ -115,6 +120,7 @@ async function createApp(dbOverride, statsOverride) {
        UNIQUE (workshop_id, author_hash))`,
     `ALTER TABLE workshops ADD COLUMN donor_level INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE workshops ADD COLUMN total_donated REAL NOT NULL DEFAULT 0`,
+    `ALTER TABLE workshops ADD COLUMN avatar_url TEXT`,
     `CREATE TABLE IF NOT EXISTS donations (
        id INTEGER PRIMARY KEY AUTOINCREMENT,
        workshop_id INTEGER REFERENCES workshops(id) ON DELETE SET NULL,
@@ -2035,13 +2041,7 @@ ${dbContext}`;
   }, 10 * 60 * 1000);
   if (_cleanLogins.unref) _cleanLogins.unref();
 
-  /* Top de contraseñas triviales bloqueadas */
-  const WEAK_PASSWORDS = new Set([
-    '1234567890', '123456789', '12345678', 'qwerty123', 'qwertyuiop', 'password', 'password1', 'password12', 'iloveyou', 'admin1234',
-    'welcome1', 'welcome12', 'monkey123', 'dragon123', 'letmein123', 'football1', 'baseball1', 'sunshine1', 'trustno1', 'master1234',
-    'shadow123', 'jordan123', 'superman1', 'harley123', 'ranger123', 'jordan23', 'abc12345', 'abcdef12', 'asdf1234', 'qwer1234',
-    '11111111', '00000000', '12121212', '69696969', '98765432', 'qwerty12', 'ninja123', 'mustang1', 'access123', '696969', 'qazwsx12', 'michael1', 'password!', 'charlie1'
-  ]);
+  const WEAK_PASSWORDS = new Set('1234567890,123456789,12345678,qwerty123,qwertyuiop,password,password1,password12,iloveyou,admin1234,welcome1,welcome12,monkey123,dragon123,letmein123,football1,baseball1,sunshine1,trustno1,master1234,shadow123,jordan123,superman1,harley123,ranger123,jordan23,abc12345,abcdef12,asdf1234,qwer1234,11111111,00000000,12121212,69696969,98765432,qwerty12,ninja123,mustang1,access123,696969,qazwsx12,michael1,password!,charlie1'.split(','));
 
   // Registro: crea taller + sesión
   app.post('/api/auth/register', authLimiter, async (req, res) => {
@@ -2060,23 +2060,25 @@ ${dbContext}`;
       return res.status(400).json({ error: 'Contraseña demasiado común. Elige otra distinta.' });
     }
     if (!name) return res.status(400).json({ error: 'Nombre del taller requerido' });
+    const owner_name = str(req.body?.owner_name, 120) || null, doc_id = str(req.body?.doc_id, 50) || null;
+    const phone = str(req.body?.phone, 24).replace(/[^\d+]/g, '') || null;
+    if (phone && !/^\+?\d{7,15}$/.test(phone)) return res.status(400).json({ error: 'Teléfono inválido: usa formato internacional (+58...)' });
+    if (doc_id && doc_id.length < 3) return res.status(400).json({ error: 'Documento fiscal/cédula inválido (mínimo 3 caracteres)' });
+    const city = str(req.body?.city, 80) || null, address = str(req.body?.address, 250) || null, business_type = str(req.body?.business_type, 50) || null;
+    const onbDone = (doc_id && phone) ? 1 : 0;
     const exists = await db.get('SELECT id, pass_hash, status, locked_until FROM workshops WHERE email = ?', email);
     if (exists && exists.pass_hash === 'google_oauth') {
       return res.status(409).json({ code: 'oauth_account', error: 'Ese correo ya tiene una cuenta con Google: usa "Continuar con Google".' });
     }
     if (exists) return res.status(409).json({ code: 'email_taken', error: 'Ya existe una cuenta con ese correo. ¿Quieres iniciar sesión?' });
     const passHash = await hashPassword(pass);
-    /* Transacción atómica (regla 1.4): INSERT del taller + INSERT de la
-       sesión dentro de un BEGIN/COMMIT. Si el INSERT de la sesión falla, el
-       taller se crea igual pero el usuario no puede iniciar sesión — antes
-       pasaba y dejaba cuentas a medias que nadie podía usar. */
     let id;
     try {
       await db.exec('BEGIN');
       try {
         id = await db.insertReturningId(
-          'INSERT INTO workshops (email, pass_hash, name) VALUES (?, ?, ?)',
-          [email, passHash, name]
+          'INSERT INTO workshops (email, pass_hash, name, owner_name, doc_id, phone, city, address, business_type, onboarding_completed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [email, passHash, name, owner_name, doc_id, phone, city, address, business_type, onbDone]
         );
         const token = crypto.randomBytes(32).toString('base64url');
         await db.run(
@@ -2086,7 +2088,7 @@ ${dbContext}`;
         await db.exec('COMMIT');
         return res.set('Cache-Control', 'no-store')
           .cookie(SESSION_COOKIE, token, tokenCookieOpts())
-          .status(201).json({ id, name, email });
+          .status(201).json({ id, name, email, onboarding_completed: Boolean(onbDone) });
       } catch (e) {
         await db.exec('ROLLBACK').catch(() => {});
         throw e;
@@ -2224,15 +2226,18 @@ ${dbContext}`;
      sin filtrar el hash (regla de seguridad: /api/auth/me no expone material
      de credenciales). created_at permite mostrar cuándo se abrió la cuenta. */
   const CAMPOS_PERFIL =
-    'id, name, email, email_verified, phone, slug, is_public, bio, city, services, donor_level, total_donated, created_at, ' +
+    'id, name, email, email_verified, phone, slug, is_public, bio, city, services, ' +
+    'owner_name, doc_id, address, business_type, onboarding_completed, donor_level, total_donated, avatar_url, created_at, ' +
     `CASE WHEN pass_hash = 'google_oauth' THEN 'google' ELSE 'password' END AS auth_provider`;
   const normalizaPerfil = (ws) => ws && ({
     ...ws,
     email_verified: Number(ws.email_verified) === 1,
     is_public: Number(ws.is_public) === 1,
+    onboarding_completed: Number(ws.onboarding_completed || 0) === 1 && Boolean(ws.doc_id && ws.phone),
     donor_level: Number(ws.donor_level || 0),
     total_donated: Number(ws.total_donated || 0),
     donor_progress: calcularProgresoDonador(ws.total_donated, ws.donor_level),
+    avatar_url: ws.avatar_url || null,
   });
 
   /* haceSlug vive en lib/pure.js. Si el slug choca con otro taller, se le
@@ -2248,28 +2253,39 @@ ${dbContext}`;
   }
 
   app.put('/api/auth/profile', requireWorkshop, async (req, res) => {
-    const b = req.body || {};
-    const name = str(b.name, 120);
-    // Se guarda solo dígitos con prefijo internacional: es lo que espera wa.me
-    const phone = str(b.phone, 24).replace(/[^\d+]/g, '');
+    const b = req.body || {}, name = str(b.name, 120), owner_name = str(b.owner_name, 120);
+    const phone = str(b.phone, 24).replace(/[^\d+]/g, ''), bio = str(b.bio, 600), city = str(b.city, 80);
+    const address = str(b.address, 250), business_type = str(b.business_type, 50), services = str(b.services, 300);
     if (!name) return res.status(400).json({ error: 'El nombre del taller no puede quedar vacío' });
     if (phone && !/^\+?\d{7,15}$/.test(phone)) {
       return res.status(400).json({ error: 'Teléfono inválido: usa el formato internacional, por ejemplo +584121234567' });
     }
-    const bio = str(b.bio, 600);
-    const city = str(b.city, 80);
-    const services = str(b.services, 300);
-    const quierePublico = b.is_public === true || b.is_public === 1;
+    const quierePublico = b.is_public === true || b.is_public === 1, hasAvatar = b.avatar_url !== undefined;
+    const avatar_url = hasAvatar ? (typeof b.avatar_url === 'string' && b.avatar_url.trim() ? b.avatar_url.trim().slice(0, 150000) : null) : null;
 
-    const actual = await db.get('SELECT slug FROM workshops WHERE id = ?', req.workshopId);
+    const actual = await db.get('SELECT slug, doc_id FROM workshops WHERE id = ?', req.workshopId);
     let slug = actual?.slug || null;
-    // El slug se acuña la primera vez que se publica y NO se vuelve a tocar:
-    // cambiarlo rompería todos los enlaces ya compartidos por WhatsApp.
     if (quierePublico && !slug) slug = await slugLibre(haceSlug(name), req.workshopId);
 
     await db.run(
-      `UPDATE workshops SET name = ?, phone = ?, bio = ?, city = ?, services = ?, is_public = ?, slug = ? WHERE id = ?`,
-      [name, phone || null, bio || null, city || null, services || null, quierePublico ? 1 : 0, slug, req.workshopId]
+      `UPDATE workshops SET name = ?, owner_name = COALESCE(?, owner_name), phone = ?, bio = ?, city = ?, address = ?, business_type = ?, services = ?, is_public = ?, slug = ?, avatar_url = CASE WHEN ? = 1 THEN ? ELSE avatar_url END WHERE id = ?`,
+      [name, owner_name || null, phone || null, bio || null, city || null, address || null, business_type || null, services || null, quierePublico ? 1 : 0, slug, hasAvatar ? 1 : 0, avatar_url, req.workshopId]
+    );
+    const ws = await db.get(`SELECT ${CAMPOS_PERFIL} FROM workshops WHERE id = ?`, req.workshopId);
+    res.set('Cache-Control', 'no-store').json(normalizaPerfil(ws));
+  });
+
+  // Onboarding obligatorio antifraude para activar taller
+  app.post('/api/auth/onboarding', authLimiter, requireWorkshop, async (req, res) => {
+    const b = req.body || {}, name = str(b.name, 120), owner_name = str(b.owner_name, 120), doc_id = str(b.doc_id, 50);
+    const phone = str(b.phone, 24).replace(/[^\d+]/g, ''), city = str(b.city, 80), address = str(b.address, 250), business_type = str(b.business_type, 50);
+    if (!name || name.length < 2) return res.status(400).json({ error: 'Nombre del taller requerido' });
+    if (!owner_name || owner_name.length < 2) return res.status(400).json({ error: 'Nombre del titular o responsable requerido' });
+    if (!doc_id || doc_id.length < 3) return res.status(400).json({ error: 'Documento fiscal/cédula requerido' });
+    if (!phone || !/^\+?\d{7,15}$/.test(phone)) return res.status(400).json({ error: 'WhatsApp inválido: usa formato internacional (+58...)' });
+    await db.run(
+      `UPDATE workshops SET name = ?, owner_name = ?, doc_id = COALESCE(doc_id, ?), phone = ?, city = ?, address = ?, business_type = ?, onboarding_completed = 1 WHERE id = ?`,
+      [name, owner_name, doc_id, phone, city || null, address || null, business_type || null, req.workshopId]
     );
     const ws = await db.get(`SELECT ${CAMPOS_PERFIL} FROM workshops WHERE id = ?`, req.workshopId);
     res.set('Cache-Control', 'no-store').json(normalizaPerfil(ws));
@@ -2311,7 +2327,7 @@ ${dbContext}`;
   app.get('/api/workshops/:slug', async (req, res) => {
     const slug = str(req.params.slug, 60);
     const ws = await db.get(
-      `SELECT id, name, phone, city, bio, services, email_verified, donor_level, created_at
+      `SELECT id, name, phone, city, bio, services, email_verified, donor_level, avatar_url, created_at
          FROM workshops WHERE slug = ? AND is_public = 1`, slug);
     if (!ws) return res.status(404).json({ error: 'Perfil no encontrado o no publicado' });
     const reviews = await db.all(
@@ -2322,6 +2338,7 @@ ${dbContext}`;
     const { id, ...publico } = ws;
     res.set('Cache-Control', 'public, max-age=60').json({
       ...publico, slug,
+      avatar_url: ws.avatar_url || null,
       email_verified: Number(ws.email_verified) === 1,
       donor_level: Number(ws.donor_level || 0),
       reseñas: reviews, total, promedio,
@@ -2367,7 +2384,7 @@ ${dbContext}`;
   app.get('/api/workshops', async (req, res) => {
     const ciudad = str(req.query.city, 80);
     const filas = await db.all(
-      `SELECT w.slug, w.name, w.city, w.services, w.phone, w.donor_level,
+      `SELECT w.slug, w.name, w.city, w.services, w.phone, w.donor_level, w.avatar_url,
               COUNT(r.id) total, AVG(r.rating) promedio
          FROM workshops w LEFT JOIN workshop_reviews r ON r.workshop_id = w.id
         WHERE w.is_public = 1 ${ciudad ? 'AND LOWER(w.city) LIKE ?' : ''}
@@ -2377,6 +2394,7 @@ ${dbContext}`;
     res.set('Cache-Control', 'public, max-age=120').json(filas.map(f => ({
       ...f, total: Number(f.total || 0),
       donor_level: Number(f.donor_level || 0),
+      avatar_url: f.avatar_url || null,
       promedio: f.total ? Math.round(Number(f.promedio) * 10) / 10 : null,
     })));
   });

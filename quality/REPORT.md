@@ -1,6 +1,6 @@
 # Informe de calidad — FuelTech Master
 
-_Generado el 2026-09-09 16:46 por `npm run metrics`. No lo edites a mano._
+_Generado el 2026-09-09 18:57 por `npm run metrics`. No lo edites a mano._
 
 ## ✅ Todos los presupuestos se cumplen
 
@@ -10,12 +10,12 @@ Nada que corregir.
 
 | Métrica | Valor | Estado |
 | --- | --- | --- |
-| Pruebas que pasan | 529 / 529 | ✅ |
-| Duración de la suite | 14.2 s | ✅ |
+| Pruebas que pasan | 532 / 532 | ✅ |
+| Duración de la suite | 14.6 s | ✅ |
 | Reglas de restricción | 19 reglas, 0 violaciones | ✅ |
-| Rutas de API probadas | 100% de 95 | ✅ |
+| Rutas de API probadas | 100% de 96 | ✅ |
 | Deuda conocida aceptada | 5 de 5 | ✅ |
-| Razón prueba/código | 0.67x | ✅ |
+| Razón prueba/código | 0.65x | ✅ |
 
 ## Cobertura de las reglas del taller (lib/)
 
@@ -38,21 +38,21 @@ Nada que corregir.
 ## Tamaño de los archivos que descarga el usuario
 
 ```
-✓ public/app.js              133.2 KB  de 138 KB
-✓ public/microapps.js        197.5 KB  de 198 KB
-✓ public/microapps-taller.js    74.5 KB  de 75 KB
-✓ public/datos.js             14.6 KB  de 16 KB
-✓ public/index.html          185.7 KB  de 186 KB
+✓ public/app.js              141.3 KB  de 143 KB
+✓ public/microapps.js          202 KB  de 204 KB
+✓ public/microapps-taller.js    81.3 KB  de 83 KB
+✓ public/datos.js               17 KB  de 18 KB
+✓ public/index.html          188.1 KB  de 190 KB
 ✓ public/three3d.js           34.9 KB  de 68 KB
 ✓ public/sw.js                 5.8 KB  de 8 KB
-✓ server-pg.js               227.2 KB  de 228 KB
+✓ server-pg.js               229.9 KB  de 230 KB
 ```
 
 ## Evolución respecto a la referencia
 
 **Mejoras:**
 
-- pruebas_total: 519 → 529
+- pruebas_total: 519 → 532
 
 
 ## Deuda conocida pendiente de decisión
