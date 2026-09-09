@@ -132,6 +132,21 @@ describe('Business API (cuentas de taller)', () => {
     assert.equal(ok.status, 200);
     assert.equal(ok.body.onboarding_completed, true);
     assert.equal(ok.body.doc_id, 'J-12345678-9');
+
+    // Intento de duplicar doc_id por otro taller en onboarding debe ser 409
+    const cDupe = makeClient(ctx.port);
+    await cDupe.post('/api/auth/register', { email: 'otro@dupe.com', password: 'PasswordSegura123!', name: 'Taller Dupe' });
+    const dupeErr = await cDupe.post('/api/auth/onboarding', {
+      name: 'Taller B', owner_name: 'Maria Dupe', doc_id: 'J-12345678-9',
+      phone: '+58 412 111 2233', city: 'Valencia', address: 'Calle 2 #45', business_type: 'Mecánica General'
+    });
+    assert.equal(dupeErr.status, 409);
+    assert.equal(dupeErr.body.code, 'doc_id_taken');
+
+    // PUT /api/auth/profile no puede modificar doc_id (inmutable)
+    const update = await c1.put('/api/auth/profile', { name: 'Taller A Modificado', doc_id: 'J-99999999-0' });
+    assert.equal(update.status, 200);
+    assert.equal(update.body.doc_id, 'J-12345678-9', 'doc_id debe ser inmutable');
   });
 
   it('verifica el correo con el enlace y el token es de un solo uso', async () => {

@@ -2065,6 +2065,10 @@ ${dbContext}`;
     if (phone && !/^\+?\d{7,15}$/.test(phone)) return res.status(400).json({ error: 'Teléfono inválido: usa formato internacional (+58...)' });
     if (doc_id && doc_id.length < 3) return res.status(400).json({ error: 'Documento fiscal/cédula inválido (mínimo 3 caracteres)' });
     const city = str(req.body?.city, 80) || null, address = str(req.body?.address, 250) || null, business_type = str(req.body?.business_type, 50) || null;
+    if (doc_id) {
+      const docTaken = await db.get('SELECT id FROM workshops WHERE LOWER(doc_id) = LOWER(?)', doc_id);
+      if (docTaken) return res.status(409).json({ code: 'doc_id_taken', error: 'Este documento fiscal o cédula ya se encuentra registrado en otro taller.' });
+    }
     const onbDone = (doc_id && phone) ? 1 : 0;
     const exists = await db.get('SELECT id, pass_hash, status, locked_until FROM workshops WHERE email = ?', email);
     if (exists && exists.pass_hash === 'google_oauth') {
@@ -2282,6 +2286,8 @@ ${dbContext}`;
     if (!name || name.length < 2) return res.status(400).json({ error: 'Nombre del taller requerido' });
     if (!owner_name || owner_name.length < 2) return res.status(400).json({ error: 'Nombre del titular o responsable requerido' });
     if (!doc_id || doc_id.length < 3) return res.status(400).json({ error: 'Documento fiscal/cédula requerido' });
+    const docTaken = await db.get('SELECT id FROM workshops WHERE LOWER(doc_id) = LOWER(?) AND id <> ?', [doc_id, req.workshopId]);
+    if (docTaken) return res.status(409).json({ code: 'doc_id_taken', error: 'Este documento fiscal o cédula ya se encuentra registrado en otro taller.' });
     if (!phone || !/^\+?\d{7,15}$/.test(phone)) return res.status(400).json({ error: 'WhatsApp inválido: usa formato internacional (+58...)' });
     await db.run(
       `UPDATE workshops SET name = ?, owner_name = ?, doc_id = COALESCE(doc_id, ?), phone = ?, city = ?, address = ?, business_type = ?, onboarding_completed = 1 WHERE id = ?`,
@@ -2610,10 +2616,12 @@ ${dbContext}`;
       if (!ws) {
         esCuentaNueva = true;
         const name = str(googleUser.name || email.split('@')[0], 120) || 'Taller';
+        const owner = str(googleUser.name, 120) || null;
+        const picture = googleUser.picture ? str(googleUser.picture, 500) : null;
         try {
           const id = await db.insertReturningId(
-            'INSERT INTO workshops (email, pass_hash, name, email_verified, status) VALUES (?, ?, ?, 1, ?)',
-            [email, 'google_oauth', name, 'active']
+            'INSERT INTO workshops (email, pass_hash, name, owner_name, avatar_url, email_verified, status, onboarding_completed) VALUES (?, ?, ?, ?, ?, 1, ?, 0)',
+            [email, 'google_oauth', name, owner, picture, 'active']
           );
           if (id) ws = await db.get('SELECT * FROM workshops WHERE id = ?', id);
         } catch (insertErr) {
@@ -2624,6 +2632,11 @@ ${dbContext}`;
         }
         console.log('[Google OAuth] cuenta creada:', ws?.id, ws?.email);
       } else {
+        const picture = googleUser.picture ? str(googleUser.picture, 500) : null;
+        const owner = str(googleUser.name, 120) || null;
+        if ((!ws.avatar_url && picture) || (!ws.owner_name && owner)) {
+          await db.run('UPDATE workshops SET avatar_url = COALESCE(avatar_url, ?), owner_name = COALESCE(owner_name, ?) WHERE id = ?', [picture, owner, ws.id]).catch(() => {});
+        }
         console.log('[Google OAuth] cuenta existente:', ws.id, ws.email);
       }
       if (!ws) throw new Error('No se pudo crear la cuenta');

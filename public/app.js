@@ -1441,6 +1441,7 @@ function TallerIdentityFields({ form, onChange }) {
       <label class="login-field" style=${{ margin: 0 }}>
         <span>Doc. Fiscal / Cédula / RIF *</span>
         <input type="text" class="styled-input" placeholder="RIF, RFC, RUT o Cédula" value=${form.doc_id} onChange=${F('doc_id')} required />
+        <span style=${{ fontSize: '10px', color: 'var(--text-alt)', marginTop: '2px', display: 'block' }}>Fijo e inmutable tras registro</span>
       </label>
       <label class="login-field" style=${{ margin: 0 }}>
         <span>WhatsApp internacional *</span>
@@ -1486,7 +1487,7 @@ function OnboardingModal({ user, onComplete, onLogout }) {
     e.preventDefault();
     if (!form.name.trim()) { setErr('Ingresa el nombre del taller'); return; }
     if (!form.owner_name.trim()) { setErr('Ingresa el nombre del titular o responsable'); return; }
-    if (!form.doc_id.trim() || form.doc_id.trim().length < 4) { setErr('Ingresa un documento fiscal/cédula válido (mínimo 4 caracteres)'); return; }
+    if (!form.doc_id.trim() || form.doc_id.trim().length < 3) { setErr('Ingresa un documento fiscal/cédula válido (mínimo 3 caracteres)'); return; }
     const cleanPhone = form.phone.replace(/[^\d+]/g, '');
     if (!cleanPhone || !/^\+?\d{7,15}$/.test(cleanPhone)) { setErr('Ingresa un WhatsApp válido con código de país (ej. +584121234567)'); return; }
     if (!form.city.trim()) { setErr('Ingresa la ciudad o zona'); return; }
@@ -1506,7 +1507,7 @@ function OnboardingModal({ user, onComplete, onLogout }) {
   };
 
   return html`
-    <div style=${{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', overflowY: 'auto' }} role="dialog" aria-modal="true">
+    <div style=${{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', overflowY: 'auto' }} role="dialog" aria-modal="true" onKeyDown=${(e) => { if (e.key === 'Escape') e.preventDefault(); }}>
       <div style=${{ background: 'var(--panel, #18181b)', border: '1px solid var(--border-hi, #3f3f46)', borderRadius: '16px', width: '100%', maxWidth: '540px', padding: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)', margin: 'auto' }}>
         <div style=${{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '99px', background: 'rgba(16,185,129,0.12)', color: '#10b981', fontSize: '11.5px', fontWeight: 700, marginBottom: '10px' }}>
           <${Icon} name="ShieldCheck" size=${15} /> Verificación Antifraude Obligatoria
@@ -1516,11 +1517,20 @@ function OnboardingModal({ user, onComplete, onLogout }) {
           Para proteger la comunidad contra estafas y mantener la plataforma segura y transparente, verifica la identidad fiscal y ubicación de tu taller antes de continuar.
         </p>
 
-        <div style=${{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--sunken)', borderRadius: '10px', marginBottom: '16px', fontSize: '12px', border: '1px solid var(--border)' }}>
-          <${Icon} name="User" size=${18} color="var(--accent)" />
-          <div>
-            <strong>${user.email}</strong>
-            <span style=${{ display: 'block', fontSize: '11px', color: '#10b981', fontWeight: 600 }}>${user.auth_provider === 'google' ? 'Cuenta verificada con Google' : 'Cuenta de taller registrada'}</span>
+        <div style=${{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'var(--sunken)', borderRadius: '10px', marginBottom: '16px', fontSize: '12px', border: '1px solid var(--border)' }}>
+          ${user.avatar_url ? html`
+            <img src=${user.avatar_url} alt="" style=${{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+          ` : html`
+            <div style=${{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <${Icon} name="User" size=${18} color="var(--accent)" />
+            </div>
+          `}
+          <div style=${{ flex: 1, minWidth: 0 }}>
+            <strong style=${{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${user.email}</strong>
+            <span style=${{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+              <${Icon} name="ShieldCheck" size=${12} />
+              ${user.auth_provider === 'google' ? 'Datos precargados con Google OAuth' : 'Cuenta de taller registrada'}
+            </span>
           </div>
         </div>
 

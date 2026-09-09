@@ -49,8 +49,8 @@
     "_comentario_three3d": "Sube de 45 a 68 KB por la incorporación de los dos nuevos visores 3D interactivos: el motor de 4 cilindros DOHC despiezado con control dinámico de explosión y telemetría de 14 subsistemas mecánicos, y el globo terráqueo 3D interactivo con balizas y arcos para Latinoamérica.",
     "public/three3d.js": 68,
     "public/sw.js": 8,
-    "_comentario_server": "Sube de 228 a 230 por el sistema antifraude de verificación de talleres (titular, documento fiscal inmutable, dirección, especialidad) y endpoint de onboarding obligatorio.",
-    "server-pg.js": 230
+    "_comentario_server": "Sube de 230 a 232 por el enriquecimiento automático de Google OAuth (avatar_url, owner_name) y validación antifraude de documentos fiscales duplicados.",
+    "server-pg.js": 232
   },
 
   "cobertura_minima_pct": {
