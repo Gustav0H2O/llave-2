@@ -44,19 +44,7 @@ const GROQ_MODELS = (process.env.GROQ_MODELS
   .split(',').map(s => s.trim()).filter(Boolean);
 const GROQ_BASE = 'https://api.groq.com/openai/v1';
 
-/* NVIDIA NIM (build.nvidia.com): API compatible con la de OpenAI igual que
-   OpenRouter, así que comparte el MISMO camino de código —solo cambian URL,
-   clave y cadena de modelos—. Va primero en la prioridad porque es la que el
-   dueño dio de alta; si no está, se cae a OpenRouter y luego a Gemini. La
-   clave empieza por `nvapi-` y va como secreto del host, nunca en el repo.
-
-   Los ids están comprobados uno a uno contra `GET /v1/models` y con una
-   petición real. Es la trampa de AGENTS.md §4.10 con una vuelta de tuerca:
-   aquí un id no solo puede estar mal escrito, puede haber CADUCADO —
-   `meta/llama-3.3-70b-instruct` era el candidato obvio y NVIDIA lo retiró el
-   2026-08-26; responde 410 "end of life", que sin la cadena de respaldo habría
-   sido un 502 en cada mensaje. Excluidos los nemotron «reasoning»: meten su
-   cadena de pensamiento en el texto útil. */
+/* NVIDIA NIM (build.nvidia.com) — API compatible OpenAI */
 const NVIDIA_API_KEY = (process.env.NVIDIA_API_KEY || '').trim();
 const NVIDIA_MODELS = (process.env.NVIDIA_MODELS
   || 'google/gemma-4-31b-it,mistralai/mistral-large-2-instruct,google/gemma-3-12b-it')
@@ -167,7 +155,17 @@ async function createApp(dbOverride, statsOverride) {
        author TEXT NOT NULL, rating INTEGER NOT NULL, comment TEXT,
        author_hash TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
        UNIQUE (workshop_id, author_hash))`,
-    `CREATE INDEX IF NOT EXISTS idx_reviews_ws ON workshop_reviews(workshop_id)`,
+    `ALTER TABLE workshops ADD COLUMN donor_level INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE workshops ADD COLUMN total_donated REAL NOT NULL DEFAULT 0`,
+    `CREATE TABLE IF NOT EXISTS donations (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       workshop_id INTEGER REFERENCES workshops(id) ON DELETE SET NULL,
+       donor_name TEXT, email TEXT, method TEXT NOT NULL, reference TEXT NOT NULL,
+       amount REAL NOT NULL, note TEXT, proof_data TEXT, status TEXT NOT NULL DEFAULT 'pending',
+       approve_token TEXT UNIQUE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+       reviewed_at DATETIME, reviewed_by TEXT)`,
+    `CREATE INDEX IF NOT EXISTS idx_donations_ws ON donations(workshop_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_donations_status ON donations(status)`,
   ]) {
     try { await db.exec(col); } catch (e) { /* la columna/tabla ya existe */ }
   }
@@ -183,20 +181,7 @@ async function createApp(dbOverride, statsOverride) {
   const app = express();
   app.disable('x-powered-by');
 
-  /* ---------- Red de seguridad para handlers async ----------
-     Express 4 NO captura las promesas rechazadas de un handler `async`. Sin
-     esto, cualquier error dentro de una ruta async (una consulta que lanza, un
-     parámetro null que llega a la base, un TypeError) deja la petición COLGADA
-     para siempre: el cliente espera hasta el timeout, no se registra nada y el
-     manejador de errores del final nunca se entera.
-
-     Era un bug real: GET /api/modules/abc no respondía nunca, porque toInt()
-     devuelve null y better-sqlite3 lanza "Too few parameter values".
-
-     Aquí se envuelve cada handler que se registre a partir de este punto para
-     que un rechazo termine en next(err) y salga como respuesta de error.
-     Los middlewares de error (arity 4) se dejan intactos: Express los reconoce
-     por fn.length === 4 y envolverlos los rompería. */
+  /* Captura de promesas rechazadas en handlers async para Express 4 */
   const envolver = (fn) => {
     if (typeof fn !== 'function' || fn.length === 4) return fn;
     const envuelto = (req, res, next) => {
@@ -1854,18 +1839,23 @@ ${dbContext}`;
     if (don.status === 'approved') return res.json({ ok: true, yaAprobada: true });
 
     const montoAprobado = num(req.body?.amount) ?? don.amount;
+    let targetWsId = toInt(req.body?.workshop_id, 1, 1e9) || don.workshop_id;
+    if (!targetWsId && don.email) {
+      const foundWs = await db.get('SELECT id FROM workshops WHERE email = ?', don.email);
+      if (foundWs) targetWsId = foundWs.id;
+    }
     await db.exec('BEGIN');
     try {
       await db.run(
-        `UPDATE donations SET status = 'approved', amount = ?, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = 'admin' WHERE id = ?`,
-        [montoAprobado, id]
+        `UPDATE donations SET status = 'approved', amount = ?, workshop_id = ?, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = 'admin' WHERE id = ?`,
+        [montoAprobado, targetWsId, id]
       );
-      if (don.workshop_id) {
-        await db.run('UPDATE workshops SET total_donated = total_donated + ? WHERE id = ?', [montoAprobado, don.workshop_id]);
-        const ws = await db.get('SELECT donor_level, total_donated FROM workshops WHERE id = ?', don.workshop_id);
+      if (targetWsId) {
+        await db.run('UPDATE workshops SET total_donated = total_donated + ? WHERE id = ?', [montoAprobado, targetWsId]);
+        const ws = await db.get('SELECT donor_level, total_donated FROM workshops WHERE id = ?', targetWsId);
         const nuevoNivel = calcularNivelDonador(ws.total_donated);
         if (nuevoNivel > ws.donor_level) {
-          await db.run('UPDATE workshops SET donor_level = ? WHERE id = ?', [nuevoNivel, don.workshop_id]);
+          await db.run('UPDATE workshops SET donor_level = ? WHERE id = ?', [nuevoNivel, targetWsId]);
         }
       }
       await db.exec('COMMIT');
@@ -1873,7 +1863,7 @@ ${dbContext}`;
       await db.exec('ROLLBACK').catch(() => {});
       throw e;
     }
-    res.json({ ok: true, id, status: 'approved' });
+    res.json({ ok: true, id, status: 'approved', workshop_id: targetWsId });
   });
 
   app.post('/api/admin/donations/:id/reject', requireAdmin, async (req, res) => {
@@ -1889,6 +1879,51 @@ ${dbContext}`;
       [notaFinal, id]
     );
     res.json({ ok: true, id, status: 'rejected' });
+  });
+
+  app.get('/api/admin/workshops', requireAdmin, async (req, res) => {
+    const q = str(req.query.q, 80);
+    const sql = `SELECT id, name, email, slug, donor_level, total_donated, created_at FROM workshops ${q ? 'WHERE name LIKE ? OR email LIKE ?' : ''} ORDER BY donor_level DESC, total_donated DESC, id DESC LIMIT 100`;
+    const rows = await db.all(sql, q ? [`%${q}%`, `%${q}%`] : []);
+    res.set('Cache-Control', 'no-store').json(rows);
+  });
+
+  app.post('/api/admin/workshops/:id/donor-level', requireAdmin, async (req, res) => {
+    const id = toInt(req.params.id, 1, 1e9);
+    const lvl = Number.parseInt(req.body?.donor_level, 10);
+    if (id === null || !Number.isInteger(lvl) || lvl < 0 || lvl > 5) return res.status(400).json({ error: 'Datos inválidos' });
+    const donated = num(req.body?.total_donated);
+    const ws = await db.get('SELECT id, donor_level, total_donated FROM workshops WHERE id = ?', id);
+    if (!ws) return res.status(404).json({ error: 'Taller no encontrado' });
+    const newDonated = donated !== null ? Math.max(0, donated) : ws.total_donated;
+    await db.run('UPDATE workshops SET donor_level = ?, total_donated = ? WHERE id = ?', [lvl, newDonated, id]);
+    res.json({ ok: true, id, donor_level: lvl, total_donated: newDonated });
+  });
+
+  app.post('/api/admin/donations/manual', requireAdmin, async (req, res) => {
+    const b = req.body || {};
+    const method = str(b.method, 30) || 'manual';
+    const reference = str(b.reference, 100) || ('MANUAL-' + Date.now());
+    const amount = num(b.amount);
+    if (amount === null || amount <= 0) return res.status(400).json({ error: 'Monto inválido' });
+    const workshop_id = toInt(b.workshop_id, 1, 1e9);
+    const note = str(b.note, 500) || 'Aporte registrado por admin';
+    const donor_name = str(b.donor_name, 100) || null;
+    const email = typeof b.email === 'string' ? b.email.trim().toLowerCase().slice(0, 120) : null;
+    const id = await db.insertReturningId(
+      `INSERT INTO donations (workshop_id, donor_name, email, method, reference, amount, note, status, reviewed_at, reviewed_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', CURRENT_TIMESTAMP, 'admin')`,
+      [workshop_id, donor_name, email, method, reference, amount, note]
+    );
+    if (workshop_id) {
+      await db.run('UPDATE workshops SET total_donated = total_donated + ? WHERE id = ?', [amount, workshop_id]);
+      const ws = await db.get('SELECT donor_level, total_donated FROM workshops WHERE id = ?', workshop_id);
+      const nuevoNivel = calcularNivelDonador(ws.total_donated);
+      if (nuevoNivel > ws.donor_level) {
+        await db.run('UPDATE workshops SET donor_level = ? WHERE id = ?', [nuevoNivel, workshop_id]);
+      }
+    }
+    res.status(201).json({ ok: true, id, status: 'approved' });
   });
 
   // Import masivo de vehículos desde CSV (marca, modelo, años, motor, inyección, psi, zona...)
@@ -2448,15 +2483,7 @@ ${dbContext}`;
   /* ---- Google Sign-In (OAuth 2.0) ---- */
   const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
   const GOOGLE_CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
-  /* El redirect_uri que se manda a Google debe coincidir EXACTO con una de las
-     "Authorized redirect URIs" del proyecto en Google Cloud Console. Autorizadas:
-     https://llave-d3me.onrender.com/api/auth/google/callback (producción) y
-     http://localhost:3000/api/auth/google/callback (local). Se deriva del Host
-     de la petición para acertar en ambos entornos sin depender de NODE_ENV
-     (que en Windows puede venir global como "production" y hacía que local
-     usara la URI de producción, o el redirect_uri hardcodeado apuntara a un
-     dominio que ya no era el sitio). GOOGLE_REDIRECT_URI explícita en el
-     entorno sigue teniendo la última palabra (dominio propio). */
+  /* El redirect_uri debe coincidir con las URI autorizadas en Google Console */
   const googleRedirectUri = (req) => {
     if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
     const host = req.headers.host || '';

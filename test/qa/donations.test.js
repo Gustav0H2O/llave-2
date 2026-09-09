@@ -130,4 +130,59 @@ describe('Donaciones y Rangos de Donador', () => {
     assert.equal(me.body.donor_level, 5);
     assert.equal(me.body.total_donated, 50);
   });
+
+  it('GET /api/admin/workshops lista talleres con rango y requiere admin', async () => {
+    const unauth = await anon.get('/api/admin/workshops');
+    assert.equal(unauth.status, 401);
+
+    const res = await admin.get('/api/admin/workshops');
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(res.body));
+    const found = res.body.find(w => w.id === tallerId);
+    assert.ok(found, 'el taller creado debe figurar en la lista del admin');
+    assert.equal(found.donor_level, 5);
+  });
+
+  it('POST /api/admin/workshops/:id/donor-level ajusta nivel y total donado', async () => {
+    const unauth = await anon.post(`/api/admin/workshops/${tallerId}/donor-level`, { donor_level: 2, total_donated: 10 });
+    assert.equal(unauth.status, 401);
+
+    const bad = await admin.post(`/api/admin/workshops/${tallerId}/donor-level`, { donor_level: 99 });
+    assert.equal(bad.status, 400);
+
+    const notFound = await admin.post('/api/admin/workshops/999999/donor-level', { donor_level: 2 });
+    assert.equal(notFound.status, 404);
+
+    const ok = await admin.post(`/api/admin/workshops/${tallerId}/donor-level`, { donor_level: 4, total_donated: 30 });
+    assert.equal(ok.status, 200);
+    assert.equal(ok.body.donor_level, 4);
+    assert.equal(ok.body.total_donated, 30);
+
+    const me = await taller.get('/api/auth/me');
+    assert.equal(me.body.donor_level, 4);
+  });
+
+  it('POST /api/admin/donations/manual registra y acredita un aporte manual', async () => {
+    const unauth = await anon.post('/api/admin/donations/manual', { amount: 20 });
+    assert.equal(unauth.status, 401);
+
+    const bad = await admin.post('/api/admin/donations/manual', { amount: -5 });
+    assert.equal(bad.status, 400);
+
+    const res = await admin.post('/api/admin/donations/manual', {
+      workshop_id: tallerId,
+      donor_name: 'Donante Pago Móvil',
+      method: 'pagomovil',
+      reference: 'PM-998877',
+      amount: 25,
+      note: 'Transferencia comprobada por captura de WhatsApp'
+    });
+    assert.equal(res.status, 201);
+    assert.equal(res.body.ok, true);
+
+    // Con los $30 anteriores + $25 manuales = $55 -> alcanza nivel 5
+    const me = await taller.get('/api/auth/me');
+    assert.equal(me.body.donor_level, 5);
+    assert.equal(me.body.total_donated, 55);
+  });
 });

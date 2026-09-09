@@ -57,13 +57,7 @@
       <div class="micro-shell-body">${children}</div>
     </div>`;
 
-  /* ---------- datos estáticos ----------
-     Las tablas de referencia (códigos DTC, torques, bujías, sincronización,
-     años de VIN y baremo de mano de obra) se fueron a public/datos.js, que
-     carga antes que este archivo. Son CONTENIDO, no código: crecen cada vez
-     que el taller añade un caso, y aquí dentro cada fila nueva empujaba el
-     presupuesto de microapps.js. Se leen igual que antes gracias a esta
-     desestructuración; ningún componente cambió. */
+  /* ---------- datos estáticos (public/datos.js) ---------- */
   const { DTCS, TORQUES, SPARKS, TIMING, VIN_YEARS, LABOR } = window.FT_DATOS || {};
 
   const ZONES = ['Centro', 'Norte', 'Sur', 'Este', 'Oeste', 'Zona Industrial'];
@@ -885,6 +879,147 @@
                 </div>` : null)}
             </div>
           </section>
+
+          ${/* Sección de Comunidad, Evolución y Aporte al Proyecto */''}
+          <section class="home-support-section" id="comunidad-apoyo">
+            <div class="home-support-inner">
+              <div class="home-support-head">
+                <div class="support-badge">
+                  <span>COMUNIDAD & EVOLUCIÓN</span>
+                </div>
+                <h2 class="home-support-title">¿Te gusta llave? Apoya su evolución y crecimiento</h2>
+                <p class="home-support-desc">
+                  llave se mantiene 100% libre de publicidad para consultas técnicas ágiles en el taller. Con tu aporte impulsas la integración de nuevas marcas, diagramas de pines, simulaciones 3D y baremos de tiempo, y desbloqueas insignias públicas y ventajas operativas para tu taller.
+                </p>
+              </div>
+
+              <div class="home-support-grid">
+                <div class="support-panel">
+                  <h3 class="support-panel-title"><${CatIc} n="Award" s=${18} /> Rangos de Reconocimiento</h3>
+                  <p class="support-panel-desc">Insignias verificadas y ventajas técnicas según el nivel de contribución a la plataforma:</p>
+                  <div class="support-ranks-list">
+                    ${(don.niveles || []).map(nv => html`
+                      <div class="support-rank-card" key=${nv.nivel}>
+                        <div class="support-rank-info">
+                          <div class="support-rank-head">
+                            <span class="support-rank-name" style=${{ color: nv.color }}>
+                              <${CatIc} n=${nv.icon} s=${14} />
+                              <span>${nv.nombre}</span>
+                            </span>
+                          </div>
+                          <p class="support-rank-perk">${nv.perk}</p>
+                        </div>
+                        <span class="support-rank-price">$${nv.montoMin}+</span>
+                      </div>
+                    `)}
+                  </div>
+                </div>
+
+                <div class="support-panel">
+                  <h3 class="support-panel-title"><${CatIc} n="Zap" s=${18} /> Aporte Directo al Proyecto</h3>
+                  <p class="support-panel-desc">Aporta de forma inmediata en dólares o cripto sin comisiones intermedias:</p>
+
+                  <div class="support-tabs" role="tablist">
+                    <button type="button" role="tab" aria-selected=${tabDonar === 'binance'}
+                      class=${'support-tab' + (tabDonar === 'binance' ? ' is-active is-active-binance' : '')}
+                      onClick=${() => setTabDonar('binance')}>
+                      <span class="support-tab-ic"><${CatIc} n="Zap" s=${14} /></span>
+                      <span>Binance Pay</span>
+                    </button>
+                    <button type="button" role="tab" aria-selected=${tabDonar === 'zinli'}
+                      class=${'support-tab' + (tabDonar === 'zinli' ? ' is-active is-active-zinli' : '')}
+                      onClick=${() => setTabDonar('zinli')}>
+                      <span class="support-tab-ic"><${CatIc} n="Wallet" s=${14} /></span>
+                      <span>Zinli</span>
+                    </button>
+                  </div>
+
+                  ${(() => {
+                    const cur = tabDonar === 'binance'
+                      ? { l: 'Binance Pay ID:', v: don.binance?.payId, id: 'binance', a: 'Abrir Binance Pay', u: don.binance?.url, q: don.binance?.qr, t: 'QR Binance Pay' }
+                      : { l: 'Correo Zinli:', v: don.zinli?.email, id: 'zinli', a: 'Recargar en Zinli', u: don.zinli?.url, q: don.zinli?.qr, t: 'QR Zinli' };
+                    return html`
+                      <div class="support-box">
+                        <div class="support-info">
+                          <div class="support-row">
+                            <span class="support-lbl">${cur.l}</span>
+                            <code class="support-val">${cur.v}</code>
+                            <button type="button" class="support-btn" onClick=${() => copiar(cur.v, cur.id)}>
+                              <${CatIc} n=${copiado === cur.id ? 'Check' : 'Copy'} s=${13} />
+                              <span>${copiado === cur.id ? 'Copiado' : 'Copiar'}</span>
+                            </button>
+                          </div>
+                          <div class="support-row">
+                            <span class="support-lbl">Enlace directo:</span>
+                            <a href=${cur.u} target="_blank" rel="noopener noreferrer" class="support-direct-link">${cur.a} →</a>
+                          </div>
+                        </div>
+                        <div class="support-qr">
+                          <img src=${cur.q} alt=${cur.t} width="90" height="90" />
+                          <span>Escanear QR</span>
+                        </div>
+                      </div>
+                    `;
+                  })()}
+
+                  <button type="button" class="support-claim-toggle" onClick=${() => setMostrarReporte(v => !v)}>
+                    <${CatIc} n="Check" s=${14} />
+                    <span>${mostrarReporte ? 'Ocultar formulario' : '¿Ya donaste? Reporta tu aporte para acreditar tu rango'}</span>
+                  </button>
+
+                  ${mostrarReporte && html`
+                    <form class="support-form" onSubmit=${enviarAporte}>
+                      <div class="support-form-field">
+                        <label>Método</label>
+                        <select value=${repMetodo} onChange=${(e) => setRepMetodo(e.target.value)}>
+                          <option value="binance">Binance Pay</option>
+                          <option value="zinli">Zinli</option>
+                          <option value="otro">Otro</option>
+                        </select>
+                      </div>
+                      <div class="support-form-field">
+                        <label>Referencia o TxID *</label>
+                        <input type="text" placeholder="Ej: 2847194910" required value=${repRef} onInput=${(e) => setRepRef(e.target.value)} />
+                      </div>
+                      <div class="support-form-field">
+                        <label>Monto en USD *</label>
+                        <input type="number" step="0.1" min="0.1" placeholder="5.00" required value=${repMonto} onInput=${(e) => setRepMonto(e.target.value)} />
+                      </div>
+                      <div class="support-form-field">
+                        <label>Nombre / Taller</label>
+                        <input type="text" placeholder="Nombre visible" value=${repNombre} onInput=${(e) => setRepNombre(e.target.value)} />
+                      </div>
+                      <div class="support-form-field">
+                        <label>Tu correo</label>
+                        <input type="email" placeholder="correo@ejemplo.com" value=${repEmail} onInput=${(e) => setRepEmail(e.target.value)} />
+                      </div>
+                      <div class="support-form-field" style=${{ gridColumn: '1/-1' }}>
+                        <label>Nota o sugerencia</label>
+                        <input type="text" placeholder="Mensaje para el equipo" value=${repNota} onInput=${(e) => setRepNota(e.target.value)} />
+                      </div>
+                      <div style=${{ gridColumn: '1/-1', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <button type="submit" class="support-claim-toggle" disabled=${repEnviando}>
+                          ${repEnviando ? 'Enviando…' : 'Acreditar aporte'}
+                        </button>
+                        ${repMsg && html`
+                          <span style=${{ fontSize: '12px', fontWeight: '600', color: repMsg.err ? 'var(--danger,#e0635a)' : 'var(--accent)' }}>
+                            ${repMsg.txt}
+                          </span>
+                        `}
+                      </div>
+                    </form>
+                  `}
+                </div>
+              </div>
+
+              <div class="support-contact-banner">
+                <span class="contact-ic"><${CatIc} n="Mail" s=${18} /></span>
+                <span>
+                  ¿Deseas colaborar por otro método (Pago Móvil, transferencia bancaria) o proponer nuevas marcas, pinouts, funciones, sugerencias o críticas? Escríbenos directamente a <a href="mailto:newpersonal98@gmail.com">newpersonal98@gmail.com</a>.
+                </span>
+              </div>
+            </div>
+          </section>
           `}
         ` : html`
           <div class="home-body">
@@ -940,9 +1075,9 @@
               <span class="home-sheet-ic"><${CatIc} n="Store" s=${20} /></span>
               <span><strong>Mi taller</strong><em>${user ? 'Ver y editar los datos de tu cuenta' : 'Entra o crea tu cuenta'}</em></span>
             </button>
-            <button type="button" class="home-sheet-item" onClick=${() => { setHoja(false); document.getElementById('apoyar')?.scrollIntoView({ behavior: 'smooth' }); }}>
+            <button type="button" class="home-sheet-item" onClick=${() => { setHoja(false); if (tab !== 'inicio') irA('inicio'); setTimeout(() => document.getElementById('comunidad-apoyo')?.scrollIntoView({ behavior: 'smooth' }), 60); }}>
               <span class="home-sheet-ic"><${CatIc} n="Heart" s=${20} /></span>
-              <span><strong>Apoyar la evolución de llave</strong><em>Binance, Zinli y contacto</em></span>
+              <span><strong>Comunidad y evolución</strong><em>Binance, Zinli e ideas para llave</em></span>
             </button>
             ${user && html`
               <button type="button" class="home-sheet-item" onClick=${() => { setHoja(false); if (confirm('¿Cerrar sesión en este dispositivo?')) onLogout(); }}>
@@ -952,130 +1087,6 @@
             <button type="button" class="home-sheet-cerrar" onClick=${() => setHoja(false)}>Cerrar</button>
           </div>`}
 
-        <section class="home-support" id="apoyar">
-          <div class="support-card">
-            <div class="support-badge">
-              <span>COMUNIDAD & EVOLUCIÓN</span>
-            </div>
-            <h2 class="support-title">¿Te gusta llave? Apoya su evolución</h2>
-            <p class="support-desc">
-              llave se mantiene sin publicidad para consultas ágiles en el taller. Con tu aporte impulsas nuevas marcas y funciones, y desbloqueas insignias públicas y ventajas operativas para tu taller.
-            </p>
-
-            <div class="support-ranks">
-              ${(don.niveles || []).map(nv => html`
-                <div class="support-rank-card" key=${nv.nivel}>
-                  <div class="support-rank-head">
-                    <span class="support-rank-name" style=${{ color: nv.color }}>
-                      <${CatIc} n=${nv.icon} s=${14} />
-                      <span>${nv.nombre}</span>
-                    </span>
-                    <span class="support-rank-price">$${nv.montoMin}+</span>
-                  </div>
-                  <p class="support-rank-perk">${nv.perk}</p>
-                </div>
-              `)}
-            </div>
-
-            <div class="support-tabs" role="tablist">
-              <button type="button" role="tab" aria-selected=${tabDonar === 'binance'}
-                class=${'support-tab' + (tabDonar === 'binance' ? ' is-active' : '')}
-                onClick=${() => setTabDonar('binance')}>
-                <span class="support-tab-ic"><${CatIc} n="Zap" s=${14} /></span>
-                <span>Binance Pay</span>
-              </button>
-              <button type="button" role="tab" aria-selected=${tabDonar === 'zinli'}
-                class=${'support-tab' + (tabDonar === 'zinli' ? ' is-active' : '')}
-                onClick=${() => setTabDonar('zinli')}>
-                <span class="support-tab-ic"><${CatIc} n="Wallet" s=${14} /></span>
-                <span>Zinli (Dólares)</span>
-              </button>
-            </div>
-            ${(() => {
-              const cur = tabDonar === 'binance'
-                ? { l: 'Binance Pay ID:', v: don.binance?.payId, id: 'binance', a: 'Abrir Binance Pay', u: don.binance?.url, q: don.binance?.qr, t: 'QR Binance Pay' }
-                : { l: 'Correo Zinli:', v: don.zinli?.email, id: 'zinli', a: 'Recargar en Zinli', u: don.zinli?.url, q: don.zinli?.qr, t: 'QR Zinli' };
-              return html`
-                <div class="support-box">
-                  <div class="support-info">
-                    <div class="support-row">
-                      <span class="support-lbl">${cur.l}</span>
-                      <code class="support-val">${cur.v}</code>
-                      <button type="button" class="support-btn" onClick=${() => copiar(cur.v, cur.id)}>
-                        <${CatIc} n=${copiado === cur.id ? 'Check' : 'Copy'} s=${13} />
-                        <span>${copiado === cur.id ? 'Copiado' : 'Copiar'}</span>
-                      </button>
-                    </div>
-                    <div class="support-row">
-                      <span class="support-lbl">Enlace directo:</span>
-                      <a href=${cur.u} target="_blank" rel="noopener noreferrer" class="support-btn">${cur.a}</a>
-                    </div>
-                  </div>
-                  <div class="support-qr">
-                    <img src=${cur.q} alt=${cur.t} width="88" height="88" />
-                    <span>Escanear QR</span>
-                  </div>
-                </div>
-              `;
-            })()}
-
-            <div style=${{ marginTop: '14px', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-              <button type="button" class="support-claim-toggle" onClick=${() => setMostrarReporte(v => !v)}>
-                <${CatIc} n="Check" s=${14} />
-                <span>${mostrarReporte ? 'Ocultar formulario' : '¿Ya donaste? Reporta tu aporte para acreditar tu rango'}</span>
-              </button>
-            </div>
-
-            ${mostrarReporte && html`
-              <form class="support-form" onSubmit=${enviarAporte}>
-                <div class="support-form-field">
-                  <label>Método utilizado</label>
-                  <select value=${repMetodo} onChange=${(e) => setRepMetodo(e.target.value)}>
-                    <option value="binance">Binance Pay</option>
-                    <option value="zinli">Zinli</option>
-                    <option value="otro">Otro</option>
-                  </select>
-                </div>
-                <div class="support-form-field">
-                  <label>Referencia o TxID *</label>
-                  <input type="text" placeholder="Ej: 2847194910" required value=${repRef} onInput=${(e) => setRepRef(e.target.value)} />
-                </div>
-                <div class="support-form-field">
-                  <label>Monto en USD *</label>
-                  <input type="number" step="0.1" min="0.1" placeholder="5.00" required value=${repMonto} onInput=${(e) => setRepMonto(e.target.value)} />
-                </div>
-                <div class="support-form-field">
-                  <label>Nombre / Taller</label>
-                  <input type="text" placeholder="Nombre visible" value=${repNombre} onInput=${(e) => setRepNombre(e.target.value)} />
-                </div>
-                <div class="support-form-field">
-                  <label>Tu correo</label>
-                  <input type="email" placeholder="correo@ejemplo.com" value=${repEmail} onInput=${(e) => setRepEmail(e.target.value)} />
-                </div>
-                <div class="support-form-field" style=${{ gridColumn: '1/-1' }}>
-                  <label>Nota o sugerencia (opcional)</label>
-                  <input type="text" placeholder="Mensaje para el equipo" value=${repNota} onInput=${(e) => setRepNota(e.target.value)} />
-                </div>
-                <div style=${{ gridColumn: '1/-1', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
-                  <button type="submit" class="support-claim-toggle" disabled=${repEnviando}>
-                    ${repEnviando ? 'Enviando…' : 'Acreditar mi aporte'}
-                  </button>
-                  ${repMsg && html`
-                    <span style=${{ fontSize: '12px', fontWeight: '600', color: repMsg.err ? 'var(--danger,#e0635a)' : 'var(--accent)' }}>
-                      ${repMsg.txt}
-                    </span>
-                  `}
-                </div>
-              </form>
-            `}
-
-            <div class="support-contact-row">
-              <span class="support-contact-ic"><${CatIc} n="Mail" s=${14} /></span>
-              <span>¿Prefieres colaborar por otro método (Pago Móvil, banco o redes) o aportar ideas, funciones, sugerencias o críticas? Escríbeme a <a href="mailto:newpersonal98@gmail.com">newpersonal98@gmail.com</a>.</span>
-            </div>
-          </div>
-        </section>
-
         <footer class="home-footer">
           <div class="home-footer-inner">
             <a class="home-footer-brand" href="/">
@@ -1083,7 +1094,7 @@
               <img class="logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" />
             </a>
             <nav class="home-footer-links">
-              <a href="#apoyar" onClick=${(e) => { e.preventDefault(); document.getElementById('apoyar')?.scrollIntoView({ behavior: 'smooth' }); }}>Apoyar proyecto</a>
+              <a href="#comunidad-apoyo" onClick=${(e) => { e.preventDefault(); if (tab !== 'inicio') irA('inicio'); setTimeout(() => document.getElementById('comunidad-apoyo')?.scrollIntoView({ behavior: 'smooth' }), 60); }}>Comunidad y Aportes</a>
               <a href="/privacidad">Privacidad</a>
               <a href="/terminos">Términos</a>
               <a href="mailto:newpersonal98@gmail.com">Soporte</a>
@@ -1304,18 +1315,7 @@
   };
 
   /* ---- 6. Conversor ----
-     Tabla declarativa: cada magnitud lista sus unidades con el FACTOR hacia una
-     base, y convertir es siempre `valor * factor_origen / factor_destino`.
-
-     La versión anterior guardaba cada magnitud como `[fn, 'bar', fn, 'kPa']` y
-     la leía con `const [a, b] = conv[mode]`, así que `b` no era la segunda
-     FUNCIÓN sino la cadena 'bar'. Al teclear el primer dígito, `b(n)` lanzaba
-     "b is not a function", React se desmontaba y la pantalla entera quedaba en
-     blanco — no el conversor: TODA la aplicación. Con una tabla de datos y una
-     sola función de conversión ese error ya no se puede escribir.
-
-     `nota` es el dato de taller que hace útil cada magnitud (para qué se usa
-     esa unidad aquí), no relleno. */
+     Tabla declarativa: magnitud y unidades con factor hacia la unidad base. */
   const MAGNITUDES = [
     { id: 'presion', t: 'Presión', ic: 'Fuel', base: 'kPa',
       nota: 'La presión de riel se publica en PSI; los manuales europeos y muchos escáneres, en bar o kPa.',

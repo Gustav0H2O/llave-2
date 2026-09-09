@@ -87,7 +87,7 @@ function switchView(name) {
   show($('view-donations'), name === 'donations');
   ['list', 'new', 'pumps', 'brands', 'import', 'insights', 'donations'].forEach(n => $('nav-' + n).classList.toggle('active', n === name || (name === 'editor' && n === 'new')));
   if (name === 'insights') loadMissing();
-  if (name === 'donations') loadDonations();
+  if (name === 'donations') switchDonSubView(donSubView || 'pending');
 }
 $('nav-list').addEventListener('click', () => { loadList($('search').value); switchView('list'); });
 $('nav-new').addEventListener('click', () => newVehicle());
@@ -265,11 +265,42 @@ async function loadMissing() {
 
 /* ---------- Donaciones & Rangos ---------- */
 let donFilter = 'pending';
+let donSubView = 'pending';
+
+const DON_RANKS = [
+  'Nivel 0 · Sin rango',
+  'Nivel 1 · Impulsor Bronce ($3+)',
+  'Nivel 2 · Colaborador Plata ($7+)',
+  'Nivel 3 · Destacado Oro ($15+)',
+  'Nivel 4 · Experto Platino ($25+)',
+  'Nivel 5 · Socio Fundador Diamante ($50+)'
+];
+
+function switchDonSubView(view) {
+  donSubView = view;
+  show($('don_sub_list'), view === 'pending' || view === 'all');
+  show($('don_sub_workshops'), view === 'workshops');
+  show($('don_sub_manual'), view === 'manual');
+  $('don_tab_pending').classList.toggle('active', view === 'pending');
+  $('don_tab_all').classList.toggle('active', view === 'all');
+  $('don_tab_workshops').classList.toggle('active', view === 'workshops');
+  $('don_tab_manual').classList.toggle('active', view === 'manual');
+  $('don_msg').textContent = '';
+  if (view === 'pending') { donFilter = 'pending'; loadDonations(); }
+  else if (view === 'all') { donFilter = ''; loadDonations(); }
+  else if (view === 'workshops') { loadWorkshops($('don_ws_search').value); }
+}
+
 async function loadDonations() {
   const box = $('don_list');
   box.innerHTML = '<p class="muted">Cargando aportes…</p>';
   try {
     const res = await authFetch('/api/admin/donations' + (donFilter ? '?status=' + donFilter : ''));
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      box.innerHTML = `<p class="msg err">${esc(err.error || 'Error al cargar donaciones')}</p>`;
+      return;
+    }
     const rows = await res.json();
     box.innerHTML = '';
     if (!rows.length) {
@@ -300,13 +331,13 @@ async function loadDonations() {
             <div class="meta" style="color:var(--accent)">
               <b>Taller vinculado:</b> ${esc(d.workshop_name)} (Nivel actual: ${d.current_level || 0} · Total: $${Number(d.current_donated || 0).toFixed(2)})
             </div>
-          ` : '<div class="meta" style="color:var(--muted)">Sin taller vinculado (donación libre)</div>'}
+          ` : '<div class="meta" style="color:var(--muted)">Sin taller vinculado (donación libre o por asociar)</div>'}
           ${d.note ? `<div class="meta" style="margin-top:4px;font-style:italic">"${esc(d.note)}"</div>` : ''}
           <div class="meta" style="font-size:10px;margin-top:4px">${esc(d.created_at)}</div>
         </div>
         ${d.status === 'pending' ? `
           <div class="row" style="gap:6px;align-self:center">
-            <button class="small primary" data-act="approve" data-id="${d.id}" data-amount="${d.amount}">Aprobar</button>
+            <button class="small primary" data-act="approve" data-id="${d.id}" data-amount="${d.amount}" data-ws="${d.workshop_id || ''}">Aprobar</button>
             <button class="small danger" data-act="reject" data-id="${d.id}">Rechazar</button>
           </div>
         ` : ''}
@@ -317,18 +348,28 @@ async function loadDonations() {
           const act = btn.dataset.act;
           const id = btn.dataset.id;
           if (act === 'approve') {
-            const nuevoMonto = prompt(`Aprobar donación #${id}. Monto en USD a acreditar:`, btn.dataset.amount);
+            const nuevoMonto = prompt(`Aprobar donación #${id}.\nMonto en USD a acreditar:`, btn.dataset.amount);
             if (nuevoMonto === null) return;
             const amt = parseFloat(nuevoMonto);
             if (isNaN(amt) || amt <= 0) { alert('Monto inválido'); return; }
+            let wsId = btn.dataset.ws;
+            if (!wsId) {
+              const wsPrompt = prompt(`Vincular a taller existente (opcional).\nIngresa ID numérico de taller o déjalo vacío:`, '');
+              if (wsPrompt && /^\d+$/.test(wsPrompt.trim())) wsId = wsPrompt.trim();
+            }
             try {
               btn.disabled = true;
-              const r = await authFetch(`/api/admin/donations/${id}/approve`, { method: 'POST', body: JSON.stringify({ amount: amt }) });
-              if (!r.ok) throw new Error();
+              const payload = { amount: amt };
+              if (wsId) payload.workshop_id = parseInt(wsId, 10);
+              const r = await authFetch(`/api/admin/donations/${id}/approve`, { method: 'POST', body: JSON.stringify(payload) });
+              if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                throw new Error(err.error || 'Error del servidor');
+              }
               loadDonations();
-            } catch (err) { alert('Error al aprobar donación'); btn.disabled = false; }
+            } catch (err) { alert('Error al aprobar: ' + (err.message || 'Error')); btn.disabled = false; }
           } else if (act === 'reject') {
-            const reason = prompt(`Rechazar donación #${id}. Motivo (opcional):`, 'Referencia no encontrada');
+            const reason = prompt(`Rechazar donación #${id}.\nMotivo (opcional):`, 'Referencia no encontrada o inválida');
             if (reason === null) return;
             try {
               btn.disabled = true;
@@ -343,22 +384,140 @@ async function loadDonations() {
       box.appendChild(el);
     });
   } catch (e) {
-    box.innerHTML = '<p class="msg err">Error al cargar donaciones.</p>';
+    box.innerHTML = `<p class="msg err">${esc(e.message || 'Error al cargar donaciones.')}</p>`;
   }
 }
 
-$('don_refresh').addEventListener('click', () => loadDonations());
-$('don_tab_pending').addEventListener('click', () => {
-  donFilter = 'pending';
-  $('don_tab_pending').classList.add('active');
-  $('don_tab_all').classList.remove('active');
-  loadDonations();
+async function loadWorkshops(query = '') {
+  const box = $('don_ws_list');
+  box.innerHTML = '<p class="muted">Cargando talleres…</p>';
+  try {
+    const res = await authFetch('/api/admin/workshops' + (query ? '?q=' + encodeURIComponent(query) : ''));
+    if (!res.ok) {
+      box.innerHTML = '<p class="msg err">Error al cargar talleres.</p>';
+      return;
+    }
+    const rows = await res.json();
+    box.innerHTML = '';
+    if (!rows.length) {
+      box.innerHTML = '<p class="muted">No se encontraron talleres registrados.</p>';
+      return;
+    }
+    rows.forEach(w => {
+      const el = document.createElement('div');
+      el.className = 'vrow';
+      el.style.flexWrap = 'wrap';
+      el.style.alignItems = 'center';
+      const lvl = w.donor_level || 0;
+      const rankName = DON_RANKS[lvl] || `Nivel ${lvl}`;
+      const badgeColor = lvl >= 5 ? '#38bdf8' : (lvl >= 4 ? '#e2e8f0' : (lvl >= 3 ? '#facc15' : (lvl >= 2 ? '#cbd5e1' : (lvl >= 1 ? '#fb923c' : 'var(--muted)'))));
+
+      el.innerHTML = `
+        <div style="flex:1;min-width:220px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+            <strong>#${w.id} · ${esc(w.name)}</strong>
+            <span class="tag" style="color:${badgeColor};border-color:${badgeColor}">${esc(rankName)}</span>
+          </div>
+          <div class="meta">
+            <b>Email:</b> ${esc(w.email)} · <b>Slug:</b> <code>${esc(w.slug || '—')}</code> · <b>Total Aportado:</b> $${Number(w.total_donated || 0).toFixed(2)} USD
+          </div>
+        </div>
+        <div class="row" style="gap:6px">
+          <button class="small" data-act="adjust-rank" data-id="${w.id}">Ajustar Rango</button>
+        </div>
+      `;
+
+      el.querySelector('button[data-act="adjust-rank"]').addEventListener('click', async () => {
+        const promptLvl = prompt(
+          `Ajustar Rango para "${w.name}" (#${w.id}):\n\n0: Sin rango\n1: Impulsor Bronce ($3+)\n2: Colaborador Plata ($7+)\n3: Destacado Oro ($15+)\n4: Experto Platino ($25+)\n5: Socio Fundador Diamante ($50+)\n\nIngresa nuevo nivel (0 - 5):`,
+          String(lvl)
+        );
+        if (promptLvl === null) return;
+        const newLvl = parseInt(promptLvl.trim(), 10);
+        if (isNaN(newLvl) || newLvl < 0 || newLvl > 5) { alert('Nivel inválido. Debe ser un número entero entre 0 y 5.'); return; }
+
+        const promptDonated = prompt(`Total donado en USD acumulado:`, String(w.total_donated || 0));
+        if (promptDonated === null) return;
+        const newDonated = parseFloat(promptDonated.trim());
+        if (isNaN(newDonated) || newDonated < 0) { alert('Monto inválido.'); return; }
+
+        try {
+          const r = await authFetch(`/api/admin/workshops/${w.id}/donor-level`, {
+            method: 'POST',
+            body: JSON.stringify({ donor_level: newLvl, total_donated: newDonated })
+          });
+          if (!r.ok) {
+            const err = await r.json().catch(() => ({}));
+            throw new Error(err.error || 'Error al actualizar');
+          }
+          $('don_msg').textContent = `✓ Rango del taller "${w.name}" actualizado a Nivel ${newLvl} ($${newDonated.toFixed(2)} USD)`;
+          $('don_msg').className = 'msg ok';
+          loadWorkshops($('don_ws_search').value);
+        } catch (err) {
+          alert(err.message || 'Error al ajustar rango');
+        }
+      });
+
+      box.appendChild(el);
+    });
+  } catch (e) {
+    box.innerHTML = '<p class="msg err">Error al cargar talleres.</p>';
+  }
+}
+
+// Botones de pestañas y acciones
+$('don_tab_pending').addEventListener('click', () => switchDonSubView('pending'));
+$('don_tab_all').addEventListener('click', () => switchDonSubView('all'));
+$('don_tab_workshops').addEventListener('click', () => switchDonSubView('workshops'));
+$('don_tab_manual').addEventListener('click', () => switchDonSubView('manual'));
+$('don_refresh').addEventListener('click', () => {
+  if (donSubView === 'workshops') loadWorkshops($('don_ws_search').value);
+  else if (donSubView === 'manual') {}
+  else loadDonations();
 });
-$('don_tab_all').addEventListener('click', () => {
-  donFilter = '';
-  $('don_tab_all').classList.add('active');
-  $('don_tab_pending').classList.remove('active');
-  loadDonations();
+$('don_ws_search_btn').addEventListener('click', () => loadWorkshops($('don_ws_search').value));
+$('don_ws_search').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadWorkshops($('don_ws_search').value); });
+
+// Formulario manual
+$('man_submit').addEventListener('click', async () => {
+  const msg = $('don_msg');
+  msg.textContent = ''; msg.className = 'msg';
+  const amount = parseFloat($('man_amount').value);
+  if (isNaN(amount) || amount <= 0) {
+    msg.textContent = 'Ingresa un monto válido en USD mayor a 0';
+    msg.className = 'msg err';
+    return;
+  }
+  const payload = {
+    amount,
+    method: $('man_method').value,
+    reference: $('man_ref').value.trim() || ('MANUAL-' + Date.now()),
+    donor_name: $('man_donor_name').value.trim() || null,
+    note: $('man_note').value.trim() || 'Aporte manual cargado por admin'
+  };
+  const wsTarget = $('man_ws_id').value.trim();
+  if (wsTarget) {
+    if (/^\d+$/.test(wsTarget)) payload.workshop_id = parseInt(wsTarget, 10);
+    else payload.email = wsTarget;
+  }
+
+  try {
+    $('man_submit').disabled = true;
+    const res = await authFetch('/api/admin/donations/manual', { method: 'POST', body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al registrar aporte');
+    msg.textContent = `✓ Aporte manual #${data.id} registrado y acreditado con éxito.`;
+    msg.className = 'msg ok';
+    $('man_amount').value = '';
+    $('man_ref').value = '';
+    $('man_donor_name').value = '';
+    $('man_note').value = '';
+  } catch (err) {
+    msg.textContent = err.message || 'Error al procesar el aporte';
+    msg.className = 'msg err';
+  } finally {
+    $('man_submit').disabled = false;
+  }
 });
 
 /* ---------- Init ---------- */

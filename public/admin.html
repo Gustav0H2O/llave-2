@@ -234,12 +234,68 @@
   <section id="view-donations" class="panel hidden">
     <h2>Donaciones & Rangos de Donador</h2>
     <p class="muted" style="font-size:12px;margin-bottom:12px">Verifica aportes recibidos por Zinli o Binance Pay. Al aprobar, se acredita el rango e insignia al taller en tiempo real.</p>
-    <div class="row" style="margin-bottom:14px;gap:8px">
-      <button id="don_tab_pending" class="small active">Pendientes</button>
+    <div class="row" style="margin-bottom:14px;gap:8px;flex-wrap:wrap">
+      <button id="don_tab_pending" class="small active">Aportes Pendientes</button>
       <button id="don_tab_all" class="small">Historial Completo</button>
+      <button id="don_tab_workshops" class="small">Talleres & Rangos</button>
+      <button id="don_tab_manual" class="small">+ Registrar Aporte</button>
       <button id="don_refresh" class="small">Actualizar</button>
     </div>
-    <div id="don_list"></div>
+
+    <!-- Subvista: Donaciones (Pendientes / Todas) -->
+    <div id="don_sub_list">
+      <div id="don_list"></div>
+    </div>
+
+    <!-- Subvista: Talleres & Rangos -->
+    <div id="don_sub_workshops" class="hidden">
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input id="don_ws_search" placeholder="Buscar taller por nombre o correo…" style="flex:1">
+        <button id="don_ws_search_btn" class="small">Buscar</button>
+      </div>
+      <div id="don_ws_list"></div>
+    </div>
+
+    <!-- Subvista: Registrar Aporte Manual -->
+    <div id="don_sub_manual" class="hidden">
+      <div class="sub" style="border-top:0;padding-top:0;margin-top:0">Registrar Aporte Manual (Pago Móvil, Efectivo, Binance, Zinli)</div>
+      <div class="grid">
+        <div class="field">
+          <label>ID o Email del Taller (Opcional)</label>
+          <input id="man_ws_id" placeholder="Ej. 1 o taller@ejemplo.com">
+        </div>
+        <div class="field">
+          <label>Nombre del Donante</label>
+          <input id="man_donor_name" placeholder="Ej. Taller El Rápido / Carlos Pérez">
+        </div>
+        <div class="field">
+          <label>Método de Pago</label>
+          <select id="man_method">
+            <option value="zinli">Zinli</option>
+            <option value="binance">Binance Pay (USDT)</option>
+            <option value="pagomovil">Pago Móvil</option>
+            <option value="transferencia">Transferencia Bancaria</option>
+            <option value="efectivo">Efectivo / Divisas</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Referencia / Comprobante</label>
+          <input id="man_ref" placeholder="Ej. 12345678 / REF-001">
+        </div>
+        <div class="field">
+          <label>Monto en USD ($)</label>
+          <input id="man_amount" type="number" step="0.01" placeholder="Ej. 10.00">
+        </div>
+        <div class="field">
+          <label>Nota / Concepto</label>
+          <input id="man_note" placeholder="Ej. Aporte recibido por WhatsApp / Contacto directo">
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="man_submit" class="primary">Registrar y Acreditar Rango</button>
+      </div>
+    </div>
+
     <p id="don_msg" class="msg"></p>
   </section>
 </div>
