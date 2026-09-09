@@ -220,7 +220,7 @@ class DBAdapter {
           }
         } catch (err) {
           const msg = (err && err.message) || '';
-          if (/already exists/i.test(msg)) {
+          if (/already exists|duplicate column name/i.test(msg)) {
             continue;
           }
           console.error(`❌ Error en Turso ejecutando sentencia [${i + 1}/${stmts.length}]: ${stmt.slice(0, 80)}...`, msg);
