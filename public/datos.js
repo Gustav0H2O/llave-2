@@ -148,11 +148,14 @@
   /* Configuración de Aportes y Donaciones de la Comunidad */
   window.FT_DONACIONES = {
     binance: {
-      payId: '859423101',
-      usdtBsc: '0x32A422D6f33d4C180bFd7c75677943F245d8b746',
+      payId: '975679652',
+      url: 'https://app.binance.com/uni-qr/XptUERRm',
+      qr: '/media/qr-binance.jpeg',
     },
     zinli: {
       email: 'newpersonal98@gmail.com',
+      url: 'https://recargas.zinli.com/2B5nLjpBs9y3gdmgQpV9re',
+      qr: '/media/qr-zinli.jpeg',
     },
     contacto: {
       email: 'newpersonal98@gmail.com',

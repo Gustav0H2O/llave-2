@@ -909,21 +909,20 @@
           </div>`}
 
         <section class="home-support" id="apoyar">
-          <div class="home-support-card">
-            <div class="home-support-badge">
-              <span class="home-support-dot" aria-hidden="true"></span>
+          <div class="support-card">
+            <div class="support-badge">
               <span>COMUNIDAD & EVOLUCIÓN</span>
             </div>
-            <h2 class="home-support-title">¿Te gusta llave? Apoya su evolución</h2>
-            <p class="home-support-desc">
-              llave se mantiene sin publicidad para consultas ágiles en el taller. Si las herramientas te ahorran tiempo valioso y deseas impulsar su desarrollo, tu apoyo voluntario ayuda a sumar más marcas y utilidades.
+            <h2 class="support-title">¿Te gusta llave? Apoya su evolución</h2>
+            <p class="support-desc">
+              llave se mantiene sin publicidad para consultas ágiles en el taller. Si las herramientas te ahorran tiempo y deseas impulsar su desarrollo, tu aporte voluntario ayuda a sumar más marcas y utilidades.
             </p>
-            <div class="support-methods-tabs" role="tablist">
+            <div class="support-tabs" role="tablist">
               <button type="button" role="tab" aria-selected=${tabDonar === 'binance'}
                 class=${'support-tab' + (tabDonar === 'binance' ? ' is-active' : '')}
                 onClick=${() => setTabDonar('binance')}>
                 <span class="support-tab-ic"><${CatIc} n="Zap" s=${14} /></span>
-                <span>Binance Pay / USDT</span>
+                <span>Binance Pay</span>
               </button>
               <button type="button" role="tab" aria-selected=${tabDonar === 'zinli'}
                 class=${'support-tab' + (tabDonar === 'zinli' ? ' is-active' : '')}
@@ -932,41 +931,36 @@
                 <span>Zinli (Dólares)</span>
               </button>
             </div>
-            ${tabDonar === 'binance' && html`
-              <div class="support-crypto-box">
-                <div class="support-crypto-row">
-                  <span class="support-crypto-lbl">Binance Pay ID:</span>
-                  <code class="support-crypto-code">${don.binance?.payId}</code>
-                  <button type="button" class="support-copy-btn" onClick=${() => copiar(don.binance?.payId, 'payid')}>
-                    <${CatIc} n=${copiado === 'payid' ? 'Check' : 'Copy'} s=${13} />
-                    <span>${copiado === 'payid' ? 'Copiado' : 'Copiar'}</span>
-                  </button>
+            ${(() => {
+              const cur = tabDonar === 'binance'
+                ? { l: 'Binance Pay ID:', v: don.binance?.payId, id: 'binance', a: 'Abrir Binance Pay', u: don.binance?.url, q: don.binance?.qr, t: 'QR Binance Pay' }
+                : { l: 'Correo Zinli:', v: don.zinli?.email, id: 'zinli', a: 'Recargar en Zinli', u: don.zinli?.url, q: don.zinli?.qr, t: 'QR Zinli' };
+              return html`
+                <div class="support-box">
+                  <div class="support-info">
+                    <div class="support-row">
+                      <span class="support-lbl">${cur.l}</span>
+                      <code class="support-val">${cur.v}</code>
+                      <button type="button" class="support-btn" onClick=${() => copiar(cur.v, cur.id)}>
+                        <${CatIc} n=${copiado === cur.id ? 'Check' : 'Copy'} s=${13} />
+                        <span>${copiado === cur.id ? 'Copiado' : 'Copiar'}</span>
+                      </button>
+                    </div>
+                    <div class="support-row">
+                      <span class="support-lbl">Enlace directo:</span>
+                      <a href=${cur.u} target="_blank" rel="noopener noreferrer" class="support-btn">${cur.a}</a>
+                    </div>
+                  </div>
+                  <div class="support-qr">
+                    <img src=${cur.q} alt=${cur.t} width="88" height="88" />
+                    <span>Escanear QR</span>
+                  </div>
                 </div>
-                <div class="support-crypto-row">
-                  <span class="support-crypto-lbl">USDT (BEP20 / BSC):</span>
-                  <code class="support-crypto-code">${don.binance?.usdtBsc}</code>
-                  <button type="button" class="support-copy-btn" onClick=${() => copiar(don.binance?.usdtBsc, 'usdtbsc')}>
-                    <${CatIc} n=${copiado === 'usdtbsc' ? 'Check' : 'Copy'} s=${13} />
-                    <span>${copiado === 'usdtbsc' ? 'Copiado' : 'Copiar'}</span>
-                  </button>
-                </div>
-              </div>
-            `}
-            ${tabDonar === 'zinli' && html`
-              <div class="support-crypto-box">
-                <div class="support-crypto-row">
-                  <span class="support-crypto-lbl">Correo Zinli:</span>
-                  <code class="support-crypto-code">${don.zinli?.email}</code>
-                  <button type="button" class="support-copy-btn" onClick=${() => copiar(don.zinli?.email, 'zinli')}>
-                    <${CatIc} n=${copiado === 'zinli' ? 'Check' : 'Copy'} s=${13} />
-                    <span>${copiado === 'zinli' ? 'Copiado' : 'Copiar'}</span>
-                  </button>
-                </div>
-              </div>
-            `}
+              `;
+            })()}
             <div class="support-contact-row">
               <span class="support-contact-ic"><${CatIc} n="Mail" s=${14} /></span>
-              <span>¿Prefieres colaborar por otro método (Pago Móvil, banco o redes)? Escríbeme a <a href="mailto:newpersonal98@gmail.com">newpersonal98@gmail.com</a> para coordinarlo.</span>
+              <span>¿Prefieres colaborar por otro método (Pago Móvil, banco o redes) o aportar ideas, funciones, sugerencias o críticas? Escríbeme a <a href="mailto:newpersonal98@gmail.com">newpersonal98@gmail.com</a>.</span>
             </div>
           </div>
         </section>

@@ -31,12 +31,14 @@
     v16: switch dual compacto de modo claro/oscuro con detección por defecto, mejora
         de perfil con avatar y prevención de desborde del botón salir.
     v17: sección editorial de aportes comunitarios (Ko-fi, Buy Me a Coffee, Binance Pay/USDT)
-        en inicio, acceso desde hoja móvil y pie sin elementos intrusivos. */
-const CACHE = 'llave-v17';
+        en inicio, acceso desde hoja móvil y pie sin elementos intrusivos.
+    v18: actualización con cuentas reales de Binance Pay ID y Zinli con QR interactivos. */
+const CACHE = 'llave-v18';
 const SHELL = [
   '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',
   '/media/error-500.webp', '/media/error-503.webp',
+  '/media/qr-binance.jpeg', '/media/qr-zinli.jpeg',
   '/manifest.webmanifest', '/icon.svg',
   '/brand/logo-llave.svg', '/brand/logo-llave-light.svg',
   '/brand/favicon-llave.svg', '/brand/favicon-32-llave.png', '/brand/favicon-64-llave.png',
