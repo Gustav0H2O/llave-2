@@ -1,6 +1,6 @@
 # Informe de calidad — FuelTech Master
 
-_Generado el 2026-09-09 03:54 por `npm run metrics`. No lo edites a mano._
+_Generado el 2026-09-09 04:04 por `npm run metrics`. No lo edites a mano._
 
 ## ✅ Todos los presupuestos se cumplen
 
@@ -11,7 +11,7 @@ Nada que corregir.
 | Métrica | Valor | Estado |
 | --- | --- | --- |
 | Pruebas que pasan | 519 / 519 | ✅ |
-| Duración de la suite | 15.6 s | ✅ |
+| Duración de la suite | 16.1 s | ✅ |
 | Reglas de restricción | 19 reglas, 0 violaciones | ✅ |
 | Rutas de API probadas | 100% de 87 | ✅ |
 | Deuda conocida aceptada | 5 de 5 | ✅ |
@@ -49,10 +49,7 @@ Nada que corregir.
 
 ## Evolución respecto a la referencia
 
-**Mejoras:**
-
-- pruebas_total: 514 → 519
-
+Sin cambios respecto a la última referencia aceptada.
 
 ## Deuda conocida pendiente de decisión
 

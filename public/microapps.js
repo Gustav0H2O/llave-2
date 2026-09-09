@@ -966,7 +966,7 @@
               ${(don.niveles || []).map(nv => html`
                 <div class="support-rank-card" key=${nv.nivel}>
                   <div class="support-rank-head">
-                    <span class="support-rank-name" style="color:${nv.color}">
+                    <span class="support-rank-name" style=${{ color: nv.color }}>
                       <${CatIc} n=${nv.icon} s=${14} />
                       <span>${nv.nombre}</span>
                     </span>
@@ -1019,7 +1019,7 @@
               `;
             })()}
 
-            <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+            <div style=${{ marginTop: '14px', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
               <button type="button" class="support-claim-toggle" onClick=${() => setMostrarReporte(v => !v)}>
                 <${CatIc} n="Check" s=${14} />
                 <span>${mostrarReporte ? 'Ocultar formulario' : '¿Ya donaste? Reporta tu aporte para acreditar tu rango'}</span>
@@ -1052,16 +1052,16 @@
                   <label>Tu correo</label>
                   <input type="email" placeholder="correo@ejemplo.com" value=${repEmail} onInput=${(e) => setRepEmail(e.target.value)} />
                 </div>
-                <div class="support-form-field" style="grid-column:1/-1">
+                <div class="support-form-field" style=${{ gridColumn: '1/-1' }}>
                   <label>Nota o sugerencia (opcional)</label>
                   <input type="text" placeholder="Mensaje para el equipo" value=${repNota} onInput=${(e) => setRepNota(e.target.value)} />
                 </div>
-                <div style="grid-column:1/-1;display:flex;align-items:center;gap:12px;margin-top:4px">
+                <div style=${{ gridColumn: '1/-1', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
                   <button type="submit" class="support-claim-toggle" disabled=${repEnviando}>
                     ${repEnviando ? 'Enviando…' : 'Acreditar mi aporte'}
                   </button>
                   ${repMsg && html`
-                    <span style="font-size:12px;font-weight:600;color:${repMsg.err ? 'var(--danger,#e0635a)' : 'var(--accent)'}">
+                    <span style=${{ fontSize: '12px', fontWeight: '600', color: repMsg.err ? 'var(--danger,#e0635a)' : 'var(--accent)' }}>
                       ${repMsg.txt}
                     </span>
                   `}
