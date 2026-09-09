@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>llave — Presión de bomba de gasolina por vehículo</title>
-<meta name="description" content="Presión de riel en PSI y bar, ubicación del módulo y pilas de gasolina compatibles OEM y alternativas. Consulta gratis para mecánicos de Latinoamérica.">
-<meta name="keywords" content="llave, pila de gasolina, bomba de gasolina, módulo de gasolina, presión de riel, presión de combustible, PSI inyección, refacciones automotrices, taller mecánico, mecánica automotriz, diagnóstico automotriz, TBI, MFI, GDI, Vortec, Latinoamérica">
+<title>llave — Software para Talleres Mecánicos, Diagnóstico y Autos</title>
+<meta name="description" content="Herramientas y software para talleres mecánicos: diagnóstico automotriz, códigos DTC OBD2, torque, compresión, presión de riel, cotizador y catálogo de autos.">
+<meta name="keywords" content="taller mecánico, software para talleres, gestión de taller, diagnóstico automotriz, herramientas mecánicas, códigos DTC OBD2, calculadora de torque, compresión de motor, presión de gasolina, orden de servicio, cotizador de taller, refaccionaria, repuestos, autopartes, autos, carros, Chevrolet, Ford, Toyota, Nissan, Hyundai, Kia, Aveo, Corsa, Spark, Fiesta, Latinoamérica">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://llave.onrender.com/">
 <meta name="theme-color" content="#F8F7F3" media="(prefers-color-scheme: light)">
@@ -65,13 +65,13 @@
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="llave">
-<meta property="og:title" content="llave — Presión de riel, módulos y pilas de gasolina">
-<meta property="og:description" content="Presión de riel en PSI y bar, ubicación del módulo y pilas de gasolina compatibles OEM y alternativas. Consulta gratis para mecánicos de Latinoamérica.">
+<meta property="og:title" content="llave — Software para Talleres Mecánicos, Diagnóstico y Autos">
+<meta property="og:description" content="Herramientas y software para talleres mecánicos: diagnóstico automotriz, códigos DTC OBD2, torque, compresión, presión de riel, cotizador y catálogo de autos.">
 <meta property="og:url" content="https://llave.onrender.com/">
-<meta property="og:locale" content="es_MX">
+<meta property="og:locale" content="es_LA">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="llave — Presión, módulos y pilas de gasolina">
-<meta name="twitter:description" content="Presión de riel, ubicación del módulo y pilas compatibles para vehículos de Latinoamérica.">
+<meta name="twitter:title" content="llave — Software de Taller, Diagnóstico y Autos">
+<meta name="twitter:description" content="Herramientas y software para taller mecánico: diagnóstico, códigos DTC, torque, compresión, cotizador y catálogo de autos.">
 
 <script type="application/ld+json">
 {
@@ -80,7 +80,16 @@
   "name": "llave",
   "applicationCategory": "AutomotiveApplication",
   "operatingSystem": "Web",
-  "description": "Consulta técnica de presión de riel, ubicación de módulos y pilas de gasolina compatibles para vehículos de Latinoamérica.",
+  "description": "Software y herramientas para talleres mecánicos: diagnóstico automotriz, códigos DTC OBD2, torque, compresión, cotizador y catálogo de autos.",
+  "featureList": [
+    "Gestión de taller mecánico y órdenes de servicio",
+    "Diagnóstico automotriz y códigos de falla DTC OBD2",
+    "Calculadora de torque de apriete para motores",
+    "Tabla de compresión de motor y prueba de cilindros",
+    "Catálogo de presión de combustible (PSI/Bar) por vehículo",
+    "Cotizador de presupuestos y mano de obra para clientes",
+    "Directorio de talleres mecánicos y refaccionarias en Latinoamérica"
+  ],
   "inLanguage": "es",
   "datePublished": "2025-06-15",
   "dateModified": "2026-07-14",
@@ -2290,8 +2299,7 @@
     overflow-wrap: normal; hyphens: none;
   }
   .mic-tbl td { overflow-wrap: break-word; }
-  /* Acción dentro de una fila: el texto subrayado de `.link-btn` mide 20px de
-     alto y no se acierta con el dedo. Aquí se convierte en botón compacto. */
+  /* botón compacto de fila */
   .mic-tbl td .link-btn {
     display: inline-flex; align-items: center; min-height: 34px; padding: 6px 12px;
     text-decoration: none; border: 1px solid var(--border); border-radius: var(--r-sm);
@@ -2299,8 +2307,7 @@
     white-space: nowrap; transition: background .14s, border-color .14s;
   }
   .mic-tbl td .link-btn:hover { background: var(--accent-soft-2); border-color: var(--accent-dim); }
-  /* Con una acción de 34px en la fila, el `vertical-align: top` heredado dejaba
-     el texto arriba y el botón abajo: la fila se leía torcida. */
+  /* alineación vertical de acciones */
   .mic-tbl.tbl-acciones td { vertical-align: middle; }
   /* columnas de magnitud: la cifra y su unidad no se separan nunca */
   .mic-tbl .num { white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -2317,11 +2324,7 @@
   .mic-sub:first-child { margin-top: 0; }
   .mic-lbl { display: block; font: 600 10px var(--font); letter-spacing: 1.4px; text-transform: none; color: var(--muted); margin-bottom: 6px; }
 
-  /* ---- fusibles ----
-     La muestra de color no es decoración: la tabla ES el código de colores, y
-     leer "canela" sin verlo no ayuda a nadie frente a una caja de fusibles.
-     El nombre en texto se queda porque el color solo nunca debe ser el único
-     portador de la información. */
+  /* ---- fusibles ---- */
   .fuse-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 8px; }
   .fuse-chip {
     display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center;
@@ -2394,12 +2397,9 @@
     border-radius: var(--r-sm); transition: color .14s, border-color .14s;
   }
   .quote-del:hover:not(:disabled) { color: var(--danger); border-color: var(--danger-dim); }
-  /* Misma razón que en .tool-add-btn: a `opacity: .3` la ✕ quedaba en 1.6:1 y
-     el botón de borrar la línea del presupuesto era invisible, no "inactivo". */
+  /* botón inactivo */
   .quote-del:disabled { opacity: .55; cursor: default; }
-  /* El cuerpo de MicroShell es un flex en columna, así que sus hijos se estiran
-     por defecto: sin esto, "Agregar trabajo" ocupaba todo el ancho del panel y
-     pesaba visualmente más que el botón primario. */
+  /* alineación botón agregar */
   .quote-add { margin-top: 2px; align-self: flex-start; }
   .quote-total { margin-top: 22px; }
   .quote-grand {
@@ -2468,9 +2468,7 @@
   .comp-cyl { display: flex; flex-direction: column; }
   .comp-cyl .styled-input { text-align: center; font-variant-numeric: tabular-nums; }
 
-  /* ---- aviso de verificación de correo ----
-     Ámbar, no rojo: la cuenta funciona igual, es una advertencia y no un fallo.
-     Va debajo de la barra y por encima del hero, sin taparlo. */
+  /* aviso de verificación de correo */
   .verify-banner {
     position: relative; z-index: 40;
     display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
@@ -2486,6 +2484,11 @@
   .verify-dev a { color: var(--amber); }
 
   /* ---- perfil del taller ---- */
+    /* ---- tabs del perfil ---- */
+  .prof-nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px; background: var(--sunken); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 18px; }
+  .prof-tab { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 6px 8px; border: none; border-radius: calc(var(--r) - 2px); background: transparent; color: var(--muted); font: 600 12.5px var(--font); cursor: pointer; transition: background .15s, color .15s; }
+  .prof-tab:hover { color: var(--text); }
+  .prof-tab.active { background: var(--panel); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
   .prof-mail {
     display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
     padding: 16px 18px; margin-bottom: 4px; border-radius: var(--r-lg);
@@ -2506,8 +2509,7 @@
     padding: 14px 16px; border-radius: var(--r-lg);
     background: var(--sunken); border: 1px solid var(--border);
   }
-  /* El área tocable real es la etiqueta entera, que envuelve la casilla; el
-     cuadrito solo tiene que verse bien y no fallarse con el dedo. */
+  /* casilla accesible */
   .prof-toggle input { width: 22px; height: 22px; flex: none; margin-top: 1px; accent-color: var(--accent-fill); }
   @media (pointer: coarse) { .prof-toggle input { width: 26px; height: 26px; } }
   .prof-toggle span { display: flex; flex-direction: column; gap: 3px; }
@@ -2541,10 +2543,7 @@
     font: 600 11px var(--font); letter-spacing: .4px;
   }
   .pp-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; align-items: end; }
-  /* Estaba declarado en tres bloques separados que se pisaban: uno pedía
-     `flex-direction: column` y otro `row` treinta líneas más abajo. Ganaba el
-     último por orden de fuente, así que la columna era código muerto que
-     engañaba a quien leyera solo el primer bloque. Consolidado en uno. */
+  /* calificación interactiva */
   .pp-rate {
     display: flex; flex-direction: row; align-items: center; flex-wrap: wrap;
     gap: 4px; border: none; padding: 0; margin: 0; position: relative;

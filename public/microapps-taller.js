@@ -695,7 +695,13 @@
 
     const noLeidas = notifs.filter(n => !n.is_read).length;
     const prog = me?.donor_progress || { puntos: me?.total_donated || 0, nivel: me?.donor_level || 0, nombre: 'Sin Rango', badge: 'Mecánico', porcentaje: 0, metaProximo: 1, faltaParaProximo: 1, beneficiosDesbloqueados: [], beneficiosProximos: [] };
-    const rCol = RC[prog.nivel] || RC[0];
+
+    const TABS = [
+      ['taller', 'Store', 'Mi Taller'],
+      ['rango', 'Award', 'Rango'],
+      ['notifs', 'Bell', `Avisos${noLeidas ? ` (${noLeidas})` : ''}`],
+      ['cuenta', 'ShieldCheck', 'Cuenta']
+    ];
 
     const renderPerk = (b, unlocked) => html`<div key=${b.nivel} style=${{ ...SC, opacity: unlocked ? 1 : .85, background: unlocked ? 'var(--sunken)' : 'var(--panel)', borderStyle: unlocked ? 'solid' : 'dashed' }}>
       <div style=${SB}><div style=${SF}><span style=${{ display: 'inline-flex', color: unlocked ? '#10b981' : 'var(--text-alt)' }}><${CatIc} n=${unlocked ? 'Check' : 'Lock'} s=${12} /></span><strong style=${{ fontSize: '12px' }}>${b.nombre}</strong></div><span style=${{ fontSize: '11px', color: 'var(--accent)', fontWeight: 600 }}>${b.montoMin}+ pts</span></div>
@@ -703,32 +709,19 @@
     </div>`;
 
     return html`<${MicroShell} title="Mi Taller" icon="Store" onBack=${onBack}>
-      <div style=${{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '14px', borderBottom: '1px solid var(--border)' }}>
-        ${[['taller', 'Store', 'Mi Taller'], ['rango', 'Award', 'Rango & Beneficios'], ['notifs', 'Bell', `Avisos${noLeidas ? ` (${noLeidas})` : ''}`], ['audit', 'Clock', 'Historial']].map(([k, ic, lb]) => html`
-          <button key=${k} type="button" class=${'tool-add-btn' + (subTab === k ? '' : ' home-cta-ghost')} style=${{ fontSize: '12px', padding: '5px 11px', whiteSpace: 'nowrap' }} onClick=${() => setSubTab(k)}>
-            <${CatIc} n=${ic} s=${14} /> ${lb}
+      <div class="prof-nav">
+        ${TABS.map(([k, ic, lb]) => html`
+          <button key=${k} type="button" class=${'prof-tab' + (subTab === k ? ' active' : '')} onClick=${() => setSubTab(k)}>
+            <${CatIc} n=${ic} s=${14} /> <span>${lb}</span>
           </button>`)}
       </div>
 
       ${subTab === 'taller' && html`<div>
-        ${noLeidas > 0 && html`<div class="alert blue" style=${{ marginBottom: '12px', cursor: 'pointer', ...SB }} onClick=${() => setSubTab('notifs')}>
-          <span><${CatIc} n="Bell" s=${15} /> Tienes <strong>${noLeidas} aviso(s)</strong> sobre tus aportes.</span>
+        ${noLeidas > 0 && html`<div class="alert blue" style=${{ marginBottom: '14px', cursor: 'pointer', ...SB }} onClick=${() => setSubTab('notifs')}>
+          <span><${CatIc} n="Bell" s=${15} /> Tienes <strong>${noLeidas} aviso(s)</strong> nuevo(s).</span>
           <span style=${{ fontSize: '11px', textDecoration: 'underline', fontWeight: 700 }}>Ver avisos →</span>
         </div>`}
-        <div style=${{ ...SB, ...SC }}>
-          <div style=${SF}>
-            ${bBadge(prog.nivel)}
-            <span style=${{ fontSize: '12px' }}><strong>${prog.puntos} pts</strong></span>
-          </div>
-          <button type="button" class="home-cta-ghost" style=${{ fontSize: '11px', padding: '3px 8px' }} onClick=${() => setSubTab('rango')}>Progreso →</button>
-        </div>
-        <p class="mic-lead">Datos del negocio para clientes y presupuestos.</p>
-        ${me && html`<div class=${'prof-mail ' + (me.email_verified ? 'ok' : 'warn')}>
-          <${CatIc} n=${me.email_verified ? 'MailCheck' : 'MailWarn'} s=${20} />
-          <div><strong>${me.email}</strong><span>${me.email_verified ? 'Correo confirmado' : 'Sin confirmar — no podrás recuperar acceso si olvidas la contraseña'}</span></div>
-          ${!me.email_verified && html`<button type="button" class="home-cta-ghost" onClick=${reenviar} disabled=${verif === 'enviando'}>${verif === 'enviando' ? 'Enviando…' : verif === 'enviado' ? 'Enviado' : 'Confirmar correo'}</button>`}
-        </div>`}
-        <h3 class="mic-sub">Datos del taller</h3>
+        <h3 class="mic-sub" style=${{ marginTop: 0 }}>Datos del taller</h3>
         <div class="quote-params">
           <label><span class="mic-lbl">Nombre del taller</span><input type="text" name="taller" autocomplete="organization" class="styled-input" placeholder="Taller…" value=${f.name} onChange=${e => setF({ ...f, name: e.target.value })} /></label>
           <label><span class="mic-lbl">WhatsApp del taller</span><input type="tel" name="telefono" autocomplete="tel" inputmode="tel" class="styled-input" placeholder="+58 412 1234567" value=${f.phone} onChange=${e => setF({ ...f, phone: e.target.value })} /><span class="trim-hint">Con código de país</span></label>
@@ -739,49 +732,30 @@
           <input type="checkbox" checked=${f.is_public} onChange=${e => setF({ ...f, is_public: e.target.checked })} />
           <span><strong>Publicar mi perfil</strong><em>Visible para clientes y en el directorio.</em></span>
         </label>
-        <div class="quote-params" style=${{ marginTop: '14px' }}>
-          <label><span class="mic-lbl">Ciudad o zona</span><input type="text" name="ciudad" autocomplete="address-level2" class="styled-input" placeholder="Ej. Barcelona, Anzoátegui" value=${f.city} onChange=${e => setF({ ...f, city: e.target.value })} /></label>
-          <label><span class="mic-lbl">Servicios (separados por coma)</span><input type="text" name="servicios" class="styled-input" placeholder="Inyección, frenos, electricidad…" value=${f.services} onChange=${e => setF({ ...f, services: e.target.value })} /></label>
-        </div>
-        <label style=${{ display: 'block', marginTop: '14px' }}><span class="mic-lbl">Presentación</span><textarea class="styled-input" rows="3" maxLength="600" placeholder="Qué hace tu taller…" value=${f.bio} onChange=${e => setF({ ...f, bio: e.target.value })}></textarea><span class="trim-hint">${(f.bio || '').length} / 600</span></label>
-        ${me?.slug && me?.is_public && html`<div class="prof-share">
-          <div><span class="mic-lbl">Tu enlace</span><code>${location.origin}/taller/${me.slug}</code></div>
-          <div class="prof-share-cta">
-            <button type="button" class="tool-add-btn" onClick=${() => enviarWhatsApp('', `Perfil de mi taller: ${location.origin}/taller/${me.slug}`)}>WhatsApp</button>
-            <button type="button" class="home-cta-ghost" onClick=${() => { navigator.clipboard?.writeText(`${location.origin}/taller/${me.slug}`).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 2000); }); }}>${copiado ? 'Copiado' : 'Copiar'}</button>
-            <a class="home-cta-ghost" href=${'/taller/' + me.slug} target="_blank" rel="noopener">Ver perfil</a>
+        ${f.is_public && html`<div style=${{ marginTop: '14px' }}>
+          <div class="quote-params">
+            <label><span class="mic-lbl">Ciudad o zona</span><input type="text" name="ciudad" autocomplete="address-level2" class="styled-input" placeholder="Ej. Barcelona, Anzoátegui" value=${f.city} onChange=${e => setF({ ...f, city: e.target.value })} /></label>
+            <label><span class="mic-lbl">Servicios (separados por coma)</span><input type="text" name="servicios" class="styled-input" placeholder="Inyección, frenos, electricidad…" value=${f.services} onChange=${e => setF({ ...f, services: e.target.value })} /></label>
           </div>
+          <label style=${{ display: 'block', marginTop: '14px' }}><span class="mic-lbl">Presentación</span><textarea class="styled-input" rows="3" maxLength="600" placeholder="Qué hace tu taller…" value=${f.bio} onChange=${e => setF({ ...f, bio: e.target.value })}></textarea><span class="trim-hint">${(f.bio || '').length} / 600</span></label>
+          ${me?.slug ? html`<div class="prof-share">
+            <div><span class="mic-lbl">Tu enlace</span><code>${location.origin}/taller/${me.slug}</code></div>
+            <div class="prof-share-cta">
+              <button type="button" class="tool-add-btn" onClick=${() => enviarWhatsApp('', `Perfil de mi taller: ${location.origin}/taller/${me.slug}`)}>WhatsApp</button>
+              <button type="button" class="home-cta-ghost" onClick=${() => { navigator.clipboard?.writeText(`${location.origin}/taller/${me.slug}`).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 2000); }); }}>${copiado ? 'Copiado' : 'Copiar'}</button>
+              <a class="home-cta-ghost" href=${'/taller/' + me.slug} target="_blank" rel="noopener">Ver perfil</a>
+            </div>
+          </div>` : html`<div class="alert blue" style=${{ marginTop: '12px' }}><span>Guarda cambios para ver el enlace de tu perfil.</span></div>`}
         </div>`}
-        ${f.is_public && !me?.slug && html`<div class="alert blue" style=${{ marginTop: '12px' }}><span>Guarda cambios para ver el enlace de tu perfil.</span></div>`}
         ${msg && html`<div class="alert" style=${{ marginTop: '12px' }}><span>${msg}</span></div>`}
-        <div class="insp-actions">
+        <div class="insp-actions" style=${{ marginTop: '16px' }}>
           <button type="button" class="tool-add-btn" onClick=${guardar} disabled=${estado === 'guardando' || !f.name.trim() || (f.phone && !telValido(f.phone))}>${estado === 'guardando' ? 'Guardando…' : estado === 'guardado' ? 'Guardado' : 'Guardar cambios'}</button>
           ${telValido(f.phone) && html`<button type="button" class="home-cta-ghost" onClick=${() => enviarWhatsApp(f.phone, 'Prueba de llave: número verificado.')}>Probar número</button>`}
         </div>
-        <h3 class="mic-sub">Cuenta y seguridad</h3>
-        <div class="quote-params">
-          <label><span class="mic-lbl">Método de acceso</span><span style=${{ display: 'block', padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border-hi)', borderRadius: '8px' }}>${me.auth_provider === 'google' ? 'Google' : 'Correo y contraseña'}</span></label>
-          ${me.created_at && html`<label><span class="mic-lbl">Cuenta creada</span><span style=${{ display: 'block', padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border-hi)', borderRadius: '8px' }}>${new Date(me.created_at).toLocaleDateString()}</span></label>`}
-        </div>
-        ${me.auth_provider === 'google' ? html`<div class="alert blue" style=${{ marginTop: '12px' }}><span>Inicio con Google activo (sin contraseña local).</span></div>` : html`
-          <div class="quote-params" style=${{ marginTop: '14px' }}>
-            <label><span class="mic-lbl">Contraseña actual</span><input type="password" class="styled-input" autocomplete="current-password" value=${pass.current} onChange=${e => setPass({ ...pass, current: e.target.value })} /></label>
-            <label><span class="mic-lbl">Nueva contraseña</span><input type="password" class="styled-input" autocomplete="new-password" placeholder="Mínimo 10 car." value=${pass.next} onChange=${e => setPass({ ...pass, next: e.target.value })} /></label>
-            <label><span class="mic-lbl">Repetir contraseña</span><input type="password" class="styled-input" autocomplete="new-password" value=${pass.confirm} onChange=${e => setPass({ ...pass, confirm: e.target.value })} /></label>
-          </div>
-          <div class="insp-actions">
-            <button type="button" class="tool-add-btn" onClick=${cambiarPass} disabled=${passEstado === 'enviando' || !pass.current || !pass.next || !pass.confirm}>${passEstado === 'enviando' ? 'Cambiando…' : 'Cambiar contraseña'}</button>
-          </div>`}
-        ${passMsg && html`<div class=${'alert' + (passEstado === 'ok' ? ' blue' : '')} style=${{ marginTop: '12px' }}><span>${passMsg}</span></div>`}
-        ${onLogout && html`<div class="insp-actions" style=${{ marginTop: '18px' }}>
-          <button type="button" class="home-cta-ghost" style=${{ color: 'var(--danger, #c0392b)', borderColor: 'currentColor' }} onClick=${() => { if (confirm('¿Cerrar sesión en este dispositivo?')) onLogout(); }}>
-            <${CatIc} n="LogOut" s=${16} /> Cerrar sesión
-          </button>
-        </div>`}
       </div>`}
 
       ${subTab === 'rango' && html`<div>
-        <div style=${{ ...SC, padding: '14px 16px' }}>
+        <div style=${{ ...SC, padding: '16px 18px' }}>
           <div style=${SB}>
             <div>
               ${bBadge(prog.nivel)}
@@ -796,7 +770,7 @@
             <div style=${{ ...SB, fontSize: '11px', fontWeight: 600, color: 'var(--text-alt)', marginBottom: '4px' }}>
               <span>Progreso de donador</span><span>${prog.porcentaje}%</span>
             </div>
-            <div style=${{ width: '100%', height: '12px', background: 'var(--sunken)', borderRadius: '99px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+            <div style=${{ width: '100%', height: '10px', background: 'var(--sunken)', borderRadius: '99px', overflow: 'hidden', border: '1px solid var(--border)' }}>
               <div style=${{ width: `${prog.porcentaje}%`, height: '100%', background: 'linear-gradient(90deg, #10b981, var(--accent), #f59e0b)', borderRadius: '99px', transition: 'width .4s ease' }}></div>
             </div>
             <div style=${{ ...SB, fontSize: '11px', color: 'var(--text-alt)', marginTop: '4px' }}>
@@ -806,17 +780,17 @@
           </div>
         </div>
 
-        <h4 class="mic-sub" style=${{ marginTop: '14px' }}><${CatIc} n="ShieldCheck" s=${16} /> Beneficios Desbloqueados (${prog.beneficiosDesbloqueados?.length || 0})</h4>
+        <h4 class="mic-sub" style=${{ marginTop: '16px' }}><${CatIc} n="ShieldCheck" s=${16} /> Beneficios Desbloqueados (${prog.beneficiosDesbloqueados?.length || 0})</h4>
         ${(!prog.beneficiosDesbloqueados || !prog.beneficiosDesbloqueados.length)
           ? html`<div class="empty" style=${{ padding: '12px' }}>Tu primer aporte de $1 USD activa la insignia oficial de Impulsor en tu perfil y directorio.</div>`
           : prog.beneficiosDesbloqueados.map(b => renderPerk(b, true))}
 
         ${prog.beneficiosProximos && prog.beneficiosProximos.length > 0 && html`<div>
-          <h4 class="mic-sub" style=${{ marginTop: '12px' }}><${CatIc} n="Sparkles" s=${16} /> Próximos Beneficios</h4>
+          <h4 class="mic-sub" style=${{ marginTop: '16px' }}><${CatIc} n="Sparkles" s=${16} /> Próximos Beneficios</h4>
           ${prog.beneficiosProximos.map(b => renderPerk(b, false))}
         </div>`}
 
-        <div class="alert blue" style=${{ ...SB, flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+        <div class="alert blue" style=${{ ...SB, flexWrap: 'wrap', gap: '8px', marginTop: '14px' }}>
           <span>¿Deseas sumar más puntos a tu taller?</span>
           <button type="button" class="tool-add-btn" style=${{ fontSize: '11px', padding: '5px 10px' }} onClick=${() => { if (onBack) onBack(); setTimeout(() => { document.getElementById('comunidad-donaciones')?.scrollIntoView({ behavior: 'smooth' }); }, 150); }}>Aportar a la comunidad</button>
         </div>
@@ -842,10 +816,8 @@
             </article>`;
           })}
         </div>
-      </div>`}
 
-      ${subTab === 'audit' && html`<div>
-        <h3 class="mic-sub" style=${{ margin: '0 0 8px' }}>Historial & Auditoría</h3>
+        <h3 class="mic-sub" style=${{ margin: '20px 0 8px' }}>Historial & Auditoría de Aportes</h3>
         ${!donations.length && html`<div class="empty" style=${{ padding: '20px', textAlign: 'center' }}>Aún no registras aportes.</div>`}
         <div style=${{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           ${donations.map(d => {
@@ -865,8 +837,38 @@
           })}
         </div>
       </div>`}
+
+      ${subTab === 'cuenta' && html`<div>
+        <h3 class="mic-sub" style=${{ marginTop: 0 }}>Identidad y correo</h3>
+        ${me && html`<div class=${'prof-mail ' + (me.email_verified ? 'ok' : 'warn')}>
+          <${CatIc} n=${me.email_verified ? 'MailCheck' : 'MailWarn'} s=${20} />
+          <div><strong>${me.email}</strong><span>${me.email_verified ? 'Correo confirmado' : 'Sin confirmar — no podrás recuperar acceso si olvidas la contraseña'}</span></div>
+          ${!me.email_verified && html`<button type="button" class="home-cta-ghost" onClick=${reenviar} disabled=${verif === 'enviando'}>${verif === 'enviando' ? 'Enviando…' : verif === 'enviado' ? 'Enviado' : 'Confirmar correo'}</button>`}
+        </div>`}
+        <div class="quote-params" style=${{ marginTop: '14px' }}>
+          <label><span class="mic-lbl">Método de acceso</span><span style=${{ display: 'block', padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border-hi)', borderRadius: '8px' }}>${me.auth_provider === 'google' ? 'Google' : 'Correo y contraseña'}</span></label>
+          ${me.created_at && html`<label><span class="mic-lbl">Cuenta creada</span><span style=${{ display: 'block', padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border-hi)', borderRadius: '8px' }}>${new Date(me.created_at).toLocaleDateString()}</span></label>`}
+        </div>
+        ${me.auth_provider === 'google' ? html`<div class="alert blue" style=${{ marginTop: '12px' }}><span>Inicio con Google activo (sin contraseña local).</span></div>` : html`
+          <h3 class="mic-sub">Seguridad y contraseña</h3>
+          <div class="quote-params">
+            <label><span class="mic-lbl">Contraseña actual</span><input type="password" class="styled-input" autocomplete="current-password" value=${pass.current} onChange=${e => setPass({ ...pass, current: e.target.value })} /></label>
+            <label><span class="mic-lbl">Nueva contraseña</span><input type="password" class="styled-input" autocomplete="new-password" placeholder="Mínimo 10 car." value=${pass.next} onChange=${e => setPass({ ...pass, next: e.target.value })} /></label>
+            <label><span class="mic-lbl">Repetir contraseña</span><input type="password" class="styled-input" autocomplete="new-password" value=${pass.confirm} onChange=${e => setPass({ ...pass, confirm: e.target.value })} /></label>
+          </div>
+          <div class="insp-actions" style=${{ marginTop: '12px' }}>
+            <button type="button" class="tool-add-btn" onClick=${cambiarPass} disabled=${passEstado === 'enviando' || !pass.current || !pass.next || !pass.confirm}>${passEstado === 'enviando' ? 'Cambiando…' : 'Cambiar contraseña'}</button>
+          </div>`}
+        ${passMsg && html`<div class=${'alert' + (passEstado === 'ok' ? ' blue' : '')} style=${{ marginTop: '12px' }}><span>${passMsg}</span></div>`}
+        ${onLogout && html`<div class="insp-actions" style=${{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+          <button type="button" class="home-cta-ghost" style=${{ color: 'var(--danger, #c0392b)', borderColor: 'currentColor', width: '100%', justifyContent: 'center' }} onClick=${() => { if (confirm('¿Cerrar sesión en este dispositivo?')) onLogout(); }}>
+            <${CatIc} n="LogOut" s=${16} /> Cerrar sesión en este dispositivo
+          </button>
+        </div>`}
+      </div>`}
     </${MicroShell}>`;
   };
+
   /* ================================================================
      37. Perfil público de un taller (lo que ve quien recibe el enlace)
      ================================================================ */

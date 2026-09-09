@@ -299,8 +299,8 @@ async function createApp(dbOverride, statsOverride) {
       <img class="logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" style="height:52px;width:auto">
     </a>`;
 
-  const HOME_TITLE = 'Presión de bomba de gasolina por vehículo | llave';
-  const HOME_DESC = 'Presión de riel en PSI y bar, ubicación del módulo y pilas de gasolina compatibles OEM y alternativas. Consulta gratis para mecánicos de Latinoamérica.';
+  const HOME_TITLE = 'Software de Taller Mecánico, Diagnóstico y Autos | llave';
+  const HOME_DESC = 'Herramientas y software para talleres mecánicos: diagnóstico automotriz, códigos DTC OBD2, torque, compresión, presión de riel, cotizador y catálogo de autos.';
 
   // Imágenes OG disponibles (generadas por `npm run og`). Se leen una vez al arrancar.
   let OG_FILES = new Set();
