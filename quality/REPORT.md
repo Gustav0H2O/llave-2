@@ -1,6 +1,6 @@
 # Informe de calidad — FuelTech Master
 
-_Generado el 2026-09-09 12:21 por `npm run metrics`. No lo edites a mano._
+_Generado el 2026-09-09 12:43 por `npm run metrics`. No lo edites a mano._
 
 ## ✅ Todos los presupuestos se cumplen
 
@@ -10,10 +10,10 @@ Nada que corregir.
 
 | Métrica | Valor | Estado |
 | --- | --- | --- |
-| Pruebas que pasan | 522 / 522 | ✅ |
-| Duración de la suite | 15.6 s | ✅ |
+| Pruebas que pasan | 526 / 526 | ✅ |
+| Duración de la suite | 16.7 s | ✅ |
 | Reglas de restricción | 19 reglas, 0 violaciones | ✅ |
-| Rutas de API probadas | 100% de 90 | ✅ |
+| Rutas de API probadas | 100% de 91 | ✅ |
 | Deuda conocida aceptada | 5 de 5 | ✅ |
 | Razón prueba/código | 0.66x | ✅ |
 
@@ -23,6 +23,7 @@ Nada que corregir.
 ✓ lib/catalog.js     ████████████████████████   100%  (mínimo 80%)
 ✓ lib/domain.js      ████████████████████████   100%  (mínimo 90%)
   lib/errores.js     ████████████████████████   100%
+  lib/notificaciones.js ███████████████████████░  95.6%
   lib/portada.js     ████████████████████████   100%
 ✓ lib/pure.js        ████████████████████████   100%  (mínimo 95%)
   lib/ruta.js        ████████████████████████   100%
@@ -44,14 +45,14 @@ Nada que corregir.
 ✓ public/index.html          185.6 KB  de 186 KB
 ✓ public/three3d.js           34.9 KB  de 68 KB
 ✓ public/sw.js                 5.8 KB  de 8 KB
-✓ server-pg.js               227.9 KB  de 228 KB
+✓ server-pg.js               227.6 KB  de 228 KB
 ```
 
 ## Evolución respecto a la referencia
 
 **Mejoras:**
 
-- pruebas_total: 519 → 522
+- pruebas_total: 519 → 526
 
 
 ## Deuda conocida pendiente de decisión

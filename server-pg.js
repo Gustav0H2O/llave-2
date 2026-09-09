@@ -21,23 +21,13 @@ const BASE_URL = (process.env.BASE_URL || 'https://llave.onrender.com').replace(
    y hacía que el chat respondiera 502. Default a un modelo real y estable. */
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 
-/* FT-0011 — Asistente vía OpenRouter (modelo gratis). Si OPENROUTER_API_KEY
-   está configurada como secreto del host —nunca en el repo, igual que Gemini—,
-   el chat usa OpenRouter y Google queda como respaldo. Modelo por defecto:
-   Gemma 4 26B :free, probado en vivo respondiendo en español y sin ruido de
-   razonamiento (los nemotron gratuitos escupen su cadena de pensamiento). */
+// Asistente vía OpenRouter / Groq / NVIDIA
 const OPENROUTER_API_KEY = (process.env.OPENROUTER_API_KEY || '').trim();
-/* Cadena de modelos :free en orden de preferencia. Los gratuitos se saturan
-   por turnos (429): probar el siguiente en vez de fallar multiplica el margen
-   real del plan gratis. Excluidos los nemotron «reasoning»: responden bien
-   pero escupen su cadena de pensamiento en inglés dentro del texto útil. */
 const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS
   || 'google/gemma-4-26b-a4b-it:free,google/gemma-4-31b-it:free')
   .split(',').map(s => s.trim()).filter(Boolean);
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 
-/* Groq (console.groq.com): API compatible con OpenAI, 14,400 peticiones/día
-   gratis sin tarjeta. Modelos de Llama y Gemma, muy rápidos. */
 const GROQ_API_KEY = (process.env.GROQ_API_KEY || '').trim();
 const GROQ_MODELS = (process.env.GROQ_MODELS
   || 'llama-3.3-70b-versatile,llama-3.1-8b-instant,gemma2-9b-it')
@@ -67,17 +57,8 @@ function proveedorChat() {
   return null;
 }
 
-/* Google Analytics 4. Configurable; vacío = desactivado (y no se toca la CSP). */
 const GA_ID = process.env.GA_MEASUREMENT_ID || 'G-MXGS03FKB0';
-
-/* Google AdSense. Formato: ca-pub-0000000000000000 (lo da el panel de AdSense).
-   Vacío = desactivado: no se inyecta el script, no se abre la CSP y /ads.txt responde 404.
-   Con valor: se carga adsbygoogle.js en todas las páginas y se publica ads.txt, que es
-   como Google verifica el sitio y como se declara al editor autorizado. */
 const ADSENSE_CLIENT = (process.env.ADSENSE_CLIENT || '').trim();
-
-/* Panel de administración: protegido con contraseña por variable de entorno.
-   Si ADMIN_PASSWORD no está definida, el panel queda DESACTIVADO (seguro por defecto). */
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const ADMIN_SECRET = ADMIN_PASSWORD
   ? crypto.createHash('sha256').update('ftadmin|' + ADMIN_PASSWORD).digest()
@@ -109,6 +90,7 @@ const {
 const { paginaRuta, paginaGuia, jsonLdRuta } = require('./lib/ruta');
 const { paginaPortada } = require('./lib/portada');
 const { paginaError, ERRORES: PANTALLAS_ERROR, codigosDeError } = require('./lib/errores');
+const { enviarAvisoDonacion } = require('./lib/notificaciones');
 
 /* Modo mantenimiento. Con MAINTENANCE=1 el sitio entero responde 503 con su
    pantalla propia en vez de quedarse a medias mientras se despliega. */
@@ -1099,8 +1081,14 @@ async function createApp(dbOverride, statsOverride) {
       .send(`google.com, ${ADSENSE_CLIENT.replace(/^ca-/, '')}, DIRECT, f08c47fec0942fa0\n`);
   });
 
-  // Panel de administración (protegido por contraseña en el API; ver /api/admin/*)
-  app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+  app.get('/admin', (req, res) => {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+  });
+  app.get('/admin.js', (req, res) => {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.sendFile(path.join(__dirname, 'public', 'admin.js'));
+  });
 
   app.use(express.static(path.join(__dirname, 'public'), {
     maxAge: PROD ? '1d' : 0,
@@ -1924,6 +1912,19 @@ ${dbContext}`;
       }
     }
     res.status(201).json({ ok: true, id, status: 'approved' });
+  });
+
+  app.post('/api/admin/donations/test-notice', requireAdmin, async (req, res) => {
+    const url = str(req.body?.webhook_url, 500) || process.env.DONATION_WEBHOOK_URL;
+    if (!url) return res.status(400).json({ error: 'Configura DONATION_WEBHOOK_URL o proporciona una URL de webhook' });
+    const dummy = {
+      id: 999, amount: 15, method: 'zinli', reference: 'TEST-001',
+      donor_name: 'Donante de Prueba', email: 'prueba@ejemplo.com',
+      note: 'Aviso de prueba enviado desde /admin',
+      quickApproveUrl: `${BASE_URL}/admin`
+    };
+    const r = await enviarAvisoDonacion(dummy, url);
+    res.json({ ok: r.enviado, result: r });
   });
 
   // Import masivo de vehículos desde CSV (marca, modelo, años, motor, inyección, psi, zona...)
@@ -3392,6 +3393,10 @@ ${dbContext}`;
     );
 
     console.log(`[Donación] Nuevo aporte registrado (#${id}): $${amount} vía ${method} (Ref: ${reference}). Aprobación rápida: /api/donations/quick-approve?token=${approve_token}`);
+    const quickApproveUrl = `${BASE_URL}/api/donations/quick-approve?token=${approve_token}`;
+    enviarAvisoDonacion({
+      id, amount, method, reference, donor_name, email, workshop_id, note, quickApproveUrl
+    }, process.env.DONATION_WEBHOOK_URL).catch(() => {});
 
     res.status(201).json({
       ok: true,

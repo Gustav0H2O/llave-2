@@ -234,11 +234,19 @@
   <section id="view-donations" class="panel hidden">
     <h2>Donaciones & Rangos de Donador</h2>
     <p class="muted" style="font-size:12px;margin-bottom:12px">Verifica aportes recibidos por Zinli o Binance Pay. Al aprobar, se acredita el rango e insignia al taller en tiempo real.</p>
+    
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;background:var(--panel2);border:1px solid var(--border);padding:10px 14px;border-radius:6px">
+      <div><span class="muted" style="font-size:11.5px">Aportes Pendientes:</span> <strong id="don_stat_pending" style="color:var(--amber)">0</strong></div>
+      <div><span class="muted" style="font-size:11.5px">Total Aportado:</span> <strong id="don_stat_total" style="color:var(--green)">$0.00 USD</strong></div>
+      <div><span class="muted" style="font-size:11.5px">Talleres con Rango:</span> <strong id="don_stat_ranked" style="color:var(--accent)">0</strong></div>
+    </div>
+
     <div class="row" style="margin-bottom:14px;gap:8px;flex-wrap:wrap">
       <button id="don_tab_pending" class="small active">Aportes Pendientes</button>
-      <button id="don_tab_all" class="small">Historial Completo</button>
       <button id="don_tab_workshops" class="small">Talleres & Rangos</button>
+      <button id="don_tab_all" class="small">Historial Completo</button>
       <button id="don_tab_manual" class="small">+ Registrar Aporte</button>
+      <button id="don_tab_notices" class="small">🔔 Avisos & Drive</button>
       <button id="don_refresh" class="small">Actualizar</button>
     </div>
 
@@ -296,10 +304,38 @@
       </div>
     </div>
 
+    <!-- Subvista: Avisos y Webhooks (Google Drive / Sheets / Discord) -->
+    <div id="don_sub_notices" class="hidden">
+      <div class="sub" style="border-top:0;padding-top:0;margin-top:0">Avisos Inmediatos en Google Drive / Google Sheets / Discord</div>
+      <p class="muted" style="font-size:12px;margin-bottom:12px">
+        Recibe una alerta automática al instante cada vez que un usuario reporte un pago. Puedes conectarlo con Google Sheets en tu Google Drive, con Discord o con cualquier webhook HTTP.
+      </p>
+      <div class="grid">
+        <div class="field" style="grid-column:1/-1">
+          <label>URL de Webhook (o variable DONATION_WEBHOOK_URL en el servidor)</label>
+          <input id="notice_webhook_url" placeholder="https://script.google.com/macros/s/.../exec o https://discord.com/api/webhooks/...">
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px;gap:8px">
+        <button id="notice_test_btn" class="primary small">Probar Envío de Aviso</button>
+        <button id="notice_copy_script_btn" class="small">Copiar Código Apps Script para Google Drive</button>
+      </div>
+      <div style="margin-top:14px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:12px">
+        <strong style="color:var(--accent)">Instrucciones sencillas para conectar con Google Drive:</strong>
+        <ol style="margin:6px 0 0 18px;line-height:1.6">
+          <li>Crea una hoja de cálculo en tu Google Drive llamada <code>Aportes Llave</code>.</li>
+          <li>En el menú superior, ve a <b>Extensiones > Apps Script</b>, borra el código existente y pega el script con el botón de arriba.</li>
+          <li>Haz clic en <b>Implementar > Nueva implementación</b>, selecciona tipo <i>Aplicación web</i>, ejecutar como <i>Yo</i> y acceso <i>Cualquiera</i>.</li>
+          <li>Copia la URL web resultante y pégala en el campo de arriba o configúrala como <code>DONATION_WEBHOOK_URL</code> en Render.</li>
+          <li>¡Listo! Cada vez que alguien reporte una donación, se creará una fila en tu hoja de Google Drive en tiempo real con el enlace de aprobación en un clic.</li>
+        </ol>
+      </div>
+    </div>
+
     <p id="don_msg" class="msg"></p>
   </section>
 </div>
 
-<script src="/admin.js"></script>
+<script src="/admin.js?v=2.2"></script>
 </body>
 </html>

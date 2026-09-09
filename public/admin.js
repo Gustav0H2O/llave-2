@@ -281,14 +281,38 @@ function switchDonSubView(view) {
   show($('don_sub_list'), view === 'pending' || view === 'all');
   show($('don_sub_workshops'), view === 'workshops');
   show($('don_sub_manual'), view === 'manual');
+  show($('don_sub_notices'), view === 'notices');
   $('don_tab_pending').classList.toggle('active', view === 'pending');
-  $('don_tab_all').classList.toggle('active', view === 'all');
   $('don_tab_workshops').classList.toggle('active', view === 'workshops');
+  $('don_tab_all').classList.toggle('active', view === 'all');
   $('don_tab_manual').classList.toggle('active', view === 'manual');
+  $('don_tab_notices').classList.toggle('active', view === 'notices');
   $('don_msg').textContent = '';
   if (view === 'pending') { donFilter = 'pending'; loadDonations(); }
   else if (view === 'all') { donFilter = ''; loadDonations(); }
   else if (view === 'workshops') { loadWorkshops($('don_ws_search').value); }
+}
+
+async function updateDonStats() {
+  try {
+    const [donRes, wsRes] = await Promise.all([
+      authFetch('/api/admin/donations'),
+      authFetch('/api/admin/workshops')
+    ]);
+    if (donRes.ok) {
+      const dons = await donRes.json();
+      const pend = dons.filter(d => d.status === 'pending').length;
+      const total = dons.filter(d => d.status === 'approved').reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
+      $('don_stat_pending').textContent = pend;
+      $('don_stat_total').textContent = `$${total.toFixed(2)} USD`;
+      $('nav-donations').textContent = pend > 0 ? `Donaciones & Rangos (${pend})` : 'Donaciones & Rangos';
+    }
+    if (wsRes.ok) {
+      const wss = await wsRes.json();
+      const ranked = wss.filter(w => (w.donor_level || 0) > 0).length;
+      $('don_stat_ranked').textContent = ranked;
+    }
+  } catch (e) {}
 }
 
 async function loadDonations() {
@@ -303,10 +327,27 @@ async function loadDonations() {
     }
     const rows = await res.json();
     box.innerHTML = '';
+    updateDonStats();
+
     if (!rows.length) {
-      box.innerHTML = `<p class="muted">${donFilter === 'pending' ? 'No hay donaciones pendientes por verificar.' : 'No se encontraron donaciones registradas.'}</p>`;
+      if (donFilter === 'pending') {
+        box.innerHTML = `
+          <div style="padding:20px;text-align:center;background:var(--panel2);border:1px solid var(--border);border-radius:6px">
+            <p class="muted" style="margin-bottom:12px">No hay donaciones pendientes por verificar en este momento.</p>
+            <div class="row" style="justify-content:center;gap:8px">
+              <button id="don_empty_ws" class="small">Ver Talleres & Rangos</button>
+              <button id="don_empty_man" class="small primary">+ Registrar Aporte Manual</button>
+            </div>
+          </div>
+        `;
+        $('don_empty_ws')?.addEventListener('click', () => switchDonSubView('workshops'));
+        $('don_empty_man')?.addEventListener('click', () => switchDonSubView('manual'));
+      } else {
+        box.innerHTML = '<p class="muted">No se encontraron donaciones registradas en el historial.</p>';
+      }
       return;
     }
+
     rows.forEach(d => {
       const el = document.createElement('div');
       el.className = 'vrow';
@@ -367,6 +408,7 @@ async function loadDonations() {
                 throw new Error(err.error || 'Error del servidor');
               }
               loadDonations();
+              updateDonStats();
             } catch (err) { alert('Error al aprobar: ' + (err.message || 'Error')); btn.disabled = false; }
           } else if (act === 'reject') {
             const reason = prompt(`Rechazar donación #${id}.\nMotivo (opcional):`, 'Referencia no encontrada o inválida');
@@ -376,6 +418,7 @@ async function loadDonations() {
               const r = await authFetch(`/api/admin/donations/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
               if (!r.ok) throw new Error();
               loadDonations();
+              updateDonStats();
             } catch (err) { alert('Error al rechazar donación'); btn.disabled = false; }
           }
         });
@@ -399,6 +442,8 @@ async function loadWorkshops(query = '') {
     }
     const rows = await res.json();
     box.innerHTML = '';
+    updateDonStats();
+
     if (!rows.length) {
       box.innerHTML = '<p class="muted">No se encontraron talleres registrados.</p>';
       return;
@@ -453,6 +498,7 @@ async function loadWorkshops(query = '') {
           $('don_msg').textContent = `✓ Rango del taller "${w.name}" actualizado a Nivel ${newLvl} ($${newDonated.toFixed(2)} USD)`;
           $('don_msg').className = 'msg ok';
           loadWorkshops($('don_ws_search').value);
+          updateDonStats();
         } catch (err) {
           alert(err.message || 'Error al ajustar rango');
         }
@@ -467,12 +513,15 @@ async function loadWorkshops(query = '') {
 
 // Botones de pestañas y acciones
 $('don_tab_pending').addEventListener('click', () => switchDonSubView('pending'));
-$('don_tab_all').addEventListener('click', () => switchDonSubView('all'));
 $('don_tab_workshops').addEventListener('click', () => switchDonSubView('workshops'));
+$('don_tab_all').addEventListener('click', () => switchDonSubView('all'));
 $('don_tab_manual').addEventListener('click', () => switchDonSubView('manual'));
+$('don_tab_notices').addEventListener('click', () => switchDonSubView('notices'));
+
 $('don_refresh').addEventListener('click', () => {
+  updateDonStats();
   if (donSubView === 'workshops') loadWorkshops($('don_ws_search').value);
-  else if (donSubView === 'manual') {}
+  else if (donSubView === 'manual' || donSubView === 'notices') {}
   else loadDonations();
 });
 $('don_ws_search_btn').addEventListener('click', () => loadWorkshops($('don_ws_search').value));
@@ -512,12 +561,66 @@ $('man_submit').addEventListener('click', async () => {
     $('man_ref').value = '';
     $('man_donor_name').value = '';
     $('man_note').value = '';
+    updateDonStats();
   } catch (err) {
     msg.textContent = err.message || 'Error al procesar el aporte';
     msg.className = 'msg err';
   } finally {
     $('man_submit').disabled = false;
   }
+});
+
+// Avisos / Webhooks
+$('notice_test_btn').addEventListener('click', async () => {
+  const msg = $('don_msg');
+  msg.textContent = 'Enviando aviso de prueba…'; msg.className = 'msg';
+  const url = $('notice_webhook_url').value.trim();
+  try {
+    const res = await authFetch('/api/admin/donations/test-notice', {
+      method: 'POST',
+      body: JSON.stringify({ webhook_url: url })
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || 'Error al probar webhook');
+    if (d.ok) {
+      msg.textContent = '✓ ¡Aviso de prueba enviado con éxito al Webhook!';
+      msg.className = 'msg ok';
+    } else {
+      msg.textContent = '⚠️ El servidor respondió con estado: ' + (d.result?.status || d.result?.error || 'Falló');
+      msg.className = 'msg err';
+    }
+  } catch (e) {
+    msg.textContent = e.message || 'Error al enviar prueba';
+    msg.className = 'msg err';
+  }
+});
+
+$('notice_copy_script_btn').addEventListener('click', () => {
+  const scriptCode = `function doPost(e) {
+  try {
+    var d = JSON.parse(e.postData.contents);
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    sheet.appendRow([
+      new Date(),
+      d.id,
+      d.monto + ' USD',
+      d.metodo,
+      d.referencia,
+      d.donante || 'Anónimo',
+      d.email || '',
+      d.taller_nombre || d.taller_id || 'Sin taller',
+      d.aprobar_url || ''
+    ]);
+    return ContentService.createTextOutput("OK");
+  } catch(err) {
+    return ContentService.createTextOutput("ERROR: " + err.message);
+  }
+}`;
+  navigator.clipboard.writeText(scriptCode).then(() => {
+    alert('¡Código de Google Apps Script copiado al portapapeles! Pégalo en tu Google Sheet (Extensiones > Apps Script).');
+  }).catch(() => {
+    prompt('Copia este código para Google Apps Script:', scriptCode);
+  });
 });
 
 /* ---------- Init ---------- */

@@ -185,4 +185,18 @@ describe('Donaciones y Rangos de Donador', () => {
     assert.equal(me.body.donor_level, 5);
     assert.equal(me.body.total_donated, 55);
   });
+
+  it('POST /api/admin/donations/test-notice prueba el envío de aviso y requiere admin', async () => {
+    const unauth = await anon.post('/api/admin/donations/test-notice', {});
+    assert.equal(unauth.status, 401);
+
+    const sinUrl = await admin.post('/api/admin/donations/test-notice', {});
+    assert.equal(sinUrl.status, 400);
+
+    const res = await admin.post('/api/admin/donations/test-notice', {
+      webhook_url: 'http://127.0.0.1:9999/test-webhook'
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, false);
+  });
 });

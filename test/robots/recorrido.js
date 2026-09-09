@@ -21,6 +21,7 @@
 
    Uso: node test/robots/recorrido.js [--maximo=400] [--concurrencia=8]
    ========================================================================= */
+const fs = require('fs');
 const {
   exigirEntornoSeguro, opciones, Reporte, lote, percentiles, cronometrar,
   nuevoServidor, sembrarTalleres, clienteDe, silenciarHttp,
@@ -253,38 +254,50 @@ async function main() {
     let puppeteer = null;
     try { puppeteer = require('puppeteer'); } catch (e) { rep.nota('sin puppeteer: no se puede comprobar'); }
     if (puppeteer) {
-      const navegador = await puppeteer.launch({
-        headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
-      });
+      let navegador = null;
       try {
-        /* Una muestra de cada familia de página servida. */
-        const muestras = ['/guias', '/guia/presion-de-combustible-baja', '/acerca-de',
-          '/contacto', '/privacidad', '/terminos', '/vehiculos', `/taller/${perfil.slug}`];
-        for (const ruta of muestras) {
-          const servido = await traer(ctx.base, ruta);
-          if (servido.status !== 200) continue;
-          /* Frase de referencia: el primer titular del contenido servido. */
-          const h1 = entre(servido.html, /<h1[^>]*>([\s\S]*?)<\/h1>/i);
-          const referencia = (h1 || '').replace(/<[^>]+>/g, '').trim().slice(0, 45);
-          if (!referencia) continue;
-
-          const pag = await navegador.newPage();
-          await pag.setViewport({ width: 1280, height: 900 });
-          await pag.goto(ctx.base + ruta, { waitUntil: 'networkidle2' });
-          await new Promise(r => setTimeout(r, 1600));
-          const despues = await pag.evaluate((ref) => ({
-            sigue: document.body.innerText.includes(ref),
-            hayPanel: !!document.querySelector('.home-nav-links, .home-hero'),
-            titulo: document.title,
-          }), referencia);
-          await pag.close();
-
-          rep.comprobar(despues.sigue,
-            `${ruta}: el contenido servido sigue visible tras montar React`,
-            `desapareció «${referencia}»${despues.hayPanel ? ' y en su lugar se pintó el panel de inicio' : ''} — el título sigue diciendo «${despues.titulo.slice(0, 45)}»`);
+        const launchOpts = {
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu']
+        };
+        const winChrome = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+        if (process.platform === 'win32' && fs.existsSync(winChrome)) {
+          launchOpts.executablePath = winChrome;
         }
-      } finally { await navegador.close(); }
+        navegador = await puppeteer.launch(launchOpts);
+      } catch (err) {
+        rep.nota(`navegador no disponible para prueba visual en este entorno: ${err.message}`);
+      }
+      if (navegador) {
+        try {
+          /* Una muestra de cada familia de página servida. */
+          const muestras = ['/guias', '/guia/presion-de-combustible-baja', '/acerca-de',
+            '/contacto', '/privacidad', '/terminos', '/vehiculos', `/taller/${perfil.slug}`];
+          for (const ruta of muestras) {
+            const servido = await traer(ctx.base, ruta);
+            if (servido.status !== 200) continue;
+            /* Frase de referencia: el primer titular del contenido servido. */
+            const h1 = entre(servido.html, /<h1[^>]*>([\s\S]*?)<\/h1>/i);
+            const referencia = (h1 || '').replace(/<[^>]+>/g, '').trim().slice(0, 45);
+            if (!referencia) continue;
+
+            const pag = await navegador.newPage();
+            await pag.setViewport({ width: 1280, height: 900 });
+            await pag.goto(ctx.base + ruta, { waitUntil: 'networkidle2' });
+            await new Promise(r => setTimeout(r, 1600));
+            const despues = await pag.evaluate((ref) => ({
+              sigue: document.body.innerText.includes(ref),
+              hayPanel: !!document.querySelector('.home-nav-links, .home-hero'),
+              titulo: document.title,
+            }), referencia);
+            await pag.close();
+
+            rep.comprobar(despues.sigue,
+              `${ruta}: el contenido servido sigue visible tras montar React`,
+              `desapareció «${referencia}»${despues.hayPanel ? ' y en su lugar se pintó el panel de inicio' : ''} — el título sigue diciendo «${despues.titulo.slice(0, 45)}»`);
+          }
+        } finally { await navegador.close(); }
+      }
     }
 
     /* ----------------------------------------------------------------
