@@ -160,6 +160,13 @@
     contacto: {
       email: 'newpersonal98@gmail.com',
     },
+    niveles: [
+      { nivel: 1, nombre: 'Impulsor', montoMin: 1, icon: 'Award', color: '#cd7f32', perk: 'Insignia pública en tu perfil y directorio' },
+      { nivel: 2, nombre: 'Colaborador (Plata)', montoMin: 5, icon: 'ShieldCheck', color: '#94a3b8', perk: 'Presupuestos y notas de entrega en PDF sin marca de agua' },
+      { nivel: 3, nombre: 'Destacado (Oro)', montoMin: 15, icon: 'Sparkles', color: '#eab308', perk: 'Prioridad de aparición en el buscador y respaldo en 1 clic' },
+      { nivel: 4, nombre: 'Experto (Platino)', montoMin: 30, icon: 'TrendingUp', color: '#06b6d4', perk: 'Gráficas de rentabilidad y herramientas prioritarias' },
+      { nivel: 5, nombre: 'Socio Fundador (Diamante)', montoMin: 50, icon: 'Crown', color: '#f59e0b', perk: 'Insignia dorada permanente, máxima prioridad y línea directa' },
+    ],
   };
 
   window.FT_DATOS = { DTCS, TORQUES, SPARKS, TIMING, VIN_YEARS, LABOR };

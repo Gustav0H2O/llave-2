@@ -499,6 +499,50 @@
 
     const [tabDonar, setTabDonar] = useState('binance');
     const [copiado, setCopiado] = useState('');
+    const [mostrarReporte, setMostrarReporte] = useState(false);
+    const [repMetodo, setRepMetodo] = useState('binance');
+    const [repRef, setRepRef] = useState('');
+    const [repMonto, setRepMonto] = useState('');
+    const [repNombre, setRepNombre] = useState('');
+    const [repEmail, setRepEmail] = useState('');
+    const [repNota, setRepNota] = useState('');
+    const [repEnviando, setRepEnviando] = useState(false);
+    const [repMsg, setRepMsg] = useState(null);
+
+    const enviarAporte = async (e) => {
+      e.preventDefault();
+      if (!repRef.trim() || !repMonto) {
+        setRepMsg({ err: true, txt: 'Indica la referencia y el monto del aporte.' });
+        return;
+      }
+      setRepEnviando(true);
+      setRepMsg(null);
+      try {
+        const res = await fetch('/api/donations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: repMetodo,
+            reference: repRef.trim(),
+            amount: parseFloat(repMonto),
+            donor_name: repNombre.trim() || (user?.name || undefined),
+            email: repEmail.trim() || (user?.email || undefined),
+            note: repNota.trim() || undefined,
+            workshop_id: user?.id,
+          }),
+        });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'Error al enviar');
+        setRepMsg({ ok: true, txt: 'Aporte registrado con éxito. Se verificará para acreditar tu nivel.' });
+        setRepRef('');
+        setRepMonto('');
+        setRepNota('');
+      } catch (err) {
+        setRepMsg({ err: true, txt: err.message || 'Error de conexión.' });
+      } finally {
+        setRepEnviando(false);
+      }
+    };
     const don = window.FT_DONACIONES || {};
     const copiar = (txt, id) => {
       try { navigator.clipboard.writeText(txt); setCopiado(id); setTimeout(() => setCopiado(''), 2200); } catch (e) {}
@@ -915,8 +959,24 @@
             </div>
             <h2 class="support-title">¿Te gusta llave? Apoya su evolución</h2>
             <p class="support-desc">
-              llave se mantiene sin publicidad para consultas ágiles en el taller. Si las herramientas te ahorran tiempo y deseas impulsar su desarrollo, tu aporte voluntario ayuda a sumar más marcas y utilidades.
+              llave se mantiene sin publicidad para consultas ágiles en el taller. Con tu aporte impulsas nuevas marcas y funciones, y desbloqueas insignias públicas y ventajas operativas para tu taller.
             </p>
+
+            <div class="support-ranks">
+              ${(don.niveles || []).map(nv => html`
+                <div class="support-rank-card" key=${nv.nivel}>
+                  <div class="support-rank-head">
+                    <span class="support-rank-name" style="color:${nv.color}">
+                      <${CatIc} n=${nv.icon} s=${14} />
+                      <span>${nv.nombre}</span>
+                    </span>
+                    <span class="support-rank-price">$${nv.montoMin}+</span>
+                  </div>
+                  <p class="support-rank-perk">${nv.perk}</p>
+                </div>
+              `)}
+            </div>
+
             <div class="support-tabs" role="tablist">
               <button type="button" role="tab" aria-selected=${tabDonar === 'binance'}
                 class=${'support-tab' + (tabDonar === 'binance' ? ' is-active' : '')}
@@ -958,6 +1018,57 @@
                 </div>
               `;
             })()}
+
+            <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+              <button type="button" class="support-claim-toggle" onClick=${() => setMostrarReporte(v => !v)}>
+                <${CatIc} n="Check" s=${14} />
+                <span>${mostrarReporte ? 'Ocultar formulario' : '¿Ya donaste? Reporta tu aporte para acreditar tu rango'}</span>
+              </button>
+            </div>
+
+            ${mostrarReporte && html`
+              <form class="support-form" onSubmit=${enviarAporte}>
+                <div class="support-form-field">
+                  <label>Método utilizado</label>
+                  <select value=${repMetodo} onChange=${(e) => setRepMetodo(e.target.value)}>
+                    <option value="binance">Binance Pay</option>
+                    <option value="zinli">Zinli</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                </div>
+                <div class="support-form-field">
+                  <label>Referencia o TxID *</label>
+                  <input type="text" placeholder="Ej: 2847194910" required value=${repRef} onInput=${(e) => setRepRef(e.target.value)} />
+                </div>
+                <div class="support-form-field">
+                  <label>Monto en USD *</label>
+                  <input type="number" step="0.1" min="0.1" placeholder="5.00" required value=${repMonto} onInput=${(e) => setRepMonto(e.target.value)} />
+                </div>
+                <div class="support-form-field">
+                  <label>Nombre / Taller</label>
+                  <input type="text" placeholder="Nombre visible" value=${repNombre} onInput=${(e) => setRepNombre(e.target.value)} />
+                </div>
+                <div class="support-form-field">
+                  <label>Tu correo</label>
+                  <input type="email" placeholder="correo@ejemplo.com" value=${repEmail} onInput=${(e) => setRepEmail(e.target.value)} />
+                </div>
+                <div class="support-form-field" style="grid-column:1/-1">
+                  <label>Nota o sugerencia (opcional)</label>
+                  <input type="text" placeholder="Mensaje para el equipo" value=${repNota} onInput=${(e) => setRepNota(e.target.value)} />
+                </div>
+                <div style="grid-column:1/-1;display:flex;align-items:center;gap:12px;margin-top:4px">
+                  <button type="submit" class="support-claim-toggle" disabled=${repEnviando}>
+                    ${repEnviando ? 'Enviando…' : 'Acreditar mi aporte'}
+                  </button>
+                  ${repMsg && html`
+                    <span style="font-size:12px;font-weight:600;color:${repMsg.err ? 'var(--danger,#e0635a)' : 'var(--accent)'}">
+                      ${repMsg.txt}
+                    </span>
+                  `}
+                </div>
+              </form>
+            `}
+
             <div class="support-contact-row">
               <span class="support-contact-ic"><${CatIc} n="Mail" s=${14} /></span>
               <span>¿Prefieres colaborar por otro método (Pago Móvil, banco o redes) o aportar ideas, funciones, sugerencias o críticas? Escríbeme a <a href="mailto:newpersonal98@gmail.com">newpersonal98@gmail.com</a>.</span>

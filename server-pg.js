@@ -1597,6 +1597,17 @@ ${dbContext}`;
   const ZONES = ['rear_seat', 'tank_drop', 'trunk_access', 'frame_rail'];
   const ASSEMBLY = ['external', 'hanger_tbi', 'hanger_return', 'module_returnless', 'vortec', 'gdi_low'];
 
+  /* Rangos de Donador (5 niveles por aporte acumulado en USD) */
+  const calcularNivelDonador = (monto) => {
+    const m = Number(monto || 0);
+    if (m >= 50) return 5;
+    if (m >= 30) return 4;
+    if (m >= 15) return 3;
+    if (m >= 5) return 2;
+    if (m >= 1) return 1;
+    return 0;
+  };
+
   const adminLimiter = rateLimit({ windowMs: 60_000, limit: 40, standardHeaders: true, legacyHeaders: false });
   const requireAdmin = (req, res, next) => {
     if (!ADMIN_PASSWORD) return res.status(503).json({ error: 'Panel no configurado. Define la variable ADMIN_PASSWORD.' });
@@ -1820,6 +1831,64 @@ ${dbContext}`;
   app.get('/api/admin/missing', requireAdmin, async (req, res) => {
     const rows = await statsDb.all('SELECT q, SUM(count) veces FROM missing_searches GROUP BY q ORDER BY veces DESC, q LIMIT 100', );
     res.set('Cache-Control', 'no-store').json(rows);
+  });
+
+  /* ---- Donaciones y Solicitudes de Rango (Admin) ---- */
+  app.get('/api/admin/donations', requireAdmin, async (req, res) => {
+    const status = str(req.query.status, 20);
+    const rows = await db.all(`
+      SELECT d.*, w.name AS workshop_name, w.slug AS workshop_slug, w.donor_level AS current_level, w.total_donated AS current_donated
+        FROM donations d
+        LEFT JOIN workshops w ON w.id = d.workshop_id
+       ${status ? 'WHERE d.status = ?' : ''}
+       ORDER BY d.id DESC LIMIT 200
+    `, status ? [status] : []);
+    res.set('Cache-Control', 'no-store').json(rows);
+  });
+
+  app.post('/api/admin/donations/:id/approve', requireAdmin, async (req, res) => {
+    const id = toInt(req.params.id, 1, 1e9);
+    if (id === null) return res.status(404).json({ error: 'No encontrado' });
+    const don = await db.get('SELECT * FROM donations WHERE id = ?', id);
+    if (!don) return res.status(404).json({ error: 'No encontrado' });
+    if (don.status === 'approved') return res.json({ ok: true, yaAprobada: true });
+
+    const montoAprobado = num(req.body?.amount) ?? don.amount;
+    await db.exec('BEGIN');
+    try {
+      await db.run(
+        `UPDATE donations SET status = 'approved', amount = ?, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = 'admin' WHERE id = ?`,
+        [montoAprobado, id]
+      );
+      if (don.workshop_id) {
+        await db.run('UPDATE workshops SET total_donated = total_donated + ? WHERE id = ?', [montoAprobado, don.workshop_id]);
+        const ws = await db.get('SELECT donor_level, total_donated FROM workshops WHERE id = ?', don.workshop_id);
+        const nuevoNivel = calcularNivelDonador(ws.total_donated);
+        if (nuevoNivel > ws.donor_level) {
+          await db.run('UPDATE workshops SET donor_level = ? WHERE id = ?', [nuevoNivel, don.workshop_id]);
+        }
+      }
+      await db.exec('COMMIT');
+    } catch (e) {
+      await db.exec('ROLLBACK').catch(() => {});
+      throw e;
+    }
+    res.json({ ok: true, id, status: 'approved' });
+  });
+
+  app.post('/api/admin/donations/:id/reject', requireAdmin, async (req, res) => {
+    const id = toInt(req.params.id, 1, 1e9);
+    if (id === null) return res.status(404).json({ error: 'No encontrado' });
+    const don = await db.get('SELECT * FROM donations WHERE id = ?', id);
+    if (!don) return res.status(404).json({ error: 'No encontrado' });
+
+    const motivo = str(req.body?.reason, 300);
+    const notaFinal = [don.note, motivo ? `Rechazado: ${motivo}` : 'Rechazado por admin'].filter(Boolean).join(' | ');
+    await db.run(
+      `UPDATE donations SET status = 'rejected', note = ?, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = 'admin' WHERE id = ?`,
+      [notaFinal, id]
+    );
+    res.json({ ok: true, id, status: 'rejected' });
   });
 
   // Import masivo de vehículos desde CSV (marca, modelo, años, motor, inyección, psi, zona...)
@@ -2170,12 +2239,14 @@ ${dbContext}`;
      sin filtrar el hash (regla de seguridad: /api/auth/me no expone material
      de credenciales). created_at permite mostrar cuándo se abrió la cuenta. */
   const CAMPOS_PERFIL =
-    'id, name, email, email_verified, phone, slug, is_public, bio, city, services, created_at, ' +
+    'id, name, email, email_verified, phone, slug, is_public, bio, city, services, donor_level, total_donated, created_at, ' +
     `CASE WHEN pass_hash = 'google_oauth' THEN 'google' ELSE 'password' END AS auth_provider`;
   const normalizaPerfil = (ws) => ws && ({
     ...ws,
     email_verified: Number(ws.email_verified) === 1,
     is_public: Number(ws.is_public) === 1,
+    donor_level: Number(ws.donor_level || 0),
+    total_donated: Number(ws.total_donated || 0),
   });
 
   /* haceSlug vive en lib/pure.js. Si el slug choca con otro taller, se le
@@ -2231,7 +2302,7 @@ ${dbContext}`;
   app.get('/api/workshops/:slug', async (req, res) => {
     const slug = str(req.params.slug, 60);
     const ws = await db.get(
-      `SELECT id, name, phone, city, bio, services, email_verified, created_at
+      `SELECT id, name, phone, city, bio, services, email_verified, donor_level, created_at
          FROM workshops WHERE slug = ? AND is_public = 1`, slug);
     if (!ws) return res.status(404).json({ error: 'Perfil no encontrado o no publicado' });
     const reviews = await db.all(
@@ -2243,6 +2314,7 @@ ${dbContext}`;
     res.set('Cache-Control', 'public, max-age=60').json({
       ...publico, slug,
       email_verified: Number(ws.email_verified) === 1,
+      donor_level: Number(ws.donor_level || 0),
       reseñas: reviews, total, promedio,
     });
   });
@@ -2286,15 +2358,16 @@ ${dbContext}`;
   app.get('/api/workshops', async (req, res) => {
     const ciudad = str(req.query.city, 80);
     const filas = await db.all(
-      `SELECT w.slug, w.name, w.city, w.services, w.phone,
+      `SELECT w.slug, w.name, w.city, w.services, w.phone, w.donor_level,
               COUNT(r.id) total, AVG(r.rating) promedio
          FROM workshops w LEFT JOIN workshop_reviews r ON r.workshop_id = w.id
         WHERE w.is_public = 1 ${ciudad ? 'AND LOWER(w.city) LIKE ?' : ''}
-        GROUP BY w.id ORDER BY w.name`,
+        GROUP BY w.id ORDER BY w.donor_level DESC, promedio DESC, w.name`,
       ciudad ? [`%${ciudad.toLowerCase()}%`] : []
     );
     res.set('Cache-Control', 'public, max-age=120').json(filas.map(f => ({
       ...f, total: Number(f.total || 0),
+      donor_level: Number(f.donor_level || 0),
       promedio: f.total ? Math.round(Number(f.promedio) * 10) / 10 : null,
     })));
   });
@@ -3251,6 +3324,94 @@ ${dbContext}`;
     const info = await db.run('DELETE FROM cash_moves WHERE id=? AND workshop_id=?', [id, req.workshopId]);
     if (!info.changes) return res.status(404).json({ error: 'No encontrado' });
     res.json({ ok: true });
+  });
+
+  /* ---- Donaciones públicas & Solicitud de Rango de Donador ---- */
+  app.post('/api/donations', async (req, res) => {
+    const b = req.body || {};
+    const method = str(b.method, 30);
+    const reference = str(b.reference, 100);
+    const amount = num(b.amount);
+    if (!['zinli', 'binance', 'otro'].includes(method)) {
+      return res.status(400).json({ error: 'Método de aporte inválido (zinli, binance, otro)' });
+    }
+    if (!reference) {
+      return res.status(400).json({ error: 'Número de referencia o TxID requerido' });
+    }
+    if (amount === null || amount < 0.1 || amount > 10000) {
+      return res.status(400).json({ error: 'Monto en USD inválido' });
+    }
+
+    const donor_name = str(b.donor_name, 100) || null;
+    const email = b.email ? normEmail(b.email) : null;
+    const note = str(b.note, 500) || null;
+    const proof_data = str(b.proof_data, 1000) || null;
+
+    let workshop_id = toInt(b.workshop_id, 1, 1e9);
+    if (!workshop_id && email) {
+      const ws = await db.get('SELECT id FROM workshops WHERE email = ?', email);
+      if (ws) workshop_id = ws.id;
+    }
+    if (!workshop_id && b.workshop_slug) {
+      const ws = await db.get('SELECT id FROM workshops WHERE slug = ?', str(b.workshop_slug, 60));
+      if (ws) workshop_id = ws.id;
+    }
+
+    const approve_token = crypto.randomBytes(24).toString('hex');
+    const id = await db.insertReturningId(
+      `INSERT INTO donations (workshop_id, donor_name, email, method, reference, amount, note, proof_data, status, approve_token)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+      [workshop_id, donor_name, email, method, reference, amount, note, proof_data, approve_token]
+    );
+
+    console.log(`[Donación] Nuevo aporte registrado (#${id}): $${amount} vía ${method} (Ref: ${reference}). Aprobación rápida: /api/donations/quick-approve?token=${approve_token}`);
+
+    res.status(201).json({
+      ok: true,
+      id,
+      message: 'Aporte registrado con éxito. Será verificado por el equipo para acreditar tu insignia y nivel.',
+    });
+  });
+
+  app.get('/api/donations/quick-approve', async (req, res) => {
+    const token = str(req.query.token, 80);
+    if (!token) return res.status(400).type('text/plain; charset=utf-8').send('Token requerido');
+
+    const don = await db.get('SELECT * FROM donations WHERE approve_token = ?', token);
+    if (!don) {
+      return res.status(404).type('text/plain; charset=utf-8').send('Token inválido o donación inexistente');
+    }
+    if (don.status === 'approved') {
+      return res.type('text/plain; charset=utf-8').send(`La donación #${don.id} ya fue aprobada previamente.`);
+    }
+
+    await db.exec('BEGIN');
+    try {
+      await db.run(
+        `UPDATE donations SET status = 'approved', reviewed_at = CURRENT_TIMESTAMP, reviewed_by = 'quick-token' WHERE id = ?`,
+        don.id
+      );
+      if (don.workshop_id) {
+        await db.run('UPDATE workshops SET total_donated = total_donated + ? WHERE id = ?', [don.amount, don.workshop_id]);
+        const ws = await db.get('SELECT donor_level, total_donated FROM workshops WHERE id = ?', don.workshop_id);
+        const nuevoNivel = calcularNivelDonador(ws.total_donated);
+        if (nuevoNivel > ws.donor_level) {
+          await db.run('UPDATE workshops SET donor_level = ? WHERE id = ?', [nuevoNivel, don.workshop_id]);
+        }
+      }
+      await db.exec('COMMIT');
+    } catch (e) {
+      await db.exec('ROLLBACK').catch(() => {});
+      throw e;
+    }
+
+    res.type('text/html; charset=utf-8').send(`<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Aporte Aprobado | llave</title>
+<style>body{font-family:sans-serif;background:#111311;color:#f8f7f3;text-align:center;padding:50px;}</style></head>
+<body><h1 style="color:#6f8a5a">✓ Aporte #${don.id} Aprobado</h1>
+<p>Monto acreditado: <strong>$${don.amount} USD</strong> (${don.method.toUpperCase()} - Ref: ${don.reference})</p>
+<p>El rango y beneficios del donador se han actualizado correctamente.</p>
+<p><a href="/admin" style="color:#8aa571">Ir al Panel de Administración</a> | <a href="/" style="color:#8aa571">Ir al Inicio</a></p></body></html>`);
   });
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'No encontrado' }));

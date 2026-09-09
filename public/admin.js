@@ -84,8 +84,10 @@ function switchView(name) {
   show($('view-brands'), name === 'brands');
   show($('view-import'), name === 'import');
   show($('view-insights'), name === 'insights');
-  ['list', 'new', 'pumps', 'brands', 'import', 'insights'].forEach(n => $('nav-' + n).classList.toggle('active', n === name || (name === 'editor' && n === 'new')));
+  show($('view-donations'), name === 'donations');
+  ['list', 'new', 'pumps', 'brands', 'import', 'insights', 'donations'].forEach(n => $('nav-' + n).classList.toggle('active', n === name || (name === 'editor' && n === 'new')));
   if (name === 'insights') loadMissing();
+  if (name === 'donations') loadDonations();
 }
 $('nav-list').addEventListener('click', () => { loadList($('search').value); switchView('list'); });
 $('nav-new').addEventListener('click', () => newVehicle());
@@ -93,6 +95,7 @@ $('nav-pumps').addEventListener('click', () => switchView('pumps'));
 $('nav-brands').addEventListener('click', () => switchView('brands'));
 $('nav-import').addEventListener('click', () => switchView('import'));
 $('nav-insights').addEventListener('click', () => switchView('insights'));
+$('nav-donations').addEventListener('click', () => switchView('donations'));
 $('logoutBtn').addEventListener('click', logout);
 $('cancelBtn').addEventListener('click', () => { loadList($('search').value); switchView('list'); });
 $('search').addEventListener('input', debounce(() => loadList($('search').value), 300));
@@ -259,6 +262,104 @@ async function loadMissing() {
     rows.forEach(r => { const d = document.createElement('div'); d.className = 'vrow'; d.innerHTML = `<div>${esc(r.q)}</div><div class="meta">${r.veces}×</div>`; box.appendChild(d); });
   } catch (e) {}
 }
+
+/* ---------- Donaciones & Rangos ---------- */
+let donFilter = 'pending';
+async function loadDonations() {
+  const box = $('don_list');
+  box.innerHTML = '<p class="muted">Cargando aportes…</p>';
+  try {
+    const res = await authFetch('/api/admin/donations' + (donFilter ? '?status=' + donFilter : ''));
+    const rows = await res.json();
+    box.innerHTML = '';
+    if (!rows.length) {
+      box.innerHTML = `<p class="muted">${donFilter === 'pending' ? 'No hay donaciones pendientes por verificar.' : 'No se encontraron donaciones registradas.'}</p>`;
+      return;
+    }
+    rows.forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'vrow';
+      el.style.flexWrap = 'wrap';
+      el.style.alignItems = 'flex-start';
+      const statusColor = d.status === 'approved' ? 'var(--green)' : (d.status === 'rejected' ? 'var(--danger)' : 'var(--amber)');
+      const statusTag = `<span class="tag" style="color:${statusColor};border-color:${statusColor}">${esc(d.status.toUpperCase())}</span>`;
+
+      el.innerHTML = `
+        <div style="flex:1;min-width:240px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <strong>#${d.id} · $${Number(d.amount).toFixed(2)} USD</strong>
+            <span class="tag" style="border-color:var(--border-hi)">${esc(d.method.toUpperCase())}</span>
+            ${statusTag}
+          </div>
+          <div class="meta" style="margin-bottom:2px">
+            <b>Ref:</b> <code>${esc(d.reference)}</code>
+            ${d.email ? ` · <b>Email:</b> ${esc(d.email)}` : ''}
+            ${d.donor_name ? ` · <b>Donante:</b> ${esc(d.donor_name)}` : ''}
+          </div>
+          ${d.workshop_name ? `
+            <div class="meta" style="color:var(--accent)">
+              <b>Taller vinculado:</b> ${esc(d.workshop_name)} (Nivel actual: ${d.current_level || 0} · Total: $${Number(d.current_donated || 0).toFixed(2)})
+            </div>
+          ` : '<div class="meta" style="color:var(--muted)">Sin taller vinculado (donación libre)</div>'}
+          ${d.note ? `<div class="meta" style="margin-top:4px;font-style:italic">"${esc(d.note)}"</div>` : ''}
+          <div class="meta" style="font-size:10px;margin-top:4px">${esc(d.created_at)}</div>
+        </div>
+        ${d.status === 'pending' ? `
+          <div class="row" style="gap:6px;align-self:center">
+            <button class="small primary" data-act="approve" data-id="${d.id}" data-amount="${d.amount}">Aprobar</button>
+            <button class="small danger" data-act="reject" data-id="${d.id}">Rechazar</button>
+          </div>
+        ` : ''}
+      `;
+
+      el.querySelectorAll('button[data-act]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const act = btn.dataset.act;
+          const id = btn.dataset.id;
+          if (act === 'approve') {
+            const nuevoMonto = prompt(`Aprobar donación #${id}. Monto en USD a acreditar:`, btn.dataset.amount);
+            if (nuevoMonto === null) return;
+            const amt = parseFloat(nuevoMonto);
+            if (isNaN(amt) || amt <= 0) { alert('Monto inválido'); return; }
+            try {
+              btn.disabled = true;
+              const r = await authFetch(`/api/admin/donations/${id}/approve`, { method: 'POST', body: JSON.stringify({ amount: amt }) });
+              if (!r.ok) throw new Error();
+              loadDonations();
+            } catch (err) { alert('Error al aprobar donación'); btn.disabled = false; }
+          } else if (act === 'reject') {
+            const reason = prompt(`Rechazar donación #${id}. Motivo (opcional):`, 'Referencia no encontrada');
+            if (reason === null) return;
+            try {
+              btn.disabled = true;
+              const r = await authFetch(`/api/admin/donations/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
+              if (!r.ok) throw new Error();
+              loadDonations();
+            } catch (err) { alert('Error al rechazar donación'); btn.disabled = false; }
+          }
+        });
+      });
+
+      box.appendChild(el);
+    });
+  } catch (e) {
+    box.innerHTML = '<p class="msg err">Error al cargar donaciones.</p>';
+  }
+}
+
+$('don_refresh').addEventListener('click', () => loadDonations());
+$('don_tab_pending').addEventListener('click', () => {
+  donFilter = 'pending';
+  $('don_tab_pending').classList.add('active');
+  $('don_tab_all').classList.remove('active');
+  loadDonations();
+});
+$('don_tab_all').addEventListener('click', () => {
+  donFilter = '';
+  $('don_tab_all').classList.add('active');
+  $('don_tab_pending').classList.remove('active');
+  loadDonations();
+});
 
 /* ---------- Init ---------- */
 if (token) start(); else show($('login'), true);

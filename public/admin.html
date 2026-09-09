@@ -116,6 +116,7 @@
     <button id="nav-brands">Marcas</button>
     <button id="nav-import">Importar CSV</button>
     <button id="nav-insights">Búsquedas sin resultado</button>
+    <button id="nav-donations">Donaciones & Rangos</button>
   </nav>
 
   <!-- LISTA -->
@@ -227,6 +228,19 @@
     <h2>Búsquedas sin resultado</h2>
     <p class="muted" style="font-size:12px;margin-bottom:12px">Lo que la gente buscó y NO encontró. Tu hoja de ruta de qué vehículos agregar (por demanda real).</p>
     <div id="missing"></div>
+  </section>
+
+  <!-- DONACIONES & RANGOS -->
+  <section id="view-donations" class="panel hidden">
+    <h2>Donaciones & Rangos de Donador</h2>
+    <p class="muted" style="font-size:12px;margin-bottom:12px">Verifica aportes recibidos por Zinli o Binance Pay. Al aprobar, se acredita el rango e insignia al taller en tiempo real.</p>
+    <div class="row" style="margin-bottom:14px;gap:8px">
+      <button id="don_tab_pending" class="small active">Pendientes</button>
+      <button id="don_tab_all" class="small">Historial Completo</button>
+      <button id="don_refresh" class="small">Actualizar</button>
+    </div>
+    <div id="don_list"></div>
+    <p id="don_msg" class="msg"></p>
   </section>
 </div>
 

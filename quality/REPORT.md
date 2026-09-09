@@ -1,6 +1,6 @@
 # Informe de calidad — FuelTech Master
 
-_Generado el 2026-09-09 02:57 por `npm run metrics`. No lo edites a mano._
+_Generado el 2026-09-09 03:38 por `npm run metrics`. No lo edites a mano._
 
 ## ✅ Todos los presupuestos se cumplen
 
@@ -10,12 +10,12 @@ Nada que corregir.
 
 | Métrica | Valor | Estado |
 | --- | --- | --- |
-| Pruebas que pasan | 508 / 508 | ✅ |
-| Duración de la suite | 16.4 s | ✅ |
+| Pruebas que pasan | 514 / 514 | ✅ |
+| Duración de la suite | 13.8 s | ✅ |
 | Reglas de restricción | 19 reglas, 0 violaciones | ✅ |
-| Rutas de API probadas | 100% de 82 | ✅ |
+| Rutas de API probadas | 100% de 87 | ✅ |
 | Deuda conocida aceptada | 5 de 5 | ✅ |
-| Razón prueba/código | 0.68x | ✅ |
+| Razón prueba/código | 0.67x | ✅ |
 
 ## Cobertura de las reglas del taller (lib/)
 
@@ -38,21 +38,18 @@ Nada que corregir.
 
 ```
 ✓ public/app.js              133.2 KB  de 138 KB
-✓ public/microapps.js        191.4 KB  de 192 KB
+✓ public/microapps.js        196.6 KB  de 198 KB
 ✓ public/microapps-taller.js      66 KB  de 75 KB
-✓ public/datos.js             13.8 KB  de 16 KB
-✓ public/index.html          183.9 KB  de 184 KB
+✓ public/datos.js             14.6 KB  de 16 KB
+✓ public/index.html          185.5 KB  de 186 KB
 ✓ public/three3d.js           34.9 KB  de 68 KB
 ✓ public/sw.js                 5.8 KB  de 8 KB
-✓ server-pg.js               218.9 KB  de 220 KB
+✓ server-pg.js               226.4 KB  de 228 KB
 ```
 
 ## Evolución respecto a la referencia
 
-**Mejoras:**
-
-- pruebas_total: 507 → 508
-
+Sin cambios respecto a la última referencia aceptada.
 
 ## Deuda conocida pendiente de decisión
 

@@ -92,6 +92,8 @@ CREATE TABLE IF NOT EXISTS workshops (
   email      TEXT NOT NULL UNIQUE,
   pass_hash  TEXT NOT NULL,
   name       TEXT NOT NULL,
+  donor_level INTEGER NOT NULL DEFAULT 0,
+  total_donated REAL NOT NULL DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS sessions (
@@ -253,6 +255,24 @@ CREATE TABLE IF NOT EXISTS cash_moves (
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_cash_ws ON cash_moves(workshop_id);
+CREATE TABLE IF NOT EXISTS donations (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  workshop_id  INTEGER REFERENCES workshops(id) ON DELETE SET NULL,
+  donor_name   TEXT,
+  email        TEXT,
+  method       TEXT NOT NULL,
+  reference    TEXT NOT NULL,
+  amount       REAL NOT NULL,
+  note         TEXT,
+  proof_data   TEXT,
+  status       TEXT NOT NULL DEFAULT 'pending',
+  approve_token TEXT UNIQUE,
+  created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+  reviewed_at  DATETIME,
+  reviewed_by  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_donations_ws ON donations(workshop_id);
+CREATE INDEX IF NOT EXISTS idx_donations_status ON donations(status);
 `;
 
 function seedTestDb(db) {

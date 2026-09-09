@@ -118,6 +118,8 @@ CREATE TABLE IF NOT EXISTS workshops (
   bio        TEXT,
   city       TEXT,
   services   TEXT,
+  donor_level INTEGER NOT NULL DEFAULT 0,
+  total_donated REAL NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -305,3 +307,24 @@ CREATE TABLE IF NOT EXISTS cash_moves (
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_cash_ws ON cash_moves(workshop_id);
+
+-- Donaciones y Solicitudes de Rango de Donador
+CREATE TABLE IF NOT EXISTS donations (
+  id           SERIAL PRIMARY KEY,
+  workshop_id  INTEGER REFERENCES workshops(id) ON DELETE SET NULL,
+  donor_name   TEXT,
+  email        TEXT,
+  method       TEXT NOT NULL,
+  reference    TEXT NOT NULL,
+  amount       REAL NOT NULL,
+  note         TEXT,
+  proof_data   TEXT,
+  status       TEXT NOT NULL DEFAULT 'pending',
+  approve_token TEXT UNIQUE,
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  reviewed_at  TIMESTAMP,
+  reviewed_by  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_donations_ws ON donations(workshop_id);
+CREATE INDEX IF NOT EXISTS idx_donations_status ON donations(status);
+
