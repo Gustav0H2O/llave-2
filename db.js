@@ -43,12 +43,18 @@ if (USE_TURSO) {
     console.error('FATAL: En producción se requiere TURSO_URL y TURSO_AUTH_TOKEN (o DATABASE_URL). No se permite SQLite local efímero para asegurar la persistencia de cuentas y datos.');
     process.exit(1);
   }
-  sqliteDb = new Database(path.join(__dirname, 'llave.db'));
-  sqliteDb.pragma('journal_mode = WAL');
+  sqliteDb = new Database(path.join(__dirname, 'llave.db'), { timeout: 10000 });
+  try {
+    sqliteDb.pragma('journal_mode = WAL');
+  } catch (_) {}
+  sqliteDb.pragma('busy_timeout = 10000');
   sqliteDb.pragma('foreign_keys = ON');
 
-  sqliteStats = new Database(path.join(__dirname, 'stats.db'));
-  sqliteStats.pragma('journal_mode = WAL');
+  sqliteStats = new Database(path.join(__dirname, 'stats.db'), { timeout: 10000 });
+  try {
+    sqliteStats.pragma('journal_mode = WAL');
+  } catch (_) {}
+  sqliteStats.pragma('busy_timeout = 10000');
   console.log('📦 Conectado a SQLite (Local)');
 }
 

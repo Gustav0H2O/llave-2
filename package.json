@@ -7,7 +7,7 @@
     "seed": "node seed.js",
     "start": "node server-pg.js",
     "og": "node og-gen.js",
-    "test": "node --test test/*.test.js test/unit/*.test.js test/qa/*.test.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js test/unit/*.test.js test/qa/*.test.js",
     "test:unit": "node --test test/unit/*.test.js",
     "test:qa": "node --test test/qa/*.test.js",
     "test:api": "node --test test/api.test.js test/business.test.js",
