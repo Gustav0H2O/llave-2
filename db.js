@@ -3,9 +3,18 @@ const { Pool } = require('pg');
 const Database = require('better-sqlite3');
 const path = require('path');
 
+function sanitizeEnv(val) {
+  if (!val) return '';
+  return String(val).trim().replace(/^["']|["']$/g, '').trim();
+}
+
+const TURSO_URL = sanitizeEnv(process.env.TURSO_URL);
+const TURSO_AUTH_TOKEN = sanitizeEnv(process.env.TURSO_AUTH_TOKEN);
+const DATABASE_URL = sanitizeEnv(process.env.DATABASE_URL);
+
 // Prioridad de backend: Turso (TURSO_URL) > PostgreSQL (DATABASE_URL) > SQLite local
-const USE_TURSO = !!(process.env.TURSO_URL && process.env.TURSO_AUTH_TOKEN);
-const USE_PG = !USE_TURSO && !!process.env.DATABASE_URL;
+const USE_TURSO = !!(TURSO_URL && TURSO_AUTH_TOKEN);
+const USE_PG = !USE_TURSO && !!DATABASE_URL;
 
 let pgPool = null;
 let sqliteDb = null;
@@ -15,14 +24,14 @@ let tursoClient = null;
 if (USE_TURSO) {
   const { createClient } = require('@libsql/client');
   tursoClient = createClient({
-    url: process.env.TURSO_URL,
-    authToken: process.env.TURSO_AUTH_TOKEN
+    url: TURSO_URL,
+    authToken: TURSO_AUTH_TOKEN
   });
   console.log('☁️  Conectado a Turso (libSQL)');
 } else if (USE_PG) {
-  const isInternal = process.env.DATABASE_URL.includes('.internal');
+  const isInternal = DATABASE_URL.includes('.internal');
   pgPool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: DATABASE_URL,
     ssl: isInternal ? false : { rejectUnauthorized: false }
   });
   pgPool.on('error', (err) => {
@@ -85,6 +94,24 @@ function normalizeScalar(params) {
   if (params === null || params === undefined) return {};
   if (typeof params === 'object') return params; // objeto @named o ya array
   return [params];
+}
+
+/* Divide un script SQL multi-sentencia eliminando comentarios de bloque y de línea,
+   permitiendo ejecutarlo sentencia por sentencia en motores HTTP como Turso/libSQL. */
+function splitSqlStatements(sql) {
+  if (!sql) return [];
+  const stripped = sql
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split(/\r?\n/)
+    .map(line => {
+      const idx = line.indexOf('--');
+      return idx >= 0 ? line.slice(0, idx) : line;
+    })
+    .join('\n');
+  return stripped
+    .split(';')
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
 }
 
 class DBAdapter {
@@ -165,11 +192,10 @@ class DBAdapter {
 
   async exec(sql) {
     if (this.isTurso) {
-      // El cliente HTTP de Turso no admite multi-statement: quitar comentarios --
-      // (el split por ';' dejaría el comentario pegado al statement y rompe el
-      // parseo), dividir por ';' y ejecutar uno a uno. BEGIN/COMMIT/ROLLBACK se
-      // traducen a una transacción perezosa real con client.transaction() para
-      // que los BEGIN...COMMIT del código conserven su atomicidad.
+      // El cliente HTTP de Turso no admite multi-statement: quitamos comentarios
+      // de bloque y de línea, dividimos por ';' y ejecutamos uno a uno.
+      // BEGIN/COMMIT/ROLLBACK se traducen a una transacción perezosa real con
+      // client.transaction() para conservar atomicidad.
       const t = sql.trim().toUpperCase();
       if (t === 'BEGIN') {
         this.tursoTx = await tursoClient.transaction('write');
@@ -183,9 +209,24 @@ class DBAdapter {
         if (this.tursoTx) { await this.tursoTx.rollback(); this.tursoTx = null; }
         return;
       }
-      const clean = sql.split(/\r?\n/).filter(l => !l.trim().startsWith('--')).join('\n');
-      const stmts = clean.split(';').map(s => s.trim()).filter(s => s.length > 0);
-      for (const stmt of stmts) await tursoClient.execute(stmt);
+      const stmts = splitSqlStatements(sql);
+      for (let i = 0; i < stmts.length; i++) {
+        const stmt = stmts[i];
+        try {
+          if (this.tursoTx) {
+            await this.tursoTx.execute(stmt);
+          } else {
+            await tursoClient.execute(stmt);
+          }
+        } catch (err) {
+          const msg = (err && err.message) || '';
+          if (/already exists/i.test(msg)) {
+            continue;
+          }
+          console.error(`❌ Error en Turso ejecutando sentencia [${i + 1}/${stmts.length}]: ${stmt.slice(0, 80)}...`, msg);
+          throw err;
+        }
+      }
       return;
     }
     if (this.isPg) {
@@ -223,4 +264,4 @@ class DBAdapter {
 const db = new DBAdapter(sqliteDb);
 const statsDb = new DBAdapter(sqliteStats);
 
-module.exports = { db, statsDb, pgPool, tursoClient, USE_TURSO, USE_PG, DBAdapter, parseQuery, toPgQuery };
+module.exports = { db, statsDb, pgPool, tursoClient, USE_TURSO, USE_PG, DBAdapter, parseQuery, toPgQuery, sanitizeEnv, splitSqlStatements };

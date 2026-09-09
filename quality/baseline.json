@@ -1,8 +1,8 @@
 {
-  "fecha": "2026-09-09T03:38:17.932Z",
-  "pruebas_total": 514,
+  "fecha": "2026-09-09T03:54:11.070Z",
+  "pruebas_total": 519,
   "pruebas_fallidas": 0,
-  "duracion_suite_seg": 14,
+  "duracion_suite_seg": 15.6,
   "guard_violaciones": 0,
   "cobertura_lib_pct": 100,
   "rutas_api": 87,
@@ -14,6 +14,6 @@
   "vehiculos_sin_verificar_pct": 50,
   "archivos_sobre_presupuesto": 0,
   "max_lineas_archivo": 3561,
-  "lineas_de_prueba": 8671,
+  "lineas_de_prueba": 8718,
   "razon_prueba_codigo": 0.67
 }

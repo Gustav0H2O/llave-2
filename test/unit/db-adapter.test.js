@@ -10,7 +10,7 @@
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const Database = require('better-sqlite3');
-const { DBAdapter, toPgQuery } = require('../../db');
+const { DBAdapter, toPgQuery, sanitizeEnv, splitSqlStatements } = require('../../db');
 
 describe('toPgQuery — traducción de parámetros a PostgreSQL', () => {
   it('convierte los ? posicionales en $1, $2, $3 en orden', () => {
@@ -177,3 +177,50 @@ describe('DBAdapter en modo local (SQLite)', () => {
     assert.ok(await db.get("SELECT name FROM sqlite_master WHERE name = 't'"), 'la tabla t debe seguir existiendo');
   });
 });
+
+describe('sanitizeEnv — limpieza de secretos y variables de entorno', () => {
+  it('elimina comillas dobles y simples al inicio y final', () => {
+    assert.equal(sanitizeEnv('"https://example.com/db"'), 'https://example.com/db');
+    assert.equal(sanitizeEnv("'https://example.com/db'"), 'https://example.com/db');
+  });
+
+  it('elimina espacios en blanco y saltos de línea al inicio y final', () => {
+    assert.equal(sanitizeEnv('  \n "token_secreto" \t \r\n'), 'token_secreto');
+  });
+
+  it('devuelve cadena vacía si es null, undefined o vacía', () => {
+    assert.equal(sanitizeEnv(null), '');
+    assert.equal(sanitizeEnv(undefined), '');
+    assert.equal(sanitizeEnv(''), '');
+  });
+});
+
+describe('splitSqlStatements — partición de scripts SQL para motores HTTP', () => {
+  it('elimina comentarios de línea y de bloque y divide por punto y coma', () => {
+    const sql = `
+      -- Comentario inicial
+      CREATE TABLE a (id INT); /* Comentario bloque */
+      CREATE TABLE b (
+        nombre TEXT -- Comentario de columna
+      );
+    `;
+    const stmts = splitSqlStatements(sql);
+    assert.equal(stmts.length, 2);
+    assert.equal(stmts[0], 'CREATE TABLE a (id INT)');
+    assert.ok(stmts[1].includes('CREATE TABLE b'));
+    assert.ok(!stmts[1].includes('--'));
+  });
+
+  it('ignora sentencias vacías o formadas solo por comentarios', () => {
+    const sql = `
+      -- Solo comentario;
+      ;;
+      SELECT 1;
+      /* Otro comentario; */
+    `;
+    const stmts = splitSqlStatements(sql);
+    assert.equal(stmts.length, 1);
+    assert.equal(stmts[0], 'SELECT 1');
+  });
+});
+
