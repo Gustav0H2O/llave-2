@@ -1811,7 +1811,7 @@ ${dbContext}`;
     if (pump.max_psi_direct === null || pump.amperage_a === null) return res.status(400).json({ error: 'Presión máx. y amperaje requeridos' });
     try {
       const info = await db.run(`INSERT INTO fuel_pumps (code,manufacturer,pump_style,max_psi_direct,amperage_a,voltage_v,flow_lph_free,inlet_desc,outlet_desc,polarity_desc,diagram_key)
-        VALUES (@code,@manufacturer,@pump_style,@max_psi_direct,@amperage_a,@voltage_v,@flow_lph_free,@inlet_desc,@outlet_desc,@polarity_desc,@diagram_key)`, [pump]);
+        VALUES (@code,@manufacturer,@pump_style,@max_psi_direct,@amperage_a,@voltage_v,@flow_lph_free,@inlet_desc,@outlet_desc,@polarity_desc,@diagram_key)`, pump);
       pumpsCache = null;
       res.json({ id: info.lastInsertRowid });
     } catch (e) { res.status(400).json({ error: 'Código de pila duplicado o inválido' }); }
@@ -1964,7 +1964,14 @@ ${dbContext}`;
 
   const FAILED_LOGIN_LIMIT = 5;
   const LOCKOUT_MS = 15 * 60 * 1000;
-  const failedLoginAttempts = new Map(); // email -> { count, lastAttempt }
+  const failedLoginAttempts = new Map(); // email -> { count, lastAttempt, lockedUntil }
+  const _cleanLogins = setInterval(() => {
+    const now = Date.now();
+    for (const [em, info] of failedLoginAttempts) {
+      if (now - (info.lastAttempt || 0) > LOCKOUT_MS && (!info.lockedUntil || info.lockedUntil <= now)) failedLoginAttempts.delete(em);
+    }
+  }, 10 * 60 * 1000);
+  if (_cleanLogins.unref) _cleanLogins.unref();
 
   /* Top de contraseñas triviales más filtradas en breaches públicos. NO es
      exhaustivo (la versión 10k pesa >100 KB): cubre las que un usuario elige
@@ -1992,8 +1999,8 @@ ${dbContext}`;
     /* Política de contraseñas (regla 2): mínimo 10 caracteres y bloqueo de
        contraseñas triviales (las del top de breaches públicos). Pide mínimo
        10 porque "qwerty123" (9) es trivial; "una-cuenta-mía-2026" pasa. */
-    if (typeof req.body?.password !== 'string' || pass.length < 10) {
-      return res.status(400).json({ error: 'La contraseña debe tener al menos 10 caracteres' });
+    if (typeof req.body?.password !== 'string' || pass.length < 10 || pass.length > 1024) {
+      return res.status(400).json({ error: 'La contraseña debe tener entre 10 y 1024 caracteres' });
     }
     if (WEAK_PASSWORDS.has(pass.toLowerCase())) {
       return res.status(400).json({ error: 'Contraseña demasiado común. Elige otra distinta.' });
@@ -2045,7 +2052,7 @@ ${dbContext}`;
     }
     const email = normEmail(req.body.email);
     const pass = req.body.password;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !pass) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !pass || pass.length > 1024) {
       return res.status(400).json({ code: 'bad_credentials', error: 'Correo o contraseña requeridos' });
     }
     const ws = await db.get('SELECT id, name, email, pass_hash, status, locked_until FROM workshops WHERE email = ?', email);
@@ -2132,9 +2139,9 @@ ${dbContext}`;
        (es "falta input"), 401 SOLO si el campo está pero la contraseña actual
        no coincide. Mezclar ambos casos en 401 filtra menos información pero
        hace indistinguible "olvidé el campo" de "escribí mal la contraseña". */
-    if (!current) return res.status(400).json({ error: 'Debes escribir tu contraseña actual' });
+    if (!current || current.length > 1024) return res.status(400).json({ error: 'Debes escribir tu contraseña actual' });
     if (!next) return res.status(400).json({ error: 'Debes escribir la nueva contraseña' });
-    if (next.length < 10) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 10 caracteres' });
+    if (next.length < 10 || next.length > 1024) return res.status(400).json({ error: 'La nueva contraseña debe tener entre 10 y 1024 caracteres' });
     if (WEAK_PASSWORDS.has(next.toLowerCase())) {
       return res.status(400).json({ error: 'Contraseña demasiado común. Elige otra distinta.' });
     }
@@ -2434,11 +2441,11 @@ ${dbContext}`;
     const stateMode = parts.length >= 2 ? parts[1] : null;
     const oauthMode = stateMode === 'register' ? 'register' : (cookieMode === 'register' ? 'register' : 'login');
     let isStateValid = false;
-    if (savedState && state === savedState) {
-      isStateValid = true;
-    } else if (parts.length === 3 && GOOGLE_CLIENT_SECRET) {
+    if (typeof state === 'string' && savedState && state === savedState && parts.length === 3 && GOOGLE_CLIENT_SECRET) {
       const expectedSig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${parts[0]}_${parts[1]}`).digest('hex');
-      if (parts[2] === expectedSig) isStateValid = true;
+      if (parts[2].length === expectedSig.length && crypto.timingSafeEqual(Buffer.from(parts[2]), Buffer.from(expectedSig))) {
+        isStateValid = true;
+      }
     }
 
     console.log('[Google OAuth] callback:', { code: code ? 'si' : 'no', stateValid: isStateValid, oauthMode });
@@ -2737,6 +2744,12 @@ ${dbContext}`;
     const status = ORDER_STATUS.includes(b.status) ? b.status : 'Pendiente';
     const client_id = toInt(b.client_id, 1, 1e9);
     const vehicle_id = toInt(b.vehicle_id, 1, 1e9);
+    if (client_id && !(await db.get('SELECT id FROM clients WHERE id=? AND workshop_id=?', [client_id, req.workshopId]))) {
+      return res.status(400).json({ error: 'Cliente no válido' });
+    }
+    if (vehicle_id && !(await db.get('SELECT id FROM client_vehicles WHERE id=? AND workshop_id=?', [vehicle_id, req.workshopId]))) {
+      return res.status(400).json({ error: 'Vehículo no válido' });
+    }
     const id = await db.insertReturningId(`INSERT INTO work_orders (workshop_id, client_id, vehicle_id, type, title, descr, status)
       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [req.workshopId, client_id, vehicle_id, type, title, str(b.descr, 2000) || null, status]);
@@ -2750,10 +2763,18 @@ ${dbContext}`;
     if (!title) return res.status(400).json({ error: 'Título requerido' });
     const type = ORDER_TYPES.includes(b.type) ? b.type : 'reparacion';
     const status = ORDER_STATUS.includes(b.status) ? b.status : 'Pendiente';
+    const client_id = toInt(b.client_id, 1, 1e9);
+    const vehicle_id = toInt(b.vehicle_id, 1, 1e9);
+    if (client_id && !(await db.get('SELECT id FROM clients WHERE id=? AND workshop_id=?', [client_id, req.workshopId]))) {
+      return res.status(400).json({ error: 'Cliente no válido' });
+    }
+    if (vehicle_id && !(await db.get('SELECT id FROM client_vehicles WHERE id=? AND workshop_id=?', [vehicle_id, req.workshopId]))) {
+      return res.status(400).json({ error: 'Vehículo no válido' });
+    }
     const closed_at = status === 'Entregado' ? (new Date().toISOString()) : null;
     const info = await db.run(`UPDATE work_orders SET client_id=?, vehicle_id=?, type=?, title=?, descr=?, status=?, closed_at=COALESCE(?, closed_at)
       WHERE id=? AND workshop_id=?`,
-      [toInt(b.client_id, 1, 1e9), toInt(b.vehicle_id, 1, 1e9), type, title, str(b.descr, 2000) || null, status, closed_at, id, req.workshopId]);
+      [client_id, vehicle_id, type, title, str(b.descr, 2000) || null, status, closed_at, id, req.workshopId]);
     if (!info.changes) return res.status(404).json({ error: 'No encontrado' });
     res.json({ ok: true });
   });
@@ -2899,6 +2920,12 @@ ${dbContext}`;
     if (!items.length) return res.status(400).json({ error: 'El documento necesita al menos un item' });
     const client_id = toInt(b.client_id, 1, 1e9);
     const order_id = toInt(b.order_id, 1, 1e9);
+    if (client_id && !(await db.get('SELECT id FROM clients WHERE id=? AND workshop_id=?', [client_id, req.workshopId]))) {
+      return res.status(400).json({ error: 'Cliente no válido' });
+    }
+    if (order_id && !(await db.get('SELECT id FROM work_orders WHERE id=? AND workshop_id=?', [order_id, req.workshopId]))) {
+      return res.status(400).json({ error: 'Orden no válida' });
+    }
     const number = await nextDocNumber(req.workshopId, kind);
     let total = 0;
     await db.exec('BEGIN'); try {
@@ -2907,8 +2934,8 @@ ${dbContext}`;
       for (const it of items) {
         const descr = str(it.descr, 200);
         if (!descr) continue;
-        const qty = num(it.qty) ?? 1;
-        const unit_price = num(it.unit_price) ?? 0;
+        const qty = Math.max(0.01, Math.min(1e6, num(it.qty) ?? 1));
+        const unit_price = Math.max(0, Math.min(1e8, num(it.unit_price) ?? 0));
         const line_total = +(qty * unit_price).toFixed(2);
         total += line_total;
         await db.run(`INSERT INTO document_items (workshop_id, document_id, item_id, descr, qty, unit_price, line_total)
@@ -2957,7 +2984,7 @@ ${dbContext}`;
     const kindLabel = doc.kind === 'entrega' ? 'NOTA DE ENTREGA' : 'PRESUPUESTO';
     const escv = esc; // definición única en lib/pure.js
     const rowsHtml = items.map((i, idx) => `<tr>
-      <td>${idx + 1}</td><td>${escv(i.descr)}</td><td>${i.qty}</td>
+      <td>${idx + 1}</td><td>${escv(i.descr)}</td><td>${escv(i.qty)}</td>
       <td>$${Number(i.unit_price || 0).toFixed(2)}</td><td>$${Number(i.line_total || 0).toFixed(2)}</td>
     </tr>`).join('');
     const html = `<!doctype html><html lang="es"><head><meta charset="utf-8">
@@ -2981,7 +3008,7 @@ ${dbContext}`;
         </div>
         <div class="meta">
           <div><b>Cliente</b>${escv(client?.name || '—')}<br>${escv(client?.phone || '')}</div>
-          <div><b>Fecha</b>${new Date(doc.created_at).toLocaleString('es')}<br><b>Estado</b>${doc.status}</div>
+          <div><b>Fecha</b>${new Date(doc.created_at).toLocaleString('es')}<br><b>Estado</b>${escv(doc.status)}</div>
         </div>
         <table><thead><tr><th>#</th><th>Descripción</th><th>Cant.</th><th>P. Unit.</th><th>Total</th></tr></thead>
         <tbody>${rowsHtml}</tbody></table>

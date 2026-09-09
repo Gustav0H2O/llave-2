@@ -23,6 +23,7 @@
     "robots:recorrido": "node test/robots/recorrido.js",
     "robots:jornada": "node test/robots/jornada.js",
     "robots:interfaz": "node test/robots/interfaz.js",
+    "robots:persistencia": "node test/robots/persistencia.js",
     "guard": "node scripts/guard.js",
     "guard:rapido": "node scripts/guard.js --fast",
     "metrics": "node scripts/metrics.js",

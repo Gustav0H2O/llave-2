@@ -30,6 +30,10 @@ if (USE_TURSO) {
   });
   console.log('🔗 Conectado a PostgreSQL');
 } else {
+  if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_LOCAL_SQLITE_PROD) {
+    console.error('FATAL: En producción se requiere TURSO_URL y TURSO_AUTH_TOKEN (o DATABASE_URL). No se permite SQLite local efímero para asegurar la persistencia de cuentas y datos.');
+    process.exit(1);
+  }
   sqliteDb = new Database(path.join(__dirname, 'llave.db'));
   sqliteDb.pragma('journal_mode = WAL');
   sqliteDb.pragma('foreign_keys = ON');

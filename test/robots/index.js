@@ -24,6 +24,7 @@ const ROBOTS = [
   { id: 'recorrido',   archivo: 'recorrido.js',   que: 'todas las páginas del sitio, SEO, enlaces y 404' },
   { id: 'jornada',     archivo: 'jornada.js',     que: 'alta por formulario y las 38 herramientas' },
   { id: 'interfaz',    archivo: 'interfaz.js',    que: 'navegador real, contraste y objetivos táctiles' },
+  { id: 'persistencia', archivo: 'persistencia.js', que: 'supervivencia de cuentas y datos ante reinicios y migraciones' },
 ];
 
 /* En modo rápido se recortan las tandas y se deja fuera el navegador, que es
@@ -36,6 +37,7 @@ const RAPIDO = {
   carga: ['--filas=200', '--concurrencia=10', '--talleres=3'],
   recorrido: ['--maximo=40'],
   jornada: ['--talleres=1'],
+  persistencia: [],
 };
 
 function correr(robot, args) {

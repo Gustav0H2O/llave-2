@@ -1,0 +1,63 @@
+name: CI / Puerta de Calidad y Seguridad
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Node ${{ matrix.node-version }} - Guard, Tests, Robots y Seguridad
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Instalar dependencias limpias
+        run: npm ci
+
+      - name: 1. Restricciones del proyecto (19 reglas)
+        run: npm run guard
+
+      - name: 2. Suite de pruebas completa (508+ pruebas)
+        run: npm test
+
+      - name: 3. Robots de prueba masiva rápida y persistencia
+        run: npm run robots:rapido
+
+      - name: 4. Presupuestos y métricas de calidad
+        run: npm run metrics
+
+      - name: 5. Auditoría de seguridad de dependencias
+        run: npm audit --audit-level=high
+
+      - name: Publicar informe de calidad como artefacto
+        if: always() && matrix.node-version == 22
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-de-calidad
+          path: |
+            quality/REPORT.md
+            quality/history.ndjson
+          retention-days: 30
+
+      - name: Publicar resumen en GitHub Step Summary
+        if: always() && matrix.node-version == 22
+        run: cat quality/REPORT.md >> "$GITHUB_STEP_SUMMARY" || true
