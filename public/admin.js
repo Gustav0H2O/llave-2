@@ -452,26 +452,132 @@ async function loadWorkshops(query = '') {
       const el = document.createElement('div');
       el.className = 'vrow';
       el.style.flexWrap = 'wrap';
-      el.style.alignItems = 'center';
+      el.style.alignItems = 'flex-start';
+      el.style.gap = '10px';
       const lvl = w.donor_level || 0;
       const rankName = DON_RANKS[lvl] || `Nivel ${lvl}`;
       const badgeColor = lvl >= 5 ? '#38bdf8' : (lvl >= 4 ? '#e2e8f0' : (lvl >= 3 ? '#facc15' : (lvl >= 2 ? '#cbd5e1' : (lvl >= 1 ? '#fb923c' : 'var(--muted)'))));
+      const isVerified = !!w.onboarding_completed;
 
       el.innerHTML = `
-        <div style="flex:1;min-width:220px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
-            <strong>#${w.id} · ${esc(w.name)}</strong>
+        <div style="flex:1;min-width:260px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+            <strong style="font-size:14px">#${w.id} · ${esc(w.name)}</strong>
             <span class="tag" style="color:${badgeColor};border-color:${badgeColor}">${esc(rankName)}</span>
+            <span class="tag" style="color:${isVerified ? 'var(--green)' : 'var(--amber)'};border-color:${isVerified ? 'var(--green)' : 'var(--amber)'}">
+              ${isVerified ? 'Verificado' : 'Pendiente Verif.'}
+            </span>
           </div>
-          <div class="meta">
-            <b>Email:</b> ${esc(w.email)} · <b>Slug:</b> <code>${esc(w.slug || '—')}</code> · <b>Total Aportado:</b> $${Number(w.total_donated || 0).toFixed(2)} USD
+          <div class="meta" style="line-height:1.6;font-size:11.5px">
+            <b>Email:</b> ${esc(w.email)} · <b>Tel:</b> ${esc(w.phone || '—')} · <b>Ciudad:</b> ${esc(w.city || '—')}<br>
+            <b>Titular:</b> ${esc(w.owner_name || '—')} · <b>Doc/RIF:</b> ${esc(w.doc_id || '—')} · <b>Tipo:</b> ${esc(w.business_type || '—')}<br>
+            <b>Aportado:</b> $${Number(w.total_donated || 0).toFixed(2)} USD · 
+            <span style="color:var(--ink)"><b>Datos:</b> ${w.clients_count || 0} clientes · ${w.orders_count || 0} órdenes · ${w.inventory_count || 0} items</span>
           </div>
         </div>
-        <div class="row" style="gap:6px">
-          <button class="small" data-act="adjust-rank" data-id="${w.id}">Ajustar Rango</button>
+        <div class="row" style="gap:5px;flex-wrap:wrap;align-self:center">
+          <button class="small" data-act="edit" data-id="${w.id}">Editar</button>
+          <button class="small" data-act="pass" data-id="${w.id}">Clave</button>
+          <button class="small" data-act="backup" data-id="${w.id}">Backup</button>
+          <button class="small" data-act="adjust-rank" data-id="${w.id}">Rango</button>
+          <button class="small" data-act="wipe" data-id="${w.id}" style="color:var(--amber)">Vaciar</button>
+          <button class="small" data-act="delete" data-id="${w.id}" style="color:var(--red)">Eliminar</button>
         </div>
       `;
 
+      // Editar Datos del Taller
+      el.querySelector('button[data-act="edit"]').addEventListener('click', () => {
+        $('ws_edit_id').value = w.id;
+        $('ws_edit_title').textContent = `Editar Taller #${w.id} — ${w.name}`;
+        $('ws_edit_name').value = w.name || '';
+        $('ws_edit_owner').value = w.owner_name || '';
+        $('ws_edit_doc').value = w.doc_id || '';
+        $('ws_edit_phone').value = w.phone || '';
+        $('ws_edit_city').value = w.city || '';
+        $('ws_edit_address').value = w.address || '';
+        $('ws_edit_type').value = w.business_type || '';
+        $('ws_edit_onboarding').value = w.onboarding_completed ? '1' : '0';
+        $('ws_edit_level').value = String(w.donor_level || 0);
+        $('ws_edit_donated').value = String(w.total_donated || 0);
+        show($('ws_modal_edit'), true);
+      });
+
+      // Cambiar Contraseña Directamente
+      el.querySelector('button[data-act="pass"]').addEventListener('click', async () => {
+        const newPass = prompt(`Establecer nueva contraseña para "${w.name}" (#${w.id}):\n(Mínimo 6 caracteres)`);
+        if (!newPass) return;
+        if (newPass.trim().length < 6) { alert('La contraseña debe tener al menos 6 caracteres.'); return; }
+        try {
+          const r = await authFetch(`/api/admin/workshops/${w.id}/password`, {
+            method: 'POST',
+            body: JSON.stringify({ new_password: newPass.trim() })
+          });
+          const res = await r.json();
+          if (!r.ok) throw new Error(res.error || 'Error al cambiar contraseña');
+          alert(`Contraseña actualizada con éxito para "${w.name}".`);
+        } catch (err) {
+          alert(err.message || 'Error al actualizar contraseña');
+        }
+      });
+
+      // Descargar Backup JSON
+      el.querySelector('button[data-act="backup"]').addEventListener('click', async () => {
+        try {
+          const r = await authFetch(`/api/admin/workshops/${w.id}/backup`);
+          if (!r.ok) throw new Error('Error al generar respaldo');
+          const data = await r.json();
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `backup-taller-${w.id}-${w.slug || 'cuenta'}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          alert(err.message || 'Error al descargar respaldo');
+        }
+      });
+
+      // Vaciar Datos Operativos (Clientes, inventario, órdenes)
+      el.querySelector('button[data-act="wipe"]').addEventListener('click', async () => {
+        const ok = confirm(`ADVERTENCIA: ¿Deseas vaciar los datos operativos (clientes, vehículos, órdenes, notas e inventario) del taller "${w.name}" (#${w.id})?\n\nLa cuenta permanecerá activa con sus credenciales intactas.`);
+        if (!ok) return;
+        const confirmText = prompt(`Para confirmar el vaciado de datos de "${w.name}", escribe VACIAR:`);
+        if (confirmText !== 'VACIAR') return;
+        try {
+          const r = await authFetch(`/api/admin/workshops/${w.id}/wipe`, { method: 'POST' });
+          const res = await r.json();
+          if (!r.ok) throw new Error(res.error || 'Error al vaciar taller');
+          $('don_msg').textContent = res.message || 'Datos operativos vaciados correctamente.';
+          $('don_msg').className = 'msg ok';
+          loadWorkshops($('don_ws_search').value);
+        } catch (err) {
+          alert(err.message || 'Error al vaciar taller');
+        }
+      });
+
+      // Eliminar Cuenta en Cascada
+      el.querySelector('button[data-act="delete"]').addEventListener('click', async () => {
+        const ok = confirm(`PELIGRO: ¿Deseas ELIMINAR DEFINITIVAMENTE la cuenta del taller "${w.name}" (#${w.id}) y TODOS sus registros asociados? Esta acción no se puede deshacer.`);
+        if (!ok) return;
+        const confirmText = prompt(`Para confirmar la eliminación definitiva de "${w.name}", escribe ELIMINAR:`);
+        if (confirmText !== 'ELIMINAR') return;
+        try {
+          const r = await authFetch(`/api/admin/workshops/${w.id}`, { method: 'DELETE' });
+          const res = await r.json();
+          if (!r.ok) throw new Error(res.error || 'Error al eliminar taller');
+          $('don_msg').textContent = res.message || 'Taller eliminado correctamente.';
+          $('don_msg').className = 'msg ok';
+          loadWorkshops($('don_ws_search').value);
+          updateDonStats();
+        } catch (err) {
+          alert(err.message || 'Error al eliminar taller');
+        }
+      });
+
+      // Ajustar Rango
       el.querySelector('button[data-act="adjust-rank"]').addEventListener('click', async () => {
         const promptLvl = prompt(
           `Ajustar Rango para "${w.name}" (#${w.id}):\n\n0: Sin rango\n1: Impulsor Bronce ($3+)\n2: Colaborador Plata ($7+)\n3: Destacado Oro ($15+)\n4: Experto Platino ($25+)\n5: Socio Fundador Diamante ($50+)\n\nIngresa nuevo nivel (0 - 5):`,
@@ -510,6 +616,44 @@ async function loadWorkshops(query = '') {
     box.innerHTML = '<p class="msg err">Error al cargar talleres.</p>';
   }
 }
+
+// Controladores del Modal de Edición de Taller
+$('ws_edit_close').addEventListener('click', () => show($('ws_modal_edit'), false));
+$('ws_edit_cancel').addEventListener('click', () => show($('ws_modal_edit'), false));
+$('ws_edit_save').addEventListener('click', async () => {
+  const id = $('ws_edit_id').value;
+  if (!id) return;
+  const payload = {
+    name: $('ws_edit_name').value.trim(),
+    owner_name: $('ws_edit_owner').value.trim(),
+    doc_id: $('ws_edit_doc').value.trim(),
+    phone: $('ws_edit_phone').value.trim(),
+    city: $('ws_edit_city').value.trim(),
+    address: $('ws_edit_address').value.trim(),
+    business_type: $('ws_edit_type').value.trim(),
+    onboarding_completed: $('ws_edit_onboarding').value === '1',
+    donor_level: parseInt($('ws_edit_level').value, 10),
+    total_donated: parseFloat($('ws_edit_donated').value) || 0
+  };
+  if (!payload.name) { alert('El nombre del taller es obligatorio.'); return; }
+  try {
+    $('ws_edit_save').disabled = true;
+    const r = await authFetch(`/api/admin/workshops/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    });
+    const res = await r.json();
+    if (!r.ok) throw new Error(res.error || 'Error al guardar cambios');
+    show($('ws_modal_edit'), false);
+    $('don_msg').textContent = `✓ Taller #${id} actualizado correctamente.`;
+    $('don_msg').className = 'msg ok';
+    loadWorkshops($('don_ws_search').value);
+  } catch (err) {
+    alert(err.message || 'Error al guardar cambios');
+  } finally {
+    $('ws_edit_save').disabled = false;
+  }
+});
 
 // Botones de pestañas y acciones
 $('don_tab_pending').addEventListener('click', () => switchDonSubView('pending'));

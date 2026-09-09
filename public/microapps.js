@@ -289,7 +289,25 @@
     }, 280);
   };
 
-  /* ---------- carrusel interactivo de rangos de donación (estilo swiper-tricks) ---------- */
+  /* Logos vectoriales limpios (SVG) para métodos de apoyo */
+  const BinanceLogo = ({ s = 16 }) => html`
+    <svg width=${s} height=${s} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style=${{ display: 'inline-block', verticalAlign: 'middle' }}>
+      <path d="M16 2L20.6 6.6L16 11.2L11.4 6.6L16 2Z" fill="#F0B90B"/>
+      <path d="M6.6 11.4L11.2 16L6.6 20.6L2 16L6.6 11.4Z" fill="#F0B90B"/>
+      <path d="M25.4 11.4L30 16L25.4 20.6L20.8 16L25.4 11.4Z" fill="#F0B90B"/>
+      <path d="M16 20.8L20.6 25.4L16 30L11.4 25.4L16 20.8Z" fill="#F0B90B"/>
+      <path d="M16 13.5L18.5 16L16 18.5L13.5 16L16 13.5Z" fill="#F0B90B"/>
+    </svg>
+  `;
+
+  const ZinliLogo = ({ s = 16 }) => html`
+    <svg width=${s} height=${s} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style=${{ display: 'inline-block', verticalAlign: 'middle' }}>
+      <circle cx="16" cy="16" r="14" fill="#6A1B9A" />
+      <path d="M10 11H22L12 21H22" stroke="#4EF2BB" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+
+  /* ---------- Carrusel interactivo 3D Coverflow de personajes y rangos ---------- */
   const DonationRankCarousel = ({ niveles = [], onSelectLevel }) => {
     const [act, setAct] = useState(0);
     const [pausado, setPausado] = useState(false);
@@ -305,10 +323,8 @@
     }, [pausado, total]);
 
     if (!total) return null;
-    const cur = niveles[act] || niveles[0];
     const prev = () => setAct(i => (i - 1 + total) % total);
     const next = () => setAct(i => (i + 1) % total);
-    const pad = (n) => String(n).padStart(2, '0');
 
     const onTouchStart = (e) => {
       setPausado(true);
@@ -323,7 +339,7 @@
       touchX.current = null;
     };
 
-    const TAGS_NIVEL = ['Paso inicial', '$1+ al mes', '$5+ al mes', '$15+ al mes', '$30+ al mes', 'Socio Fundador'];
+    const TAGS_NIVEL = ['Paso inicial', 'Desde $1 USD', 'Desde $5 USD', 'Desde $15 USD', 'Desde $30 USD', 'Socio Fundador'];
     const TITULOS_NIVEL = ['Comienza la aventura', 'Da el primer impulso', 'Impulso profesional', 'Visibilidad y respaldo', 'Potencia para tu taller', 'El estatus definitivo'];
 
     return html`
@@ -337,7 +353,7 @@
            onKeyDown=${(e) => { if (e.key === 'ArrowLeft') prev(); else if (e.key === 'ArrowRight') next(); }}
            tabIndex="0"
            role="region"
-           aria-label="Carrusel interactivo de personajes y rangos"
+           aria-label="Carrusel interactivo 3D de personajes y rangos"
            aria-roledescription="carousel">
 
         <button type="button" class="rank-stage-nav-btn is-prev" onClick=${prev} aria-label="Personaje anterior">
@@ -348,50 +364,81 @@
           <${CatIc} n="ChevronRight" s=${20} />
         </button>
 
-        <div class="rank-card-showcase" style=${{ '--rank-color': cur.color }}>
-          <div class="rank-card-avatar-col">
-            <div class="rank-card-avatar-box" style=${{ background: `linear-gradient(180deg, ${cur.color}22 0%, ${cur.color}08 100%)`, borderColor: `${cur.color}45` }}>
-              <img class="rank-card-hero-img"
-                   src=${`/brand/hero-nivel-${cur.nivel}.png`}
-                   alt=${`Héroe ${cur.nombre}`}
-                   onError=${(e) => { e.target.style.opacity = '0.3'; }} />
-              <span class="rank-card-avatar-tag">${TAGS_NIVEL[cur.nivel] || `Nivel ${cur.nivel}`}</span>
-            </div>
-          </div>
+        <div class="rank-coverflow-viewport">
+          <div class="rank-coverflow-track">
+            ${niveles.map((cur, idx) => {
+              const diff = (idx - act + total) % total;
+              let posClass = 'is-hidden';
+              let isClickable = false;
+              let clickHandler = null;
 
-          <div class="rank-card-info-col">
-            <div class="rank-card-badge-row">
-              <span class="rank-card-badge" style=${{ background: `${cur.color}18`, borderColor: `${cur.color}50`, color: cur.color }}>
-                ${cur.nombre.toUpperCase()}
-              </span>
-            </div>
+              if (diff === 0) {
+                posClass = 'is-active';
+              } else if (diff === total - 1) {
+                posClass = 'is-prev-card';
+                isClickable = true;
+                clickHandler = prev;
+              } else if (diff === 1) {
+                posClass = 'is-next-card';
+                isClickable = true;
+                clickHandler = next;
+              }
 
-            <h3 class="rank-card-title">${TITULOS_NIVEL[cur.nivel] || cur.titulo || cur.nombre}</h3>
-            <p class="rank-card-tagline">“${cur.perk}”</p>
+              return html`
+                <div class=${'rank-card-showcase ' + posClass}
+                     key=${cur.nivel}
+                     style=${{ '--rank-color': cur.color }}
+                     onClick=${isClickable ? clickHandler : undefined}
+                     aria-hidden=${diff !== 0 ? 'true' : 'false'}>
+                  <div class="rank-card-avatar-col">
+                    <div class="rank-card-avatar-box" style=${{ background: `linear-gradient(180deg, ${cur.color}22 0%, ${cur.color}08 100%)`, borderColor: `${cur.color}45` }}>
+                      <img class="rank-card-hero-img"
+                           src=${`/brand/hero-nivel-${cur.nivel}.png`}
+                           alt=${`Héroe ${cur.nombre}`}
+                           loading="lazy"
+                           onError=${(e) => { e.target.style.opacity = '0.3'; }} />
+                      <span class="rank-card-avatar-tag">${TAGS_NIVEL[cur.nivel] || `Nivel ${cur.nivel}`}</span>
+                    </div>
+                  </div>
 
-            <div class="rank-card-perks">
-              ${(cur.beneficios || [cur.perk]).map(b => html`
-                <div class="rank-card-perk-row" key=${b}>
-                  <span class="rank-card-check" style=${{ color: cur.color, borderColor: `${cur.color}40`, background: `${cur.color}15` }}>
-                    <${CatIc} n="Check" s=${12} />
-                  </span>
-                  <span>${b}</span>
+                  <div class="rank-card-info-col">
+                    <div class="rank-card-badge-row">
+                      <span class="rank-card-badge" style=${{ background: `${cur.color}18`, borderColor: `${cur.color}50`, color: cur.color }}>
+                        ${cur.nombre.toUpperCase()}
+                      </span>
+                    </div>
+
+                    <h3 class="rank-card-title">${TITULOS_NIVEL[cur.nivel] || cur.titulo || cur.nombre}</h3>
+                    <p class="rank-card-tagline">“${cur.perk}”</p>
+
+                    <div class="rank-card-perks">
+                      ${(cur.beneficios || [cur.perk]).map(b => html`
+                        <div class="rank-card-perk-row" key=${b}>
+                          <span class="rank-card-check" style=${{ color: cur.color, borderColor: `${cur.color}40`, background: `${cur.color}15` }}>
+                            <${CatIc} n="Check" s=${12} />
+                          </span>
+                          <span>${b}</span>
+                        </div>
+                      `)}
+                    </div>
+
+                    <div class="rank-card-footer-row">
+                      <div class="rank-card-price-box">
+                        <span class="rank-card-price">${cur.nivel === 0 ? 'Gratis' : `$${cur.montoMin}`}</span>
+                        <span class="rank-card-period">${cur.nivel === 0 ? 'Acceso libre' : 'Aporte voluntario'}</span>
+                      </div>
+                      <button type="button" class="rank-card-select-btn"
+                              style=${{ background: cur.color, borderColor: cur.color }}
+                              tabIndex=${diff === 0 ? '0' : '-1'}
+                              onClick=${(e) => { e.stopPropagation(); onSelectLevel && onSelectLevel(cur); }}>
+                        <span>${cur.nivel === 0 ? 'Comenzar gratis' : `Elegir ${cur.nombre.split(' ')[0]}`}</span>
+                        <${CatIc} n="ArrowRight" s=${13} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              `)}
-            </div>
-
-            <div class="rank-card-footer-row">
-              <div class="rank-card-price-box">
-                <span class="rank-card-price">${cur.nivel === 0 ? 'Gratis' : `$${cur.montoMin}`}</span>
-                <span class="rank-card-period">${cur.nivel === 0 ? 'Para siempre' : '/mes voluntario'}</span>
-              </div>
-              <button type="button" class="rank-card-select-btn"
-                      style=${{ background: cur.color, borderColor: cur.color }}
-                      onClick=${() => onSelectLevel && onSelectLevel(cur)}>
-                <span>${cur.nivel === 0 ? 'Comenzar gratis' : `Elegir ${cur.nombre.split(' ')[0]}`}</span>
-                <${CatIc} n="ArrowRight" s=${13} />
-              </button>
-            </div>
+              `;
+            })}
           </div>
         </div>
 
@@ -633,6 +680,24 @@
     const [repNota, setRepNota] = useState('');
     const [repEnviando, setRepEnviando] = useState(false);
     const [repMsg, setRepMsg] = useState(null);
+
+    const [verMuro, setVerMuro] = useState(false);
+    const [donantesPublicos, setDonantesPublicos] = useState([]);
+    const [cargandoMuro, setCargandoMuro] = useState(false);
+
+    const abrirMuro = async () => {
+      setVerMuro(true);
+      setCargandoMuro(true);
+      try {
+        const res = await fetch('/api/donations/public');
+        const data = await res.json();
+        setDonantesPublicos(Array.isArray(data) ? data : []);
+      } catch (e) {
+        setDonantesPublicos([]);
+      } finally {
+        setCargandoMuro(false);
+      }
+    };
 
     const enviarAporte = async (e) => {
       e.preventDefault();
@@ -998,14 +1063,24 @@
             </div>
           </section>
 
-          ${/* Rangos de la Comunidad & Héroes (Showcase destacado estilo Stitch) */''}
+          ${/* Categorías con sus herramientas, en un grid limpio */''}
+          <section class="home-cats">
+            <div class="home-ecosystem-inner">
+              ${[['consulta', 'consulta'], ['diag', 'diagnóstico'], ['taller', 'taller'], ['comunidad', 'comunidad'], ['aprende', 'aprendizaje']].map(([g, label]) => appsOf(g).length > 0 ? html`
+                <div class="home-cat-block" key=${g}>
+                  <div class="home-cat-head">
+                    <h2 class="home-cat-title">${label.charAt(0).toUpperCase() + label.slice(1)}</h2>
+                    <p class="home-cat-desc">${GRUPOS[g]?.d || ''}</p>
+                  </div>
+                  <div class="home-group-grid">${appsOf(g).slice(0, 8).map(a => card(a))}</div>
+                </div>` : null)}
+            </div>
+          </section>
+
+          ${/* Rangos de la Comunidad & Héroes 3D Coverflow */''}
           <section class="home-ranks-section" id="rangos-comunidad">
             <div class="home-ranks-inner">
               <div class="home-ranks-head">
-                <div class="support-badge">
-                  <span class="badge-live-dot"></span>
-                  <span>COMPAÑEROS DE AVENTURA & COMUNIDAD</span>
-                </div>
                 <h2 class="home-ranks-title">Descubre tu rango en <span class="title-brand-accent">llave</span></h2>
                 <p class="home-ranks-desc">
                   Navega de manera individual por cada uno de los personajes y encuentra el plan con ventajas y herramientas ideal para tu taller.
@@ -1028,27 +1103,10 @@
             </div>
           </section>
 
-          ${/* Categorías con sus herramientas, en un grid limpio */''}
-          <section class="home-cats">
-            <div class="home-ecosystem-inner">
-              ${[['consulta', 'consulta'], ['diag', 'diagnóstico'], ['taller', 'taller'], ['comunidad', 'comunidad'], ['aprende', 'aprendizaje']].map(([g, label]) => appsOf(g).length > 0 ? html`
-                <div class="home-cat-block" key=${g}>
-                  <div class="home-cat-head">
-                    <h2 class="home-cat-title">${label.charAt(0).toUpperCase() + label.slice(1)}</h2>
-                    <p class="home-cat-desc">${GRUPOS[g]?.d || ''}</p>
-                  </div>
-                  <div class="home-group-grid">${appsOf(g).slice(0, 8).map(a => card(a))}</div>
-                </div>` : null)}
-            </div>
-          </section>
-
-          ${/* Sección 2: Aporte Directo al Proyecto (Enfocada, limpia y centrada) */''}
+          ${/* Sección: Aporte Directo al Proyecto (Enfocada, limpia y centrada) */''}
           <section class="home-support-section" id="comunidad-apoyo">
             <div class="home-support-inner">
               <div class="home-support-head">
-                <div class="support-badge">
-                  <span>COMUNIDAD & EVOLUCIÓN</span>
-                </div>
                 <h2 class="home-support-title">¿Te gusta llave? Apoya su evolución y crecimiento</h2>
                 <p class="home-support-desc">
                   llave se mantiene 100% libre de publicidad para consultas técnicas ágiles en el taller. Con tu aporte impulsas la integración de nuevas marcas, diagramas de pines, simulaciones 3D y baremos de tiempo.
@@ -1063,13 +1121,13 @@
                   <button type="button" role="tab" aria-selected=${tabDonar === 'binance'}
                     class=${'support-tab' + (tabDonar === 'binance' ? ' is-active is-active-binance' : '')}
                     onClick=${() => setTabDonar('binance')}>
-                    <span class="support-tab-ic"><${CatIc} n="Zap" s=${14} /></span>
+                    <span class="support-tab-ic"><${BinanceLogo} s=${16} /></span>
                     <span>Binance Pay</span>
                   </button>
                   <button type="button" role="tab" aria-selected=${tabDonar === 'zinli'}
                     class=${'support-tab' + (tabDonar === 'zinli' ? ' is-active is-active-zinli' : '')}
                     onClick=${() => setTabDonar('zinli')}>
-                    <span class="support-tab-ic"><${CatIc} n="Wallet" s=${14} /></span>
+                    <span class="support-tab-ic"><${ZinliLogo} s=${16} /></span>
                     <span>Zinli</span>
                   </button>
                 </div>
@@ -1095,17 +1153,23 @@
                         </div>
                       </div>
                       <div class="support-qr">
-                        <img src=${cur.q} alt=${cur.t} width="90" height="90" />
+                        <img src=${cur.q} alt=${cur.t} width="160" height="160" />
                         <span>Escanear QR</span>
                       </div>
                     </div>
                   `;
                 })()}
 
-                <button type="button" class="support-claim-toggle" onClick=${() => setMostrarReporte(v => !v)}>
-                  <${CatIc} n="Check" s=${14} />
-                  <span>${mostrarReporte ? 'Ocultar formulario' : '¿Ya donaste? Reporta tu aporte para acreditar tu rango'}</span>
-                </button>
+                <div style=${{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>
+                  <button type="button" class="support-claim-toggle" style=${{ flex: '1 1 240px' }} onClick=${() => setMostrarReporte(v => !v)}>
+                    <${CatIc} n="Check" s=${14} />
+                    <span>${mostrarReporte ? 'Ocultar formulario' : '¿Ya donaste? Reporta tu aporte para acreditar tu rango'}</span>
+                  </button>
+                  <button type="button" class="support-donors-open-btn" style=${{ flex: '1 1 200px', justifyContent: 'center' }} onClick=${abrirMuro}>
+                    <${CatIc} n="Users" s=${14} />
+                    <span>Quiénes hacen posible este proyecto</span>
+                  </button>
+                </div>
 
                 ${mostrarReporte && html`
                   <form class="support-form" onSubmit=${enviarAporte}>
@@ -1159,6 +1223,47 @@
               </div>
             </div>
           </section>
+
+          ${verMuro && html`
+            <div class="donors-modal-overlay" onClick=${() => setVerMuro(false)}>
+              <div class="donors-modal-card" onClick=${(e) => e.stopPropagation()}>
+                <div class="donors-modal-head">
+                  <div>
+                    <h3 class="donors-modal-title">Muro de Colaboradores</h3>
+                    <p class="donors-modal-sub">Talleres y mecánicos que impulsan el desarrollo continuo de llave</p>
+                  </div>
+                  <button type="button" class="donors-modal-close" onClick=${() => setVerMuro(false)} aria-label="Cerrar">&times;</button>
+                </div>
+                <div class="donors-modal-body">
+                  ${cargandoMuro ? html`<p class="donors-modal-msg">Cargando colaboradores…</p>` : (
+                    donantesPublicos.length === 0 ? html`
+                      <div class="donors-empty-box">
+                        <span class="donors-empty-icon"><${CatIc} n="Heart" s=${28} /></span>
+                        <h4>Sé el primer colaborador público</h4>
+                        <p>Cada aporte ayuda a cubrir servidores, diagramas de inyección y nuevas guías. ¡Aporta hoy y tu taller encabezará este cuadro de honor!</p>
+                      </div>
+                    ` : html`
+                      <div class="donors-grid">
+                        ${donantesPublicos.map(d => html`
+                          <div class="donor-item" key=${d.id}>
+                            <div class="donor-item-top">
+                              <span class="donor-item-name">${d.donor_name}</span>
+                              <span class="donor-item-badge" style=${{ color: d.donor_level >= 5 ? '#38bdf8' : (d.donor_level >= 3 ? '#facc15' : '#fb923c') }}>Nivel ${d.donor_level}</span>
+                            </div>
+                            ${d.note ? html`<p class="donor-item-note">“${d.note}”</p>` : null}
+                            <div class="donor-item-meta">
+                              <span>Aporte acreditado</span>
+                              <span>${d.date ? new Date(d.date).toLocaleDateString('es') : ''}</span>
+                            </div>
+                          </div>
+                        `)}
+                      </div>
+                    `
+                  )}
+                </div>
+              </div>
+            </div>
+          `}
           `}
         ` : html`
           <div class="home-body">

@@ -31,8 +31,8 @@
     "_comentario": "El frontend se sirve sin build step: cada KB es descarga real en el celular del mecánico, muchas veces con datos móviles en el taller.",
     "_comentario_app": "Sube de 138 a 143 por el modal bloqueante de verificación antifraude para talleres (Google Sign-In y altas) y el formulario completo de registro de identidad.",
     "public/app.js": 143,
-    "_comentario_microapps": "Sube de 198 a 204 por el componente DonationRankCarousel con autoavance suave y lento (5.5s), pausa en hover/touch/focus, swipe gestual móvil, navegación por dots e integración de héroes.",
-    "public/microapps.js": 204,
+    "_comentario_microapps": "Sube de 208 a 210 por el carrusel 3D coverflow de personajes (perspectiva multicarta activa/previa/siguiente), logos SVG vectoriales de Binance y Zinli, modal interactivo del Muro de Colaboradores y ajustes de iconografía Users en la barra de apoyo.",
+    "public/microapps.js": 210,
     "_comentario_taller": "Sube de 76 a 83 por el componente WorkshopAvatar con marcos dinámicos superpuestos por nivel de donador, selector visual con 6 presets y compresor de fotos de perfil en canvas a <50 KB.",
     "public/microapps-taller.js": 83,
     "_comentario_datos": "Sube a 18 KB para alojar el catálogo completo de los 6 rangos de donador (Normal a Diamante) con insignias, puntos y beneficios detallados para el carrusel interactivo sin sobrecargar microapps.js.",
@@ -44,14 +44,15 @@
     "_comentario_index_5": "Sube de 172 a 180 por los estilos CSS del Chatbot flotante con IA (tarjeta, avatar, animación de respuesta) y la integración del botón animado de Google Sign-In.",
     "_comentario_index_6": "Sube de 186 a 190 por los estilos CSS del Carrusel Interactivo de Rangos de Donador (DonationRankCarousel) con halo de luz temático, diseño responsivo móvil y controles táctiles.",
     "_comentario_index_7": "Sube de 190 a 192 por la galería cinematográfica de rangos de héroes inspirada en swiper-tricks: fondo dinámico con fade radial, titular monumental en contorno (-webkit-text-stroke), pedestal luminoso para héroes estandarizados y tira interactiva de miniaturas sincronizadas con contador 01-06.",
-    "public/index.html": 192,
+    "_comentario_index_8": "Sube de 192 a 196 por el carrusel 3D coverflow con perspectiva interactiva de tarjetas previa y siguiente, escalado nítido del código QR a 160 px y la ventana modal del Muro de Colaboradores.",
+    "public/index.html": 196,
     "_comentario_tinta": "Subió de 18 a 30 al entrar el sistema de la ruta (DESIGN.md §0c): la página de /guias y la de cada guía dejaron de ser HTML con estilos en línea y pasaron a componentes con nombre. En crudo son ~28 KB, pero el archivo es casi todo prosa y seis data-URI de SVG con los mismos trazos repetidos en blanco y en negro — justo lo que mejor comprime compression(), así que por el cable son ~7 KB. Si sube de 30, no es que hayan crecido los dibujos: es que se está metiendo diseño nuevo sin decidir qué sale.",
     "public/tinta.css": 30,
     "_comentario_three3d": "Sube de 45 a 68 KB por la incorporación de los dos nuevos visores 3D interactivos: el motor de 4 cilindros DOHC despiezado con control dinámico de explosión y telemetría de 14 subsistemas mecánicos, y el globo terráqueo 3D interactivo con balizas y arcos para Latinoamérica.",
     "public/three3d.js": 68,
     "public/sw.js": 8,
-    "_comentario_server": "Sube de 230 a 232 por el enriquecimiento automático de Google OAuth (avatar_url, owner_name) y validación antifraude de documentos fiscales duplicados.",
-    "server-pg.js": 232
+    "_comentario_server": "Sube de 232 a 242 por la suite de gestión completa de talleres en el panel de administración (edición integral, restablecimiento directo de contraseñas, vaciado de datos operativos de clientes/inventario/órdenes, borrado seguro en cascada, descarga de backup JSON) y el endpoint público GET /api/donations/public para el Muro de Colaboradores.",
+    "server-pg.js": 242
   },
 
   "cobertura_minima_pct": {
@@ -62,12 +63,12 @@
   },
 
   "limites": {
-    "_comentario": "Topes estructurales. Sirven para que el proyecto no se degrade en silencio. Se ajustan a 3600 líneas y 28 rutas públicas por la adición de los 5 Rangos de Donador, endpoints de recepción y aprobación rápida de aportes.",
-    "max_lineas_por_archivo": 3600,
+    "_comentario": "Topes estructurales. Sirven para que el proyecto no se degrade en silencio. Se ajustan a 3850 líneas y 29 rutas públicas por la administración integral de cuentas de talleres en admin y el endpoint público del Muro de Colaboradores.",
+    "max_lineas_por_archivo": 3850,
     "max_deuda_conocida": 5,
     "min_pruebas_totales": 380,
     "min_rutas_api_probadas_pct": 100,
-    "max_rutas_api_sin_proteger": 28,
+    "max_rutas_api_sin_proteger": 29,
     "max_vehiculos_sin_verificar_pct": 60,
     "max_duracion_suite_seg": 120
   }

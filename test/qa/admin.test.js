@@ -202,4 +202,108 @@ describe('Panel de administración', () => {
     const sigue = await admin.get('/api/admin/vehicles/1');
     assert.equal(sigue.status, 200, 'un anónimo consiguió borrar el vehículo 1');
   });
+
+  describe('Administración de Talleres y Resiliencia de Cuentas', () => {
+    let wsId, wsEmail;
+
+    before(async () => {
+      wsEmail = `taller-admin-test-${Date.now()}@example.com`;
+      const reg = await anon.post('/api/auth/register', {
+        name: 'Taller Para Admin Test',
+        email: wsEmail,
+        password: 'Password123!',
+        phone: '+584120001122',
+        city: 'Valencia',
+        doc_id: 'J-99887766-0',
+        business_type: 'Mecánica General'
+      });
+      assert.equal(reg.status, 201);
+      wsId = reg.body.id;
+    });
+
+    it('GET /api/admin/workshops lista talleres con métricas operativas', async () => {
+      const r = await admin.get('/api/admin/workshops');
+      assert.equal(r.status, 200);
+      assert.ok(Array.isArray(r.body), 'debe devolver un array de talleres');
+      const found = r.body.find(w => w.id === wsId);
+      assert.ok(found, 'debe encontrar el taller recién creado');
+      assert.equal(found.name, 'Taller Para Admin Test');
+      assert.equal(typeof found.clients_count, 'number');
+      assert.equal(typeof found.orders_count, 'number');
+    });
+
+    it('PUT /api/admin/workshops/:id edita información del taller', async () => {
+      const r = await admin.put(`/api/admin/workshops/${wsId}`, {
+        name: 'Taller Editado Por Admin',
+        city: 'Maracaibo',
+        phone: '+584145554433',
+        business_type: 'Especialista en Inyección y Bombas',
+        onboarding_completed: true,
+        donor_level: 2,
+        total_donated: 15.00
+      });
+      assert.equal(r.status, 200);
+      assert.equal(r.body.workshop.name, 'Taller Editado Por Admin');
+      assert.equal(r.body.workshop.city, 'Maracaibo');
+      assert.equal(r.body.workshop.donor_level, 2);
+      assert.equal(r.body.workshop.total_donated, 15);
+    });
+
+    it('POST /api/admin/workshops/:id/password cambia contraseña directamente', async () => {
+      const r = await admin.post(`/api/admin/workshops/${wsId}/password`, {
+        new_password: 'NuevaPassword456!'
+      });
+      assert.equal(r.status, 200);
+
+      // Verificamos que el taller puede loguearse con su nueva contraseña
+      const login = await anon.post('/api/auth/login', {
+        email: wsEmail,
+        password: 'NuevaPassword456!'
+      });
+      assert.equal(login.status, 200, 'el taller debe poder autenticarse con la nueva contraseña');
+    });
+
+    it('GET /api/admin/workshops/:id/backup exporta el JSON de respaldo completo', async () => {
+      const r = await admin.get(`/api/admin/workshops/${wsId}/backup`);
+      assert.equal(r.status, 200);
+      assert.equal(typeof r.body, 'object');
+      assert.equal(r.body.workshop.id, wsId);
+      assert.ok(Array.isArray(r.body.clients));
+      assert.ok(Array.isArray(r.body.orders));
+      assert.ok(Array.isArray(r.body.inventory));
+    });
+
+    it('POST /api/admin/workshops/:id/wipe vacía datos operativos conservando la cuenta', async () => {
+      const r = await admin.post(`/api/admin/workshops/${wsId}/wipe`, {});
+      assert.equal(r.status, 200);
+
+      // La cuenta de taller sigue existiendo
+      const check = await admin.get('/api/admin/workshops');
+      const found = check.body.find(w => w.id === wsId);
+      assert.ok(found, 'la cuenta del taller debe mantenerse tras el vaciado');
+      assert.equal(found.clients_count, 0);
+      assert.equal(found.orders_count, 0);
+    });
+
+    it('DELETE /api/admin/workshops/:id elimina la cuenta de forma definitiva en cascada', async () => {
+      const r = await admin.del(`/api/admin/workshops/${wsId}`);
+      assert.equal(r.status, 200);
+
+      // Ya no debe existir
+      const check = await admin.get('/api/admin/workshops');
+      const found = check.body.find(w => w.id === wsId);
+      assert.equal(found, undefined, 'el taller debe quedar eliminado');
+    });
+
+    it('GET /api/donations/public es pública y no expone datos sensibles', async () => {
+      const r = await anon.get('/api/donations/public');
+      assert.equal(r.status, 200);
+      assert.ok(Array.isArray(r.body), 'debe devolver lista de aportes');
+      for (const item of r.body) {
+        assert.equal(item.pass_hash, undefined, 'nunca debe exponer pass_hash');
+        assert.equal(item.email, undefined, 'nunca debe exponer email del donador');
+        assert.equal(item.doc_id, undefined, 'nunca debe exponer documentos fiscales');
+      }
+    });
+  });
 });

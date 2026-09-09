@@ -1832,9 +1832,162 @@ ${dbContext}`;
 
   app.get('/api/admin/workshops', requireAdmin, async (req, res) => {
     const q = str(req.query.q, 80);
-    const sql = `SELECT id, name, email, slug, donor_level, total_donated, created_at FROM workshops ${q ? 'WHERE name LIKE ? OR email LIKE ?' : ''} ORDER BY donor_level DESC, total_donated DESC, id DESC LIMIT 100`;
-    const rows = await db.all(sql, q ? [`%${q}%`, `%${q}%`] : []);
+    const sql = `
+      SELECT w.id, w.name, w.email, w.slug, w.phone, w.city, w.address, w.owner_name, w.doc_id,
+             w.business_type, w.onboarding_completed, w.donor_level, w.total_donated, w.avatar_url, w.created_at,
+             (SELECT COUNT(*) FROM clients WHERE workshop_id = w.id) AS clients_count,
+             (SELECT COUNT(*) FROM work_orders WHERE workshop_id = w.id) AS orders_count,
+             (SELECT COUNT(*) FROM inventory_items WHERE workshop_id = w.id) AS inventory_count
+      FROM workshops w
+      ${q ? 'WHERE w.name LIKE ? OR w.email LIKE ? OR w.phone LIKE ? OR w.doc_id LIKE ?' : ''}
+      ORDER BY w.donor_level DESC, w.total_donated DESC, w.id DESC LIMIT 100
+    `;
+    const rows = await db.all(sql, q ? [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`] : []);
     res.set('Cache-Control', 'no-store').json(rows);
+  });
+
+  app.put('/api/admin/workshops/:id', requireAdmin, async (req, res) => {
+    const id = toInt(req.params.id, 1, 1e9);
+    if (!id) return res.status(400).json({ error: 'ID inválido' });
+    const ws = await db.get('SELECT id FROM workshops WHERE id = ?', id);
+    if (!ws) return res.status(404).json({ error: 'Taller no encontrado' });
+
+    const b = req.body || {};
+    const name = str(b.name, 120);
+    if (!name) return res.status(400).json({ error: 'El nombre del taller es obligatorio' });
+
+    const phone = str(b.phone, 40);
+    const city = str(b.city, 80);
+    const address = str(b.address, 200);
+    const owner_name = str(b.owner_name, 120);
+    const doc_id = str(b.doc_id, 50);
+    const business_type = str(b.business_type, 80);
+    const donor_level = Number.isInteger(b.donor_level) ? Math.min(5, Math.max(0, b.donor_level)) : null;
+    const total_donated = num(b.total_donated);
+    const onboarding_completed = b.onboarding_completed !== undefined ? (b.onboarding_completed ? 1 : 0) : null;
+
+    await db.run(`
+      UPDATE workshops SET
+        name = ?,
+        phone = COALESCE(?, phone),
+        city = COALESCE(?, city),
+        address = COALESCE(?, address),
+        owner_name = COALESCE(?, owner_name),
+        doc_id = COALESCE(?, doc_id),
+        business_type = COALESCE(?, business_type),
+        donor_level = COALESCE(?, donor_level),
+        total_donated = COALESCE(?, total_donated),
+        onboarding_completed = COALESCE(?, onboarding_completed)
+      WHERE id = ?
+    `, [name, phone, city, address, owner_name, doc_id, business_type, donor_level, total_donated, onboarding_completed, id]);
+
+    const updated = await db.get('SELECT id, name, email, slug, phone, city, address, owner_name, doc_id, business_type, onboarding_completed, donor_level, total_donated, avatar_url, created_at FROM workshops WHERE id = ?', id);
+    res.json({ ok: true, workshop: updated });
+  });
+
+  app.post('/api/admin/workshops/:id/password', requireAdmin, async (req, res) => {
+    const id = toInt(req.params.id, 1, 1e9);
+    if (!id) return res.status(400).json({ error: 'ID inválido' });
+    const ws = await db.get('SELECT id FROM workshops WHERE id = ?', id);
+    if (!ws) return res.status(404).json({ error: 'Taller no encontrado' });
+
+    const newPass = typeof req.body?.new_password === 'string' ? req.body.new_password.trim() : '';
+    if (newPass.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+
+    const passHash = await hashPassword(newPass);
+    await db.run('UPDATE workshops SET pass_hash = ? WHERE id = ?', [passHash, id]);
+    await db.run('DELETE FROM sessions WHERE workshop_id = ?', id);
+    res.json({ ok: true, message: 'Contraseña actualizada correctamente' });
+  });
+
+  app.post('/api/admin/workshops/:id/wipe', requireAdmin, async (req, res) => {
+    const id = toInt(req.params.id, 1, 1e9);
+    if (!id) return res.status(400).json({ error: 'ID inválido' });
+    const ws = await db.get('SELECT id, name FROM workshops WHERE id = ?', id);
+    if (!ws) return res.status(404).json({ error: 'Taller no encontrado' });
+
+    await db.run('DELETE FROM work_order_photos WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM work_order_items WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM work_orders WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM document_items WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM documents WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM client_vehicles WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM clients WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM inventory_moves WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM inventory_items WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM diagnostics WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM workshop_notes WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM cash_moves WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM workshop_notifications WHERE workshop_id = ?', id);
+
+    res.json({ ok: true, message: `Datos operativos del taller "${ws.name}" vaciados correctamente` });
+  });
+
+  app.delete('/api/admin/workshops/:id', requireAdmin, async (req, res) => {
+    const id = toInt(req.params.id, 1, 1e9);
+    if (!id) return res.status(400).json({ error: 'ID inválido' });
+    const ws = await db.get('SELECT id, name FROM workshops WHERE id = ?', id);
+    if (!ws) return res.status(404).json({ error: 'Taller no encontrado' });
+
+    await db.run('DELETE FROM work_order_photos WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM work_order_items WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM work_orders WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM document_items WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM documents WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM client_vehicles WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM clients WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM inventory_moves WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM inventory_items WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM diagnostics WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM workshop_notes WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM cash_moves WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM workshop_notifications WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM workshop_reviews WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM sessions WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM donations WHERE workshop_id = ?', id);
+    await db.run('DELETE FROM workshops WHERE id = ?', id);
+
+    res.json({ ok: true, message: `Taller "${ws.name}" (#${id}) eliminado definitivamente` });
+  });
+
+  app.get('/api/admin/workshops/:id/backup', requireAdmin, async (req, res) => {
+    const id = toInt(req.params.id, 1, 1e9);
+    if (!id) return res.status(400).json({ error: 'ID inválido' });
+    const ws = await db.get('SELECT id, name, email, slug, phone, city, address, owner_name, doc_id, business_type, donor_level, total_donated, created_at FROM workshops WHERE id = ?', id);
+    if (!ws) return res.status(404).json({ error: 'Taller no encontrado' });
+
+    const [clients, clientVehicles, inventory, orders, orderItems, docs, diag, notes, cash, reviews] = await Promise.all([
+      db.all('SELECT * FROM clients WHERE workshop_id = ?', id),
+      db.all('SELECT * FROM client_vehicles WHERE workshop_id = ?', id),
+      db.all('SELECT * FROM inventory_items WHERE workshop_id = ?', id),
+      db.all('SELECT * FROM work_orders WHERE workshop_id = ?', id),
+      db.all('SELECT * FROM work_order_items WHERE workshop_id = ?', id),
+      db.all('SELECT * FROM documents WHERE workshop_id = ?', id),
+      db.all('SELECT * FROM diagnostics WHERE workshop_id = ?', id),
+      db.all('SELECT * FROM workshop_notes WHERE workshop_id = ?', id),
+      db.all('SELECT * FROM cash_moves WHERE workshop_id = ?', id),
+      db.all('SELECT * FROM workshop_reviews WHERE workshop_id = ?', id)
+    ]);
+
+    const backupData = {
+      version: '1.0',
+      exported_at: new Date().toISOString(),
+      workshop: ws,
+      clients,
+      client_vehicles: clientVehicles,
+      inventory,
+      orders,
+      order_items: orderItems,
+      documents: docs,
+      diagnostics: diag,
+      notes,
+      cash_moves: cash,
+      reviews
+    };
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="backup-taller-${id}-${ws.slug || 'export'}.json"`);
+    res.send(JSON.stringify(backupData, null, 2));
   });
 
   app.post('/api/admin/workshops/:id/donor-level', requireAdmin, async (req, res) => {
@@ -3446,6 +3599,29 @@ ${dbContext}`;
     }
 
     res.type('text/html; charset=utf-8').send(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Aporte Aprobado | llave</title><style>body{font-family:sans-serif;background:#111311;color:#f8f7f3;text-align:center;padding:50px;}</style></head><body><h1 style="color:#6f8a5a">Aporte #${don.id} Aprobado</h1><p>Monto: <strong>$${don.amount} USD</strong> (${don.method.toUpperCase()} - Ref: ${don.reference})</p><p>El rango y beneficios del donador se han actualizado.</p><p><a href="/admin" style="color:#8aa571">Ir al Panel</a> | <a href="/" style="color:#8aa571">Ir al Inicio</a></p></body></html>`);
+  });
+
+  app.get('/api/donations/public', async (req, res) => {
+    const rows = await db.all(`
+      SELECT d.id, d.donor_name, d.amount, d.method, d.note, d.reviewed_at,
+             w.name AS workshop_name, w.slug AS workshop_slug, w.donor_level, w.avatar_url
+      FROM donations d
+      LEFT JOIN workshops w ON w.id = d.workshop_id
+      WHERE d.status = 'approved'
+      ORDER BY d.reviewed_at DESC, d.id DESC
+      LIMIT 60
+    `);
+    res.set('Cache-Control', 'public, max-age=60').json(rows.map(r => ({
+      id: r.id,
+      donor_name: r.donor_name || r.workshop_name || 'Mecánico de la Comunidad',
+      workshop_slug: r.workshop_slug,
+      donor_level: r.donor_level || 1,
+      avatar_url: r.avatar_url,
+      amount: r.amount,
+      method: r.method,
+      note: r.note,
+      date: r.reviewed_at
+    })));
   });
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'No encontrado' }));

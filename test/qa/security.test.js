@@ -423,6 +423,8 @@ describe('Seguridad — cobertura de la protección (análisis estático)', () =
     'GET /api/connect/profiles', 'POST /api/connect/profiles',
     'GET /api/connect/match', 'POST /api/connect/locate',
     'POST /api/donations', 'GET /api/donations/quick-approve',
+    // Muro público de colaboradores y aportes aprobados (sin PII sensible)
+    'GET /api/donations/public',
   ]);
 
   it('toda ruta /api nueva está protegida, o declarada pública a propósito', () => {
