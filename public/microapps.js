@@ -323,8 +323,11 @@
       touchX.current = null;
     };
 
+    const TAGS_NIVEL = ['Paso inicial', '$1+ al mes', '$5+ al mes', '$15+ al mes', '$30+ al mes', 'Socio Fundador'];
+    const TITULOS_NIVEL = ['Comienza la aventura', 'Da el primer impulso', 'Impulso profesional', 'Visibilidad y respaldo', 'Potencia para tu taller', 'El estatus definitivo'];
+
     return html`
-      <div class="rank-cinema"
+      <div class="rank-stage-wrap"
            onMouseEnter=${() => setPausado(true)}
            onMouseLeave=${() => setPausado(false)}
            onTouchStart=${onTouchStart}
@@ -334,105 +337,83 @@
            onKeyDown=${(e) => { if (e.key === 'ArrowLeft') prev(); else if (e.key === 'ArrowRight') next(); }}
            tabIndex="0"
            role="region"
-           aria-label="Carrusel cinemático de rangos de donación y héroes"
+           aria-label="Carrusel interactivo de personajes y rangos"
            aria-roledescription="carousel">
 
-        <div class="rank-cinema-bg-layer" style=${{
-          background: `radial-gradient(ellipse at 50% 35%, ${cur.color}22 0%, ${cur.color}08 50%, rgba(17,19,17,0.95) 75%, #111311 100%)`
-        }}></div>
+        <button type="button" class="rank-stage-nav-btn is-prev" onClick=${prev} aria-label="Personaje anterior">
+          <${CatIc} n="ChevronLeft" s=${20} />
+        </button>
 
-        <div class="rank-cinema-watermark" aria-hidden="true" style=${{ '--rank-stroke': `${cur.color}45` }}>
-          ${cur.nombre}
-        </div>
+        <button type="button" class="rank-stage-nav-btn is-next" onClick=${next} aria-label="Siguiente personaje">
+          <${CatIc} n="ChevronRight" s=${20} />
+        </button>
 
-        <div class="rank-cinema-stage">
-          <div class="rank-cinema-hero-col">
-            <div class="rank-cinema-glow" style=${{ background: `radial-gradient(circle, ${cur.color}38 0%, ${cur.color}0a 55%, transparent 72%)` }}></div>
-            <div class="rank-cinema-pedestal"></div>
-            <div class="rank-cinema-hero-anchor">
-              <img class="rank-cinema-hero-img"
+        <div class="rank-card-showcase" style=${{ '--rank-color': cur.color }}>
+          <div class="rank-card-avatar-col">
+            <div class="rank-card-avatar-box" style=${{ background: `linear-gradient(180deg, ${cur.color}22 0%, ${cur.color}08 100%)`, borderColor: `${cur.color}45` }}>
+              <img class="rank-card-hero-img"
                    src=${`/brand/hero-nivel-${cur.nivel}.png`}
-                   alt=${`Héroe Nivel ${cur.nivel}: ${cur.nombre}`}
+                   alt=${`Héroe ${cur.nombre}`}
                    onError=${(e) => { e.target.style.opacity = '0.3'; }} />
+              <span class="rank-card-avatar-tag">${TAGS_NIVEL[cur.nivel] || `Nivel ${cur.nivel}`}</span>
             </div>
           </div>
 
-          <div class="rank-cinema-hud-col">
-            <div class="rank-hud-tags">
-              <span class="rank-hud-badge" style=${{ color: cur.color, borderColor: `${cur.color}50`, background: `${cur.color}18` }}>
-                <${CatIc} n=${cur.icon} s=${13} />
-                <span>Nivel ${cur.nivel} · ${cur.nombre}</span>
-              </span>
-              <span class="rank-hud-pts">
-                <${CatIc} n="Coins" s=${12} />
-                <span>${cur.puntos}</span>
+          <div class="rank-card-info-col">
+            <div class="rank-card-badge-row">
+              <span class="rank-card-badge" style=${{ background: `${cur.color}18`, borderColor: `${cur.color}50`, color: cur.color }}>
+                ${cur.nombre.toUpperCase()}
               </span>
             </div>
 
-            <h3 class="rank-hud-title">${cur.titulo || cur.nombre}</h3>
-            <p class="rank-hud-perk">${cur.perk}</p>
+            <h3 class="rank-card-title">${TITULOS_NIVEL[cur.nivel] || cur.titulo || cur.nombre}</h3>
+            <p class="rank-card-tagline">“${cur.perk}”</p>
 
-            <div class="rank-hud-perks-list">
+            <div class="rank-card-perks">
               ${(cur.beneficios || [cur.perk]).map(b => html`
-                <div class="rank-hud-perk-row" key=${b}>
-                  <span class="rank-hud-check" style=${{ color: cur.color, borderColor: `${cur.color}40`, background: `${cur.color}15` }}>
+                <div class="rank-card-perk-row" key=${b}>
+                  <span class="rank-card-check" style=${{ color: cur.color, borderColor: `${cur.color}40`, background: `${cur.color}15` }}>
                     <${CatIc} n="Check" s=${12} />
                   </span>
-                  <span class="rank-hud-perk-text">${b}</span>
+                  <span>${b}</span>
                 </div>
               `)}
             </div>
 
-            <div class="rank-hud-cta-wrapper">
-              <button type="button" class="rank-hud-cta-btn"
+            <div class="rank-card-footer-row">
+              <div class="rank-card-price-box">
+                <span class="rank-card-price">${cur.nivel === 0 ? 'Gratis' : `$${cur.montoMin}`}</span>
+                <span class="rank-card-period">${cur.nivel === 0 ? 'Para siempre' : '/mes voluntario'}</span>
+              </div>
+              <button type="button" class="rank-card-select-btn"
                       style=${{ background: cur.color, borderColor: cur.color }}
                       onClick=${() => onSelectLevel && onSelectLevel(cur)}>
-                <span>${cur.nivel === 0 ? 'Conocer ventajas' : `Acreditar aporte $${cur.montoMin}+ USD`}</span>
+                <span>${cur.nivel === 0 ? 'Comenzar gratis' : `Elegir ${cur.nombre.split(' ')[0]}`}</span>
                 <${CatIc} n="ArrowRight" s=${13} />
               </button>
-              <span class="rank-hud-subtext">
-                <${CatIc} n="Check" s=${12} />
-                <span>Aporte voluntario · Sin suscripción</span>
-              </span>
             </div>
           </div>
         </div>
 
-        <div class="rank-cinema-bottom-bar">
-          <div class="rank-cinema-nav-grp">
-            <button type="button" class="rank-cinema-arrow-btn" onClick=${prev} aria-label="Nivel anterior">
-              <${CatIc} n="ChevronLeft" s=${18} />
-            </button>
-            <button type="button" class="rank-cinema-arrow-btn" onClick=${next} aria-label="Nivel siguiente">
-              <${CatIc} n="ChevronRight" s=${18} />
-            </button>
-            <div class="rank-cinema-counter">
-              <span>${pad(act + 1)}</span>
-              <span class="counter-div">—</span>
-              <span class="counter-total">${pad(total)}</span>
-            </div>
-          </div>
-
-          <div class="rank-cinema-thumbs-track" role="tablist" aria-label="Miniaturas de niveles de donación">
+        <div class="rank-stage-footer">
+          <div class="rank-pills-bar" role="tablist" aria-label="Niveles de miembros">
             ${niveles.map((nv, idx) => html`
               <button type="button"
                       key=${nv.nivel}
                       role="tab"
                       aria-selected=${act === idx}
-                      class=${'rank-cinema-thumb' + (act === idx ? ' is-active' : '')}
-                      style=${act === idx ? { borderColor: nv.color, background: `${nv.color}18` } : {}}
-                      onClick=${() => setAct(idx)}
-                      title=${`Nivel ${nv.nivel}: ${nv.nombre}`}
-                      aria-label=${`Ver nivel ${nv.nivel}: ${nv.nombre}`}>
-                <div class="rank-thumb-img-box">
-                  <img src=${`/brand/hero-nivel-${nv.nivel}.png`} alt="" aria-hidden="true" />
-                </div>
-                <div class="rank-thumb-label">
-                  <span class="rank-thumb-dot" style=${{ background: nv.color }}></span>
-                  <span>L${nv.nivel}</span>
-                </div>
+                      class=${'rank-pill-tab' + (act === idx ? ' is-active' : '')}
+                      style=${act === idx ? { background: nv.color, borderColor: nv.color, color: '#fff' } : {}}
+                      onClick=${() => setAct(idx)}>
+                <span class="rank-pill-dot" style=${{ background: act === idx ? '#fff' : nv.color }}></span>
+                <span>${nv.nombre.split(' ')[0]}</span>
               </button>
             `)}
+          </div>
+          <div class="rank-stage-hint">
+            <span>Usa las flechas <kbd>←</kbd> <kbd>→</kbd> o desliza para navegar</span>
+            <span class="rank-hint-sep">·</span>
+            <strong>${act + 1} de ${total}</strong>
           </div>
         </div>
       </div>
@@ -1017,30 +998,17 @@
             </div>
           </section>
 
-          ${/* Categorías con sus herramientas, en un grid limpio */''}
-          <section class="home-cats">
-            <div class="home-ecosystem-inner">
-              ${[['consulta', 'consulta'], ['diag', 'diagnóstico'], ['taller', 'taller'], ['comunidad', 'comunidad'], ['aprende', 'aprendizaje']].map(([g, label]) => appsOf(g).length > 0 ? html`
-                <div class="home-cat-block" key=${g}>
-                  <div class="home-cat-head">
-                    <h2 class="home-cat-title">${label.charAt(0).toUpperCase() + label.slice(1)}</h2>
-                    <p class="home-cat-desc">${GRUPOS[g]?.d || ''}</p>
-                  </div>
-                  <div class="home-group-grid">${appsOf(g).slice(0, 8).map(a => card(a))}</div>
-                </div>` : null)}
-            </div>
-          </section>
-
-          ${/* Sección 1: Rangos de Reconocimiento y Héroes (Sección completa panorámica estirada) */''}
+          ${/* Rangos de la Comunidad & Héroes (Showcase destacado estilo Stitch) */''}
           <section class="home-ranks-section" id="rangos-comunidad">
             <div class="home-ranks-inner">
               <div class="home-ranks-head">
                 <div class="support-badge">
-                  <span>RANGOS & HÉROES DE LA COMUNIDAD</span>
+                  <span class="badge-live-dot"></span>
+                  <span>COMPAÑEROS DE AVENTURA & COMUNIDAD</span>
                 </div>
-                <h2 class="home-ranks-title">Niveles de Reconocimiento y Ventajas de Taller</h2>
+                <h2 class="home-ranks-title">Descubre tu rango en <span class="title-brand-accent">llave</span></h2>
                 <p class="home-ranks-desc">
-                  Avanza de nivel según tus contribuciones al proyecto. Cada rango desbloquea insignias oficiales para tu taller, herramientas operativas avanzadas y funciones exclusivas.
+                  Navega de manera individual por cada uno de los personajes y encuentra el plan con ventajas y herramientas ideal para tu taller.
                 </p>
               </div>
 
@@ -1057,6 +1025,20 @@
                   }, 80);
                 }}
               />
+            </div>
+          </section>
+
+          ${/* Categorías con sus herramientas, en un grid limpio */''}
+          <section class="home-cats">
+            <div class="home-ecosystem-inner">
+              ${[['consulta', 'consulta'], ['diag', 'diagnóstico'], ['taller', 'taller'], ['comunidad', 'comunidad'], ['aprende', 'aprendizaje']].map(([g, label]) => appsOf(g).length > 0 ? html`
+                <div class="home-cat-block" key=${g}>
+                  <div class="home-cat-head">
+                    <h2 class="home-cat-title">${label.charAt(0).toUpperCase() + label.slice(1)}</h2>
+                    <p class="home-cat-desc">${GRUPOS[g]?.d || ''}</p>
+                  </div>
+                  <div class="home-group-grid">${appsOf(g).slice(0, 8).map(a => card(a))}</div>
+                </div>` : null)}
             </div>
           </section>
 
