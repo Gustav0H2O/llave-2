@@ -5,7 +5,7 @@ let token = sessionStorage.getItem(TOKEN_KEY) || '';
 let boot = null;
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const show = (el, on) => el.classList.toggle('hidden', !on);
+const show = (el, on) => { el.classList.toggle('hidden', !on); if (el.dataset.flex !== undefined) el.style.display = on ? 'flex' : 'none'; };
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
 async function authFetch(path, opts = {}) {
