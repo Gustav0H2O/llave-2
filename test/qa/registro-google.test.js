@@ -9,10 +9,22 @@ process.env.NODE_ENV = 'test';
    convierte "el alta es con Google" en una restricción de verdad y no en un
    botón escondido, así que tiene que estar cubierto.
 
-   Por qué en un proceso hijo: `PROD` se fija al cargar src/config (una sola vez
-   por proceso, es su razón de ser), así que no se puede cambiar dentro de este
-   proceso sin mentirle a toda la suite. Se lanza un node con el entorno del
-   host, igual que hace test/unit/config.test.js con VISIT_SALT.
+   POR QUÉ UN PROCESO HIJO
+   `PROD` se fija al cargar src/config (una sola vez por proceso, es su razón de
+   ser), así que no se puede cambiar dentro de este proceso sin mentirle a toda
+   la suite. Se lanza un node aparte con el entorno del host, igual que hace
+   test/unit/config.test.js con VISIT_SALT.
+
+   POR QUÉ ESE ENTORNO TAN RARO
+   Arrancar de verdad en producción dispara los guardarraíles que el proyecto
+   tiene a propósito para no perder datos. Aquí se satisfacen SIN tocar nada:
+     · TURSO_URL / TURSO_AUTH_TOKEN vacías → db.js no abre Turso (dotenv no pisa
+       una clave ya presente, así que el .env local tampoco las cuela).
+     · DATABASE_URL con un host `.internal` → db.js entra por PostgreSQL, y por
+       ser `.internal` no exige PG_CA_PATH (db.js:49). El pool de `pg` NO
+       conecta hasta la primera consulta, y aquí no se consulta: la app se monta
+       con adaptadores en MEMORIA inyectados. Resultado: no se abre ninguna base
+       en disco ni se habla con ningún servidor.
    ========================================================================= */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
@@ -24,11 +36,9 @@ const DB = require.resolve('../../db');
 describe('alta de taller: en producción solo con Google', () => {
   it('POST /api/auth/register responde 403 y no crea ninguna cuenta', () => {
     /* El guion escupe el resultado con writeSync (síncrono): con process.exit()
-       una tubería de Windows puede quedarse sin volcar el stdout. */
+       una tubería puede quedarse sin volcar el stdout. */
     const guion = `
       process.env.NODE_ENV = 'production';
-      process.env.VISIT_SALT = 'sal-fija-de-prueba';
-      process.env.ADMIN_PASSWORD = 'clave-admin-de-prueba';
       const fs = require('fs');
       const escribir = (o) => fs.writeSync(1, JSON.stringify(o));
       const Database = require('better-sqlite3');
@@ -55,12 +65,30 @@ describe('alta de taller: en producción solo con Google', () => {
       })().catch(e => { escribir({ error: String(e && e.message) }); process.exit(1); });
     `;
 
-    const salida = execFileSync(process.execPath, ['-e', guion], { encoding: 'utf8', stdio: 'pipe' });
-    /* dotenv imprime su banner ("injected env…") en stdout, así que no se puede
-       parsear la salida entera: se toma la última línea que sea un objeto. */
+    const entorno = {
+      ...process.env,
+      NODE_ENV: 'production',
+      /* En producción son obligatorias (validarConfig y la sesión). */
+      VISIT_SALT: 'sal-fija-de-prueba',
+      ADMIN_PASSWORD: 'clave-admin-de-prueba',
+      /* Blindaje: el hijo no puede tocar Turso ni SQLite en disco. */
+      TURSO_URL: '', TURSO_AUTH_TOKEN: '',
+      DATABASE_URL: 'postgres://prueba:prueba@localhost.internal:5432/prueba',
+      ALLOW_LOCAL_SQLITE_PROD: '',
+    };
+
+    let salida = '', error = '';
+    try {
+      salida = execFileSync(process.execPath, ['-e', guion], { encoding: 'utf8', stdio: 'pipe', env: entorno });
+    } catch (e) {
+      error = String(e.stderr || '') || String(e.message || '');
+    }
+    /* dotenv imprime su banner en stdout, así que no se puede parsear la salida
+       entera: se toma la última línea que sea un objeto. */
     const linea = salida.trim().split('\n').map(l => l.trim()).filter(l => l.startsWith('{')).pop();
-    assert.ok(linea, `el proceso hijo no devolvió un resultado: ${salida}`);
+    assert.ok(linea, `el proceso hijo no devolvió un resultado.\n${error}\n${salida}`);
     const r = JSON.parse(linea);
+    assert.equal(r.error, undefined, `el proceso hijo falló: ${r.error}`);
     assert.equal(r.status, 403, 'el alta por contraseña no puede existir en producción');
     assert.equal(r.code, 'register_google_only', 'el cliente tiene que poder distinguirlo para ofrecer Google');
     assert.equal(r.filas, 0, 'un 403 no puede haber dejado la cuenta creada');
