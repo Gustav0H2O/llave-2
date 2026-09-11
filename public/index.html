@@ -2199,8 +2199,8 @@
   }
   /* Columna derecha. Rejilla de dos filas, no una columna con el "Volver" en
      `position: absolute`: el absoluto se salía del flujo y por debajo de ~700
-     px de alto aterrizaba ENCIMA del logotipo y las pestañas. Ahora tiene fila
-     propia y el formulario se centra en lo que sobra. */
+     px de alto aterrizaba ENCIMA del logotipo. Ahora tiene fila propia y el
+     contenido arranca justo debajo (ver `.login-form-inner`). */
   .login-form-wrap {
     position: relative;
     display: grid; grid-template-rows: auto 1fr;
@@ -2215,28 +2215,20 @@
     margin-bottom: 12px; transition: color .15s, background .15s;
   }
   .login-back:hover { color: var(--accent); background: var(--accent-soft); }
+  /* `align-self: start`, no `center`: centrado en la fila que sobra, el bloque
+     dejaba una banda vacía arriba —medida: 96 px con el formulario y 199 px sin
+     él— y la pantalla parecía empezar a media altura. Anclado arriba queda
+     pegado al enlace «Volver al inicio», y el padding-top (en vh, no en px) le
+     da aire sin volver a abrir el hueco ni en escritorio ni en móvil. */
   .login-form-inner {
-    width: 100%; max-width: 420px; margin: 0 auto; align-self: center;
+    width: 100%; max-width: 420px; margin: 0 auto; align-self: start;
     display: flex; flex-direction: column; gap: 18px;
-    padding: 12px 0;
+    padding: clamp(16px, 6vh, 60px) 0 12px;
   }
   /* Sin `display`: se lo devolvía a la variante que el tema esconde y el
      formulario acababa con los dos logotipos en fila. Es el mismo fallo que
      tenía el pie del home. */
   .login-form-logo { height: 36px; width: auto; align-self: flex-start; }
-  .login-tabs {
-    display: inline-flex; padding: 4px; border-radius: var(--r-full);
-    background: var(--panel-2, var(--panel2)); border: 1px solid var(--border);
-    align-self: flex-start;
-  }
-  .login-tab {
-    padding: 9px 18px; border: 0; background: transparent;
-    font: 600 13px var(--font); color: var(--ink-2);
-    border-radius: var(--r-full); cursor: pointer;
-  }
-  .login-tab.is-active {
-    background: var(--accent); color: var(--accent-ink);
-  }
   .login-h1 {
     font: 700 clamp(24px, 2.6vw, 30px)/1.15 var(--font);
     letter-spacing: -.02em; color: var(--ink); margin: 4px 0 0;
@@ -2245,24 +2237,14 @@
     font: 400 14px/1.55 var(--font); color: var(--ink-2);
     margin: 0 0 4px;
   }
-  .login-form { display: flex; flex-direction: column; gap: 12px; }
+  /* OJO: esta clase NO es del acceso —la pantalla de acceso ya no tiene
+     formulario—, sigue viva porque `TallerIdentityFields` la usa en el alta con
+     Google y en el onboarding del taller. Se deja donde estaba. */
   .login-field { display: flex; flex-direction: column; gap: 6px; }
   .login-field > span {
     font: 600 12px/1 var(--font); letter-spacing: .04em; color: var(--ink-2);
   }
   .login-field input { width: 100%; }
-  .login-submit {
-    width: 100%; padding: 14px 20px; margin-top: 4px;
-    font: 600 14px/1 var(--font);
-  }
-  .login-divider {
-    display: flex; align-items: center; gap: 12px;
-    font: 500 11px/1 var(--font); letter-spacing: .12em;
-    color: var(--muted); text-transform: uppercase;
-  }
-  .login-divider::before, .login-divider::after {
-    content: ''; flex: 1; height: 1px; background: var(--border);
-  }
   .login-secondary {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     padding: 12px 18px; border: 1.5px solid var(--ink); border-radius: var(--r);
@@ -2284,22 +2266,6 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
     border-color: #bdc1c6;
   }
-  /* Cuando la cuenta que se intentó usar es de Google (use_google /
-     oauth_account) el botón se resalta con un anillo suave para que el
-     siguiente paso sea obvio. La animación es muy corta y solo de borde/sombra,
-     respetando prefers-reduced-motion. */
-  .login-google--sugerido {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft, rgba(98, 160, 74, .25));
-    animation: login-google-sugerido 1.6s ease-in-out infinite;
-  }
-  @keyframes login-google-sugerido {
-    0%, 100% { box-shadow: 0 0 0 3px var(--accent-soft, rgba(98, 160, 74, .25)); }
-    50% { box-shadow: 0 0 0 6px var(--accent-soft, rgba(98, 160, 74, .12)); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .login-google--sugerido { animation: none; }
-  }
   .login-footer-note {
     font: 400 12px/1.55 var(--font); color: var(--muted); margin: 0;
   }
@@ -2310,13 +2276,6 @@
   }
   .login-msg--top { margin: 0 0 12px; }
   .login-msg--warn { background: rgba(217, 119, 6, .08); border: 1px solid rgba(217, 119, 6, .2); color: var(--text); }
-  .login-msg--info { background: rgba(37, 99, 235, .08); border: 1px solid rgba(37, 99, 235, .2); color: var(--text); }
-  .login-msg--danger { background: rgba(220, 38, 38, .08); border: 1px solid rgba(220, 38, 38, .2); color: #dc2626; font-weight: 500; }
-  .login-msg-link {
-    background: none; border: none; padding: 0; color: #2563eb; font: 600 12px var(--font);
-    cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
-  }
-  .login-msg-link:hover { color: #1d4ed8; }
   .alert.is-danger { border-left-color: #dc2626; background: rgba(220, 38, 38, .08); }
   .alert.is-info { border-left-color: #2563eb; background: rgba(37, 99, 235, .08); }
   .alert.is-warn { border-left-color: #d97706; background: rgba(217, 119, 6, .1); }
@@ -2995,7 +2954,7 @@
     .micro-back, .tool-add-btn, .home-nav-link, .home-nav-login,
     .styled-input, .filters input, .filters select, .filters button,
     .link-btn.mt-small, .home-cta-ghost, .go, .conv-mode,
-    .login-tab, .login-back, .rs-toggle, .insp-btn, .quote-add, .cli-wa {
+    .login-back, .rs-toggle, .insp-btn, .quote-add, .cli-wa {
       min-height: 44px;
     }
     .styled-input, .filters input, .filters select, .filters textarea,

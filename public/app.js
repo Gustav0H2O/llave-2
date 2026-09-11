@@ -1568,95 +1568,31 @@ function OnboardingModal({ user, onComplete, onLogout }) {
 }
 
 /* ---------- Login / registro del taller ---------- */
-/* El alta de taller va SOLO con Google: Google verifica el correo y así no
-   hacen falta pasos extra, por eso la pestaña «Crear cuenta» no tiene
-   formulario. El login con correo+contraseña se MANTIENE para las cuentas que
-   ya lo tienen (login mixto). Los datos de identidad (nombre, teléfono,
-   documento, ciudad, dirección) los sigue pidiendo OnboardingModal al volver
-   del alta con Google. */
-function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initialSugerirGoogle }) {
-  const [mode, setMode] = useState(initialMode || 'login');
-  const [form, setForm] = useState({ email: initialEmail || '', password: '' });
-  const [err, setErr] = useState('');
+/* El acceso y el alta son LA MISMA PUERTA: Google. El callback busca la cuenta
+   por el correo verificado y, si no existe, la crea, así que la pantalla no
+   tiene ningún campo de texto —ni pestañas ni correo+contraseña. Los datos de
+   identidad (nombre, teléfono, documento, ciudad, dirección) los sigue pidiendo
+   OnboardingModal al volver de Google. */
+function LoginScreen({ onBack, notice }) {
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
-  const [sugerirGoogle, setSugerirGoogle] = useState(Boolean(initialSugerirGoogle));
-  const [isLocked, setIsLocked] = useState(false);
+  const [msg, setMsg] = useState('');
   const [activeNotice, setActiveNotice] = useState(notice || '');
-
-  useEffect(() => {
-    if (initialMode) setMode(initialMode);
-  }, [initialMode]);
-
-  useEffect(() => {
-    if (initialEmail) setForm(f => ({ ...f, email: initialEmail }));
-  }, [initialEmail]);
 
   useEffect(() => {
     setActiveNotice(notice || '');
   }, [notice]);
 
-  useEffect(() => {
-    if (initialSugerirGoogle !== undefined) setSugerirGoogle(Boolean(initialSugerirGoogle));
-  }, [initialSugerirGoogle]);
-
-  /* Solo login: el alta no tiene formulario, así que no hay validación de
-     registro ni POST a /api/auth/register. Los códigos de error vienen de
-     /api/auth/login (y register_google_only queda como red de seguridad por si
-     en el servidor el alta estuviera cerrada). */
-  const submit = async (e) => {
-    e.preventDefault();
-    setBusy(true); setErr('');
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: form.email, password: form.password })
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (body.code === 'register_google_only') {
-          setMode('register'); setSugerirGoogle(true);
-          setErr(body.error || 'La cuenta del taller se crea con Google: pulsa el botón de abajo.');
-          return;
-        }
-        if (body.code === 'oauth_account' || body.code === 'use_google') {
-          setSugerirGoogle(true);
-          setForm(f => ({ ...f, password: '' }));
-          setErr('Esta cuenta usa Google. Pulsa el botón Iniciar sesión con Google a continuación.');
-          return;
-        }
-        if (body.code === 'account_locked') {
-          setIsLocked(true);
-          setErr(body.error || 'Acceso bloqueado temporalmente por exceder los intentos fallidos. Intenta más tarde.');
-          return;
-        }
-        if (body.code === 'email_taken') {
-          setErr(body.error || 'Ya existe una cuenta con ese correo. Introduce tu contraseña para iniciar sesión.');
-          return;
-        }
-        if (body.code === 'bad_credentials') {
-          setErr(body.error || 'Correo o contraseña incorrectos. ¿No tienes cuenta? Créala con Google.');
-          return;
-        }
-        throw new Error(body.error || 'Error al procesar la solicitud');
-      }
-      setDone(true); onLogin(body);
-    } catch (e2) { setErr(e2.message); }
-    setBusy(false);
-  };
-  // Botón "Importar mis datos del navegador" del login: usa el helper global
-  // para no duplicar la lógica (la sincronización automática al iniciar sesión
-  // también lo usa). Aquí solo se muestra el mensaje en el formulario.
+  /* Botón "Importar mis datos del navegador": usa el helper global para no
+     duplicar la lógica (la sincronización automática al iniciar sesión también
+     lo usa). Aquí solo se muestra el resultado, sin formulario que limpiar. */
   const importLocal = async () => {
-    setBusy(true); setErr('');
+    setBusy(true); setMsg('');
     const r = await importTallerFromLocal();
-    if (r.ok) setErr(`Datos importados del navegador (${r.count})`);
-    else if (r.error === 'sin_datos') setErr('No se encontraron datos locales para importar');
-    else setErr('Error al importar: ' + r.error);
+    if (r.ok) setMsg(`Datos importados del navegador (${r.count})`);
+    else if (r.error === 'sin_datos') setMsg('No se encontraron datos locales para importar');
+    else setMsg('Error al importar: ' + r.error);
     setBusy(false);
   };
-  /* Cambiar de pestaña limpia el error y los avisos de la anterior. */
-  const cambiarModo = (m) => { setMode(m); setErr(''); setSugerirGoogle(false); setIsLocked(false); setActiveNotice(''); };
   return html`
     <div class="login-screen">
       <aside class="login-art" aria-hidden="true">
@@ -1685,72 +1621,27 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initi
           <img class="login-form-logo logo-img logo-img--light" src="/brand/logo-llave.svg" alt="llave" />
           <img class="login-form-logo logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" />
 
-          <div class="login-tabs" role="tablist">
-            <button type="button" role="tab" aria-selected=${mode === 'login'} class=${'login-tab' + (mode === 'login' ? ' is-active' : '')} onClick=${() => cambiarModo('login')}>Iniciar sesión</button>
-            <button type="button" role="tab" aria-selected=${mode === 'register'} class=${'login-tab' + (mode === 'register' ? ' is-active' : '')} onClick=${() => cambiarModo('register')}>Crear cuenta</button>
-          </div>
+          <h1 class="login-h1">Entra o crea tu cuenta</h1>
+          <p class="login-h1-sub">Con tu cuenta de Google. Tu correo queda verificado, sin pasos extra.</p>
 
-          <h1 class="login-h1">${mode === 'register' ? 'Crea tu cuenta del taller' : 'Bienvenido de vuelta'}</h1>
-          <p class="login-h1-sub">${mode === 'register' ? 'Tu correo queda verificado por Google, sin pasos extra.' : 'Entra con tu correo y contraseña.'}</p>
-
-          ${done && html`<div class="login-msg login-msg--top login-msg--info"><span>Bienvenido. Tu sesión está activa.</span></div>`}
           ${activeNotice && html`
-            <div class=${'login-msg login-msg--top ' + (sugerirGoogle ? 'login-msg--info' : 'login-msg--warn')}>
-              <span>${activeNotice}</span>
-            </div>`}
+            <div class="login-msg login-msg--top login-msg--warn"><span>${activeNotice}</span></div>`}
 
-          ${/* «Crear cuenta» es SOLO Google: sin formulario de correo/contraseña ni
-                campos de identidad (los pide OnboardingModal al volver de Google). */''}
-          ${mode === 'login' ? html`
-            <form onSubmit=${submit} class="login-form">
-              <label class="login-field">
-                <span>Correo</span>
-                <input type="email" class="styled-input" placeholder="tunombre@taller.com" value=${form.email} onChange=${e => setForm({ ...form, email: e.target.value })} required />
-              </label>
-              <label class="login-field">
-                <span>Contraseña</span>
-                <input type="password" class="styled-input" placeholder="Tu contraseña" value=${form.password} onChange=${e => setForm({ ...form, password: e.target.value })} required />
-              </label>
-
-              <button type="submit" class="tool-add-btn login-submit" disabled=${busy || isLocked || !form.email || !form.password}>
-                ${busy ? 'Procesando…' : isLocked ? 'Acceso bloqueado (15 min)' : 'Entrar'}
-              </button>
-
-              ${isLocked ? html`
-                <div class="login-msg login-msg--danger">
-                  <span>${err || 'Demasiados intentos fallidos. Acceso bloqueado por 15 min.'}</span>
-                </div>
-              ` : sugerirGoogle ? html`
-                <div class="login-msg login-msg--info">
-                  <span>Esta cuenta usa Google. Pulsa el botón de abajo para entrar.</span>
-                </div>
-              ` : err ? html`
-                <div class="login-msg login-msg--warn"><span>${err}</span></div>
-              ` : null}
-
-              <p class="login-footer-note">¿No tienes cuenta? <button type="button" class="login-msg-link" onClick=${() => cambiarModo('register')}>Créala con Google</button></p>
-            </form>
-          ` : html`
-            ${err && html`<div class="login-msg login-msg--warn" style=${{ margin: '8px 0' }}><span>${err}</span></div>`}
-          `}
-
-          ${mode === 'login' && html`<div class="login-divider"><span>o</span></div>`}
-
-          <a href=${'/api/auth/google?mode=' + mode} class=${'login-google' + (sugerirGoogle ? ' login-google--sugerido' : '')} role="button" tabindex="0">
+          <a href="/api/auth/google" class="login-google" role="button" tabindex="0">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
-            ${mode === 'register' ? 'Registrarse con Google' : 'Iniciar sesión con Google'}
+            Continuar con Google
           </a>
-
-          ${mode === 'register' && html`<p class="login-footer-note">¿Ya tienes tu cuenta? <button type="button" class="login-msg-link" onClick=${() => cambiarModo('login')}>Inicia sesión</button></p>`}
 
           <button type="button" class="login-secondary" onClick=${importLocal} disabled=${busy}>
             <${Icon} name="Upload" size=${16} /> Importar mis datos del navegador
           </button>
+
+          ${msg && html`<div class="login-msg login-msg--warn"><span>${msg}</span></div>`}
 
           <p class="login-footer-note">
             Los datos de tu cuenta (inventario, clientes, órdenes, notas, caja) se guardan en la nube cifrada y se pueden exportar como respaldo cuando quieras.
@@ -1781,10 +1672,6 @@ function App() {
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [showLogin, setShowLogin] = useState(false);   // login bajo demanda, no como peaje de entrada
-  const [loginInitialEmail, setLoginInitialEmail] = useState('');
-  const [loginInitialMode, setLoginInitialMode] = useState('login');
-  const [loginSugerirGoogle, setLoginSugerirGoogle] = useState(false);
-  const [pendingApp, setPendingApp] = useState(null);  // app protegida pendiente tras iniciar sesion
   const [verifyMsg, setVerifyMsg] = useState('');      // acuse al volver del enlace de confirmación
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'same-origin' })
@@ -1919,17 +1806,21 @@ function App() {
     return () => clearTimeout(t);
   }, []);
 
-  /* Vuelta del flujo "Continuar con Google": /?login=google_ok|google_error|
-     google_suspended|google_locked. google_ok ya deja la cookie de sesión
-     puesta — refrescar /api/auth/me es lo que hace que la cuenta "aparezca" en
-     la app. Sin este efecto el redirect del servidor caía en saco roto y el
-     alta no se reflejaba. Los motivos de rechazo vienen del callback, que ahora
-     aplica las mismas reglas de estado que el login con contraseña. */
+  /* Vuelta del flujo "Continuar con Google": /?login=google_ok|google_registered|
+     google_error|google_suspended|google_locked|google_email_unverified|
+     google_unconfigured. google_ok y google_registered ya dejan la cookie de
+     sesión puesta — refrescar /api/auth/me es lo que hace que la cuenta
+     "aparezca" en la app. Sin este efecto el redirect del servidor caía en saco
+     roto y el alta no se reflejaba. El callback es UNA SOLA PUERTA (busca la
+     cuenta por el correo verificado y, si no existe, la crea), así que ya no
+     emite google_not_registered ni google_already_registered. */
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const p = urlParams.get('login');
-    const emailParam = urlParams.get('email') || '';
-    if (!p || !p.startsWith('google_')) return;
+    /* `login_google_only` no sale de este callback —lo responde la API cuando en
+       producción alguien intenta entrar con correo y contraseña—, pero si un
+       redirect lo trajera, su aviso tiene que estar. */
+    if (!p || (!p.startsWith('google_') && p !== 'login_google_only')) return;
     if (p === 'google_ok' || p === 'google_registered') {
       refreshUser();
       setShowLogin(false);
@@ -1939,23 +1830,18 @@ function App() {
       setUser(null);
       fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
       const textos = {
-        google_error: 'No se pudo iniciar con Google. Prueba de nuevo o usa correo y contraseña.',
+        google_error: 'No se pudo entrar con Google. Prueba de nuevo.',
         google_suspended: 'Tu cuenta está suspendida. Contacta a soporte para reactivarla.',
         google_locked: 'Tu cuenta está bloqueada temporalmente por intentos fallidos. Intenta más tarde.',
-        google_unconfigured: 'El acceso con Google no está configurado en este servidor. Si ya tienes cuenta, entra con correo y contraseña.',
+        google_unconfigured: 'El acceso con Google no está configurado en este servidor. Avisa a soporte.',
         google_email_unverified: 'Google no pudo confirmar que ese correo sea tuyo, así que no se creó la cuenta. Prueba con otra cuenta de Google.',
-        google_already_registered: 'Esta cuenta ya está registrada con Google. Inicia sesión usando el botón Iniciar sesión con Google.',
-        google_not_registered: 'No existe una cuenta con ese correo de Google. Pulsa Crear cuenta para darla de alta con Google.',
+        login_google_only: 'El acceso al taller es con Google. Pulsa «Continuar con Google».',
       };
       setVerifyMsg(textos[p] || textos.google_error);
-      if (emailParam) setLoginInitialEmail(emailParam);
-      setLoginInitialMode(p === 'google_not_registered' ? 'register' : 'login');
-      setLoginSugerirGoogle(p === 'google_already_registered');
       setShowLogin(true);
     }
     const url = new URL(location.href);
     url.searchParams.delete('login');
-    url.searchParams.delete('email');
     history.replaceState(null, '', url);
   }, []);
   const garage = useGarage();
@@ -2147,7 +2033,9 @@ function App() {
     const protectedIds = ['orders', 'inventory', 'clients', 'notes', 'cash', 'documents', 'pressure', 'profile'];
     // Las apps de negocio sí exigen cuenta: en vez de tragarse el clic (el candado
     // del Home explicaba el porqué pero el botón no hacía nada), lleva al login.
-    if (protectedIds.includes(id) && !user) { setPendingApp(id); setShowLogin(true); return; }
+    // No se recuerda cuál era: el acceso es con Google y el callback devuelve la
+    // página entera, así que al volver no hay estado que retomar.
+    if (protectedIds.includes(id) && !user) { setShowLogin(true); return; }
     if (apps[id] && FT[apps[id]]) {
       if (!opciones.silencioso) rutaEscribir({ app: id });
       setMicroApp(apps[id]); setViewState('home');
@@ -2206,20 +2094,13 @@ function App() {
          para el anónimo (candados en las apps de taller, "$0 sin cuenta", specs
          públicas) y exigir sesión para verlo escondía el producto — incluido el
          <h1> del hero, que es lo que indexan los buscadores. */
-      if (showLogin) return html`<${LoginScreen} onLogin=${(u) => {
-        if (u) setUser(u);
-        setShowLogin(false);
-        setVerifyMsg('');
-        refreshUser();
-        if (pendingApp) {
-          const target = pendingApp;
-          setPendingApp(null);
-          openMicro(target);
-        }
-      }} onBack=${() => { setShowLogin(false); setPendingApp(null); }} notice=${verifyMsg} initialEmail=${loginInitialEmail} initialMode=${loginInitialMode} initialSugerirGoogle=${loginSugerirGoogle} />`;
+      /* El acceso es SOLO con Google y sale del navegador: el callback devuelve
+         la página entera con la cookie puesta, así que aquí no hay ningún
+         «después de entrar» que atender — esta pantalla solo vuelve al inicio. */
+      if (showLogin) return html`<${LoginScreen} onBack=${() => setShowLogin(false)} notice=${verifyMsg} />`;
       return html`
         ${verifyMsg && html`<div class="toast-stack"><div class="toast" role="status">${verifyMsg}</div></div>`}
-        <${FT.Home} onOpen=${openMicro} user=${user} onLogout=${logout} onLogin=${() => { setLoginInitialEmail(''); setLoginInitialMode('login'); setLoginSugerirGoogle(false); setShowLogin(true); }} onUserChange=${refreshUser} />`;
+        <${FT.Home} onOpen=${openMicro} user=${user} onLogout=${logout} onLogin=${() => setShowLogin(true)} onUserChange=${refreshUser} />`;
     }
   }
 

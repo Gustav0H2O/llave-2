@@ -139,6 +139,19 @@ function montarAuth(app, deps) {
 
   // Login
   app.post('/api/auth/login', authLimiter, async (req, res) => {
+    /* El ACCESO también es solo con Google, por la misma razón que el alta: el
+       correo del taller es el que Google ya verificó, así que no hay contraseña
+       que guardar, ni que filtrar, ni que olvidar (y no hay recuperación de
+       contraseña, así que una clave olvidada era un taller perdido).
+       En producción la ruta queda cerrada; en desarrollo y pruebas sigue abierta
+       para poder trabajar sin credenciales de Google. Cubierto por
+       test/qa/registro-google.test.js. */
+    if (PROD) {
+      return res.status(403).json({
+        code: 'login_google_only',
+        error: 'El acceso al taller es con Google. Pulsa «Continuar con Google».',
+      });
+    }
     if (typeof req.body?.email !== 'string' || typeof req.body?.password !== 'string') {
       return res.status(400).json({ code: 'bad_credentials', error: 'Correo o contraseña requeridos' });
     }
@@ -431,10 +444,7 @@ function montarAuth(app, deps) {
     // cookie-parser NO está montado: se leen con el helper único (4.6). La
     // cookie del state se guardó con res.cookie() en /api/auth/google.
     const savedState = leerCookie(req, 'google_oauth_state');
-    const cookieMode = leerCookie(req, 'google_oauth_mode');
     const parts = (state || '').split('_');
-    const stateMode = parts.length >= 2 ? parts[1] : null;
-    const oauthMode = stateMode === 'register' ? 'register' : (cookieMode === 'register' ? 'register' : 'login');
     let isStateValid = false;
     if (typeof state === 'string' && savedState && state === savedState && parts.length === 3 && GOOGLE_CLIENT_SECRET) {
       const expectedSig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${parts[0]}_${parts[1]}`).digest('hex');
@@ -502,23 +512,16 @@ function montarAuth(app, deps) {
       // Buscar si ya existe la cuenta
       let ws = await db.get('SELECT * FROM workshops WHERE email = ?', email);
 
-      /* Una cuenta con contraseña del MISMO correo puede entrar también con
-         Google: Google ya verificó que el correo es suyo (comprobación de
-         arriba), así que no hay suplantación posible y nadie se queda fuera por
-         haber nacido con contraseña. Se CONSERVA su contraseña: los dos caminos
-         siguen vivos (login mixto). Antes esto se bloqueaba. */
+      /* UNA SOLA PUERTA. Da igual si el usuario venía a registrarse o a entrar:
+         con Google como único acceso, separar "alta" de "login" solo servía para
+         dejar callejones sin salida («esa cuenta ya existe», «ese correo no está
+         registrado») que obligaban a pulsar un segundo botón. Aquí se busca y,
+         si no está, se crea.
 
-      // Si el usuario intentó registrarse pero ya tenía cuenta de Google existente
-      if (ws && oauthMode === 'register') {
-        if (!PROD) console.warn('[Google OAuth] Intento de registrar cuenta existente de Google');
-        return res.redirect(`/?login=google_already_registered&email=${encodeURIComponent(email)}`);
-      }
-
-      // Si el usuario intentó iniciar sesión pero la cuenta no existe todavía
-      if (!ws && oauthMode === 'login') {
-        if (!PROD) console.warn('[Google OAuth] Intento de iniciar sesión con cuenta no registrada');
-        return res.redirect(`/?login=google_not_registered&email=${encodeURIComponent(email)}`);
-      }
+         Una cuenta con contraseña del mismo correo también entra: Google ya
+         verificó que el correo es suyo (comprobación de arriba), así que no hay
+         suplantación posible, y se le CONSERVA la contraseña por si algún día se
+         reabre ese camino. */
 
       let esCuentaNueva = false;
       if (!ws) {

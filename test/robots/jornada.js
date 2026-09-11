@@ -5,11 +5,12 @@
    Hace lo que hace un taller de verdad el primer día, pero N veces y sin
    saltarse nada:
 
-     1. Da de alta la cuenta POR HTTP (el alta va SOLO con Google, así que el
-        formulario de registro ya no existe) para tener credenciales conocidas
-        y, en el navegador, entra por el LOGIN mixto tecleando correo y
-        contraseña en la pantalla de acceso real. Así se comprueba también que
-        la sesión sobrevive a la recarga.
+     1. Da de alta la cuenta POR HTTP y consigue su cookie de sesión. El acceso
+        es SOLO con Google y es UNA SOLA PUERTA (el callback busca la cuenta por
+        el correo verificado y la crea si no existe), así que la pantalla de
+        acceso ya no tiene formulario: la cookie `ftm_session` se inyecta en el
+        navegador antes de cargar la página, que es el estado exacto en el que la
+        deja el callback. Así se comprueba que la sesión sobrevive a la recarga.
      2. Abre LAS 38 micro apps, una por una, y comprueba que cada una pinta su
         contenido en vez de quedarse en blanco o reventar.
      3. En las que guardan, escribe de verdad y verifica que el dato quedó.
@@ -99,6 +100,25 @@ const APPS = {
 const EXIGEN_CUENTA = ['Órdenes de Trabajo', 'Inventario / Stock', 'Clientes',
   'Notas de Entrega / Presupuestos', 'Notas del Mecánico', 'Cierre de Caja',
   'Mi Taller', 'Registro de Presión'];
+
+/* La clave del alta y del acceso por HTTP. Es la misma que usan los otros
+   robots: en el entorno de pruebas las dos rutas siguen abiertas (en producción
+   responden 403 register_google_only / login_google_only). */
+const CLAVE = 'clave-larga-123';
+
+/* Valor de la cookie `ftm_session` de una respuesta, o '' si no viene.
+   `getSetCookie()` es la forma sin ambigüedad —varias Set-Cookie llegan
+   separadas— y el respaldo cubre entornos donde no exista. */
+function cookieDeSesion(res) {
+  const cabeceras = typeof res.headers.getSetCookie === 'function'
+    ? res.headers.getSetCookie()
+    : [res.headers.get('set-cookie') || ''];
+  for (const c of cabeceras) {
+    const m = /^ftm_session=([^;]*)/.exec(c || '');
+    if (m) return m[1];
+  }
+  return '';
+}
 
 async function abrirCategoria(pag, cat) {
   return pag.evaluate((c) => {
@@ -226,59 +246,61 @@ async function main() {
     }
 
     /* ----------------------------------------------------------------
-       Fase B: alta por HTTP + login mixto tecleado en el navegador
+       Fase B: alta por HTTP + sesión inyectada en el navegador
        ----------------------------------------------------------------
-       El alta de taller ya NO se teclea: se hace SOLO con Google, así que el
-       formulario de registro desapareció. Para tener credenciales conocidas la
-       cuenta se crea por HTTP con /api/auth/register (en el entorno de pruebas
-       sigue abierta; en producción responde 403 register_google_only), y en el
-       navegador se comprueba el LOGIN mixto real: correo+contraseña tecleados
-       en la pantalla de acceso, sesión abierta, barra con el nombre del taller
-       y supervivencia a recargar. */
-    rep.seccion(`B. ${o.talleres} talleres: alta por HTTP + login tecleado en el navegador`);
+       La pantalla de acceso es SOLO Google y es UNA SOLA PUERTA (el callback
+       busca la cuenta por el correo verificado y, si no existe, la crea), así
+       que ya no hay ningún formulario que teclear. La cuenta se crea y se entra
+       por HTTP —/api/auth/register y /api/auth/login siguen abiertos en el
+       entorno de pruebas; en producción responden 403 register_google_only y
+       login_google_only— y la cookie `ftm_session` que devuelve el acceso se
+       inyecta en el navegador antes de cargar la página: es exactamente el
+       estado en el que deja la sesión el callback de Google. Con eso se conserva
+       lo que aportaba el tecleo: barra con el nombre del taller, supervivencia a
+       recargar y UNA sola fila en la base. */
+    rep.seccion(`B. ${o.talleres} talleres: alta por HTTP + sesión por cookie en el navegador`);
     const cuentas = [];
     for (let i = 0; i < o.talleres; i++) {
       const correo = `jornada${i}@prueba.test`;
       const nombre = `Taller Jornada ${i}`;
 
-      const alta = await ctx.cliente().post('/api/auth/register', { email: correo, password: 'clave-larga-123', name: nombre });
-      rep.comprobar(alta.status === 201, `${i}: la cuenta se crea por HTTP`, `respondió ${alta.status} ${JSON.stringify(alta.body).slice(0, 90)}`);
+      const alta = await fetch(ctx.base + '/api/auth/register', {
+        method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: correo, password: CLAVE, name: nombre }),
+      });
+      rep.comprobar(alta.status === 201, `${i}: la cuenta se crea por HTTP`, `respondió ${alta.status}`);
+
+      /* El acceso es quien entrega la cookie de sesión que el navegador
+         necesitaba antes del formulario. */
+      const acceso = await fetch(ctx.base + '/api/auth/login', {
+        method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: correo, password: CLAVE }),
+      });
+      const cookie = cookieDeSesion(acceso);
+      rep.comprobar(acceso.status === 200 && !!cookie, `${i}: el acceso por HTTP entrega la cookie de sesión`,
+        `respondió ${acceso.status}${cookie ? '' : ' y sin cookie ftm_session'}`);
 
       /* Contexto propio por cuenta: las pestañas de un mismo navegador
-         COMPARTEN el tarro de cookies, así que la segunda cuenta se encontraba
-         ya con la sesión de la primera abierta y no veía el botón de entrar.
-         Es el equivalente a una ventana de incógnito por taller. */
+         COMPARTEN el tarro de cookies, así que la segunda cuenta se encontraría
+         ya con la sesión de la primera abierta. Es el equivalente a una ventana
+         de incógnito por taller. */
       const contexto = await navegador.createBrowserContext();
       const pag = await contexto.newPage();
       const errores = [];
       pag.on('pageerror', e => errores.push(`JS: ${e.message}`));
       await pag.setViewport({ width: o.ancho, height: 900 });
+      /* La cookie va ANTES del goto: así la primera pintura ya llega con sesión
+         puesta, que es lo que hace el redirect del callback. */
+      await pag.setCookie({ name: 'ftm_session', value: cookie, url: ctx.base });
       await pag.goto(ctx.base + '/', { waitUntil: 'networkidle2' });
       await esperar(1100);
 
-      rep.comprobar(await pag.evaluate(() => {
-        const b = document.querySelector('.home-nav-login'); if (b) { b.click(); return true; } return false;
-      }), `${i}: el botón «Iniciar sesión» está en la barra`);
-      await esperar(600);
-
-      /* Se teclea en la pestaña «Iniciar sesión», la que abre por defecto: el
-         login con correo+contraseña se mantiene para las cuentas que ya lo
-         tienen (login mixto). */
-      const campos = await pag.$$('.login-screen .login-form .styled-input');
-      rep.comprobar(campos.length === 2, `${i}: el login pide correo y contraseña`, `hay ${campos.length} campos`);
-      if (campos.length >= 2) {
-        await campos[0].type(correo);
-        await campos[1].type('clave-larga-123');
-      }
-      await pag.evaluate(() => document.querySelector('.login-screen .login-form button[type=submit]')?.click());
-      await esperar(1200);
-
       const sesion = await pag.evaluate(() => ({
         enBarra: (document.querySelector('.home-nav-who-name')?.textContent || '').trim(),
-        sigueEnLogin: !!document.querySelector('.login-screen'),
-        error: (document.querySelector('.login-screen .login-msg')?.textContent || '').trim(),
+        pideCuenta: !!document.querySelector('.login-screen'),
       }));
-      rep.comprobar(!sesion.sigueEnLogin, `${i}: tras enviar el login la sesión queda abierta`, `sigue el formulario de acceso — error «${sesion.error}»`);
+      rep.comprobar(!sesion.pideCuenta, `${i}: con la cookie puesta NO se abre la pantalla de acceso`,
+        'la pantalla de acceso apareció con la sesión ya iniciada');
       rep.comprobar(sesion.enBarra.includes(nombre), `${i}: la barra muestra el nombre del taller`, `muestra «${sesion.enBarra}»`);
 
       /* La sesión va en cookie: tiene que sobrevivir a recargar. */
@@ -289,35 +311,36 @@ async function main() {
 
       const enBase = ctx.db.prepare('SELECT COUNT(*) n FROM workshops WHERE email = ?').get(correo).n;
       rep.comprobar(enBase === 1, `${i}: el taller quedó grabado una sola vez`, `${enBase} filas`);
-      rep.comprobar([...new Set(errores)].length === 0, `${i}: el login no lanza excepciones de JS`, [...new Set(errores)].slice(0, 2).join(' | '));
+      rep.comprobar([...new Set(errores)].length === 0, `${i}: la sesión por cookie no lanza excepciones de JS`, [...new Set(errores)].slice(0, 2).join(' | '));
 
       cuentas.push({ pag, contexto, correo, nombre, i });
     }
 
-    /* La pestaña «Crear cuenta» ya no teclea nada: el alta es SOLO con Google,
-       así que no debe tener campo de contraseña y sí ofrecer el botón de
-       Google con mode=register. */
-    rep.seccion('B2. La pestaña «Crear cuenta» es solo con Google');
+    /* La pantalla de acceso es SOLO Google —la misma puerta para entrar y para
+       darse de alta—, así que no debe tener NINGÚN campo de texto (ni correo ni
+       contraseña) y sí el botón que lleva al callback. */
+    rep.seccion('B2. La pantalla de acceso es solo con Google, sin campos');
     {
       const pag = await navegador.newPage();
       await pag.setViewport({ width: o.ancho, height: 900 });
       await pag.goto(ctx.base + '/', { waitUntil: 'networkidle2' });
       await esperar(1100);
-      await pag.evaluate(() => document.querySelector('.home-nav-login')?.click());
-      await esperar(500);
       rep.comprobar(await pag.evaluate(() => {
-        const b = [...document.querySelectorAll('.login-tab')].find(x => /crear cuenta/i.test(x.textContent));
-        if (b) { b.click(); return true; } return false;
-      }), 'se puede cambiar a la pestaña «Crear cuenta»');
-      await esperar(400);
+        const b = document.querySelector('.home-nav-login'); if (b) { b.click(); return true; } return false;
+      }), 'el botón «Iniciar sesión» de la barra abre la pantalla de acceso');
+      await esperar(600);
       const estado = await pag.evaluate(() => ({
         panel: !!document.querySelector('.login-screen'),
+        campos: document.querySelectorAll('.login-screen input, .login-screen textarea').length,
         contrasenas: document.querySelectorAll('.login-screen input[type=password]').length,
-        google: !!document.querySelector('.login-google[href*="mode=register"]'),
+        correos: document.querySelectorAll('.login-screen input[type=email]').length,
+        google: !!document.querySelector('.login-google[href="/api/auth/google"]'),
       }));
-      rep.comprobar(estado.panel, 'la pestaña «Crear cuenta» abre la pantalla de acceso', 'no se montó la pantalla');
-      rep.comprobar(estado.contrasenas === 0, 'la pestaña «Crear cuenta» NO pide contraseña', `hay ${estado.contrasenas} campos de contraseña`);
-      rep.comprobar(estado.google, 'la pestaña «Crear cuenta» ofrece el botón de Google', 'no hay enlace /api/auth/google?mode=register');
+      rep.comprobar(estado.panel, 'la pantalla de acceso se monta', 'no se montó la pantalla');
+      rep.comprobar(estado.contrasenas === 0, 'la pantalla de acceso NO pide contraseña', `hay ${estado.contrasenas} campos de contraseña`);
+      rep.comprobar(estado.correos === 0, 'la pantalla de acceso NO pide correo', `hay ${estado.correos} campos de correo`);
+      rep.comprobar(estado.campos === 0, 'la pantalla de acceso no tiene ningún campo de texto', `hay ${estado.campos} campos`);
+      rep.comprobar(estado.google, 'la pantalla de acceso ofrece el botón de Google', 'no hay enlace a /api/auth/google');
       await pag.close();
     }
 

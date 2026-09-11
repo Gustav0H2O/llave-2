@@ -152,11 +152,25 @@ describe('Google OAuth — alta, login mixto y correo verificado', () => {
     assert.equal(r.sesion, null);
   });
 
-  it('en modo login, un correo sin cuenta no entra (y no la crea sola)', async () => {
-    perfilGoogle = { email: 'desconocida@prueba.test', verified_email: true };
+  it('es una sola puerta: si la cuenta no existe, se crea (sirve para entrar y para registrarse)', async () => {
+    perfilGoogle = { email: 'llega-nueva@prueba.test', verified_email: true, name: 'Llega Nueva' };
     const r = await flujo('login');
-    assert.match(r.destino, /login=google_not_registered/);
-    assert.equal(taller('desconocida@prueba.test'), undefined);
+    assert.match(r.destino, /login=google_registered/, `debe darla de alta, no rebotar: ${r.destino}`);
+    assert.ok(r.sesion, 'la sesión tiene que emitirse');
+    const ws = taller('llega-nueva@prueba.test');
+    assert.ok(ws, 'la cuenta debe existir');
+    assert.equal(ws.pass_hash, 'google_oauth');
+  });
+
+  it('y si ya existe, entra aunque el botón pidiera «crear cuenta»', async () => {
+    /* Sin esto volverían los callejones sin salida («esa cuenta ya está
+       registrada») que obligaban a pulsar un segundo botón. */
+    ctx.db.prepare('INSERT INTO workshops (email, pass_hash, name, status) VALUES (?, ?, ?, ?)')
+      .run('ya-existe@prueba.test', 'google_oauth', 'Ya Existe', 'active');
+    perfilGoogle = { email: 'ya-existe@prueba.test', verified_email: true };
+    const r = await flujo('register');
+    assert.match(r.destino, /login=google_ok/, `debe entrar, no rebotar: ${r.destino}`);
+    assert.ok(r.sesion, 'la sesión tiene que emitirse');
   });
 
   it('sin state válido no hay sesión (CSRF del callback)', async () => {

@@ -67,7 +67,7 @@ mano. Por eso viven en `test/robots/` y **no** entran en `verify`.
 | `fuzz` | ~2.900 cargas hostiles: nunca un 500, nunca una petición colgada, nunca tripas del servidor |
 | `carga` | escalado con 800 filas, listados sin tope, concurrencia, escritura sostenida |
 | `recorrido` | **todas** las páginas del `sitemap.xml`: estado, título, canónica, JSON-LD, enlaces rotos, 404 propios, cabeceras, y si el HTML servido sobrevive al arranque de React |
-| `jornada` | alta tecleada en el formulario real + las 38 herramientas abiertas con y sin sesión, escritura verificada contra la base |
+| `jornada` | alta por HTTP + sesión por cookie en el navegador + las 38 herramientas abiertas con y sin sesión, escritura verificada contra la base |
 | `interfaz` | navegador real: contraste compuesto, desbordes, scroll anidado, objetivos táctiles, en 2 temas × 3 anchos |
 
 `quality/ROBOTS.md` es el informe generado. **No se edita a mano**, igual que
@@ -277,24 +277,29 @@ entero. No muevas el contador de visitas ahí.
 
 `gemini-3.5-flash` **no es un id real** y hacía que el chat respondiera 502.
 
-### 4.11 El alta de talleres es solo con Google
+### 4.11 El taller entra y se da de alta SOLO con Google
 
-`POST /api/auth/register` responde **403** cuando `NODE_ENV=production`: la cuenta
-se crea con Google, cuyo correo viene verificado (`verified_email`), así que el
-alta **no depende de Resend**. En desarrollo y pruebas la ruta sigue abierta para
-poder trabajar sin credenciales de Google; esa diferencia la cubre
+`POST /api/auth/register` y `POST /api/auth/login` responden **403** cuando
+`NODE_ENV=production` (`register_google_only` / `login_google_only`). El correo
+del taller es el que Google ya verificó (`verified_email`), así que no hace falta
+Resend, ni una contraseña que guardar y —esto era lo grave— **tampoco una que
+recuperar: no existe flujo de recuperación**, así que una clave olvidada era un
+taller perdido. En desarrollo y pruebas las dos rutas siguen abiertas para poder
+trabajar sin credenciales de Google; esa diferencia la cubre
 `test/qa/registro-google.test.js`.
 
-El **login con contraseña sigue vivo** para las cuentas que ya la tienen, y una
-cuenta con contraseña del mismo correo también entra con Google (se conserva su
-contraseña: login mixto). El callback **exige que Google confirme el correo**
-antes de dar por verificado o reclamar una cuenta: sin esa comprobación, un
-correo sin verificar podría tomar una cuenta ajena. Todo el camino está cubierto
-en `test/qa/oauth-google.test.js` contra un doble local de Google
+El callback es **una sola puerta**: busca la cuenta por el correo y, si no está,
+la crea. No separa «alta» de «acceso», así que no hay callejones sin salida
+(«esa cuenta ya existe», «ese correo no está registrado»). Una cuenta con
+contraseña del mismo correo entra igual (se le conserva la contraseña por si
+algún día se reabre ese camino). El callback **exige que Google confirme el
+correo** antes de dar por verificado o reclamar una cuenta: sin esa comprobación,
+un correo sin verificar podría tomar una cuenta ajena. Todo el camino está
+cubierto en `test/qa/oauth-google.test.js` contra un doble local de Google
 (`GOOGLE_TOKEN_URL` / `GOOGLE_USERINFO_URL`, solo para pruebas).
 
 Si faltan `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` en producción, **nadie puede
-crearse una cuenta**. No es un detalle de configuración: es la puerta.
+entrar ni registrarse**. No es un detalle de configuración: es la única puerta.
 
 ---
 
