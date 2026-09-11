@@ -69,10 +69,16 @@ class StoreBD {
 
   /* express-rate-limit llama a init() al construir el middleware, ANTES de la
      primera petición. La asignación de windowMs va antes del primer await para
-     que quede fijada de forma síncrona (el contrato no espera la promesa). */
+     que quede fijada de forma síncrona (el contrato no espera la promesa).
+
+     AQUÍ NO SE PURGA. Antes se limpiaban las filas caducadas en init(), lo que
+     son trece consultas a la base en CADA arranque del servidor (una por
+     limitador) — y una instancia que arranca en frío paga eso antes de atender a
+     nadie. La limpieza no hace falta para ser correcto: una fila caducada se
+     reinicia sola en el siguiente incremento; la purga periódica (cada
+     CADA_PURGA incrementos) es suficiente para que la tabla no crezca. */
   async init(options) {
     if (options && Number.isFinite(options.windowMs)) this.windowMs = options.windowMs;
-    await this._purgar();
   }
 
   /* Clave real en la tabla: espacio de nombres + clave del limitador. */
