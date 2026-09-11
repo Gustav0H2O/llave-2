@@ -36,6 +36,9 @@ const PASOS = [
       'test/unit/pure.test.js', 'test/unit/domain.test.js', 'test/unit/catalog.test.js', 'test/unit/db-adapter.test.js',
       /* 4.2/4.4: los módulos nuevos de src/ entran en la puerta de `verify`. */
       'test/unit/config.test.js', 'test/unit/chat.test.js',
+      /* La herramienta que impone el autor único (AGENTS.md §8b): su detección
+         tiene que tener red, o la regla depende de que nadie la rompa. */
+      'test/unit/git-identidad.test.js',
       'test/qa/invariants.test.js', 'test/qa/security.test.js', 'test/qa/data-quality.test.js',
       'test/qa/contract.test.js', 'test/qa/business-flows.test.js', 'test/qa/admin.test.js', 'test/qa/perf.test.js',
       /* 3.1/AR-F0: el snapshot de contrato congela la superficie de la API para

@@ -56,9 +56,30 @@ Lo que no se permite es que se cuele por descuido: por defecto, se rechaza.
 `git commit --no-verify` / `git push --no-verify`. Úsalo solo si sabes lo que
 haces: el siguiente `push` normal volverá a auditar el historial.
 
-## Nota sobre Dependabot
+## Dependabot y los commits de bots
 
-`.github/dependabot.yml` abre PRs cuyo **autor es `dependabot[bot]`**. Si se
-fusiónan tal cual, el historial queda con un autor que no es el dueño (y el step
-«Autor único» de CI lo detectará). Opciones: fusionar los cambios a mano con tu
-propia identidad, o desactivar Dependabot si no lo quieres en el repo.
+`.github/dependabot.yml` está activo: abre PRs con las actualizaciones de
+dependencias y sus ramas y commits son de `dependabot[bot]`. Eso NO afecta a los
+contribuidores mientras no se fusione, pero **un merge normal metería al bot en
+el historial** (y en la lista de contribuidores de GitHub).
+
+La decisión es mantenerlo y **fusionar siempre en squash**, porque el commit que
+resulta queda a nombre de quien fusiona. Y no se deja a la memoria: el repositorio
+está configurado para que sea la ÚNICA forma de fusionar.
+
+```bash
+gh api -X PATCH repos/Gustav0H2O/llave-2 \
+  -F allow_squash_merge=true -F allow_merge_commit=false -F allow_rebase_merge=false
+```
+
+El canario de CI (`npm run git:auditar`) lo respalda: si un bot acabara como
+AUTOR de un commit en `master`, el paso «Autor único» se pone en rojo.
+
+## Middleware de plataforma: por qué no todo lo que no eres tú es un intruso
+
+Al fusionar desde la web, GitHub pone su propia firma como **committer**
+(`noreply@github.com`). Eso no crea un contribuidor — GitHub cuenta a los
+**autores** —, así que `git-identidad.js` la perdona **solo en el papel de
+committer**. Si esa misma firma apareciera como *autora*, sí se señala: sería un
+bot escribiendo el código.
+

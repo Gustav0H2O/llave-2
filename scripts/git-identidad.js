@@ -39,6 +39,18 @@ const OWNER = Object.freeze({ nombre: 'GustavoH20', email: 'newpersonal98@gmail.
 /* Trailers que meten una segunda identidad en el commit. */
 const TRAILER_AJENO = /^[ \t]*(co-authored-by|co-author|generated-by|assisted-by)[ \t]*:[ \t]*(.+)$/i;
 
+/* Firmas que pone la PROPIA plataforma al actuar desde la web (fusionar en
+   squash, editar un archivo, un commit de la interfaz). No son un contribuidor:
+   GitHub cuenta a los AUTORES. Tratarlas como ajenas rompería el canario de CI
+   para siempre por algo que no ensucia la autoría. Solo se perdonan en el papel
+   de COMMITTER: si alguna de estas aparece como autora de un commit, es que un
+   bot escribió el código, y eso sí hay que verlo. */
+const FIRMAS_DE_PLATAFORMA = new Set([
+  'noreply@github.com',
+  'actions@github.com',
+  'github-actions[bot]@users.noreply.github.com',
+]);
+
 const git = (args, opts = {}) => execFileSync('git', args, {
   cwd: RAIZ, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024, ...opts,
 });
@@ -84,6 +96,7 @@ function firmasAjenas(historial = leerHistorial()) {
   const mapa = new Map();
   const anota = (email, tipo, hash) => {
     if (!esAjeno(email)) return;
+    if (tipo === 'committer' && FIRMAS_DE_PLATAFORMA.has(email)) return;
     const clave = `${email}|${tipo}`;
     const previo = mapa.get(clave) || { email, tipo, cuantos: 0, ejemplo: null };
     previo.cuantos++;
