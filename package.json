@@ -28,7 +28,10 @@
     "guard:rapido": "node scripts/guard.js --fast",
     "metrics": "node scripts/metrics.js",
     "metrics:aceptar": "node scripts/metrics.js --accept",
-    "verify": "node scripts/qa.js"
+    "verify": "node scripts/qa.js",
+    "prepare": "node scripts/git-identidad.js instalar",
+    "git:auditar": "node scripts/git-identidad.js auditar",
+    "git:limpiar": "node scripts/git-identidad.js limpiar"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

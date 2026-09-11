@@ -375,6 +375,35 @@ conocimiento del negocio para resolverse:
 - ❌ Inventar datos técnicos. Si no lo verificaste, va con `verified = 0`.
 - ❌ Sembrar o migrar contra Turso sin que el dueño lo pida explícitamente.
 - ❌ Dar por terminado un cambio con `npm run verify` en rojo.
+- ❌ **Firmar un commit con otra identidad o añadir `Co-authored-by:`.** El repo
+  tiene UN solo autor (ver §8b). Un asistente, una IA o un arnés que firme como
+  co-autor aparece como contribuidor en GitHub y ensucia la autoría del
+  proyecto; quitarlo obliga a reescribir el historial y forzar el push.
+
+---
+
+## 8b. Automatización de git (un solo autor)
+
+El repositorio tiene **un único contribuidor**. Es una restricción, no una
+costumbre: los hooks de `.githooks/` la imponen y CI la vigila.
+
+| Hook | Qué impone |
+| --- | --- |
+| `pre-commit` | Restricciones del proyecto + la suite de pruebas. |
+| `commit-msg` | El autor del commit tiene que ser el dueño; quita los trailers `Co-authored-by:` ajenos. |
+| `pre-push` | Si el historial tiene firmas ajenas, **no publica**. |
+
+Se activan solos al correr `npm install` (`prepare` →
+`node scripts/git-identidad.js instalar`). La **única fuente de verdad** de quién
+puede firmar es `scripts/git-identidad.js`; los hooks no la repiten.
+
+```bash
+npm run git:auditar            # revisa el historial y avisa de firmas ajenas
+npm run git:limpiar -- --si    # reescribe el historial dejando solo al dueño
+```
+
+Tras `git:limpiar` hace falta `git push --force --all && git push --force --tags`.
+Co-autorar a propósito con una persona es legítimo: `PERMITIR_COAUTOR=1 git commit …`.
 
 ---
 

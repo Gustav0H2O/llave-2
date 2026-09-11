@@ -33,10 +33,20 @@ jobs:
       - name: Instalar dependencias limpias
         run: npm ci
 
-      - name: 1. Restricciones del proyecto (19 reglas)
+      - name: 0. Autor único en git (ninguna IA ni tercero como contribuidor)
+        # Canario sobre el historial publicado: si alguna vez entra un commit
+        # firmado por otro (un asistente, Dependabot fusionado tal cual, otra
+        # máquina), esto lo dice. Los hooks .githooks/ ya lo impiden al commitear
+        # y al empujar; aquí se comprueba además lo que YA está en el remoto.
+        # Solo en push/dispatch: en un PR, el merge commit de GitHub y los commits
+        # del propio bot darían un falso positivo antes de fusionar.
+        if: github.event_name != 'pull_request'
+        run: npm run git:auditar
+
+      - name: 1. Restricciones del proyecto (20 reglas)
         run: npm run guard
 
-      - name: 2. Suite de pruebas completa (508+ pruebas)
+      - name: 2. Suite de pruebas completa (777 pruebas)
         run: npm test
 
       - name: 3. Robots de prueba masiva rápida y persistencia

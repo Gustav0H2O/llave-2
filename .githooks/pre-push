@@ -1,0 +1,20 @@
+#!/bin/sh
+# ============================================================================
+# Hook pre-push — no se publica un historial con firmas ajenas.
+#
+# Por qué aquí y no solo en commit-msg: el historial puede haberse creado en
+# otra máquina, con los hooks desactivados o con --no-verify. El push es la
+# última puerta antes de que esas firmas lleguen al remoto, y desde ahí GitHub
+# ya las cuenta como contribuidores. Quitar algo del remoto es caro; no subirlo
+# es gratis.
+#
+# Se salta con:   git push --no-verify     (solo si sabes lo que haces)
+# ============================================================================
+if [ -f scripts/git-identidad.js ]; then
+  node scripts/git-identidad.js --hook-pre-push
+  estado=$?
+  if [ "$estado" -ne 0 ]; then
+    exit "$estado"
+  fi
+fi
+exit 0

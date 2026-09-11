@@ -1,0 +1,29 @@
+#!/bin/sh
+# ============================================================================
+# Hook commit-msg — el autor del commit tiene que ser el dueño del repo.
+#
+# POR QUÉ
+# Un commit firmado por otra identidad (un asistente, un arnés de IA, una
+# máquina con otro `user.email`) mete a un tercero como contribuidor del
+# repositorio y ensucia la autoría para siempre: quitarlo después obliga a
+# reescribir el historial. Es mucho más barato pararlo aquí.
+#
+# Este hook NO repite la lógica: llama a scripts/git-identidad.js, que es la
+# única fuente de verdad de "quién puede firmar". Además quita los trailers
+# `Co-authored-by:` ajenos, que es la vía por la que los asistentes suelen
+# firmar como co-autores.
+#
+# Se salta con:   git commit --no-verify        (solo si sabes lo que haces)
+# Co-autor deliberado:  PERMITIR_COAUTOR=1 git commit …
+# ============================================================================
+if [ -f scripts/git-identidad.js ]; then
+  node scripts/git-identidad.js --hook-commit-msg "$1"
+  estado=$?
+  if [ "$estado" -ne 0 ]; then
+    echo ""
+    echo "❌ Commit detenido por la regla de autor único (scripts/git-identidad.js)."
+    echo "   Ver AGENTS.md §8b y .githooks/README.md."
+    exit "$estado"
+  fi
+fi
+exit 0
