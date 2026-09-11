@@ -23,6 +23,11 @@ jobs:
     steps:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 = historial completo. Por defecto el checkout es
+          # superficial (profundidad 1) y el paso «Autor único» no tendría nada
+          # que auditar: pasaría siempre sin comprobar nada.
+          fetch-depth: 0
 
       - name: Configurar Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
