@@ -15,13 +15,20 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const Database = require('better-sqlite3');
+/* El cinturón de seguridad va PRIMERO, antes de que nada arrastre server-pg:
+   `./comun` neutraliza TURSO_URL/TURSO_AUTH_TOKEN y fija NODE_ENV=test. Cargar
+   server-pg antes (como estaba) hacía que el módulo leyera el entorno real: en
+   una máquina con NODE_ENV=production —el perfil del usuario, sin ir más lejos—
+   el alta por contraseña responde 403 (es solo con Google) y el robot entero cae
+   en cascada. Además dejaba abierta la conexión a Turso que comun.js avisa de
+   neutralizar antes de cargar nada. */
+const {
+  exigirEntornoSeguro, Reporte, silenciarHttp,
+} = require('./comun');
 const { createApp } = require('../../server-pg');
 const { DBAdapter } = require('../../db');
 const { seedTestDb } = require('../seed-test');
 const { crearCliente } = require('../helpers');
-const {
-  exigirEntornoSeguro, Reporte, silenciarHttp,
-} = require('./comun');
 
 exigirEntornoSeguro();
 

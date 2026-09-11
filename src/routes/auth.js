@@ -66,8 +66,21 @@ function montarAuth(app, deps) {
     store: new StoreBD(db, 'auth'),
   });
 
-  // Registro: crea taller + sesión
+  /* Alta del taller: SOLO con Google. Google ya verifica el correo, así que el
+     alta no depende de que Resend esté configurado para dar el correo por bueno.
+
+     En PRODUCCIÓN esta ruta queda CERRADA (403): el alta va por
+     /api/auth/google. En desarrollo y pruebas se deja abierta para poder
+     trabajar sin credenciales de Google en la máquina. Esa diferencia está
+     cubierta por test/qa/registro-google.test.js, que arranca un proceso hijo
+     con NODE_ENV=production y comprueba que responde 403. */
   app.post('/api/auth/register', authLimiter, async (req, res) => {
+    if (PROD) {
+      return res.status(403).json({
+        code: 'register_google_only',
+        error: 'La cuenta del taller se crea con Google, así tu correo queda verificado sin pasos extra. Pulsa «Continuar con Google».',
+      });
+    }
     if (typeof req.body?.email !== 'string') return res.status(400).json({ error: 'Correo inválido' });
     const email = normEmail(req.body.email);
     const pass = typeof req.body?.password === 'string' ? req.body.password : '';
@@ -362,6 +375,12 @@ function montarAuth(app, deps) {
      createApp): si no hay credenciales, el flujo responde google_unconfigured. */
   const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
   const GOOGLE_CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
+  /* Extremos de Google sobreescribibles SOLO para las pruebas: con ellos se
+     levanta un doble local y se ejercita el callback entero —state, intercambio
+     de código, verificación del correo, alta/reclamo y sesión— sin red ni cuenta
+     real. En producción van los valores por defecto. */
+  const GOOGLE_TOKEN_URL = process.env.GOOGLE_TOKEN_URL || 'https://oauth2.googleapis.com/token';
+  const GOOGLE_USERINFO_URL = process.env.GOOGLE_USERINFO_URL || 'https://www.googleapis.com/oauth2/v2/userinfo';
   /* El redirect_uri debe coincidir con las URI autorizadas en Google Console */
   const googleRedirectUri = (req) => {
     if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
@@ -438,7 +457,7 @@ function montarAuth(app, deps) {
     try {
       // Intercambiar código por tokens. El redirect_uri debe ser EL MISMO que
       // se usó al autorizar (Google lo valida): se recalcula del Host.
-      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
@@ -458,7 +477,7 @@ function montarAuth(app, deps) {
       const tokenData = await tokenRes.json();
 
       // Obtener info del usuario
-      const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      const userRes = await fetch(GOOGLE_USERINFO_URL, {
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
       });
 
@@ -469,14 +488,25 @@ function montarAuth(app, deps) {
 
       if (!email) throw new Error('Google no proporcionó el email');
 
+      /* El correo de Google tiene que venir VERIFICADO. Es la pieza sobre la que
+         se apoya todo: damos el correo por bueno (email_verified = 1) y dejamos
+         reclamar una cuenta que ya existe por coincidencia de correo. Sin esta
+         comprobación, un correo sin verificar podría tomar una cuenta ajena, y
+         con Google como única puerta sería el agujero principal. */
+      const emailVerificado = googleUser.verified_email === true || googleUser.email_verified === true;
+      if (!emailVerificado) {
+        if (!PROD) console.warn('[Google OAuth] correo de Google sin verificar');
+        return res.redirect('/?login=google_email_unverified');
+      }
+
       // Buscar si ya existe la cuenta
       let ws = await db.get('SELECT * FROM workshops WHERE email = ?', email);
 
-      // Bloquear acceso por Google si la cuenta no fue creada con Google
-      if (ws && ws.pass_hash !== 'google_oauth') {
-        if (!PROD) console.warn('[Google OAuth] Bloqueado acceso por Google a cuenta con contraseña');
-        return res.redirect(`/?login=google_account_not_google&email=${encodeURIComponent(email)}`);
-      }
+      /* Una cuenta con contraseña del MISMO correo puede entrar también con
+         Google: Google ya verificó que el correo es suyo (comprobación de
+         arriba), así que no hay suplantación posible y nadie se queda fuera por
+         haber nacido con contraseña. Se CONSERVA su contraseña: los dos caminos
+         siguen vivos (login mixto). Antes esto se bloqueaba. */
 
       // Si el usuario intentó registrarse pero ya tenía cuenta de Google existente
       if (ws && oauthMode === 'register') {

@@ -5,9 +5,11 @@
    Hace lo que hace un taller de verdad el primer día, pero N veces y sin
    saltarse nada:
 
-     1. Se da de alta POR EL FORMULARIO, tecleando en los campos y pulsando el
-        botón. No por la API: así se comprueba también que el formulario manda
-        lo que debe y que la sesión sobrevive a la recarga.
+     1. Da de alta la cuenta POR HTTP (el alta va SOLO con Google, así que el
+        formulario de registro ya no existe) para tener credenciales conocidas
+        y, en el navegador, entra por el LOGIN mixto tecleando correo y
+        contraseña en la pantalla de acceso real. Así se comprueba también que
+        la sesión sobrevive a la recarga.
      2. Abre LAS 38 micro apps, una por una, y comprueba que cada una pinta su
         contenido en vez de quedarse en blanco o reventar.
      3. En las que guardan, escribe de verdad y verifica que el dato quedó.
@@ -82,9 +84,10 @@ const APPS = {
     ['Mercado de Autos', '.market-grid, .empty, .styled-input'],
   ],
   aprende: [
-    /* Estas dos no abren MicroShell: llevan al panel de herramientas clásico
-       que vive dentro de la vista de búsqueda (.tools-wrap). */
-    ['Guías de Diagnóstico', '.tools-wrap, .app-shell, .mic-lead'],
+    /* La tarjeta de las guías se llama hoy «Ruta de Diagnóstico» y ya abre
+       dentro de MicroShell (antes navegaba a /guias y el robot lo leía como
+       pantalla en blanco). Se comprueba con su propio .mic-lead. */
+    ['Ruta de Diagnóstico', '.mic-lead'],
     ['Glosario Técnico', '.tools-wrap, .app-shell, .tool-gloss-item'],
     ['Sincronización / Kit de Tiempo', '.mic-tbl tr'],
   ],
@@ -189,12 +192,12 @@ async function main() {
 
           const estado = await pag.evaluate((sel) => ({
             /* Cuatro destinos legítimos: la micro app, la vista de búsqueda,
-               la pantalla de alta (para las que exigen cuenta) o una página
+               la pantalla de acceso (para las que exigen cuenta) o una página
                propia como /guias. Lo único inaceptable es quedarse en blanco. */
-            enApp: !!document.querySelector('.micro-shell, .app-shell, .login-card, .tools-wrap'),
-            pideCuenta: !!document.querySelector('.login-card'),
+            enApp: !!document.querySelector('.micro-shell, .app-shell, .login-screen, .tools-wrap'),
+            pideCuenta: !!document.querySelector('.login-screen'),
             conContenido: !!document.querySelector(sel),
-            texto: (document.querySelector('.micro-shell-body, .app-shell, .login-card, .tools-wrap')?.innerText || document.body.innerText || '').trim().length,
+            texto: (document.querySelector('.micro-shell-body, .app-shell, .login-screen, .tools-wrap')?.innerText || document.body.innerText || '').trim().length,
             avisoDeCuenta: /inicia sesión|requiere cuenta|crea tu cuenta|inicia sesion/i.test(document.body.innerText),
           }), selector);
 
@@ -223,13 +226,26 @@ async function main() {
     }
 
     /* ----------------------------------------------------------------
-       Fase B: N talleres se dan de alta POR EL FORMULARIO
-       ---------------------------------------------------------------- */
-    rep.seccion(`B. ${o.talleres} altas tecleadas en el formulario real`);
+       Fase B: alta por HTTP + login mixto tecleado en el navegador
+       ----------------------------------------------------------------
+       El alta de taller ya NO se teclea: se hace SOLO con Google, así que el
+       formulario de registro desapareció. Para tener credenciales conocidas la
+       cuenta se crea por HTTP con /api/auth/register (en el entorno de pruebas
+       sigue abierta; en producción responde 403 register_google_only), y en el
+       navegador se comprueba el LOGIN mixto real: correo+contraseña tecleados
+       en la pantalla de acceso, sesión abierta, barra con el nombre del taller
+       y supervivencia a recargar. */
+    rep.seccion(`B. ${o.talleres} talleres: alta por HTTP + login tecleado en el navegador`);
     const cuentas = [];
     for (let i = 0; i < o.talleres; i++) {
+      const correo = `jornada${i}@prueba.test`;
+      const nombre = `Taller Jornada ${i}`;
+
+      const alta = await ctx.cliente().post('/api/auth/register', { email: correo, password: 'clave-larga-123', name: nombre });
+      rep.comprobar(alta.status === 201, `${i}: la cuenta se crea por HTTP`, `respondió ${alta.status} ${JSON.stringify(alta.body).slice(0, 90)}`);
+
       /* Contexto propio por cuenta: las pestañas de un mismo navegador
-         COMPARTEN el tarro de cookies, así que la segunda alta se encontraba
+         COMPARTEN el tarro de cookies, así que la segunda cuenta se encontraba
          ya con la sesión de la primera abierta y no veía el botón de entrar.
          Es el equivalente a una ventana de incógnito por taller. */
       const contexto = await navegador.createBrowserContext();
@@ -240,52 +256,69 @@ async function main() {
       await pag.goto(ctx.base + '/', { waitUntil: 'networkidle2' });
       await esperar(1100);
 
-      const correo = `jornada${i}@prueba.test`;
-      const nombre = `Taller Jornada ${i}`;
-
       rep.comprobar(await pag.evaluate(() => {
         const b = document.querySelector('.home-nav-login'); if (b) { b.click(); return true; } return false;
       }), `${i}: el botón «Iniciar sesión» está en la barra`);
       await esperar(600);
 
-      /* Pestaña «Crear cuenta»: sin ella el formulario manda a /login y el alta
-         no ocurre. */
-      rep.comprobar(await pag.evaluate(() => {
-        const b = [...document.querySelectorAll('.conv-mode')].find(x => /crear cuenta/i.test(x.textContent));
-        if (b) { b.click(); return true; } return false;
-      }), `${i}: se puede cambiar a «Crear cuenta»`);
-      await esperar(400);
-
-      const campos = await pag.$$('.login-card .styled-input');
-      rep.comprobar(campos.length >= 3, `${i}: el alta pide nombre, correo y contraseña`, `hay ${campos.length} campos`);
-      if (campos.length >= 3) {
-        await campos[0].type(nombre);
-        await campos[1].type(correo);
-        await campos[2].type('clave-larga-123');
+      /* Se teclea en la pestaña «Iniciar sesión», la que abre por defecto: el
+         login con correo+contraseña se mantiene para las cuentas que ya lo
+         tienen (login mixto). */
+      const campos = await pag.$$('.login-screen .login-form .styled-input');
+      rep.comprobar(campos.length === 2, `${i}: el login pide correo y contraseña`, `hay ${campos.length} campos`);
+      if (campos.length >= 2) {
+        await campos[0].type(correo);
+        await campos[1].type('clave-larga-123');
       }
-      await pag.evaluate(() => document.querySelector('.login-card form button[type=submit], .login-card form .tool-add-btn, .login-card form button')?.click());
-      await esperar(900);
+      await pag.evaluate(() => document.querySelector('.login-screen .login-form button[type=submit]')?.click());
+      await esperar(1200);
 
       const sesion = await pag.evaluate(() => ({
-        enBarra: (document.querySelector('.home-nav-who')?.textContent || '').trim(),
-        siguePidiendoAlta: !!document.querySelector('.login-card'),
-        error: (document.querySelector('.login-card .alert')?.textContent || '').trim(),
+        enBarra: (document.querySelector('.home-nav-who-name')?.textContent || '').trim(),
+        sigueEnLogin: !!document.querySelector('.login-screen'),
+        error: (document.querySelector('.login-screen .login-msg')?.textContent || '').trim(),
       }));
-      rep.comprobar(!sesion.siguePidiendoAlta || sesion.enBarra.includes(nombre),
-        `${i}: tras enviar el formulario la sesión queda abierta`, `barra «${sesion.enBarra}» error «${sesion.error}»`);
+      rep.comprobar(!sesion.sigueEnLogin, `${i}: tras enviar el login la sesión queda abierta`, `sigue el formulario de acceso — error «${sesion.error}»`);
       rep.comprobar(sesion.enBarra.includes(nombre), `${i}: la barra muestra el nombre del taller`, `muestra «${sesion.enBarra}»`);
 
       /* La sesión va en cookie: tiene que sobrevivir a recargar. */
       await pag.reload({ waitUntil: 'networkidle2' });
       await esperar(1100);
-      const traRecarga = await pag.evaluate(() => (document.querySelector('.home-nav-who')?.textContent || '').trim());
+      const traRecarga = await pag.evaluate(() => (document.querySelector('.home-nav-who-name')?.textContent || '').trim());
       rep.comprobar(traRecarga.includes(nombre), `${i}: la sesión sobrevive a recargar la página`, `barra «${traRecarga}»`);
 
       const enBase = ctx.db.prepare('SELECT COUNT(*) n FROM workshops WHERE email = ?').get(correo).n;
       rep.comprobar(enBase === 1, `${i}: el taller quedó grabado una sola vez`, `${enBase} filas`);
-      rep.comprobar([...new Set(errores)].length === 0, `${i}: el alta no lanza excepciones de JS`, [...new Set(errores)].slice(0, 2).join(' | '));
+      rep.comprobar([...new Set(errores)].length === 0, `${i}: el login no lanza excepciones de JS`, [...new Set(errores)].slice(0, 2).join(' | '));
 
       cuentas.push({ pag, contexto, correo, nombre, i });
+    }
+
+    /* La pestaña «Crear cuenta» ya no teclea nada: el alta es SOLO con Google,
+       así que no debe tener campo de contraseña y sí ofrecer el botón de
+       Google con mode=register. */
+    rep.seccion('B2. La pestaña «Crear cuenta» es solo con Google');
+    {
+      const pag = await navegador.newPage();
+      await pag.setViewport({ width: o.ancho, height: 900 });
+      await pag.goto(ctx.base + '/', { waitUntil: 'networkidle2' });
+      await esperar(1100);
+      await pag.evaluate(() => document.querySelector('.home-nav-login')?.click());
+      await esperar(500);
+      rep.comprobar(await pag.evaluate(() => {
+        const b = [...document.querySelectorAll('.login-tab')].find(x => /crear cuenta/i.test(x.textContent));
+        if (b) { b.click(); return true; } return false;
+      }), 'se puede cambiar a la pestaña «Crear cuenta»');
+      await esperar(400);
+      const estado = await pag.evaluate(() => ({
+        panel: !!document.querySelector('.login-screen'),
+        contrasenas: document.querySelectorAll('.login-screen input[type=password]').length,
+        google: !!document.querySelector('.login-google[href*="mode=register"]'),
+      }));
+      rep.comprobar(estado.panel, 'la pestaña «Crear cuenta» abre la pantalla de acceso', 'no se montó la pantalla');
+      rep.comprobar(estado.contrasenas === 0, 'la pestaña «Crear cuenta» NO pide contraseña', `hay ${estado.contrasenas} campos de contraseña`);
+      rep.comprobar(estado.google, 'la pestaña «Crear cuenta» ofrece el botón de Google', 'no hay enlace /api/auth/google?mode=register');
+      await pag.close();
     }
 
     /* ----------------------------------------------------------------

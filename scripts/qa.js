@@ -40,7 +40,10 @@ const PASOS = [
       'test/qa/contract.test.js', 'test/qa/business-flows.test.js', 'test/qa/admin.test.js', 'test/qa/perf.test.js',
       /* 3.1/AR-F0: el snapshot de contrato congela la superficie de la API para
          poder refactorizar sin cambiar ninguna ruta pública. */
-      'test/contract/contrato.test.js']],
+      'test/contract/contrato.test.js',
+      /* El alta es solo con Google: la puerta entera (state, correo verificado,
+         alta/reclamo y sesión) se ejercita aquí, y el 403 de producción también. */
+      'test/qa/oauth-google.test.js', 'test/qa/registro-google.test.js']],
     consejo: 'Si falla una prueba de reglas del taller (test/unit/domain.test.js), lo más probable es que el error esté en el código, no en la prueba.',
   },
   {

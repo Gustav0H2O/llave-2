@@ -1568,14 +1568,19 @@ function OnboardingModal({ user, onComplete, onLogout }) {
 }
 
 /* ---------- Login / registro del taller ---------- */
+/* El alta de taller va SOLO con Google: Google verifica el correo y así no
+   hacen falta pasos extra, por eso la pestaña «Crear cuenta» no tiene
+   formulario. El login con correo+contraseña se MANTIENE para las cuentas que
+   ya lo tienen (login mixto). Los datos de identidad (nombre, teléfono,
+   documento, ciudad, dirección) los sigue pidiendo OnboardingModal al volver
+   del alta con Google. */
 function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initialSugerirGoogle }) {
   const [mode, setMode] = useState(initialMode || 'login');
-  const [form, setForm] = useState({ name: '', owner_name: '', doc_id: '', phone: '', business_type: 'Mecánica general', city: '', address: '', email: initialEmail || '', password: '' });
+  const [form, setForm] = useState({ email: initialEmail || '', password: '' });
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [sugerirGoogle, setSugerirGoogle] = useState(Boolean(initialSugerirGoogle));
-  const [cuentaDuplicada, setCuentaDuplicada] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [activeNotice, setActiveNotice] = useState(notice || '');
 
@@ -1595,44 +1600,29 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initi
     if (initialSugerirGoogle !== undefined) setSugerirGoogle(Boolean(initialSugerirGoogle));
   }, [initialSugerirGoogle]);
 
+  /* Solo login: el alta no tiene formulario, así que no hay validación de
+     registro ni POST a /api/auth/register. Los códigos de error vienen de
+     /api/auth/login (y register_google_only queda como red de seguridad por si
+     en el servidor el alta estuviera cerrada). */
   const submit = async (e) => {
     e.preventDefault();
-    if (form.password.length < 10) { setErr('La contraseña debe tener al menos 10 caracteres'); return; }
-    if (mode === 'register') {
-      if (!form.name.trim()) { setErr('Ingresa el nombre del taller'); return; }
-      if (!form.owner_name.trim()) { setErr('Ingresa el nombre del titular o responsable'); return; }
-      if (!form.doc_id.trim() || form.doc_id.trim().length < 4) { setErr('Ingresa un documento fiscal/cédula válido (mínimo 4 caracteres)'); return; }
-      const cleanPhone = form.phone.replace(/[^\d+]/g, '');
-      if (!cleanPhone || !/^\+?\d{7,15}$/.test(cleanPhone)) { setErr('Ingresa un WhatsApp válido con código de país (ej. +584121234567)'); return; }
-      if (!form.city.trim()) { setErr('Ingresa la ciudad o zona'); return; }
-      if (!form.address.trim()) { setErr('Ingresa la dirección física del taller'); return; }
-    }
-    setBusy(true); setErr(''); setCuentaDuplicada(false);
+    setBusy(true); setErr('');
     try {
-      const payload = mode === 'register' ? { ...form, phone: form.phone.replace(/[^\d+]/g, '') } : form;
-      const res = await fetch(mode === 'register' ? '/api/auth/register' : '/api/auth/login', {
+      const res = await fetch('/api/auth/login', {
         method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ email: form.email, password: form.password })
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (body.code === 'email_taken' && mode === 'register') {
-          setCuentaDuplicada(true);
-          setErr('Ya existe una cuenta registrada con este correo. Inicia sesión o utiliza otro correo.');
+        if (body.code === 'register_google_only') {
+          setMode('register'); setSugerirGoogle(true);
+          setErr(body.error || 'La cuenta del taller se crea con Google: pulsa el botón de abajo.');
           return;
         }
-        if (body.code === 'oauth_account') {
-          setMode('login');
+        if (body.code === 'oauth_account' || body.code === 'use_google') {
           setSugerirGoogle(true);
           setForm(f => ({ ...f, password: '' }));
-          setErr('Esta cuenta fue creada con Google. Pulsa el botón Iniciar sesión con Google a continuación.');
-          return;
-        }
-        if (body.code === 'use_google') {
-          setMode('login');
-          setSugerirGoogle(true);
-          setForm(f => ({ ...f, password: '' }));
-          setErr('Esta cuenta fue registrada mediante Google OAuth. Usa el botón Iniciar sesión con Google para entrar.');
+          setErr('Esta cuenta usa Google. Pulsa el botón Iniciar sesión con Google a continuación.');
           return;
         }
         if (body.code === 'account_locked') {
@@ -1640,12 +1630,12 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initi
           setErr(body.error || 'Acceso bloqueado temporalmente por exceder los intentos fallidos. Intenta más tarde.');
           return;
         }
-        if (body.code === 'bad_credentials' && mode === 'login') {
-          setErr(body.error || 'Correo o contraseña incorrectos. Si aún no tienes cuenta, selecciona la pestaña Crear cuenta.');
+        if (body.code === 'email_taken') {
+          setErr(body.error || 'Ya existe una cuenta con ese correo. Introduce tu contraseña para iniciar sesión.');
           return;
         }
-        if (body.code === 'email_taken' && mode === 'login') {
-          setErr(body.error || 'Ya existe una cuenta con ese correo. Introduce tu contraseña para iniciar sesión.');
+        if (body.code === 'bad_credentials') {
+          setErr(body.error || 'Correo o contraseña incorrectos. ¿No tienes cuenta? Créala con Google.');
           return;
         }
         throw new Error(body.error || 'Error al procesar la solicitud');
@@ -1665,6 +1655,8 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initi
     else setErr('Error al importar: ' + r.error);
     setBusy(false);
   };
+  /* Cambiar de pestaña limpia el error y los avisos de la anterior. */
+  const cambiarModo = (m) => { setMode(m); setErr(''); setSugerirGoogle(false); setIsLocked(false); setActiveNotice(''); };
   return html`
     <div class="login-screen">
       <aside class="login-art" aria-hidden="true">
@@ -1694,12 +1686,12 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initi
           <img class="login-form-logo logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" />
 
           <div class="login-tabs" role="tablist">
-            <button type="button" role="tab" aria-selected=${mode === 'login'} class=${'login-tab' + (mode === 'login' ? ' is-active' : '')} onClick=${() => { setMode('login'); setErr(''); setCuentaDuplicada(false); setSugerirGoogle(false); setIsLocked(false); setActiveNotice(''); }}>Iniciar sesión</button>
-            <button type="button" role="tab" aria-selected=${mode === 'register'} class=${'login-tab' + (mode === 'register' ? ' is-active' : '')} onClick=${() => { setMode('register'); setErr(''); setCuentaDuplicada(false); setSugerirGoogle(false); setIsLocked(false); setActiveNotice(''); }}>Crear cuenta</button>
+            <button type="button" role="tab" aria-selected=${mode === 'login'} class=${'login-tab' + (mode === 'login' ? ' is-active' : '')} onClick=${() => cambiarModo('login')}>Iniciar sesión</button>
+            <button type="button" role="tab" aria-selected=${mode === 'register'} class=${'login-tab' + (mode === 'register' ? ' is-active' : '')} onClick=${() => cambiarModo('register')}>Crear cuenta</button>
           </div>
 
           <h1 class="login-h1">${mode === 'register' ? 'Crea tu cuenta del taller' : 'Bienvenido de vuelta'}</h1>
-          <p class="login-h1-sub">${mode === 'register' ? 'Tarda menos de un minuto. Solo necesitas un correo.' : 'Entra con tu correo y contraseña.'}</p>
+          <p class="login-h1-sub">${mode === 'register' ? 'Tu correo queda verificado por Google, sin pasos extra.' : 'Entra con tu correo y contraseña.'}</p>
 
           ${done && html`<div class="login-msg login-msg--top login-msg--info"><span>Bienvenido. Tu sesión está activa.</span></div>`}
           ${activeNotice && html`
@@ -1707,46 +1699,42 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initi
               <span>${activeNotice}</span>
             </div>`}
 
-          <form onSubmit=${submit} class="login-form">
-            ${mode === 'register' && html`<${TallerIdentityFields} form=${form} onChange=${setForm} />`}
-            <label class="login-field">
-              <span>Correo</span>
-              <input type="email" class="styled-input" placeholder="tunombre@taller.com" value=${form.email} onChange=${e => { setCuentaDuplicada(false); setForm({ ...form, email: e.target.value }); }} required />
-            </label>
-            <label class="login-field">
-              <span>Contraseña</span>
-              <input type="password" class="styled-input" placeholder="Mínimo 10 caracteres" value=${form.password} onChange=${e => setForm({ ...form, password: e.target.value })} required minLength=${10} />
-              ${mode === 'register' && form.password.length > 0 && html`
-                <span style=${{ fontSize: '11px', color: form.password.length >= 10 ? '#16a34a' : 'var(--text-muted)' }}>
-                  ${form.password.length >= 10 ? 'Longitud válida (' + form.password.length + ' caracteres)' : 'Mínimo 10 caracteres requeridos (' + form.password.length + '/10)'}
-                </span>`}
-            </label>
+          ${/* «Crear cuenta» es SOLO Google: sin formulario de correo/contraseña ni
+                campos de identidad (los pide OnboardingModal al volver de Google). */''}
+          ${mode === 'login' ? html`
+            <form onSubmit=${submit} class="login-form">
+              <label class="login-field">
+                <span>Correo</span>
+                <input type="email" class="styled-input" placeholder="tunombre@taller.com" value=${form.email} onChange=${e => setForm({ ...form, email: e.target.value })} required />
+              </label>
+              <label class="login-field">
+                <span>Contraseña</span>
+                <input type="password" class="styled-input" placeholder="Tu contraseña" value=${form.password} onChange=${e => setForm({ ...form, password: e.target.value })} required />
+              </label>
 
-            <button type="submit" class="tool-add-btn login-submit" disabled=${busy || isLocked || (mode === 'register' && (cuentaDuplicada || form.password.length < 10 || !form.name || !form.owner_name || !form.doc_id || !form.phone || !form.city || !form.address)) || !form.email || !form.password}>
-              ${busy ? 'Procesando…' : isLocked ? 'Acceso bloqueado (15 min)' : mode === 'register' ? 'Crear cuenta' : 'Entrar'}
-            </button>
+              <button type="submit" class="tool-add-btn login-submit" disabled=${busy || isLocked || !form.email || !form.password}>
+                ${busy ? 'Procesando…' : isLocked ? 'Acceso bloqueado (15 min)' : 'Entrar'}
+              </button>
 
-            ${isLocked ? html`
-              <div class="login-msg login-msg--danger">
-                <span>${err || 'Demasiados intentos fallidos. Acceso bloqueado por 15 min.'}</span>
-              </div>
-            ` : cuentaDuplicada ? html`
-              <div class="login-msg login-msg--warn">
-                <span>Ya existe una cuenta con este correo.</span>
-                <button type="button" class="login-msg-link" onClick=${() => { setMode('login'); setErr(''); setCuentaDuplicada(false); setActiveNotice(''); }}>
-                  Iniciar sesión →
-                </button>
-              </div>
-            ` : sugerirGoogle ? html`
-              <div class="login-msg login-msg--info">
-                <span>Esta cuenta usa Google. Pulsa el botón de abajo para entrar.</span>
-              </div>
-            ` : err ? html`
-              <div class="login-msg login-msg--warn"><span>${err}</span></div>
-            ` : null}
-          </form>
+              ${isLocked ? html`
+                <div class="login-msg login-msg--danger">
+                  <span>${err || 'Demasiados intentos fallidos. Acceso bloqueado por 15 min.'}</span>
+                </div>
+              ` : sugerirGoogle ? html`
+                <div class="login-msg login-msg--info">
+                  <span>Esta cuenta usa Google. Pulsa el botón de abajo para entrar.</span>
+                </div>
+              ` : err ? html`
+                <div class="login-msg login-msg--warn"><span>${err}</span></div>
+              ` : null}
 
-          <div class="login-divider"><span>o</span></div>
+              <p class="login-footer-note">¿No tienes cuenta? <button type="button" class="login-msg-link" onClick=${() => cambiarModo('register')}>Créala con Google</button></p>
+            </form>
+          ` : html`
+            ${err && html`<div class="login-msg login-msg--warn" style=${{ margin: '8px 0' }}><span>${err}</span></div>`}
+          `}
+
+          ${mode === 'login' && html`<div class="login-divider"><span>o</span></div>`}
 
           <a href=${'/api/auth/google?mode=' + mode} class=${'login-google' + (sugerirGoogle ? ' login-google--sugerido' : '')} role="button" tabindex="0">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -1757,6 +1745,8 @@ function LoginScreen({ onLogin, onBack, notice, initialEmail, initialMode, initi
             </svg>
             ${mode === 'register' ? 'Registrarse con Google' : 'Iniciar sesión con Google'}
           </a>
+
+          ${mode === 'register' && html`<p class="login-footer-note">¿Ya tienes tu cuenta? <button type="button" class="login-msg-link" onClick=${() => cambiarModo('login')}>Inicia sesión</button></p>`}
 
           <button type="button" class="login-secondary" onClick=${importLocal} disabled=${busy}>
             <${Icon} name="Upload" size=${16} /> Importar mis datos del navegador
@@ -1952,10 +1942,10 @@ function App() {
         google_error: 'No se pudo iniciar con Google. Prueba de nuevo o usa correo y contraseña.',
         google_suspended: 'Tu cuenta está suspendida. Contacta a soporte para reactivarla.',
         google_locked: 'Tu cuenta está bloqueada temporalmente por intentos fallidos. Intenta más tarde.',
-        google_unconfigured: 'El inicio de sesión con Google no está configurado en este servidor. Usa correo y contraseña.',
-        google_account_not_google: 'Esta cuenta fue registrada con contraseña. Introduce tu contraseña para entrar.',
+        google_unconfigured: 'El acceso con Google no está configurado en este servidor. Si ya tienes cuenta, entra con correo y contraseña.',
+        google_email_unverified: 'Google no pudo confirmar que ese correo sea tuyo, así que no se creó la cuenta. Prueba con otra cuenta de Google.',
         google_already_registered: 'Esta cuenta ya está registrada con Google. Inicia sesión usando el botón Iniciar sesión con Google.',
-        google_not_registered: 'No existe una cuenta registrada con este correo de Google. Selecciona Crear cuenta para darla de alta.',
+        google_not_registered: 'No existe una cuenta con ese correo de Google. Pulsa Crear cuenta para darla de alta con Google.',
       };
       setVerifyMsg(textos[p] || textos.google_error);
       if (emailParam) setLoginInitialEmail(emailParam);

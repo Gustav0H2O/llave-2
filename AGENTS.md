@@ -277,6 +277,25 @@ entero. No muevas el contador de visitas ahí.
 
 `gemini-3.5-flash` **no es un id real** y hacía que el chat respondiera 502.
 
+### 4.11 El alta de talleres es solo con Google
+
+`POST /api/auth/register` responde **403** cuando `NODE_ENV=production`: la cuenta
+se crea con Google, cuyo correo viene verificado (`verified_email`), así que el
+alta **no depende de Resend**. En desarrollo y pruebas la ruta sigue abierta para
+poder trabajar sin credenciales de Google; esa diferencia la cubre
+`test/qa/registro-google.test.js`.
+
+El **login con contraseña sigue vivo** para las cuentas que ya la tienen, y una
+cuenta con contraseña del mismo correo también entra con Google (se conserva su
+contraseña: login mixto). El callback **exige que Google confirme el correo**
+antes de dar por verificado o reclamar una cuenta: sin esa comprobación, un
+correo sin verificar podría tomar una cuenta ajena. Todo el camino está cubierto
+en `test/qa/oauth-google.test.js` contra un doble local de Google
+(`GOOGLE_TOKEN_URL` / `GOOGLE_USERINFO_URL`, solo para pruebas).
+
+Si faltan `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` en producción, **nadie puede
+crearse una cuenta**. No es un detalle de configuración: es la puerta.
+
 ---
 
 ## 5. Seguridad al correr pruebas
@@ -363,7 +382,7 @@ conocimiento del negocio para resolverse:
 
 | | |
 | --- | --- |
-| Pruebas | **769**, todas en verde |
+| Pruebas | **777**, todas en verde |
 | Cobertura de `lib/` | **100 %** |
 | Rutas de API | **103**, **100 %** con prueba |
 | Reglas de restricción | **20**, 0 violaciones |
