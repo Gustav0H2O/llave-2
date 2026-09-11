@@ -78,25 +78,27 @@ class StoreBD {
   /* Clave real en la tabla: espacio de nombres + clave del limitador. */
   clave(key) { return `${this.nombre}|${key}`; }
 
-  /* Incremento ATÓMICO. Si la fila no existe arranca en 1; si existe y AÚN NO
-     ha caducado, suma; si ya caducó, reinicia el conteo y la ventana. Devuelve
-     el mismo par que MemoryStore: { totalHits, resetTime }. */
+  /* Incremento ATÓMICO en UN SOLO viaje a la base. Si la fila no existe arranca
+     en 1; si existe y AÚN NO ha caducado, suma; si ya caducó, reinicia el conteo
+     y la ventana. Devuelve el mismo par que MemoryStore: { totalHits, resetTime }.
+
+     POR QUÉ RETURNING: antes eran dos viajes (el UPSERT y luego un SELECT para
+     leer el total). Este limitador se ejecuta en CADA petición a /api, así que
+     ese viaje de más se paga siempre — y con la base en la nube se nota en la
+     latencia de cada llamada. `RETURNING` existe en SQLite 3.35+, libSQL/Turso y
+     PostgreSQL, así que vale en los tres motores. */
   async increment(key) {
     const ahora = Date.now();
     const expira = ahora + this.windowMs;
     const k = this.clave(key);
-    await this.db.run(
+    const fila = await this.db.get(
       `INSERT INTO ${TABLA} (clave, hits, expira_ms) VALUES (?, 1, ?)
        ON CONFLICT(clave) DO UPDATE SET
          hits = CASE WHEN ${TABLA}.expira_ms <= ? THEN 1 ELSE ${TABLA}.hits + 1 END,
-         expira_ms = CASE WHEN ${TABLA}.expira_ms <= ? THEN ? ELSE ${TABLA}.expira_ms END`,
+         expira_ms = CASE WHEN ${TABLA}.expira_ms <= ? THEN ? ELSE ${TABLA}.expira_ms END
+       RETURNING hits, expira_ms`,
       [k, expira, ahora, ahora, expira]
     );
-    /* La lectura posterior no rompe la atomicidad del CONTEO: el UPDATE ya dejó
-       el total correcto. Si otra petición incrementó en el medio, leería un
-       total algo mayor —igual que el MemoryStore cuando comparte clave—; nunca
-       un total menor, que es el error que importa en un limitador. */
-    const fila = await this.db.get(`SELECT hits, expira_ms FROM ${TABLA} WHERE clave = ?`, [k]);
     this._incrementos++;
     if (this._incrementos % CADA_PURGA === 0) this._purgar().catch(() => {});
     return {

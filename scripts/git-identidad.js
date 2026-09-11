@@ -51,8 +51,13 @@ const FIRMAS_DE_PLATAFORMA = new Set([
   'github-actions[bot]@users.noreply.github.com',
 ]);
 
+/* Las llamadas de lectura llevan TOPE DE TIEMPO. Este script corre en el
+   `prepare` de npm, o sea también durante el build del host: si `git` se
+   quedara esperando algo (una credencial, un repo raro), sin tope se colgaría
+   CADA `npm install`. Con tope, como mucho falla y el instalador se salta los
+   hooks, que es una comodidad y no un requisito. */
 const git = (args, opts = {}) => execFileSync('git', args, {
-  cwd: RAIZ, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024, ...opts,
+  cwd: RAIZ, encoding: 'utf8', timeout: 15000, stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024, ...opts,
 });
 
 const hayGit = () => {
@@ -181,8 +186,9 @@ function limpiar({ confirmado = false } = {}) {
      historial "limpio" seguiría sirviendo los blobs antiguos. */
   const respaldo = git(['for-each-ref', '--format=%(refname)', 'refs/original/']).split('\n').map(s => s.trim()).filter(Boolean);
   for (const ref of respaldo) git(['update-ref', '-d', ref]);
-  git(['reflog', 'expire', '--expire=now', '--all']);
-  git(['gc', '--prune=now', '--quiet']);
+  /* Estas dos SÍ pueden tardar: no les vale el tope corto de las lecturas. */
+  git(['reflog', 'expire', '--expire=now', '--all'], { timeout: 120000 });
+  git(['gc', '--prune=now', '--quiet'], { timeout: 300000 });
 
   const restantes = firmasAjenas();
   if (restantes.length) {

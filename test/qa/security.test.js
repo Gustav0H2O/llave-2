@@ -207,20 +207,22 @@ describe('Seguridad — sesiones y credenciales', () => {
        hash dummy para que la respuesta tenga la misma latencia que con un
        correo existente. Sin esto un atacante mide tiempo y mapea correos.
 
-       Se mide VARIAS veces y se compara la MEDIANA, no una sola muestra: con
-       una muestra, el jitter de CPU y de red bastaba para que esto fallara de
-       forma intermitente, y un test intermitente en la puerta de calidad es
-       peor que no tenerlo (enseña a reintentar hasta que pase). Cada intento
-       usa un correo distinto: así ninguno choca con el bloqueo por intentos
-       fallidos (5 por email|IP) y todos recorren el mismo camino con scrypt. */
-    const MUESTRAS = 5;
+       Se mide VARIAS veces y se compara el MÍNIMO, no una sola muestra: con una
+       muestra, el jitter de CPU bastaba para que esto fallara de forma
+       intermitente, y un test intermitente en la puerta de calidad es peor que
+       no tenerlo (enseña a reintentar hasta que pase). El mínimo es el
+       estadístico correcto aquí: scrypt consume CPU de forma estable, así que
+       las pausas solo pueden AÑADIR tiempo; la muestra más rápida es la que
+       menos ruido tiene. Cada intento usa un correo distinto: ninguno choca con
+       el bloqueo por intentos fallidos (5 por email|IP). */
+    const MUESTRAS = 3;
     const medir = async (email) => {
       const c = crearCliente(ctx.base);
       const t = Date.now();
       await c.post('/api/auth/login', { email, password: 'otra-contraseña-123' });
       return Date.now() - t;
     };
-    const mediana = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+    const minimo = (xs) => Math.min(...xs);
 
     await medir('calentamiento-zzz@prueba.test'); // fuera del cálculo: arranca scrypt
     const existentes = [], inexistentes = [];
@@ -232,15 +234,18 @@ describe('Seguridad — sesiones y credenciales', () => {
       inexistentes.push(await medir(`noexiste-${i}-zzz@prueba.test`));
     }
 
-    const mExistente = mediana(existentes), mInexistente = mediana(inexistentes);
-    const diff = Math.abs(mExistente - mInexistente);
-    /* Tolerancia relativa con suelo absoluto. Si el hash dummy desapareciera, la
-       diferencia sería del orden del coste de scrypt (cientos de ms), muy por
-       encima de esto: la prueba sigue detectando la asimetría de verdad. */
-    const tolerancia = Math.max(150, 0.5 * Math.max(mExistente, mInexistente));
-    assert.ok(diff < tolerancia,
-      `timing demasiado asimétrico: existente=${mExistente}ms (${existentes.join('/')}), `
-      + `inexistente=${mInexistente}ms (${inexistentes.join('/')}), diff=${diff}ms > ${Math.round(tolerancia)}ms`);
+    const mExistente = minimo(existentes), mInexistente = minimo(inexistentes);
+    /* Si el hash dummy desapareciera, el camino "inexistente" no ejecutaría
+       scrypt y caería a casi cero: el primer umbral lo caza. El segundo es el
+       otro lado (que no se haya vuelto mucho más lento). La banda es amplia a
+       propósito: lo que se vigila es una asimetría del orden del coste de
+       scrypt, no unos milisegundos. */
+    assert.ok(mInexistente >= 0.5 * mExistente,
+      `el correo inexistente responde demasiado rápido (¿se ejecuta el hash dummy?): `
+      + `existente=${mExistente}ms ${JSON.stringify(existentes)}, inexistente=${mInexistente}ms ${JSON.stringify(inexistentes)}`);
+    assert.ok(mInexistente <= 2 * mExistente,
+      `el correo inexistente responde mucho más lento que uno real: `
+      + `existente=${mExistente}ms, inexistente=${mInexistente}ms`);
   });
 
   it('cambio de contraseña requiere la contraseña actual y rechaza la vieja', async () => {

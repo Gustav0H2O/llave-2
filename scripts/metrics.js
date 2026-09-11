@@ -78,11 +78,13 @@ const ejecutar = (cmd, args, opts = {}) => {
 
 function medirPruebas() {
   const t0 = Date.now();
-  /* --test-concurrency=1 igual que `npm test`: sin limitar la concurrencia,
-     la suite compite por la CPU y un test sensible a tiempos (login timing-safe)
-     falla de forma intermitente. La medición debe ser reproducible. */
+  /* Se ejecuta la suite tal cual la corre `npm run metrics` de siempre: en
+     paralelo. Hubo un tiempo en que se serializó con --test-concurrency=1 para
+     domar un test de timing intermitente, pero eso volvía la medición ~1.5x más
+     lenta y el problema se arregló en su origen (test/qa/security.test.js mide
+     varias veces y compara el mínimo). Serializar aquí era tapar el síntoma. */
   const salida = ejecutar(process.execPath, [
-    '--test', '--test-concurrency=1', '--test-reporter=tap', '--test-reporter-destination=stdout',
+    '--test', '--test-reporter=tap', '--test-reporter-destination=stdout',
     ...listarPruebas(),
   ]);
   const duracion = (Date.now() - t0) / 1000;
