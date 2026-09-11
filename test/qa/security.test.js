@@ -205,21 +205,42 @@ describe('Seguridad — sesiones y credenciales', () => {
   it('login con correo inexistente tarda lo mismo que con contraseña mal (timing-safe)', async () => {
     /* Regla 3.2: si el correo no existe, ejecutar verifyPassword contra un
        hash dummy para que la respuesta tenga la misma latencia que con un
-       correo existente. Sin esto un atacante mide tiempo y mapea correos. */
-    const c = crearCliente(ctx.base);
-    const reg = await c.registrar('timing-' + Math.random().toString(36).slice(2, 6));
-    assert.equal(reg.status, 201, `registro falló: ${JSON.stringify(reg.body)}`);
-    const pass = 'contra-tonta-1234';
-    const t1 = Date.now();
-    await c.post('/api/auth/login', { email: reg.email, password: 'otra-contraseña-123' });
-    const dtExistente = Date.now() - t1;
-    const t2 = Date.now();
-    await c.post('/api/auth/login', { email: 'noexiste-este-correo-zzz@prueba.test', password: pass });
-    const dtInexistente = Date.now() - t2;
-    /* Margen generoso (±300ms) porque hay jitter de red y CPU. La idea es
-       que NO exista una diferencia obvia entre los dos casos. */
-    const diff = Math.abs(dtExistente - dtInexistente);
-    assert.ok(diff < 300, `timing demasiado asimétrico: existente=${dtExistente}ms, inexistente=${dtInexistente}ms, diff=${diff}ms`);
+       correo existente. Sin esto un atacante mide tiempo y mapea correos.
+
+       Se mide VARIAS veces y se compara la MEDIANA, no una sola muestra: con
+       una muestra, el jitter de CPU y de red bastaba para que esto fallara de
+       forma intermitente, y un test intermitente en la puerta de calidad es
+       peor que no tenerlo (enseña a reintentar hasta que pase). Cada intento
+       usa un correo distinto: así ninguno choca con el bloqueo por intentos
+       fallidos (5 por email|IP) y todos recorren el mismo camino con scrypt. */
+    const MUESTRAS = 5;
+    const medir = async (email) => {
+      const c = crearCliente(ctx.base);
+      const t = Date.now();
+      await c.post('/api/auth/login', { email, password: 'otra-contraseña-123' });
+      return Date.now() - t;
+    };
+    const mediana = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+
+    await medir('calentamiento-zzz@prueba.test'); // fuera del cálculo: arranca scrypt
+    const existentes = [], inexistentes = [];
+    for (let i = 0; i < MUESTRAS; i++) {
+      const c = crearCliente(ctx.base);
+      const reg = await c.registrar(`timing-${i}-${Math.random().toString(36).slice(2, 6)}`);
+      assert.equal(reg.status, 201, `registro falló: ${JSON.stringify(reg.body)}`);
+      existentes.push(await medir(reg.email));
+      inexistentes.push(await medir(`noexiste-${i}-zzz@prueba.test`));
+    }
+
+    const mExistente = mediana(existentes), mInexistente = mediana(inexistentes);
+    const diff = Math.abs(mExistente - mInexistente);
+    /* Tolerancia relativa con suelo absoluto. Si el hash dummy desapareciera, la
+       diferencia sería del orden del coste de scrypt (cientos de ms), muy por
+       encima de esto: la prueba sigue detectando la asimetría de verdad. */
+    const tolerancia = Math.max(150, 0.5 * Math.max(mExistente, mInexistente));
+    assert.ok(diff < tolerancia,
+      `timing demasiado asimétrico: existente=${mExistente}ms (${existentes.join('/')}), `
+      + `inexistente=${mInexistente}ms (${inexistentes.join('/')}), diff=${diff}ms > ${Math.round(tolerancia)}ms`);
   });
 
   it('cambio de contraseña requiere la contraseña actual y rechaza la vieja', async () => {
