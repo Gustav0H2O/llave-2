@@ -1,4 +1,5 @@
 'use strict';
+process.env.NODE_ENV = 'test';
 
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -213,13 +214,15 @@ describe('Business API (cuentas de taller)', () => {
     assert.equal(typeof pub.body.donor_level, 'number');
   });
 
-  it('acepta reseñas, calcula el promedio y limita una por dispositivo', async () => {
+  it('acepta reseñas y limita una por IP/día (el device_id ya no cuenta)', async () => {
+    // S1 (F9/B26): author_hash=HMAC(ip+día+taller). Rotar device_id no burla el límite.
     const r1 = await c2.post('/api/workshops/taller-a/reviews', { author: 'Luis', rating: 5, comment: 'Excelente', device_id: 'disp-1' });
     assert.equal(r1.status, 201);
+    assert.equal(r1.body.total, 1);
+    assert.equal(r1.body.promedio, 5);
+    // Misma IP, distinto device_id → 409 (antes era 201 con device distinto).
     const r2 = await c2.post('/api/workshops/taller-a/reviews', { author: 'Carmen', rating: 4, device_id: 'disp-2' });
-    assert.equal(r2.status, 201);
-    assert.equal(r2.body.total, 2);
-    assert.equal(r2.body.promedio, 4.5);
+    assert.equal(r2.status, 409);
 
     const dup = await c2.post('/api/workshops/taller-a/reviews', { author: 'Luis otra vez', rating: 1, device_id: 'disp-1' });
     assert.equal(dup.status, 409);
@@ -359,10 +362,18 @@ describe('Connect API (matching cliente ↔ mecánico)', () => {
   after(() => ctx.server.close());
 
   it('crea perfiles y matchea por similitud de ofrezco/busco', async () => {
-    const c = makeClient(ctx.port);
-    await c.post('/api/connect/profiles', { email: 'mec@x.com', role: 'mecanico', name: 'Mec X', city: 'Lima', zone: 'Centro', offers: 'inyeccion bombas', needs: '' });
-    await c.post('/api/connect/profiles', { email: 'cli@x.com', role: 'cliente', name: 'Cliente Y', city: 'Lima', zone: 'Centro', offers: '', needs: 'inyeccion bombas' });
-    const r = await c.get('/api/connect/match?city=Lima&zone=Centro&offers=inyeccion%20bombas&needs=');
+    // S1 (F3/B27/V-A9): el alta exige sesión y el email sale de la cuenta.
+    // Cada taller aporta un perfil (upsert por email de cuenta).
+    const mec = makeClient(ctx.port);
+    await mec.post('/api/auth/register', { email: 'mec@x.com', password: 'password123', name: 'Mec X Taller' });
+    const cli = makeClient(ctx.port);
+    await cli.post('/api/auth/register', { email: 'cli@x.com', password: 'password123', name: 'Cliente Y Taller' });
+    const rMec = await mec.post('/api/connect/profiles', { role: 'mecanico', name: 'Mec X', city: 'Lima', zone: 'Centro', offers: 'inyeccion bombas', needs: '' });
+    assert.ok([200, 201].includes(rMec.status), `alta mec ${rMec.status} ${JSON.stringify(rMec.body)}`);
+    const rCli = await cli.post('/api/connect/profiles', { role: 'cliente', name: 'Cliente Y', city: 'Lima', zone: 'Centro', offers: '', needs: 'inyeccion bombas' });
+    assert.ok([200, 201].includes(rCli.status), `alta cli ${rCli.status} ${JSON.stringify(rCli.body)}`);
+    const anon = makeClient(ctx.port);
+    const r = await anon.get('/api/connect/match?city=Lima&zone=Centro&offers=inyeccion%20bombas&needs=');
     assert.equal(r.status, 200);
     // El cliente que busca "inyeccion bombas" debe aparecer con match_score > 0.
     // FT-0002: las respuestas ya NO incluyen email (PII), así que se identifica
@@ -372,8 +383,14 @@ describe('Connect API (matching cliente ↔ mecánico)', () => {
   });
 
   it('valida que ciudad sea obligatoria en el perfil', async () => {
+    // Sin sesión → 401 (nuevo contrato S1).
+    const anon = makeClient(ctx.port);
+    const sinSesion = await anon.post('/api/connect/profiles', { role: 'mecanico', name: 'Sin Ciudad' });
+    assert.equal(sinSesion.status, 401);
+    // Con sesión pero sin ciudad → 400.
     const c = makeClient(ctx.port);
-    const r = await c.post('/api/connect/profiles', { email: 'x@x.com', role: 'mecanico', name: 'Sin Ciudad' });
+    await c.post('/api/auth/register', { email: 'sinciudad@x.com', password: 'password123', name: 'Sin Ciudad Taller' });
+    const r = await c.post('/api/connect/profiles', { role: 'mecanico', name: 'Sin Ciudad' });
     assert.equal(r.status, 400);
   });
 });

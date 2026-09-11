@@ -1,5 +1,5 @@
 'use strict';
-process.env.NODE_ENV = process.env.NODE_ENV || 'test';
+process.env.NODE_ENV = 'test';
 /* ============================================================================
    Utilidades compartidas por las suites de prueba.
 
@@ -94,24 +94,48 @@ function crearCliente(base) {
   return cliente;
 }
 
-/* Todas las rutas de la API declaradas en server-pg.js, leídas del propio
-   archivo. Sirve para que ninguna ruta nueva quede sin prueba de contrato. */
+/* Archivos que declaran rutas de la API: server-pg.js y los módulos de src/
+   (el chat de IA se montó en src/services/chat.js, 4.4: si el escáner mirara
+   solo server-pg.js, esa ruta dejaría de estar cubierta por las pruebas de
+   contrato y de seguridad sin que nadie se enterara). */
+function archivosConRutas() {
+  const fs = require('fs');
+  const path = require('path');
+  const raiz = path.join(__dirname, '..');
+  const out = ['server-pg.js'];
+  const recorrer = (dir) => {
+    for (const f of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, f.name);
+      if (f.isDirectory()) { recorrer(p); continue; }
+      if (f.name.endsWith('.js')) out.push(path.relative(raiz, p).replace(/\\/g, '/'));
+    }
+  };
+  const src = path.join(raiz, 'src');
+  if (fs.existsSync(src)) recorrer(src);
+  return out;
+}
+
+/* Todas las rutas de la API declaradas en el servidor, leídas del propio
+   código. Sirve para que ninguna ruta nueva quede sin prueba de contrato. */
 function rutasDeclaradas() {
   const fs = require('fs');
   const path = require('path');
-  const src = fs.readFileSync(path.join(__dirname, '..', 'server-pg.js'), 'utf8');
   const out = [];
-  for (const m of src.matchAll(/app\.(get|post|put|patch|delete)\(\s*(['"`])([^'"`]+)\2([^)]*)/g)) {
-    const middlewares = m[4];
-    out.push({
-      metodo: m[1].toUpperCase(),
-      ruta: m[3],
-      middlewares,
-      protegida: /requireWorkshop/.test(middlewares),
-      admin: /requireAdmin/.test(middlewares),
-      limitada: /Limiter/.test(middlewares),
-      linea: src.slice(0, m.index).split('\n').length,
-    });
+  for (const archivo of archivosConRutas()) {
+    const src = fs.readFileSync(path.join(__dirname, '..', archivo), 'utf8');
+    for (const m of src.matchAll(/app\.(get|post|put|patch|delete)\(\s*(['"`])([^'"`]+)\2([^)]*)/g)) {
+      const middlewares = m[4];
+      out.push({
+        metodo: m[1].toUpperCase(),
+        ruta: m[3],
+        middlewares,
+        protegida: /requireWorkshop/.test(middlewares),
+        admin: /requireAdmin/.test(middlewares),
+        limitada: /Limiter/.test(middlewares),
+        archivo,
+        linea: src.slice(0, m.index).split('\n').length,
+      });
+    }
   }
   return out;
 }

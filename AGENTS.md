@@ -174,9 +174,16 @@ lib/domain.js      REGLAS del taller. Puro, sin base de datos ni entorno.
 lib/pure.js        Helpers puros del servidor (toInt, esc, slugify…).
 db.js              Adaptador para SQLite / Turso / PostgreSQL.
 seed.js            Solo orquesta la siembra. NO tiene reglas.
-server-pg.js       La API y el HTML renderizado en servidor.
+server-pg.js       ENSAMBLADOR: monta middlewares y routers, y arranca (~25 KB).
+src/config/        Configuración del entorno, leída y validada una sola vez (4.2).
+src/routes/        Un módulo por dominio (montarX(app, deps)): catálogo, orders,
+                   documents, admin, auth, paginas (SSR), misc (catch-alls)…
+src/middleware/    CSP/nonce, CSRF, body-parser por ruta, redirects, estáticos.
+src/services/      chat, identificador, anuncios, auth (primitivas), caches.
+src/views/shell.js La maqueta del SSR (renderShell + pie legal).
+src/db/            Migraciones versionadas (runner + versiones).
 public/            Frontend sin build step (React 18 UMD + htm).
-scripts/guard.js   Motor de restricciones (18 reglas).
+scripts/guard.js   Motor de restricciones (20 reglas).
 scripts/metrics.js Métricas + trinquete de calidad.
 scripts/qa.js      npm run verify.
 quality/           Presupuestos, deuda aceptada, referencia e informe.
@@ -185,6 +192,13 @@ quality/           Presupuestos, deuda aceptada, referencia e informe.
 **`lib/` tiene que seguir siendo puro.** Nada de `require('./db')`, express,
 `process.env` ni `console.log`. Es lo que permite probar las reglas del taller
 sin levantar nada, y hay una regla del guard que lo vigila.
+
+**`src/` es lo contrario: código de servidor que sí depende del entorno, de
+express o de la base de datos, pero que no tiene por qué vivir dentro de
+`server-pg.js`.** Nada de lógica del taller ahí: eso es `lib/`. Un módulo de
+`src/` que declare rutas de la API entra igual en las pruebas de contrato y en
+la de seguridad (`test/helpers.js` y `scripts/metrics.js` leen `server-pg.js`
+**y** `src/`).
 
 ---
 
@@ -349,10 +363,10 @@ conocimiento del negocio para resolverse:
 
 | | |
 | --- | --- |
-| Pruebas | **397**, todas en verde, ~7 s |
+| Pruebas | **757**, todas en verde |
 | Cobertura de `lib/` | **100 %** |
-| Rutas de API | **79**, **100 %** con prueba |
-| Reglas de restricción | **18**, 0 violaciones |
+| Rutas de API | **103**, **100 %** con prueba |
+| Reglas de restricción | **20**, 0 violaciones |
 | Catálogo | 208 vehículos, 33 marcas, 10 pilas |
 
 Consulta `quality/REPORT.md` para el estado al día.

@@ -24,6 +24,9 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+/* Definición única de "qué rutas existen": la comparten el informe de métricas
+   y la regla que congela el monolito, para que no cuenten cosas distintas. */
+const { extraerRutas } = require('./rutas');
 
 const RAIZ = path.join(__dirname, '..');
 const rel = (p) => path.relative(RAIZ, p).replace(/\\/g, '/');
@@ -236,6 +239,39 @@ const REGLAS = [
   },
 
   {
+    id: 'monolito-de-rutas-congelado',
+    gravedad: 'error',
+    rapida: true,
+    porque: 'El monolito server-pg.js está congelado: las rutas nuevas deben nacer en src/routes/. Sin el snapshot de test/contract/rutas.json, un refactor de server-pg.js puede añadir una ruta a la API sin que ninguna prueba lo note, y la superficie pública que se creía congelada deja de serlo.',
+    revisar() {
+      const SNAPSHOT = 'test/contract/rutas.json';
+      if (!existe(SNAPSHOT)) {
+        return [hallazgo(SNAPSHOT, 0,
+          'falta el snapshot de contrato (test/contract/rutas.json): sin él no se puede congelar la superficie del monolito')];
+      }
+      /* Solo se juzgan las rutas /api: es la superficie que cubre el snapshot
+         (las páginas HTML no forman parte del contrato de la API). */
+      const permitidas = new Set(
+        JSON.parse(leer(SNAPSHOT)).rutas
+          .filter(r => r.archivo === 'server-pg.js')
+          .map(r => `${r.metodo} ${r.ruta}`)
+      );
+      const out = [];
+      for (const r of extraerRutas({ archivos: ['server-pg.js'] })) {
+        if (!r.ruta.startsWith('/api/')) continue;
+        const clave = `${r.metodo} ${r.ruta}`;
+        // Compara CONJUNTOS: mover un handler (misma ruta) o editar su cuerpo no
+        // cambia el conjunto, así que no dispara la regla.
+        if (!permitidas.has(clave)) {
+          out.push(hallazgo('server-pg.js', r.linea,
+            `ruta nueva en el monolito: ${clave}. Muévela a src/routes/ o regenera test/contract/rutas.json si es deliberado.`));
+        }
+      }
+      return out;
+    },
+  },
+
+  {
     id: 'escape-de-html-en-servidor',
     gravedad: 'error',
     rapida: true,
@@ -357,12 +393,22 @@ const REGLAS = [
     porque: 'Un hash de CSP escrito a mano caduca en silencio al tocar el script: el navegador lo bloquea y el servidor no se entera de nada.',
     revisar() {
       const out = [];
-      const src = leer('server-pg.js');
-      for (const m of src.matchAll(/'sha256-[A-Za-z0-9+/=]{40,}'/g)) {
-        out.push(hallazgo('server-pg.js', src.slice(0, m.index).split('\n').length,
-          'hash sha256 escrito a mano: debe calcularse leyendo el archivo real'));
+      /* 4.9 (W6): el nonce y la CSP se movieron a src/middleware/seguridad.js.
+         La regla mira el monolito y ese módulo juntos: el cálculo del hash vive
+         en uno u otro, nunca en dos sitios distintos. */
+      const archivos = ['server-pg.js', ...(existe('src/middleware')
+        ? fs.readdirSync(path.join(RAIZ, 'src', 'middleware')).filter(f => f.endsWith('.js')).map(f => `src/middleware/${f}`)
+        : [])];
+      let junto = '';
+      for (const archivo of archivos) {
+        const src = leer(archivo);
+        junto += '\n' + src;
+        for (const m of src.matchAll(/'sha256-[A-Za-z0-9+/=]{40,}'/g)) {
+          out.push(hallazgo(archivo, src.slice(0, m.index).split('\n').length,
+            'hash sha256 escrito a mano: debe calcularse leyendo el archivo real'));
+        }
       }
-      if (!/replace\(\/\\r\\n\?\/g, '\\n'\)/.test(src)) {
+      if (!/replace\(\/\\r\\n\?\/g, '\\n'\)/.test(junto)) {
         out.push(hallazgo('server-pg.js', 0,
           'el cálculo del hash de CSP debe normalizar CRLF a LF, o los scripts se bloquean en producción'));
       }

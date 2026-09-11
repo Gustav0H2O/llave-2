@@ -51,8 +51,8 @@
     "_comentario_three3d": "Sube de 45 a 68 KB por la incorporación de los dos nuevos visores 3D interactivos: el motor de 4 cilindros DOHC despiezado con control dinámico de explosión y telemetría de 14 subsistemas mecánicos, y el globo terráqueo 3D interactivo con balizas y arcos para Latinoamérica.",
     "public/three3d.js": 68,
     "public/sw.js": 8,
-    "_comentario_server": "Sube de 232 a 242 por la suite de gestión completa de talleres en el panel de administración (edición integral, restablecimiento directo de contraseñas, vaciado de datos operativos de clientes/inventario/órdenes, borrado seguro en cascada, descarga de backup JSON) y el endpoint público GET /api/donations/public para el Muro de Colaboradores.",
-    "server-pg.js": 242
+    "_comentario_server": "Sube de 232 a 242 por la suite de gestión completa de talleres en el panel de administración y el endpoint público GET /api/donations/public. BAJA de 242 a 40 en la Ola 4.8-4.9: server-pg.js dejó de ser un monolito y es un ensamblador de ~25 KB (438 líneas, 196 de código); rutas en src/routes/, middlewares en src/middleware/, vistas en src/views/. El tope baja para que nadie vuelva a meter la API dentro del ensamblador sin que salte aquí.",
+    "server-pg.js": 40
   },
 
   "cobertura_minima_pct": {

@@ -2,16 +2,19 @@
 // Uso: node og-gen.js   (o: npm run og). Requiere Chrome de Puppeteer instalado:
 //   npx puppeteer browsers install chrome
 // Salida: public/og/<id>.png por vehículo + public/og/default.png
+// Fuente: adaptador ./db (Turso > PostgreSQL vía DATABASE_URL > SQLite local),
+// así regenera las 208 imágenes desde cualquier backend sin tocar el script.
 const path = require('path');
 const fs = require('fs');
-const Database = require('better-sqlite3');
 const puppeteer = require('puppeteer');
+const { esc } = require('./lib/pure');
+const { db, pgPool, USE_TURSO, USE_PG } = require('./db');
+
+const BASE_URL = (process.env.BASE_URL || 'https://fueltech-master.onrender.com').replace(/\/+$/, '');
+const BASE_HOST = BASE_URL.replace(/^https?:\/\//, '');
 
 const OUT = path.join(__dirname, 'public', 'og');
 fs.mkdirSync(OUT, { recursive: true });
-const db = new Database(path.join(__dirname, 'llave.db'), { readonly: true });
-
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // Logo "llave" embebido: la página se renderiza desde una cadena (sin
 // servidor) así que una ruta relativa no resolvería. Tomamos los 5 paths
 // de la palabra del SVG vectorial y los envolvemos en crema sobre verde.
@@ -56,7 +59,7 @@ function card({ title, sub, big, bigSmall, badge }) {
       <div><span class="badge">${esc(badge)}</span></div>
     </div>
   </div>
-  <div class="foot">llave.onrender.com<br>Módulo y pilas compatibles</div>
+  <div class="foot">${esc(BASE_HOST)}<br>Módulo y pilas compatibles</div>
   </body></html>`;
 }
 
@@ -67,10 +70,11 @@ async function render(page, html, out) {
 }
 
 (async () => {
-  const rows = db.prepare(`SELECT v.id, b.name AS brand, v.model, v.year_from, v.year_to, v.engine,
+  console.log(`OG: fuente ${USE_TURSO ? 'Turso' : USE_PG ? 'PostgreSQL' : 'SQLite local'} → ${BASE_HOST}`);
+  const rows = await db.all(`SELECT v.id, b.name AS brand, v.model, v.year_from, v.year_to, v.engine,
       it.name AS injection, v.rail_pressure_psi_min AS pmin, v.rail_pressure_psi_max AS pmax
     FROM vehicles v JOIN brands b ON b.id = v.brand_id
-    JOIN injection_types it ON it.id = v.injection_type_id`).all();
+    JOIN injection_types it ON it.id = v.injection_type_id`);
 
   // Usa un Chrome/Edge del sistema (evita depender del Chrome de Puppeteer). Configurable con CHROME_PATH.
   const CHROME = process.env.CHROME_PATH || [
@@ -106,6 +110,6 @@ async function render(page, html, out) {
   console.log(`  ${rows.length}/${rows.length} ✓`);
 
   await browser.close();
-  db.close();
+  if (pgPool) await pgPool.end().catch(() => {});
   console.log(`OG listo: ${n} vehículos + default en public/og/`);
 })().catch((e) => { console.error('Error generando OG:', e.message); process.exit(1); });

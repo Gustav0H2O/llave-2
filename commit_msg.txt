@@ -1,9 +1,0 @@
-feat: chat IA solo para usuarios, Google Sign-In y Groq como proveedor
-
-- Chat flotante aparece SOLO cuando el usuario tiene sesion iniciada
-- Limites diarios de chat por cuenta (no por dispositivo)
-- Integracion con Google OAuth para registro/login
-- Groq como proveedor principal (14,400 peticiones/dia gratis)
-- Chat UI mas prominente con animacion y efectos
-
-Co-authored-by: CommandCodeBot <noreply@commandcode.ai>

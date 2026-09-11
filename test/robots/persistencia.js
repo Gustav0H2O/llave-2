@@ -195,7 +195,12 @@ async function main() {
     const invListRes = await cliReinicio.get('/api/inventory');
     rep.comprobar(invListRes.body?.length === 1, 'Inventario tras reinicio: 1 registro');
     rep.comprobar(invListRes.body?.[0]?.sku === 'BOMBA-COROLLA-2018', 'SKU de inventario intacto');
-    rep.comprobar(Number(invListRes.body?.[0]?.qty) === 12, 'Cantidad en stock intacta tras reinicio');
+    /* 2.17: la NOTA DE ENTREGA de arriba lleva una partida con `item_id` y
+       qty:1, así que la pieza salió del anaquel al emitirla — igual que una
+       partida de orden. El stock correcto al reiniciar es 11 (12 − 1), no 12:
+       era el robot el que esperaba mal, no el descuento el que sobra. */
+    rep.comprobar(Number(invListRes.body?.[0]?.qty) === 11,
+      'Stock intacto tras el reinicio: 11 (12 menos la pieza de la nota de entrega, regla 2.17)');
 
     // Verificamos persistencia de orden
     const ordersRes = await cliReinicio.get('/api/orders');

@@ -326,6 +326,52 @@ describe('Seguridad — cabeceras y superficie pública', () => {
     assert.match(csp, /base-uri 'self'/, 'sin base-uri, una inyección puede reescribir todas las URLs relativas');
   });
 
+  /* 2.31 — Sin 'unsafe-inline' en script-src.
+     Es LA diferencia entre "un HTML mal escapado se ve raro" y "un HTML mal
+     escapado ejecuta código en la página del mecánico". Los scripts inline del
+     sitio siguen funcionando por hash (los de index.html) y por nonce (el
+     JSON-LD del SSR y el arranque de Google Analytics). */
+  it('script-src no permite scripts inline sin hash ni nonce (2.31)', async () => {
+    const csp = (await c.get('/healthz')).headers.get('content-security-policy');
+    const scriptSrc = csp.slice(csp.indexOf('script-src'), csp.indexOf('style-src'));
+    assert.equal(/unsafe-inline/.test(scriptSrc), false,
+      `script-src sigue abierto: ${scriptSrc}`);
+  });
+
+  it('los scripts inline de la portada siguen autorizados (por hash o por nonce)', async () => {
+    const crypto = require('node:crypto');
+    const r = await c.get('/');
+    const csp = r.headers.get('content-security-policy');
+    const scripts = [...String(r.body).matchAll(/<script(?![^>]*\ssrc=)[^>]*>([\s\S]*?)<\/script>/g)];
+    assert.ok(scripts.length > 0, 'la portada debería traer sus scripts inline');
+    for (const s of scripts) {
+      const etiqueta = s[0].slice(0, 60);
+      const nonce = (s[0].match(/nonce="([^"]+)"/) || [])[1];
+      if (nonce) {
+        assert.ok(csp.includes(`'nonce-${nonce}'`), `la CSP no declara el nonce de ${etiqueta}`);
+        continue;
+      }
+      // El parser normaliza CRLF a LF antes de calcular el hash; el servidor
+      // hace lo mismo al leer index.html (AGENTS.md §4.7).
+      const cuerpo = s[1].replace(/\r\n?/g, '\n');
+      const hash = `'sha256-${crypto.createHash('sha256').update(cuerpo, 'utf8').digest('base64')}'`;
+      assert.ok(csp.includes(hash), `la CSP no autoriza por hash uno de los scripts inline de la portada: ${etiqueta}`);
+    }
+  });
+
+  it('el contenedor de anuncios es un documento aparte, del mismo origen (2.31)', async () => {
+    // Sin ADSENSE_CLIENT no hay nada que servir: la ruta deja pasar (404 del
+    // sitio). Lo que esta prueba fija es que /ads es una ruta PROPIA y que las
+    // páginas no cargan el código de anuncios de terceros.
+    const ads = await c.get('/ads');
+    assert.equal(ads.status, 404, 'sin cuenta de AdSense, /ads no sirve nada');
+    const home = await c.get('/');
+    assert.equal(/adsbygoogle\.js/.test(String(home.body)), false,
+      'el cargador de AdSense no puede volver al documento del mecánico: obligaría a abrir unsafe-inline');
+    assert.match(home.headers.get('content-security-policy'), /frame-src 'self'/,
+      "el marco del contenedor tiene que poder cargarse desde el sitio");
+  });
+
   it('no revela la tecnología del servidor', async () => {
     const r = await c.get('/healthz');
     assert.equal(r.headers.get('x-powered-by'), null, 'x-powered-by le regala la pila al atacante');
@@ -420,11 +466,20 @@ describe('Seguridad — cobertura de la protección (análisis estático)', () =
     // El estado (state) se valida en el callback para prevenir CSRF.
     'GET /api/auth/google', 'GET /api/auth/google/callback',
     'GET /api/workshops', 'GET /api/workshops/:slug', 'POST /api/workshops/:slug/reviews',
-    'GET /api/connect/profiles', 'POST /api/connect/profiles',
+    // POST /api/connect/profiles exige sesión desde S1 (F3/B27/V-A9): el alta
+    // usa el email de la cuenta, no del body. Solo el listado/match/locate siguen públicos.
+    'GET /api/connect/profiles',
     'GET /api/connect/match', 'POST /api/connect/locate',
-    'POST /api/donations', 'GET /api/donations/quick-approve',
+    // GET /api/donations/quick-approve ELIMINADO en S1 (F2/F6/B5/V-A7): era un
+    // GET que mutaba estado (CSRF). La aprobación es solo vía POST admin.
+    'POST /api/donations',
     // Muro público de colaboradores y aportes aprobados (sin PII sensible)
     'GET /api/donations/public',
+    // 2.24: el identificador de piezas es público A PROPÓSITO, igual que el chat
+    // (POST /api/chat). El mecánico lo usa antes de tener cuenta y no toca
+    // ninguna tabla: recibe una descripción y devuelve candidatos. Se protege
+    // con limitador de ráfaga (10/min) y con la cuota del proveedor de IA.
+    'POST /api/aid/identify',
   ]);
 
   it('toda ruta /api nueva está protegida, o declarada pública a propósito', () => {
@@ -467,27 +522,36 @@ describe('Seguridad — cobertura de la protección (análisis estático)', () =
    exactas de los perfiles: eso era raspable con dos líneas (hallazgo P0).
    ========================================================================= */
 describe('Seguridad — /api/connect no expone PII', () => {
-  let ctx, anon;
+  let ctx, anon, taller;
   before(async () => {
     ctx = await levantarServidor();
     anon = crearCliente(ctx.base);
-    const alta = await anon.post('/api/connect/profiles', {
-      email: 'connect-qa@example.com', name: 'Taller Conecta QA', city: 'Monterrey',
+    taller = crearCliente(ctx.base);
+    await taller.registrar('ConectaQA');
+    // S1 (F3/B27/V-A9): el alta exige sesión; el email sale de la cuenta.
+    const alta = await taller.post('/api/connect/profiles', {
+      name: 'Taller Conecta QA', city: 'Monterrey',
       phone: '8110000000', role: 'mecanico', lat: 25.6866, lng: -100.3161,
       offers: 'diagnostico de bombas', zone: 'Centro'
     });
-    assert.equal(alta.status, 201, `el alta anónima debe seguir funcionando: ${alta.status}`);
+    assert.ok([200, 201].includes(alta.status), `el alta con sesión debe funcionar: ${alta.status} ${JSON.stringify(alta.body)}`);
+    // Sin sesión debe ser 401 (nuevo contrato S1).
+    const sinSesion = await anon.post('/api/connect/profiles', {
+      name: 'Taller Conecta QA', city: 'Monterrey'
+    });
+    assert.equal(sinSesion.status, 401, `el alta anónima debe ser 401, fue ${sinSesion.status}`);
   });
   after(() => ctx.cerrar());
 
   it('el alta responde solo el id: nada de eco del email', async () => {
     // ya creado en before(); repetimos el upsert para inspeccionar la respuesta.
     // Al existir ya, entra por la rama UPDATE y responde 200 (el 201 es del alta).
-    const r = await anon.post('/api/connect/profiles', {
-      email: 'connect-qa@example.com', name: 'Taller Conecta QA', city: 'Monterrey'
+    const r = await taller.post('/api/connect/profiles', {
+      name: 'Taller Conecta QA', city: 'Monterrey'
     });
     assert.ok([200, 201].includes(r.status), `upsert devolvió ${r.status}`);
-    assert.equal(JSON.stringify(r.body).includes('connect-qa@example.com'), false,
+    // S1: el email sale de la cuenta (tallerconectaqa@prueba.test aprox.), nunca del body.
+    assert.equal(JSON.stringify(r.body).includes('@'), false,
       'la respuesta del alta no debe contener el email');
   });
 
@@ -498,7 +562,7 @@ describe('Seguridad — /api/connect no expone PII', () => {
       assert.equal(status, 200);
       const texto = JSON.stringify(body);
       assert.ok(texto.includes('Taller Conecta QA'), 'el perfil público sí debe aparecer');
-      for (const prohibida of ['connect-qa@example.com', '"email"', '"address"', '"lat"', '"lng"']) {
+      for (const prohibida of ['@prueba.test', '"email"', '"address"', '"lat"', '"lng"']) {
         assert.equal(texto.includes(prohibida), false, `${ruta} filtró ${prohibida}`);
       }
     });
@@ -510,6 +574,66 @@ describe('Seguridad — /api/connect no expone PII', () => {
     if (fila) {
       assert.equal(typeof fila.distance_km === 'number' || fila.distance_km === null, true,
         'distance_km debe ser número o null');
+    }
+  });
+});
+
+/* ============================================================================
+   2.34 — Una cuenta suspendida no debe revelar que existe.
+   2.36 — /healthz solo responde 200 si AMBAS bases contestan.
+   ========================================================================= */
+describe('Seguridad — 2.34 cuenta suspendida no filtra su existencia', () => {
+  let ctx, c;
+  before(async () => { ctx = await levantarServidor(); c = crearCliente(ctx.base); });
+  after(() => ctx.cerrar());
+
+  it('responde el MISMO 401 genérico que credenciales inválidas', async () => {
+    const email = `suspendido-${Math.random().toString(36).slice(2, 7)}@prueba.test`;
+    const reg = await c.post('/api/auth/register', { email, password: 'clave-larga-123', name: 'Taller Suspendido' });
+    assert.equal(reg.status, 201, `registro: ${JSON.stringify(reg.body)}`);
+    ctx.db.prepare("UPDATE workshops SET status = 'suspended' WHERE email = ?").run(email);
+
+    // Con la contraseña CORRECTA, pero suspendida: mismo 401 que credenciales malas.
+    const r = await c.post('/api/auth/login', { email, password: 'clave-larga-123' });
+    assert.equal(r.status, 401, `suspendido con clave correcta respondió ${r.status}`);
+    assert.equal(r.body.code, 'bad_credentials');
+    assert.equal(/suspend/i.test(JSON.stringify(r.body)), false, 'el mensaje filtra la suspensión');
+
+    // El cuerpo debe ser IDÉNTICO al de un login con contraseña equivocada.
+    const otro = `activo-${Math.random().toString(36).slice(2, 7)}@prueba.test`;
+    await c.post('/api/auth/register', { email: otro, password: 'clave-larga-123', name: 'Taller Activo' });
+    const malo = await c.post('/api/auth/login', { email: otro, password: 'clave-mala-12345' });
+    assert.equal(malo.status, 401);
+    assert.deepEqual(r.body, malo.body, 'la respuesta delata la existencia/estado de la cuenta');
+  });
+});
+
+describe('Seguridad — 2.36 /healthz comprueba ambas bases', () => {
+  const Database = require('better-sqlite3');
+  const { createApp } = require('../../server-pg');
+  const { DBAdapter } = require('../../db');
+  const { seedTestDb } = require('../seed-test');
+  const { STATS_SCHEMA } = require('../helpers');
+
+  it('responde 200 {ok:true} normalmente y 503 si una base falla', async () => {
+    const db = new Database(':memory:'); seedTestDb(db);
+    const stats = new Database(':memory:'); stats.exec(STATS_SCHEMA);
+    const statsAdapter = new DBAdapter(stats, 'local');
+    const app = await createApp(new DBAdapter(db, 'local'), statsAdapter);
+    const server = await new Promise((res, rej) => { const s = app.listen(0, '127.0.0.1', () => res(s)); s.on('error', rej); });
+    const base = `http://127.0.0.1:${server.address().port}`;
+    try {
+      const sano = await fetch(base + '/healthz');
+      assert.equal(sano.status, 200);
+      assert.deepEqual(await sano.json(), { ok: true });
+
+      // Simula la caída de la base de estadísticas (el adaptador es el mismo objeto).
+      statsAdapter.get = async () => { throw new Error('base caída'); };
+      const roto = await fetch(base + '/healthz');
+      assert.equal(roto.status, 503, 'con una base caída /healthz debe responder 503');
+    } finally {
+      if (server.closeAllConnections) server.closeAllConnections();
+      server.close(); db.close(); stats.close();
     }
   });
 });

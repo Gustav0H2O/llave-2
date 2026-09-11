@@ -183,7 +183,10 @@ describe('Contrato — cobertura de rutas', () => {
   });
 
   it('el 404 del router va después de todas las rutas /api', () => {
-    const src = fs.readFileSync(path.join(__dirname, '..', '..', 'server-pg.js'), 'utf8');
+    /* 4.9 (W6): el 404 JSON de /api se movió a src/routes/misc.js junto con los
+       demás extremos del servidor. La invariante es la misma: dentro de ese
+       módulo el 404 tiene que ir después de /api/visit, que es su única ruta. */
+    const src = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'routes', 'misc.js'), 'utf8');
     const posicion404 = src.indexOf("app.use('/api', (req, res) => res.status(404)");
     assert.ok(posicion404 > 0, 'falta el 404 del router de /api');
     const ultimaRuta = Math.max(...rutasDeclaradas()

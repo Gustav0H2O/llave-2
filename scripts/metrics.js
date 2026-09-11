@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+process.env.NODE_ENV = 'test';
 /* ============================================================================
    scripts/metrics.js — MÉTRICAS DE CALIDAD Y RATCHET
 
@@ -24,6 +25,9 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const os = require('os');
+/* Escáner único de rutas: lo comparten este informe y el guard que congela el
+   monolito (scripts/guard.js), así no cuentan cosas distintas. */
+const { rutasApi } = require('./rutas');
 
 const RAIZ = path.join(__dirname, '..');
 const P = (...p) => path.join(RAIZ, ...p);
@@ -74,8 +78,11 @@ const ejecutar = (cmd, args, opts = {}) => {
 
 function medirPruebas() {
   const t0 = Date.now();
+  /* --test-concurrency=1 igual que `npm test`: sin limitar la concurrencia,
+     la suite compite por la CPU y un test sensible a tiempos (login timing-safe)
+     falla de forma intermitente. La medición debe ser reproducible. */
   const salida = ejecutar(process.execPath, [
-    '--test', '--test-reporter=tap', '--test-reporter-destination=stdout',
+    '--test', '--test-concurrency=1', '--test-reporter=tap', '--test-reporter-destination=stdout',
     ...listarPruebas(),
   ]);
   const duracion = (Date.now() - t0) / 1000;
@@ -131,12 +138,13 @@ function medirCobertura() {
 }
 
 function medirRutas() {
-  const src = leer('server-pg.js');
-  const rutas = [];
-  for (const m of src.matchAll(/app\.(get|post|put|patch|delete)\(\s*(['"`])([^'"`]+)\2([^)]*)/g)) {
-    rutas.push({ metodo: m[1].toUpperCase(), ruta: m[3], mw: m[4] });
-  }
-  const api = rutas.filter(r => r.ruta.startsWith('/api/'));
+  /* Las rutas de la API pueden declararse en server-pg.js o en un módulo de
+     src/ (el chat vive en src/services/chat.js, 4.4). Si solo se midiera
+     server-pg.js, una ruta movida desaparecería del informe en vez de seguir
+     contando. El escáner vive en scripts/rutas.js y lo comparte el guard, para
+     que el total que mide el informe y el que congela la restricción coincidan
+     aunque se lea además test/contract/rutas.json. */
+  const api = rutasApi();
 
   const textoPruebas = listarPruebas().concat(
     fs.readdirSync(P('test')).filter(f => f.endsWith('.js')).map(f => `test/${f}`)
@@ -151,7 +159,7 @@ function medirRutas() {
     return patron.test(textoPruebas);
   });
 
-  const sinProteger = api.filter(r => !/requireWorkshop|requireAdmin/.test(r.mw));
+  const sinProteger = api.filter(r => !r.requireWorkshop && !r.requireAdmin);
 
   return {
     total: api.length,

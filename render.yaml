@@ -3,12 +3,14 @@ services:
     name: fueltech-master
     runtime: node
     plan: free
-    buildCommand: npm install && npm run seed
+    buildCommand: npm install --omit=dev && npm run seed
     startCommand: npm start
     healthCheckPath: /healthz
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PUPPETEER_SKIP_DOWNLOAD
+        value: 1
       # Cámbiala por tu dominio propio cuando lo conectes (afecta canonical, sitemap y Open Graph).
       - key: BASE_URL
         value: https://fueltech-master.onrender.com
@@ -49,3 +51,8 @@ services:
       # Sin esta variable, el panel de administración queda DESACTIVADO (seguro por defecto).
       - key: ADMIN_PASSWORD
         sync: false
+      # Sal del contador de visitas. En producción es OBLIGATORIA: sin ella el
+      # proceso no arranca (con una sal nueva en cada reinicio el mismo visitante
+      # se cuenta otra vez). Render genera el valor una sola vez y lo conserva.
+      - key: VISIT_SALT
+        generateValue: true

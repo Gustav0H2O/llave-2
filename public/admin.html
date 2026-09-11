@@ -39,22 +39,23 @@
   .row{display:flex;flex-wrap:wrap;gap:10px}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   @media(max-width:640px){.grid{grid-template-columns:1fr}}
-  label{display:block;font:600 10px var(--font);letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
-  input,select,textarea{width:100%;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:9px 11px;font:500 13.5px var(--font);outline:none}
+  label{display:block;font:600 10px var(--font);color:var(--muted);margin:0 0 4px}
+  input,select,textarea{width:100%;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:9px 11px;font:500 13.5px var(--font)}
   input:focus,select:focus,textarea:focus{border-color:var(--red)}
+  :where(a,button,select,input,textarea,[tabindex]):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   textarea{min-height:58px;resize:vertical}
   .field{margin-bottom:12px}
   .check{display:flex;align-items:center;gap:8px}
   .check input{width:auto}
-  button{font:700 12px var(--font);letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:3px;padding:10px 16px;border:1px solid var(--border-hi);background:var(--panel2);color:var(--text);transition:.15s}
+  button{font:700 12px var(--font);cursor:pointer;border-radius:3px;padding:10px 16px;border:1px solid var(--border-hi);background:var(--panel2);color:var(--text);transition:.15s}
   button:hover{border-color:var(--red-dim);color:var(--red)}
-  button.primary{background:linear-gradient(145deg,var(--accent-strong),var(--accent));color:var(--accent-ink);border-color:var(--accent)}
+  button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
   button.primary:hover{filter:brightness(1.08);color:var(--accent-ink)}
   button.danger{color:var(--danger);border-color:var(--danger-dim)}
   button.small{padding:6px 10px;font-size:10.5px}
-  .panel{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:18px;margin-top:16px}
-  .panel h2{font:700 13px var(--font);letter-spacing:2px;text-transform:uppercase;color:var(--red);margin-bottom:14px}
-  .sub{font:700 9.5px var(--font);letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;padding-top:10px;border-top:1px solid var(--border)}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:22px;padding:18px;margin-top:16px}
+  .panel h2{font:700 13px var(--font);color:var(--red);margin-bottom:14px}
+  .sub{font:700 9.5px var(--font);color:var(--muted);margin:16px 0 8px;padding-top:10px;border-top:1px solid var(--border)}
   nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
   nav button.active{background:rgba(174,204,58,.14);color:var(--red);border-color:var(--red-dim)}
   .vrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:4px;margin-bottom:7px;background:var(--panel2)}
@@ -82,9 +83,13 @@
     .brand-lockup.light{display:block}
   }
   .hint{font-size:10.5px;color:var(--muted);margin-top:3px}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
+<main>
+<h1 class="sr-only">Panel de administración</h1>
 <!-- LOGIN -->
 <div id="login" class="center">
   <img class="brand-lockup dark" src="/brand/logo-llave-light.svg" alt="llave">
@@ -122,6 +127,7 @@
   <!-- LISTA -->
   <section id="view-list" class="panel">
     <h2>Vehículos</h2>
+    <label class="sr-only" for="search">Buscar por modelo o marca</label>
     <input id="search" placeholder="Buscar por modelo o marca…">
     <div id="vlist" style="margin-top:12px"></div>
   </section>
@@ -133,42 +139,42 @@
 
     <div class="sub" style="border-top:0;padding-top:0;margin-top:0">Vehículo</div>
     <div class="grid">
-      <div class="field"><label>Marca</label><select id="v_brand"></select><div class="hint">¿Falta? Agrégala en la pestaña "Marcas".</div></div>
-      <div class="field"><label>Modelo</label><input id="v_model" placeholder="Ej. Aveo"></div>
-      <div class="field"><label>Año desde</label><input id="v_year_from" type="number" inputmode="numeric" placeholder="2008"></div>
-      <div class="field"><label>Año hasta</label><input id="v_year_to" type="number" inputmode="numeric" placeholder="2017"></div>
-      <div class="field"><label>Motor</label><input id="v_engine" placeholder="1.6L L4 16v"></div>
-      <div class="field"><label>Carrocería (3D)</label><select id="v_body"></select></div>
-      <div class="field"><label>Tipo de inyección</label><select id="v_inj"></select></div>
-      <div class="field"><label>Presión riel PSI mín.</label><input id="v_psi_min" type="number" step="0.1" placeholder="45"></div>
-      <div class="field"><label>Presión riel PSI máx.</label><input id="v_psi_max" type="number" step="0.1" placeholder="52"></div>
-      <div class="field check"><input id="v_verified" type="checkbox"><label style="margin:0">Datos verificados contra manual</label></div>
+      <div class="field"><label for="v_brand">Marca</label><select id="v_brand"></select><div class="hint">¿Falta? Agrégala en la pestaña "Marcas".</div></div>
+      <div class="field"><label for="v_model">Modelo</label><input id="v_model" placeholder="Ej. Aveo"></div>
+      <div class="field"><label for="v_year_from">Año desde</label><input id="v_year_from" type="number" inputmode="numeric" placeholder="2008"></div>
+      <div class="field"><label for="v_year_to">Año hasta</label><input id="v_year_to" type="number" inputmode="numeric" placeholder="2017"></div>
+      <div class="field"><label for="v_engine">Motor</label><input id="v_engine" placeholder="1.6L L4 16v"></div>
+      <div class="field"><label for="v_body">Carrocería (3D)</label><select id="v_body"></select></div>
+      <div class="field"><label for="v_inj">Tipo de inyección</label><select id="v_inj"></select></div>
+      <div class="field"><label for="v_psi_min">Presión riel PSI mín.</label><input id="v_psi_min" type="number" step="0.1" placeholder="45"></div>
+      <div class="field"><label for="v_psi_max">Presión riel PSI máx.</label><input id="v_psi_max" type="number" step="0.1" placeholder="52"></div>
+      <div class="field check"><input id="v_verified" type="checkbox"><label for="v_verified" style="margin:0">Datos verificados contra manual</label></div>
     </div>
-    <div class="field"><label>Notas (opcional)</label><textarea id="v_notes" placeholder="Advertencias, aclaraciones…"></textarea></div>
+    <div class="field"><label for="v_notes">Notas (opcional)</label><textarea id="v_notes" placeholder="Advertencias, aclaraciones…"></textarea></div>
 
     <div class="sub">Módulo de combustible</div>
     <div class="grid">
-      <div class="field"><label>Código del módulo (único)</label><input id="m_code" placeholder="FTM-CHE-020"></div>
-      <div class="field"><label>Nombre del módulo</label><input id="m_name" placeholder="Módulo Aveo returnless"></div>
-      <div class="field"><label>Tipo de ensamble</label><select id="m_assembly"></select></div>
-      <div class="field"><label>Clave de diagrama 3D</label><input id="m_diagram" placeholder="module_generic"></div>
-      <div class="field"><label>Presión regulada (PSI)</label><input id="m_reg_psi" type="number" step="0.1" placeholder="50"></div>
-      <div class="field"><label>Flujo (LPH)</label><input id="m_flow" type="number" step="1" placeholder="110"></div>
-      <div class="field"><label>Regulador</label><input id="m_regulator" placeholder="Integrado al módulo"></div>
-      <div class="field"><label>Flotador</label><input id="m_float" placeholder="Brazo con potenciómetro"></div>
-      <div class="field"><label>Cedazo / filtro</label><input id="m_strainer" placeholder="Cedazo de succión"></div>
-      <div class="field"><label>Conector eléctrico</label><input id="m_connector" placeholder="4 vías sellado"></div>
-      <div class="field"><label>Líneas</label><input id="m_lines" placeholder="Alimentación + venteo"></div>
-      <div class="field"><label>Sujeción</label><input id="m_mount" placeholder="Anillo cam-lock plástico"></div>
+      <div class="field"><label for="m_code">Código del módulo (único)</label><input id="m_code" placeholder="FTM-CHE-020"></div>
+      <div class="field"><label for="m_name">Nombre del módulo</label><input id="m_name" placeholder="Módulo Aveo returnless"></div>
+      <div class="field"><label for="m_assembly">Tipo de ensamble</label><select id="m_assembly"></select></div>
+      <div class="field"><label for="m_diagram">Clave de diagrama 3D</label><input id="m_diagram" placeholder="module_generic"></div>
+      <div class="field"><label for="m_reg_psi">Presión regulada (PSI)</label><input id="m_reg_psi" type="number" step="0.1" placeholder="50"></div>
+      <div class="field"><label for="m_flow">Flujo (LPH)</label><input id="m_flow" type="number" step="1" placeholder="110"></div>
+      <div class="field"><label for="m_regulator">Regulador</label><input id="m_regulator" placeholder="Integrado al módulo"></div>
+      <div class="field"><label for="m_float">Flotador</label><input id="m_float" placeholder="Brazo con potenciómetro"></div>
+      <div class="field"><label for="m_strainer">Cedazo / filtro</label><input id="m_strainer" placeholder="Cedazo de succión"></div>
+      <div class="field"><label for="m_connector">Conector eléctrico</label><input id="m_connector" placeholder="4 vías sellado"></div>
+      <div class="field"><label for="m_lines">Líneas</label><input id="m_lines" placeholder="Alimentación + venteo"></div>
+      <div class="field"><label for="m_mount">Sujeción</label><input id="m_mount" placeholder="Anillo cam-lock plástico"></div>
     </div>
 
     <div class="sub">Ubicación / acceso</div>
     <div class="grid">
-      <div class="field"><label>Zona</label><select id="l_zone"></select></div>
-      <div class="field check"><input id="l_tank" type="checkbox"><label style="margin:0">Requiere bajar el tanque</label></div>
+      <div class="field"><label for="l_zone">Zona</label><select id="l_zone"></select></div>
+      <div class="field check"><input id="l_tank" type="checkbox"><label for="l_tank" style="margin:0">Requiere bajar el tanque</label></div>
     </div>
-    <div class="field"><label>Descripción de ubicación</label><textarea id="l_text" placeholder="Dentro del tanque; acceso por registro bajo el asiento trasero…"></textarea></div>
-    <div class="field"><label>Notas de acceso (opcional)</label><textarea id="l_access" placeholder="Herramientas, precauciones…"></textarea></div>
+    <div class="field"><label for="l_text">Descripción de ubicación</label><textarea id="l_text" placeholder="Dentro del tanque; acceso por registro bajo el asiento trasero…"></textarea></div>
+    <div class="field"><label for="l_access">Notas de acceso (opcional)</label><textarea id="l_access" placeholder="Herramientas, precauciones…"></textarea></div>
 
     <div class="sub">Pilas (bombas) compatibles</div>
     <div id="p_list" class="pumps-box"></div>
@@ -185,17 +191,17 @@
   <section id="view-pumps" class="panel hidden">
     <h2>Agregar pila (bomba)</h2>
     <div class="grid">
-      <div class="field"><label>Código (único)</label><input id="pa_code" placeholder="BOSCH 0580..."></div>
-      <div class="field"><label>Fabricante</label><input id="pa_manuf" placeholder="Bosch"></div>
-      <div class="field"><label>Estilo</label><input id="pa_style" placeholder="Turbina"></div>
-      <div class="field"><label>Presión máx. directa (PSI)</label><input id="pa_psi" type="number" step="0.1" placeholder="100"></div>
-      <div class="field"><label>Amperaje (A)</label><input id="pa_amp" type="number" step="0.1" placeholder="8"></div>
-      <div class="field"><label>Voltaje (V)</label><input id="pa_volt" type="number" step="1" placeholder="12"></div>
-      <div class="field"><label>Flujo libre (LPH)</label><input id="pa_flow" type="number" step="1" placeholder="120"></div>
-      <div class="field"><label>Clave diagrama 3D</label><input id="pa_diagram" placeholder="pump_generic"></div>
-      <div class="field"><label>Entrada</label><input id="pa_inlet" placeholder="Entrada inferior con cedazo"></div>
-      <div class="field"><label>Salida</label><input id="pa_outlet" placeholder="Salida superior 8mm"></div>
-      <div class="field"><label>Polaridad</label><input id="pa_polarity" placeholder="(+) terminal grande, (−) chico"></div>
+      <div class="field"><label for="pa_code">Código (único)</label><input id="pa_code" placeholder="BOSCH 0580..."></div>
+      <div class="field"><label for="pa_manuf">Fabricante</label><input id="pa_manuf" placeholder="Bosch"></div>
+      <div class="field"><label for="pa_style">Estilo</label><input id="pa_style" placeholder="Turbina"></div>
+      <div class="field"><label for="pa_psi">Presión máx. directa (PSI)</label><input id="pa_psi" type="number" step="0.1" placeholder="100"></div>
+      <div class="field"><label for="pa_amp">Amperaje (A)</label><input id="pa_amp" type="number" step="0.1" placeholder="8"></div>
+      <div class="field"><label for="pa_volt">Voltaje (V)</label><input id="pa_volt" type="number" step="1" placeholder="12"></div>
+      <div class="field"><label for="pa_flow">Flujo libre (LPH)</label><input id="pa_flow" type="number" step="1" placeholder="120"></div>
+      <div class="field"><label for="pa_diagram">Clave diagrama 3D</label><input id="pa_diagram" placeholder="pump_generic"></div>
+      <div class="field"><label for="pa_inlet">Entrada</label><input id="pa_inlet" placeholder="Entrada inferior con cedazo"></div>
+      <div class="field"><label for="pa_outlet">Salida</label><input id="pa_outlet" placeholder="Salida superior 8mm"></div>
+      <div class="field"><label for="pa_polarity">Polaridad</label><input id="pa_polarity" placeholder="(+) terminal grande, (−) chico"></div>
     </div>
     <button id="pa_add" class="primary">Agregar pila</button>
     <p id="pa_msg" class="msg"></p>
@@ -205,7 +211,7 @@
   <section id="view-brands" class="panel hidden">
     <h2>Agregar marca</h2>
     <div class="row" style="align-items:flex-end">
-      <div class="field" style="flex:1;min-width:220px;margin:0"><label>Nombre de la marca</label><input id="br_name" placeholder="Ej. BYD"></div>
+      <div class="field" style="flex:1;min-width:220px;margin:0"><label for="br_name">Nombre de la marca</label><input id="br_name" placeholder="Ej. BYD"></div>
       <button id="br_add" class="primary">Agregar</button>
     </div>
     <p id="br_msg" class="msg"></p>
@@ -215,7 +221,7 @@
   <section id="view-import" class="panel hidden">
     <h2>Importar vehículos (CSV)</h2>
     <p class="muted" style="font-size:12px;margin-bottom:12px">Formato: <code>marca, modelo, año_desde, año_hasta, motor, inyección (MFI|TBI|VORTEC_CSFI|GDI), psi_min, psi_max, zona (rear_seat|trunk_access|tank_drop|frame_rail), requiere_bajar_tanque (0|1), ubicación_texto, carrocería (sedan|hatchback|pickup|suv|van)</code>. La primera línea puede ser cabecera.</p>
-    <div class="field"><label>Texto CSV</label><textarea id="imp_csv" rows="10" placeholder="Toyota, Corolla, 2008, 2017, 1.8L L4 16v, MFI, 38, 44, rear_seat, 0, Dentro del tanque; acceso por registro bajo el asiento trasero., sedan"></textarea></div>
+    <div class="field"><label for="imp_csv">Texto CSV</label><textarea id="imp_csv" rows="10" placeholder="Toyota, Corolla, 2008, 2017, 1.8L L4 16v, MFI, 38, 44, rear_seat, 0, Dentro del tanque; acceso por registro bajo el asiento trasero., sedan"></textarea></div>
     <div class="row">
       <button id="imp_run" class="primary">Importar</button>
       <button id="imp_download" class="small">Descargar plantilla</button>
@@ -258,6 +264,7 @@
     <!-- Subvista: Talleres & Cuentas -->
     <div id="don_sub_workshops" class="hidden">
       <div style="display:flex;gap:8px;margin-bottom:12px">
+        <label class="sr-only" for="don_ws_search">Buscar taller por nombre, correo, RIF o teléfono</label>
         <input id="don_ws_search" placeholder="Buscar taller por nombre, correo, RIF o teléfono…" style="flex:1">
         <button id="don_ws_search_btn" class="small">Buscar</button>
       </div>
@@ -273,42 +280,42 @@
           <input type="hidden" id="ws_edit_id">
           <div class="grid" style="gap:10px">
             <div class="field" style="grid-column:1/-1">
-              <label>Nombre del Taller</label>
+              <label for="ws_edit_name">Nombre del Taller</label>
               <input id="ws_edit_name" placeholder="Nombre comercial del taller">
             </div>
             <div class="field">
-              <label>Responsable Legal / Titular</label>
+              <label for="ws_edit_owner">Responsable Legal / Titular</label>
               <input id="ws_edit_owner" placeholder="Nombre y apellido">
             </div>
             <div class="field">
-              <label>RIF / Documento Fiscal</label>
+              <label for="ws_edit_doc">RIF / Documento Fiscal</label>
               <input id="ws_edit_doc" placeholder="Ej. J-12345678-0">
             </div>
             <div class="field">
-              <label>WhatsApp / Teléfono</label>
+              <label for="ws_edit_phone">WhatsApp / Teléfono</label>
               <input id="ws_edit_phone" placeholder="+58 412...">
             </div>
             <div class="field">
-              <label>Ciudad</label>
+              <label for="ws_edit_city">Ciudad</label>
               <input id="ws_edit_city" placeholder="Ej. Maracaibo">
             </div>
             <div class="field" style="grid-column:1/-1">
-              <label>Dirección Física</label>
+              <label for="ws_edit_address">Dirección Física</label>
               <input id="ws_edit_address" placeholder="Dirección del taller">
             </div>
             <div class="field">
-              <label>Especialidad / Tipo</label>
+              <label for="ws_edit_type">Especialidad / Tipo</label>
               <input id="ws_edit_type" placeholder="Mecánica automotriz, inyección...">
             </div>
             <div class="field">
-              <label>Estado de Verificación</label>
+              <label for="ws_edit_onboarding">Estado de Verificación</label>
               <select id="ws_edit_onboarding">
                 <option value="1">Verificado (Completado)</option>
                 <option value="0">Pendiente / Sin verificar</option>
               </select>
             </div>
             <div class="field">
-              <label>Rango de Donador</label>
+              <label for="ws_edit_level">Rango de Donador</label>
               <select id="ws_edit_level">
                 <option value="0">0 - Normal (Sin Rango)</option>
                 <option value="1">1 - Impulsor Bronce</option>
@@ -319,7 +326,7 @@
               </select>
             </div>
             <div class="field">
-              <label>Total Aportado ($ USD)</label>
+              <label for="ws_edit_donated">Total Aportado ($ USD)</label>
               <input id="ws_edit_donated" type="number" step="0.01" placeholder="0.00">
             </div>
           </div>
@@ -336,15 +343,15 @@
       <div class="sub" style="border-top:0;padding-top:0;margin-top:0">Registrar Aporte Manual (Pago Móvil, Efectivo, Binance, Zinli)</div>
       <div class="grid">
         <div class="field">
-          <label>ID o Email del Taller (Opcional)</label>
+          <label for="man_ws_id">ID o Email del Taller (Opcional)</label>
           <input id="man_ws_id" placeholder="Ej. 1 o taller@ejemplo.com">
         </div>
         <div class="field">
-          <label>Nombre del Donante</label>
+          <label for="man_donor_name">Nombre del Donante</label>
           <input id="man_donor_name" placeholder="Ej. Taller El Rápido / Carlos Pérez">
         </div>
         <div class="field">
-          <label>Método de Pago</label>
+          <label for="man_method">Método de Pago</label>
           <select id="man_method">
             <option value="zinli">Zinli</option>
             <option value="binance">Binance Pay (USDT)</option>
@@ -354,15 +361,15 @@
           </select>
         </div>
         <div class="field">
-          <label>Referencia / Comprobante</label>
+          <label for="man_ref">Referencia / Comprobante</label>
           <input id="man_ref" placeholder="Ej. 12345678 / REF-001">
         </div>
         <div class="field">
-          <label>Monto en USD ($)</label>
+          <label for="man_amount">Monto en USD ($)</label>
           <input id="man_amount" type="number" step="0.01" placeholder="Ej. 10.00">
         </div>
         <div class="field">
-          <label>Nota / Concepto</label>
+          <label for="man_note">Nota / Concepto</label>
           <input id="man_note" placeholder="Ej. Aporte recibido por WhatsApp / Contacto directo">
         </div>
       </div>
@@ -379,7 +386,7 @@
       </p>
       <div class="grid">
         <div class="field" style="grid-column:1/-1">
-          <label>URL de Webhook (o variable DONATION_WEBHOOK_URL en el servidor)</label>
+          <label for="notice_webhook_url">URL de Webhook (o variable DONATION_WEBHOOK_URL en el servidor)</label>
           <input id="notice_webhook_url" placeholder="https://script.google.com/macros/s/.../exec o https://discord.com/api/webhooks/...">
         </div>
       </div>
@@ -402,6 +409,7 @@
     <p id="don_msg" class="msg"></p>
   </section>
 </div>
+</main>
 
 <script src="/admin.js?v=2.2"></script>
 </body>

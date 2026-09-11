@@ -8,7 +8,8 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  toInt, psiToBar, str, num, esc, slugify, vehicleSlug, vehicleIdFromSlug, haceSlug,
+  toInt, psiToBar, str, num, esc, csvEscape, leerCookie, extraerToken,
+  slugify, vehicleSlug, vehicleIdFromSlug, haceSlug, recortarMeta,
   NIVELES_DONACION, calcularNivelDonador, calcularProgresoDonador,
 } = require('../../lib/pure');
 
@@ -151,6 +152,96 @@ describe('esc — escape de HTML (única defensa XSS del SSR)', () => {
   });
 });
 
+describe('csvEscape — escape real de CSV, no de HTML (4.6)', () => {
+  it('deja intacto un campo simple (sin comillas de sobra)', () => {
+    assert.equal(csvEscape('Nissan Tsuru'), 'Nissan Tsuru');
+    assert.equal(csvEscape(42), '42');
+    assert.equal(csvEscape(''), '');
+  });
+
+  it('null y undefined se vuelven cadena vacía, no la palabra "null"', () => {
+    assert.equal(csvEscape(null), '');
+    assert.equal(csvEscape(undefined), '');
+  });
+
+  it('encierra entre comillas el campo que trae coma, y no rompe la fila', () => {
+    assert.equal(csvEscape('pastilla, filtro'), '"pastilla, filtro"');
+    // El encierro es lo que impide que la coma se lea como separador de campo.
+    assert.ok(csvEscape('pastilla, filtro').startsWith('"') && csvEscape('pastilla, filtro').endsWith('"'));
+  });
+
+  it('dobla las comillas internas y encierra el campo', () => {
+    assert.equal(csvEscape('8" de largo'), '"8"" de largo"');
+  });
+
+  it('encierra el campo con salto de línea (que si no parte el registro)', () => {
+    assert.equal(csvEscape('linea1\nlinea2'), '"linea1\nlinea2"');
+    assert.equal(csvEscape('a\r\nb'), '"a\r\nb"');
+  });
+
+  it('NO escapa HTML: un & o un < se quedan como están (esto es un CSV, no una página)', () => {
+    assert.equal(csvEscape('A&B <taller>'), 'A&B <taller>');
+    assert.ok(!csvEscape('A&B').includes('&amp;'), 'un ampersand no es una entidad HTML en CSV');
+  });
+});
+
+describe('leerCookie — lectura de la cabecera Cookie sin cookie-parser (4.6)', () => {
+  const req = (cookie) => ({ headers: cookie === undefined ? {} : { cookie } });
+
+  it('lee el valor de la cookie pedida', () => {
+    assert.equal(leerCookie(req('ftm_session=abc123'), 'ftm_session'), 'abc123');
+  });
+
+  it('la encuentra aunque no sea la primera', () => {
+    assert.equal(leerCookie(req('ft_csrf=n1; ftm_session=s2; ft_admin=a3'), 'ftm_session'), 's2');
+    assert.equal(leerCookie(req('ft_csrf=n1; ftm_session=s2'), 'ft_admin'), '');
+  });
+
+  it('decodifica el valor (las cookies viajan escapadas)', () => {
+    assert.equal(leerCookie(req('ftm_session=a%20b'), 'ftm_session'), 'a b');
+  });
+
+  it('devuelve cadena vacía si falta la cookie o la cabecera', () => {
+    assert.equal(leerCookie(req(undefined), 'ftm_session'), '');
+    assert.equal(leerCookie(req(''), 'ftm_session'), '');
+    assert.equal(leerCookie({}, 'ftm_session'), '');
+    assert.equal(leerCookie(req('otra=1'), 'ftm_session'), '');
+  });
+
+  it('no confunde una cookie cuyo nombre solo termina igual', () => {
+    // "noftm_session" no debe casar con "ftm_session".
+    assert.equal(leerCookie(req('noftm_session=x'), 'ftm_session'), '');
+  });
+});
+
+describe('extraerToken — el token del taller, en un solo lugar (4.6)', () => {
+  it('prefiere el Bearer de la cabecera', () => {
+    assert.equal(extraerToken({ headers: { authorization: 'Bearer tok-bearer' } }), 'tok-bearer');
+    assert.equal(
+      extraerToken({ headers: { authorization: 'Bearer tok-bearer', cookie: 'ftm_session=tok-cookie' } }),
+      'tok-bearer');
+  });
+
+  it('cae a la cookie de la cabecera cruda', () => {
+    assert.equal(extraerToken({ headers: { cookie: 'ftm_session=tok-cookie' } }), 'tok-cookie');
+  });
+
+  it('también acepta req.cookies si algún día se monta cookie-parser', () => {
+    assert.equal(extraerToken({ headers: {}, cookies: { ftm_session: 'tok-parsed' } }), 'tok-parsed');
+  });
+
+  it('devuelve cadena vacía si no hay token por ningún lado', () => {
+    assert.equal(extraerToken({}), '');
+    assert.equal(extraerToken({ headers: {} }), '');
+    assert.equal(extraerToken({ headers: { authorization: 'Basic xyz' } }), '');
+  });
+
+  it('acepta otro nombre de cookie (admin, OAuth)', () => {
+    assert.equal(extraerToken({ headers: { cookie: 'ft_admin=adm' } }, 'ft_admin'), 'adm');
+    assert.equal(extraerToken({ headers: { cookie: 'ft_admin=adm' } }, 'ftm_session'), '');
+  });
+});
+
 describe('slugify / vehicleSlug / vehicleIdFromSlug', () => {
   it('quita acentos y normaliza a minúsculas', () => {
     assert.equal(slugify('Citroën C4'), 'citroen-c4');
@@ -211,6 +302,43 @@ describe('haceSlug — slug del taller', () => {
     for (const e of entradas) {
       assert.match(haceSlug(e), /^[a-z0-9-]*$/, `haceSlug(${e}) dejó caracteres inválidos`);
     }
+  });
+});
+
+describe('recortarMeta — <title> y descripción dentro del límite de la SERP (2.38)', () => {
+  it('deja intacto lo que ya cabe', () => {
+    assert.equal(recortarMeta('Presión de gasolina Nissan Tsuru | llave', 65), 'Presión de gasolina Nissan Tsuru | llave');
+  });
+
+  it('nunca devuelve más de max caracteres, ni con nombres largos', () => {
+    const largo = 'Presión de gasolina Chevrolet ' + 'Corolla Sport '.repeat(12) + '| llave';
+    for (const max of [1, 20, 65, 155]) {
+      const r = recortarMeta(largo, max);
+      assert.ok(r.length <= max, `recortarMeta(…, ${max}) devolvió ${r.length} caracteres: «${r}»`);
+      assert.ok(r.endsWith('…'), 'el corte tiene que verse: el usuario decide si el dato está completo');
+    }
+  });
+
+  it('corta por palabra completa cuando hay una cerca del límite', () => {
+    const r = recortarMeta('Presión de riel del Toyota Yaris 2006-2014 en el taller', 30);
+    assert.equal(r, 'Presión de riel del Toyota…');
+    assert.equal(/\s…$/.test(r), false, 'no puede quedar un espacio colgando antes del corte');
+  });
+
+  it('corta seco si el corte por palabra se comería media cadena', () => {
+    assert.equal(recortarMeta('unaPalabraLarguisimaSinEspacios', 10), 'unaPalabr…');
+  });
+
+  it('normaliza espacios y trata la entrada no textual como vacía', () => {
+    assert.equal(recortarMeta('  hola   mundo  ', 65), 'hola mundo');
+    assert.equal(recortarMeta(null, 65), '');
+    assert.equal(recortarMeta(undefined, 65), '');
+  });
+
+  it('quita la puntuación que quedaría colgando antes del corte', () => {
+    const r = recortarMeta('Presión de riel, módulo y pila, todo, lo demás', 40);
+    assert.equal(r, 'Presión de riel, módulo y pila, todo…');
+    assert.equal(/,…$/.test(r), false, 'una coma justo antes del corte se lee como error de maquetación');
   });
 });
 

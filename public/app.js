@@ -408,9 +408,15 @@ function Tools({ selectedId, meta, onSelectVehicle }) {
   const [compareB, setCompareB] = useState('');
   const [pumps, setPumps] = useState([]);
   const [vehicles, setVehicles] = useState([]);
+  const [fallo, setFallo] = useState(null);
 
-  useEffect(() => { api('/api/pumps').then(setPumps).catch(() => {}); }, []);
-  useEffect(() => { api('/api/vehicles').then(setVehicles).catch(() => {}); }, []);
+  /* Catch mudo antes: avisa con Reintentar. */
+  const cargar = () => {
+    setFallo(null);
+    api('/api/pumps').then(setPumps).catch(() => setFallo(true));
+    api('/api/vehicles').then(setVehicles).catch(() => setFallo(true));
+  };
+  useEffect(cargar, []);
 
   const tabBtn = (id, icon, text) => html`
     <button type="button" class="tool-tab" data-active=${tab === id} onClick=${() => setTab(id)}>
@@ -504,6 +510,7 @@ function Tools({ selectedId, meta, onSelectVehicle }) {
           ${tabBtn('jobs', 'History', 'Trabajos')}
         </div>
         <div style=${{ padding: '22px 24px 26px' }}>
+          ${fallo && html`<div class="alert" role="alert"><${Icon} name="AlertTriangle" /> No se cargaron los datos. <button type="button" class="link-btn" onClick=${cargar}>Reintentar</button></div>`}
           ${tab === 'diag' && html`
             <div>
               <p class="muted" style=${{ marginBottom: '12px', fontSize: '12.5px' }}>Elige el síntoma y obtén las causas más probables con la prueba para confirmar cada una.</p>
@@ -1113,9 +1120,17 @@ function ChatBot({ vehicleId, user }) {
           modo: modoCliente ? 'cliente' : 'mecanico'
         })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
-      if (data.limitReached) {
+      /* Sin JSON (502 vacío): mensaje según estado. */
+      if (!data) {
+        const msg = res.status === 429
+          ? 'El asistente está saturado. Intenta de nuevo en un momento.'
+          : res.status >= 500
+            ? 'El asistente no respondió. Intenta de nuevo.'
+            : 'No se pudo responder. Intenta de nuevo.';
+        setMessages(prev => [...prev, { role: 'assistant', content: msg }]);
+      } else if (data.limitReached) {
         setLimitReached(true);
         setRemaining(0);
         setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
@@ -2253,7 +2268,8 @@ function App() {
         </button>
         <div class="logo-block">
           <${LogoLockup} />
-          <h1 class="sr-only">llave</h1>
+          ${/* h1: solo el hero */''}
+          <div class="sr-only" role="img" aria-label="llave"></div>
         </div>
 
         <div class="panel">

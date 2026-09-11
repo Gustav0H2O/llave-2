@@ -181,6 +181,7 @@ function createViewer(el, { camPos = [4.5, 3, 6], height = 300, target = [0, 0, 
   controls.target.set(...target);
   controls.enableDamping = true; controls.dampingFactor = .08;
   controls.autoRotate = true; controls.autoRotateSpeed = 1.0;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) controls.autoRotate = false;
   controls.minDistance = 1.5; controls.maxDistance = 20;
   renderer.domElement.addEventListener('pointerdown', () => { controls.autoRotate = false; }, { once: true });
 

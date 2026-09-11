@@ -174,7 +174,7 @@ async function main() {
        ---------------------------------------------------------------- */
     rep.seccion('4. Páginas inexistentes');
     for (const ruta of ['/vehiculo/no-existe-jamas', '/guia/inventada', '/taller/fantasma',
-      '/vehiculo/', '/vehiculo/<script>alert(1)</script>', '/pagina-que-no-existe', '/taller/' + 'z'.repeat(200)]) {
+      '/vehiculo/<script>alert(1)</script>', '/pagina-que-no-existe', '/taller/' + 'z'.repeat(200)]) {
       const p = await traer(ctx.base, encodeURI(ruta));
       rep.comprobar(p.status === 404, `${ruta} responde 404`, `estado ${p.status}`);
       rep.comprobar(p.status !== 500, `${ruta} no revienta con 500`, `estado ${p.status}`);
@@ -198,6 +198,17 @@ async function main() {
       }
       rep.comprobar(!/<script>alert/i.test(p.html), `${ruta} no refleja script en la página de error`, 'XSS reflejado');
     }
+
+    /* La barra final es una forma NO canónica: `2.37` normaliza `/vehiculo/`
+       con un 301 a `/vehiculo`. Ese 301 es correcto, así que lo que se
+       comprueba es que redirija Y que el destino real (ruta sin slug) dé 404;
+       pedir 404 al primer golpe marcaba en rojo la canonicalización. */
+    const conBarra = await traer(ctx.base, '/vehiculo/');
+    rep.comprobar([301, 308].includes(conBarra.status),
+      '/vehiculo/ redirige a su forma canónica', `estado ${conBarra.status}`);
+    const sinSlug = await traer(ctx.base, '/vehiculo');
+    rep.comprobar(sinSlug.status === 404, '/vehiculo (sin slug) responde 404', `estado ${sinSlug.status}`);
+    rep.comprobar(sinSlug.status !== 500, '/vehiculo (sin slug) no revienta con 500', `estado ${sinSlug.status}`);
 
     /* ----------------------------------------------------------------
        5. Perfil público y su ficha de reseñas

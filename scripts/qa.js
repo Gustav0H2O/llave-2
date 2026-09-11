@@ -34,8 +34,13 @@ const PASOS = [
     detalle: 'unitarias, QA y API',
     cmd: [process.execPath, ['--test', 'test/api.test.js', 'test/business.test.js',
       'test/unit/pure.test.js', 'test/unit/domain.test.js', 'test/unit/catalog.test.js', 'test/unit/db-adapter.test.js',
+      /* 4.2/4.4: los módulos nuevos de src/ entran en la puerta de `verify`. */
+      'test/unit/config.test.js', 'test/unit/chat.test.js',
       'test/qa/invariants.test.js', 'test/qa/security.test.js', 'test/qa/data-quality.test.js',
-      'test/qa/contract.test.js', 'test/qa/business-flows.test.js', 'test/qa/admin.test.js', 'test/qa/perf.test.js']],
+      'test/qa/contract.test.js', 'test/qa/business-flows.test.js', 'test/qa/admin.test.js', 'test/qa/perf.test.js',
+      /* 3.1/AR-F0: el snapshot de contrato congela la superficie de la API para
+         poder refactorizar sin cambiar ninguna ruta pública. */
+      'test/contract/contrato.test.js']],
     consejo: 'Si falla una prueba de reglas del taller (test/unit/domain.test.js), lo más probable es que el error esté en el código, no en la prueba.',
   },
   {

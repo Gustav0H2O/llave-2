@@ -1,19 +1,16 @@
+// Migración one-shot SQLite → PostgreSQL.
+// Reutiliza el pool de ./db (misma config TLS/pool que el servidor)
+// en vez de crear un `new Pool` propio con ssl hardcodeado que se desincroniza.
 const fs = require('fs');
 const path = require('path');
-const { Pool } = require('pg');
 const Database = require('better-sqlite3');
 
-require('dotenv').config();
+const { pgPool: pool, USE_PG } = require('./db');
 
-if (!process.env.DATABASE_URL) {
+if (!USE_PG || !pool) {
   console.error("❌ Faltan credenciales de Postgres. Define DATABASE_URL en tu .env");
   process.exit(1);
 }
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
 
 const fuenteDb = new Database(path.join(__dirname, 'llave.db'), { readonly: true });
 const statsDb = new Database(path.join(__dirname, 'stats.db'), { readonly: true });
@@ -93,6 +90,7 @@ async function run() {
   await migrateTable('missing_searches', statsDb, ['day', 'q']);
 
   console.log('🎉 Migración completada.');
+  await pool.end().catch(() => {});
   process.exit(0);
 }
 

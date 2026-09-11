@@ -639,11 +639,16 @@
     useEffect(() => {
       if (!hoja) return;
       const alTeclear = (e) => { if (e.key === 'Escape') setHoja(false); };
+      /* finally: restaura el scroll. */
+      const previo = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       window.addEventListener('keydown', alTeclear);
       return () => {
-        document.body.style.overflow = '';
-        window.removeEventListener('keydown', alTeclear);
+        try {
+          window.removeEventListener('keydown', alTeclear);
+        } finally {
+          document.body.style.overflow = previo;
+        }
       };
     }, [hoja]);
 

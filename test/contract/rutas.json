@@ -1,0 +1,939 @@
+{
+  "_comentario": [
+    "Snapshot del contrato de la API: método + ruta + auth. NO se edita a mano.",
+    "Se regenera con: ACTUALIZAR_CONTRATO=1 node --test test/contract/contrato.test.js",
+    "Cubre las rutas /api/* declaradas en server-pg.js y en los módulos de src/.",
+    "El campo \"status\" es solo una pista informativa del status principal."
+  ],
+  "version": 1,
+  "total": 103,
+  "rutas": [
+    {
+      "metodo": "GET",
+      "ruta": "/api/admin/bootstrap",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/admin/brands",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/admin/donations",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/admin/donations/:id/approve",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/admin/donations/:id/reject",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/admin/donations/manual",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/admin/donations/test-notice",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/admin/login",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "200"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/admin/logout",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/admin/missing",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/admin/pumps",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/admin/vehicles",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/admin/vehicles",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "DELETE",
+      "ruta": "/api/admin/vehicles/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/admin/vehicles/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "PUT",
+      "ruta": "/api/admin/vehicles/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/admin/vehicles/:id/verify",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/admin/vehicles/import",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/admin/workshops",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "DELETE",
+      "ruta": "/api/admin/workshops/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "PUT",
+      "ruta": "/api/admin/workshops/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/admin/workshops/:id/backup",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/admin/workshops/:id/donor-level",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/admin/workshops/:id/password",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/admin/workshops/:id/wipe",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": true,
+      "limitada": false,
+      "status": "401 (sin token de admin)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/aid/identify",
+      "archivo": "src/services/identificador.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/auth/google",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/auth/google/callback",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "200"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/auth/login",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "200"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/auth/logout",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/auth/me",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/auth/onboarding",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/auth/password",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "PUT",
+      "ruta": "/api/auth/profile",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/auth/register",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/auth/verify",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "200"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/auth/verify/send",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/backup",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/backup/import",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/cash",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/cash",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "DELETE",
+      "ruta": "/api/cash/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/catalog/export",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "200"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/chat",
+      "archivo": "src/services/chat.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/clients",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/clients",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "DELETE",
+      "ruta": "/api/clients/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "PUT",
+      "ruta": "/api/clients/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/clients/:id/vehicles",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/clients/:id/vehicles",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "DELETE",
+      "ruta": "/api/clients/vehicles/:vid",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/connect/locate",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/connect/match",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/connect/profiles",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "200"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/connect/profiles",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/diagnostics",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/diagnostics",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/documents",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/documents",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "DELETE",
+      "ruta": "/api/documents/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/documents/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/documents/:id/print",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "PUT",
+      "ruta": "/api/documents/:id/status",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/documents/export",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/donations",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/donations/public",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/inventory",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/inventory",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "DELETE",
+      "ruta": "/api/inventory/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "PUT",
+      "ruta": "/api/inventory/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/inventory/:id/moves",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/inventory/export",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/inventory/moves",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/meta",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/modules",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/modules/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/notes",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/notes",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "DELETE",
+      "ruta": "/api/notes/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/orders",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/orders",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "DELETE",
+      "ruta": "/api/orders/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/orders/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "PUT",
+      "ruta": "/api/orders/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/orders/:id/items",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "DELETE",
+      "ruta": "/api/orders/:id/items/:iid",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/orders/:id/photos",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "DELETE",
+      "ruta": "/api/orders/:id/photos/:pid",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/orders/:id/status",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/pumps",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/pumps/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/vehicles",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/vehicles/:id",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/vehicles/:id/comments",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "200"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/vehicles/:id/comments",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "200"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/visit",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/workshop/donations",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/workshop/notifications",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/workshop/notifications/:id/read",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/workshop/notifications/read-all",
+      "archivo": "server-pg.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/workshops",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/workshops/:slug",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "200"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/workshops/:slug/reviews",
+      "archivo": "server-pg.js",
+      "requireWorkshop": false,
+      "requireAdmin": false,
+      "limitada": true,
+      "status": "200"
+    }
+  ]
+}

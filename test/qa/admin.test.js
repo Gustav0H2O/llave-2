@@ -273,6 +273,26 @@ describe('Panel de administración', () => {
       assert.ok(Array.isArray(r.body.inventory));
     });
 
+    it('un :id no numérico responde 404 en las rutas de taller del panel (2.21)', async () => {
+      /* Antes devolvían 400 "ID inválido" o dejaban el id sin validar camino de la
+         consulta; el contrato del proyecto es idDe(req) + 404. */
+      const casos = [
+        ['GET', '/api/admin/workshops/abc/backup'],
+        ['POST', '/api/admin/workshops/abc/wipe'],
+        ['DELETE', '/api/admin/workshops/abc'],
+      ];
+      for (const [metodo, ruta] of casos) {
+        const r = metodo === 'GET' ? await admin.get(ruta)
+          : metodo === 'DELETE' ? await admin.del(ruta)
+            : await admin.post(ruta, {});
+        assert.equal(r.status, 404, `${metodo} ${ruta} devolvió ${r.status} (${JSON.stringify(r.body)})`);
+        assert.equal(typeof r.body.error, 'string', `${metodo} ${ruta} no devolvió el error en JSON`);
+      }
+      // Y el taller de la prueba sigue existiendo: un id basura no borra nada.
+      const check = await admin.get('/api/admin/workshops');
+      assert.ok(check.body.some(w => w.id === wsId), 'un id inválido alcanzó a borrar el taller');
+    });
+
     it('POST /api/admin/workshops/:id/wipe vacía datos operativos conservando la cuenta', async () => {
       const r = await admin.post(`/api/admin/workshops/${wsId}/wipe`, {});
       assert.equal(r.status, 200);
@@ -305,5 +325,129 @@ describe('Panel de administración', () => {
         assert.equal(item.doc_id, undefined, 'nunca debe exponer documentos fiscales');
       }
     });
+  });
+});
+
+/* Cliente con tarro de cookies COMPLETO (guarda ft_admin y ft_csrf) para probar el
+   flujo real por cookie, con opción de NO mandar el header CSRF. */
+function conCookies(base, { csrf = true } = {}) {
+  const jar = new Map();
+  const send = async (ruta, opts = {}) => {
+    const headers = {
+      accept: 'application/json',
+      ...(opts.body ? { 'content-type': 'application/json' } : {}),
+      ...(jar.size ? { cookie: [...jar].map(([k, v]) => `${k}=${v}`).join('; ') } : {}),
+      ...(opts.headers || {}),
+    };
+    if (csrf && jar.has('ft_csrf')) headers['x-csrf-token'] = jar.get('ft_csrf');
+    const res = await fetch(base + ruta, { ...opts, headers, redirect: 'manual' });
+    for (const c of (res.headers.getSetCookie ? res.headers.getSetCookie() : [])) {
+      const m = c.match(/^([^=]+)=([^;]*)/);
+      if (m) jar.set(m[1], m[2]);
+    }
+    const ct = res.headers.get('content-type') || '';
+    const body = ct.includes('json') ? await res.json() : await res.text();
+    return { status: res.status, headers: res.headers, body };
+  };
+  return {
+    jar,
+    get: (p, o) => send(p, o),
+    post: (p, b, o = {}) => send(p, { ...o, method: 'POST', body: JSON.stringify(b) }),
+    put: (p, b, o = {}) => send(p, { ...o, method: 'PUT', body: JSON.stringify(b) }),
+    del: (p, o) => send(p, { ...o, method: 'DELETE' }),
+  };
+}
+
+describe('2.30 — Endurecimiento del token de admin', () => {
+  let ctx, login;
+  before(async () => {
+    ctx = await levantarServidor();
+    login = await crearCliente(ctx.base).post('/api/admin/login', { password: 'clave-de-prueba-del-panel' });
+    assert.equal(login.status, 200, `login de admin: ${login.status}`);
+  });
+  after(() => ctx.cerrar());
+
+  it('el token vive 1 hora, no 8', () => {
+    const [exp] = login.body.token.split('.');
+    const ttl = Number(exp) - Date.now();
+    assert.ok(ttl > 3500 * 1000 && ttl <= 3600 * 1000, `TTL inesperado: ${ttl} ms (se esperaba ~1 h)`);
+  });
+
+  it('el token lleva jti (formato exp.jti.firma)', () => {
+    const partes = login.body.token.split('.');
+    assert.equal(partes.length, 3, `el token no lleva jti: ${login.body.token}`);
+    assert.ok(partes[1].length > 10, 'el jti es demasiado corto');
+  });
+
+  it('el login entrega el token en cookie HttpOnly ft_admin con SameSite', () => {
+    const cookies = login.headers.getSetCookie ? login.headers.getSetCookie() : [];
+    const c = cookies.find(x => x.startsWith('ft_admin='));
+    assert.ok(c, 'el login debe entregar la cookie ft_admin');
+    assert.match(c, /HttpOnly/i, 'sin HttpOnly, un XSS roba el token de admin');
+    assert.match(c, /SameSite=Strict/i, 'sin SameSite, el token queda expuesto a CSRF');
+  });
+
+  it('un token revocado deja de servir aunque no haya caducado', async () => {
+    // Login aparte para no revocar el token compartido del bloque.
+    const l = await crearCliente(ctx.base).post('/api/admin/login', { password: 'clave-de-prueba-del-panel' });
+    const admin = conToken(ctx.base, l.body.token);
+    assert.equal((await admin.get('/api/admin/bootstrap')).status, 200, 'el token recién nacido no sirve');
+    assert.equal((await admin.post('/api/admin/logout', {})).status, 200, 'logout de admin falló');
+    assert.equal((await admin.get('/api/admin/bootstrap')).status, 401, 'el token revocado seguía sirviendo');
+    // Y sigue expirado/revocado tras un segundo intento (la lista persiste).
+    assert.equal((await admin.get('/api/admin/bootstrap')).status, 401);
+  });
+
+  it('registra IP + acción de las mutaciones sensibles (auditoría) sin PII', async () => {
+    const capturado = [];
+    const original = console.warn;
+    console.warn = (m) => { capturado.push(String(m)); };
+    try {
+      const l = await crearCliente(ctx.base).post('/api/admin/login', { password: 'clave-de-prueba-del-panel' });
+      // Mutación de taller (editar): queda auditada aunque el id no exista.
+      await conToken(ctx.base, l.body.token).put('/api/admin/workshops/1', { name: 'Taller Auditoría QA' });
+    } finally { console.warn = original; }
+    const linea = capturado.find(m => m.includes('[admin-audit]') && m.includes('PUT /api/admin/workshops/1'));
+    assert.ok(linea, `no se auditó la mutación: ${JSON.stringify(capturado)}`);
+    assert.match(linea, /ip=/, 'la auditoría debe registrar la IP');
+  });
+});
+
+describe('2.32 — CSRF en el panel de admin', () => {
+  let ctx, cli;
+  before(async () => {
+    ctx = await levantarServidor();
+    cli = conCookies(ctx.base);
+    const r = await cli.post('/api/admin/login', { password: 'clave-de-prueba-del-panel' });
+    assert.equal(r.status, 200, `login por cookie: ${r.status}`);
+    assert.ok(cli.jar.has('ft_admin'), 'el login debía dejar la cookie ft_admin');
+    assert.ok(cli.jar.has('ft_csrf'), 'el login debía emitir el nonce CSRF');
+  });
+  after(() => ctx.cerrar());
+
+  it('una mutación por cookie SIN token CSRF se rechaza (403)', async () => {
+    const sinCsrf = conCookies(ctx.base, { csrf: false });
+    sinCsrf.jar.set('ft_admin', cli.jar.get('ft_admin'));
+    const r = await sinCsrf.post('/api/admin/donations/manual', { amount: 5, method: 'manual' });
+    assert.equal(r.status, 403, `POST por cookie sin CSRF respondió ${r.status}`);
+    assert.equal(r.body.code, 'csrf_invalid');
+  });
+
+  it('la misma mutación CON el token CSRF válido se acepta', async () => {
+    const r = await cli.post('/api/admin/donations/manual', { amount: 5, method: 'manual' });
+    assert.ok(r.status < 400, `con CSRF válido respondió ${r.status}: ${JSON.stringify(r.body)}`);
+  });
+
+  it('las lecturas por cookie no exigen CSRF', async () => {
+    const sinCsrf = conCookies(ctx.base, { csrf: false });
+    sinCsrf.jar.set('ft_admin', cli.jar.get('ft_admin'));
+    assert.equal((await sinCsrf.get('/api/admin/bootstrap')).status, 200);
+  });
+
+  it('un POST con Bearer (sin cookie) NO exige CSRF', async () => {
+    const l = await crearCliente(ctx.base).post('/api/admin/login', { password: 'clave-de-prueba-del-panel' });
+    const bearer = conToken(ctx.base, l.body.token);
+    const r = await bearer.post('/api/admin/donations/manual', { amount: 3, method: 'manual' });
+    assert.ok(r.status < 400, `un flujo Bearer sin CSRF respondió ${r.status}`);
   });
 });

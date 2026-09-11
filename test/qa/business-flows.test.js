@@ -232,6 +232,20 @@ describe('Flujo completo: cliente → vehículo → orden → documento', () => 
     assert.match(String(r.body), /Pila Bosch 69100/);
   });
 
+  it('29b. el CSV escapa de verdad: comas y comillas en un campo no parten la fila (4.6)', async () => {
+    const alta = await t.post('/api/inventory', { name: 'Filtro, "premium" 8"', sku: 'CSV-1', qty: 1, unit_price: 10 });
+    assert.equal(alta.status, 201);
+    const r = await t.get('/api/inventory/export?format=csv');
+    assert.equal(r.status, 200);
+    const csv = String(r.body);
+    // La cabecera no lleva comillas de sobra: no tiene caracteres especiales.
+    assert.ok(csv.startsWith('Nombre,SKU,'), `la cabecera debe ir limpia: ${csv.split('\n')[0]}`);
+    // El campo con coma y comillas va entrecomillado y con las comillas dobladas,
+    // que es lo que impide que la coma parta la fila en dos columnas.
+    assert.ok(csv.includes('"Filtro, ""premium"" 8"""'),
+      `el campo con coma y comillas debe ir entrecomillado y con las comillas dobladas:\n${csv}`);
+  });
+
   it('30. borra una partida de la orden', async () => {
     const alta = await t.post(`/api/orders/${ids.orden}/items`, { descr: 'Partida a borrar', qty: 1, unit_price: 100 });
     const detalle = await t.get(`/api/orders/${ids.orden}`);
@@ -456,9 +470,12 @@ describe('Perfil público del taller y reseñas', () => {
     }
   });
 
-  it('exige nombre e identificador de dispositivo', async () => {
+  it('exige nombre; sin device_id igual limita por IP/día', async () => {
+    // S1 (F9/B26): el device_id ya no se exige ni se usa. Falta author → 400.
     assert.equal((await visitante.post(`/api/workshops/${slug}/reviews`, { rating: 5, device_id: 'd' })).status, 400);
-    assert.equal((await visitante.post(`/api/workshops/${slug}/reviews`, { author: 'A', rating: 5 })).status, 400);
+    // Con author pero misma IP del test anterior → 409 (una por IP/día/taller),
+    // con o sin device_id. Ya hay una reseña de esta IP en este taller.
+    assert.equal((await visitante.post(`/api/workshops/${slug}/reviews`, { author: 'A', rating: 5 })).status, 409);
   });
 
   it('un taller no publicado no acepta reseñas', async () => {
@@ -466,5 +483,485 @@ describe('Perfil público del taller y reseñas', () => {
       author: 'A', rating: 5, device_id: 'd',
     });
     assert.equal(r.status, 404);
+  });
+});
+
+/* ============================================================================
+   Ola 2b — topes de magnitud (2.14), existencia y devolución de stock (2.15),
+   numeración de documentos (2.16), nota de entrega (2.17), idempotencia del GET
+   de orden (2.18), import saneado (2.20), ids validados (2.21) y fechas ISO
+   (2.28). Cada bloque cita el ID de la matriz que cubre.
+   ========================================================================= */
+
+describe('2.14 — topes de magnitud', () => {
+  let ctx, t, pieza;
+
+  before(async () => {
+    ctx = await levantarServidor();
+    t = crearCliente(ctx.base);
+    await t.registrar('Topes');
+    const r = await t.post('/api/inventory', { name: 'Pieza base', qty: 100, unit_price: 10 });
+    pieza = r.body.id;
+  });
+  after(() => ctx.cerrar());
+
+  it('rechaza existencia y precio fuera de rango al crear (0..1e6 y 0..1e8)', async () => {
+    const casos = [
+      { name: 'P', qty: 1e6 + 1 }, { name: 'P', qty: -1 }, { name: 'P', min_qty: -1 },
+      { name: 'P', unit_price: 1e8 + 1 }, { name: 'P', unit_price: -0.01 },
+    ];
+    for (const c of casos) {
+      const r = await t.post('/api/inventory', c);
+      assert.equal(r.status, 400, `aceptó ${JSON.stringify(c)}`);
+      assert.equal(typeof r.body.error, 'string', `el 400 de ${JSON.stringify(c)} no trae mensaje en español`);
+    }
+  });
+
+  it('acepta justo los topes (1 000 000 unidades y 100 000 000 de precio)', async () => {
+    const r = await t.post('/api/inventory', { name: 'Justo en el tope', qty: 1e6, unit_price: 1e8 });
+    assert.equal(r.status, 201, `el tope legítimo devolvió ${r.status}: ${JSON.stringify(r.body)}`);
+  });
+
+  it('rechaza precios y mínimos fuera de rango al editar, y acepta lo válido', async () => {
+    for (const c of [{ name: 'Pieza base', unit_price: 1e8 + 1 }, { name: 'Pieza base', min_qty: -1 }, { name: 'Pieza base', qty: 1e7 }]) {
+      assert.equal((await t.put(`/api/inventory/${pieza}`, c)).status, 400, `aceptó ${JSON.stringify(c)}`);
+    }
+    assert.equal((await t.put(`/api/inventory/${pieza}`, { name: 'Pieza base', unit_price: 999.5, min_qty: 1 })).status, 200);
+  });
+
+  it('rechaza un delta de inventario fuera de ±1 000 000', async () => {
+    for (const delta of [1e6 + 1, -1e6 - 1, 1e9]) {
+      const r = await t.post(`/api/inventory/${pieza}/moves`, { delta, kind: 'ajuste' });
+      assert.equal(r.status, 400, `aceptó el delta ${delta}`);
+    }
+  });
+
+  it('exige que el signo del delta cuadre con el tipo de movimiento', async () => {
+    const entradaNegativa = await t.post(`/api/inventory/${pieza}/moves`, { delta: -5, kind: 'entrada' });
+    assert.equal(entradaNegativa.status, 400, 'una entrada con delta negativo descuadra el kardex');
+    const salidaPositiva = await t.post(`/api/inventory/${pieza}/moves`, { delta: 5, kind: 'salida' });
+    assert.equal(salidaPositiva.status, 400, 'una salida con delta positivo descuadra el kardex');
+    assert.match(String(entradaNegativa.body.error), /positivo/i);
+    assert.match(String(salidaPositiva.body.error), /negativo/i);
+  });
+
+  it('el stock no cambia cuando el movimiento se rechaza', async () => {
+    const antes = (await t.get('/api/inventory')).body.find(i => i.id === pieza).qty;
+    await t.post(`/api/inventory/${pieza}/moves`, { delta: 1e6 + 1, kind: 'entrada' });
+    const despues = (await t.get('/api/inventory')).body.find(i => i.id === pieza).qty;
+    assert.equal(despues, antes, 'un movimiento rechazado tocó la existencia');
+  });
+
+  it('acepta el signo coherente y el delta en el tope', async () => {
+    const sube = await t.post(`/api/inventory/${pieza}/moves`, { delta: 1e6, kind: 'entrada' });
+    assert.equal(sube.status, 200, `entrada de 1e6 devolvió ${sube.status}: ${JSON.stringify(sube.body)}`);
+    const baja = await t.post(`/api/inventory/${pieza}/moves`, { delta: -1e6, kind: 'salida' });
+    assert.equal(baja.status, 200, `salida de 1e6 devolvió ${baja.status}: ${JSON.stringify(baja.body)}`);
+    assert.equal(baja.body.qty, 100, 'la existencia debería volver a 100');
+  });
+
+  it('rechaza montos de caja fuera de 0.01..1e6', async () => {
+    for (const amount of [0, 0.001, 1e6 + 1, 1e9, -5, null, 'mucho']) {
+      const r = await t.post('/api/cash', { concept: 'X', amount });
+      assert.equal(r.status, 400, `aceptó el monto ${JSON.stringify(amount)}`);
+    }
+  });
+
+  it('acepta los extremos del rango de caja', async () => {
+    assert.equal((await t.post('/api/cash', { concept: 'Mínimo', amount: 0.01 })).status, 201);
+    assert.equal((await t.post('/api/cash', { concept: 'Máximo', amount: 1e6 })).status, 201);
+  });
+
+  it('rechaza cantidades de partida fuera de 0.01..1e6', async () => {
+    const orden = await t.post('/api/orders', { title: 'Orden de topes' });
+    for (const qty of [0.001, 0, -2, 1e6 + 1]) {
+      const r = await t.post(`/api/orders/${orden.body.id}/items`, { descr: 'Partida', qty, unit_price: 1 });
+      assert.equal(r.status, 400, `aceptó la cantidad ${qty}`);
+    }
+    const detalle = await t.get(`/api/orders/${orden.body.id}`);
+    assert.equal((detalle.body.items || []).length, 0, 'se guardó una partida con cantidad inválida');
+  });
+
+  it('rechaza un precio unitario de partida fuera de 0..1e8', async () => {
+    const orden = await t.post('/api/orders', { title: 'Orden de precio' });
+    for (const unit_price of [-1, 1e8 + 1]) {
+      const r = await t.post(`/api/orders/${orden.body.id}/items`, { descr: 'Partida', qty: 1, unit_price });
+      assert.equal(r.status, 400, `aceptó el precio ${unit_price}`);
+    }
+    assert.equal((await t.post(`/api/orders/${orden.body.id}/items`, { descr: 'Partida', qty: 1, unit_price: 1e8 })).status, 201);
+  });
+});
+
+describe('2.15 — existencia y devolución de stock en órdenes', () => {
+  let ctx, t, pieza, orden;
+
+  const stock = async () => (await t.get('/api/inventory')).body.find(i => i.id === pieza).qty;
+
+  before(async () => {
+    ctx = await levantarServidor();
+    t = crearCliente(ctx.base);
+    await t.registrar('Existencia');
+    const r = await t.post('/api/inventory', { name: 'Pila con 5', qty: 5, unit_price: 800 });
+    pieza = r.body.id;
+    orden = (await t.post('/api/orders', { title: 'Cambio de pila' })).body.id;
+  });
+  after(() => ctx.cerrar());
+
+  it('rechaza con 409 una partida mayor que la existencia, sin descontar nada', async () => {
+    const r = await t.post(`/api/orders/${orden}/items`, { descr: 'Pila', qty: 6, unit_price: 800, item_id: pieza });
+    assert.equal(r.status, 409, `debería rechazar por existencia, devolvió ${r.status}`);
+    assert.match(String(r.body.error), /existencia/i);
+    assert.match(String(r.body.error), /5/, 'el mensaje debe decir cuánto queda');
+    assert.equal(await stock(), 5, 'una partida rechazada no puede mover el inventario');
+  });
+
+  it('acepta una partida que sí cabe y la descuenta', async () => {
+    const r = await t.post(`/api/orders/${orden}/items`, { descr: 'Pila', qty: 2, unit_price: 800, item_id: pieza });
+    assert.equal(r.status, 201);
+    assert.equal(await stock(), 3);
+  });
+
+  it('borrar la partida devuelve el stock mientras la orden sigue abierta', async () => {
+    const ordenes = await t.get(`/api/orders/${orden}`);
+    const partida = (ordenes.body.items || [])[0];
+    assert.ok(partida, 'no se localizó la partida');
+    assert.equal((await t.del(`/api/orders/${orden}/items/${partida.id}`)).status, 200);
+    assert.equal(await stock(), 5, 'una orden abierta debe devolver la pieza al anaquel');
+  });
+
+  it('NO devuelve stock si la orden ya está Entregado', async () => {
+    assert.equal((await t.post(`/api/orders/${orden}/status`, { status: 'Entregado' })).status, 200);
+    const alta = await t.post(`/api/orders/${orden}/items`, { descr: 'Pila', qty: 2, unit_price: 800, item_id: pieza });
+    assert.equal(alta.status, 201);
+    assert.equal(await stock(), 3);
+    assert.equal((await t.del(`/api/orders/${orden}/items/${alta.body.id}`)).status, 200);
+    assert.equal(await stock(), 3, 'en una orden entregada la pieza ya salió del taller: no vuelve al inventario');
+  });
+
+  it('tampoco si la orden está Cancelado', async () => {
+    assert.equal((await t.post(`/api/orders/${orden}/status`, { status: 'Cancelado' })).status, 200);
+    const alta = await t.post(`/api/orders/${orden}/items`, { descr: 'Pila', qty: 2, unit_price: 800, item_id: pieza });
+    assert.equal(alta.status, 201);
+    assert.equal(await stock(), 1);
+    assert.equal((await t.del(`/api/orders/${orden}/items/${alta.body.id}`)).status, 200);
+    assert.equal(await stock(), 1, 'una orden cancelada no devuelve stock');
+  });
+});
+
+describe('2.16 — numeración de documentos', () => {
+  let ctx, t, primera, segunda;
+
+  const numero = (n) => Number(String(n).split('-')[1]);
+  const alta = async (kind = 'entrega') => t.post('/api/documents', {
+    kind, items: [{ descr: 'Concepto', qty: 1, unit_price: 1 }],
+  });
+
+  before(async () => {
+    ctx = await levantarServidor();
+    t = crearCliente(ctx.base);
+    await t.registrar('Numeracion');
+  });
+  after(() => ctx.cerrar());
+
+  it('el folio sigue al número más alto del taller', async () => {
+    const a = await alta();
+    assert.equal(a.status, 201);
+    assert.match(a.body.number, /^NE-\d{4}$/);
+    primera = a.body;
+    segunda = (await alta()).body;
+    assert.equal(numero(segunda.number), numero(primera.number) + 1);
+  });
+
+  it('borrar un documento intermedio no hace que el siguiente repita un folio vivo', async () => {
+    // Se borra el PRIMERO: con COUNT(*)+1 el siguiente documento volvía a nacer
+    // como NE-0002, el mismo folio que `segunda`, que sigue emitido.
+    assert.equal((await t.del(`/api/documents/${primera.id}`)).status, 200);
+    const tercera = (await alta()).body;
+    assert.notEqual(tercera.number, segunda.number, `se repitió el folio vivo ${segunda.number}`);
+    assert.ok(numero(tercera.number) > numero(segunda.number),
+      `${tercera.number} debería seguir a ${segunda.number}`);
+
+    const vivos = (await t.get('/api/documents')).body.map(d => d.number);
+    assert.equal(new Set(vivos).size, vivos.length, `folios repetidos entre documentos vivos: ${vivos.join(', ')}`);
+  });
+
+  it('borrar el último y volver a emitir tampoco choca con un folio vivo', async () => {
+    const vivos = (await t.get('/api/documents')).body;
+    const ultimo = vivos.reduce((a, b) => (numero(b.number) > numero(a.number) ? b : a));
+    assert.equal((await t.del(`/api/documents/${ultimo.id}`)).status, 200);
+
+    const restantes = vivos.filter(d => d.id !== ultimo.id).map(d => d.number);
+    const nueva = (await alta()).body;
+    assert.equal(restantes.includes(nueva.number), false, `el folio ${nueva.number} ya estaba emitido`);
+    // El folio reanuda desde el máximo VIVO (MAX+1), no desde cuántos quedan.
+    assert.equal(numero(nueva.number), numero(ultimo.number), 'el folio debería reanudar desde el máximo vivo');
+  });
+
+  it('cada tipo de documento lleva su propia serie', async () => {
+    const p = await alta('presupuesto');
+    assert.match(p.body.number, /^P-\d{4}$/);
+    const p2 = await alta('presupuesto');
+    assert.equal(numero(p2.body.number), numero(p.body.number) + 1);
+  });
+});
+
+describe('2.17 — la nota de entrega descuenta inventario', () => {
+  let ctx, t, pieza;
+
+  const stock = async (id = pieza) => (await t.get('/api/inventory')).body.find(i => i.id === id).qty;
+
+  before(async () => {
+    ctx = await levantarServidor();
+    t = crearCliente(ctx.base);
+    await t.registrar('Entrega');
+    pieza = (await t.post('/api/inventory', { name: 'Filtro de entrega', qty: 10, unit_price: 60 })).body.id;
+  });
+  after(() => ctx.cerrar());
+
+  it('descuenta la pieza de la nota de entrega y deja el movimiento', async () => {
+    const r = await t.post('/api/documents', {
+      kind: 'entrega', items: [{ descr: 'Filtro de entrega', qty: 3, unit_price: 60, item_id: pieza }],
+    });
+    assert.equal(r.status, 201, `la nota de entrega devolvió ${r.status}: ${JSON.stringify(r.body)}`);
+    assert.equal(await stock(), 7, 'la nota de entrega no descontó la pieza');
+
+    const mov = (await t.get('/api/inventory/moves')).body.find(m => m.item_id === pieza);
+    assert.ok(mov, 'la nota de entrega no dejó movimiento de inventario');
+    assert.equal(Number(mov.delta), -3, 'el movimiento debe ser una salida (delta negativo)');
+    assert.equal(mov.kind, 'salida', `el movimiento quedó como "${mov.kind}"`);
+  });
+
+  it('un presupuesto NO toca el inventario: es una cotización, no una salida', async () => {
+    const antes = await stock();
+    const r = await t.post('/api/documents', {
+      kind: 'presupuesto', items: [{ descr: 'Filtro de entrega', qty: 4, unit_price: 60, item_id: pieza }],
+    });
+    assert.equal(r.status, 201);
+    assert.equal(await stock(), antes, 'un presupuesto descontó inventario');
+  });
+
+  it('rechaza con 409 una entrega mayor que la existencia y no emite el documento', async () => {
+    const documentosAntes = (await t.get('/api/documents')).body.length;
+    const r = await t.post('/api/documents', {
+      kind: 'entrega', items: [{ descr: 'Filtro de entrega', qty: 99, unit_price: 60, item_id: pieza }],
+    });
+    assert.equal(r.status, 409, `devolvió ${r.status}: ${JSON.stringify(r.body)}`);
+    assert.match(String(r.body.error), /existencia/i);
+    assert.equal(await stock(), 7, 'la nota rechazada movió el inventario');
+    assert.equal((await t.get('/api/documents')).body.length, documentosAntes, 'la nota rechazada se guardó igual');
+  });
+
+  it('suma la demanda de la misma pieza en varios renglones (no deja el stock en negativo)', async () => {
+    // 4 + 4 sobre 7 unidades: cada renglón cabe por separado, la nota no.
+    const r = await t.post('/api/documents', {
+      kind: 'entrega',
+      items: [
+        { descr: 'Filtro de entrega', qty: 4, unit_price: 60, item_id: pieza },
+        { descr: 'Filtro de entrega', qty: 4, unit_price: 60, item_id: pieza },
+      ],
+    });
+    assert.equal(r.status, 409, `devolvió ${r.status}: ${JSON.stringify(r.body)}`);
+    assert.match(String(r.body.error), /8/, 'el mensaje debe sumar el total pedido (8)');
+    assert.equal(await stock(), 7, 'el stock terminó negativo o recortado');
+  });
+});
+
+describe('2.18 — leer una orden no la modifica', () => {
+  let ctx, t, orden, partida;
+
+  before(async () => {
+    ctx = await levantarServidor();
+    t = crearCliente(ctx.base);
+    await t.registrar('Idempotente');
+    orden = (await t.post('/api/orders', { title: 'Orden idempotente' })).body.id;
+    await t.post(`/api/orders/${orden}/items`, { descr: 'Mano de obra', qty: 2, unit_price: 100 });
+  });
+  after(() => ctx.cerrar());
+
+  it('la mutación (agregar la partida) sí calcula el total', async () => {
+    const r = await t.get(`/api/orders/${orden}`);
+    assert.equal(Number(r.body.total), 200, 'agregar una partida debe dejar el total cuadrado');
+  });
+
+  it('el GET devuelve el total guardado, sin recalcular ni escribir', async () => {
+    // Se ensucia el total a mano para poder probar que el GET NO lo recalcula.
+    ctx.db.prepare('UPDATE work_orders SET total = 0 WHERE id = ?').run(orden);
+
+    const primera = await t.get(`/api/orders/${orden}`);
+    assert.equal(Number(primera.body.total), 0, 'el GET recalculó (y por tanto escribió) al leer');
+    const segunda = await t.get(`/api/orders/${orden}`);
+    assert.equal(Number(segunda.body.total), 0, 'la segunda lectura devolvió otra cosa: no es idempotente');
+    assert.equal(Number(ctx.db.prepare('SELECT total FROM work_orders WHERE id = ?').get(orden).total), 0,
+      'leer la orden escribió en la base');
+  });
+
+  it('las mutaciones vuelven a cuadrar el total', async () => {
+    const alta = await t.post(`/api/orders/${orden}/items`, { descr: 'Pieza', qty: 1, unit_price: 100 });
+    assert.equal(alta.status, 201);
+    assert.equal(Number((await t.get(`/api/orders/${orden}`)).body.total), 300, 'agregar no recalculó el total');
+
+    assert.equal((await t.del(`/api/orders/${orden}/items/${alta.body.id}`)).status, 200);
+    assert.equal(Number((await t.get(`/api/orders/${orden}`)).body.total), 200, 'borrar no recalculó el total');
+  });
+});
+
+describe('2.20 — el import de respaldo sanea cada tabla', () => {
+  let ctx, t;
+
+  before(async () => {
+    ctx = await levantarServidor();
+    t = crearCliente(ctx.base);
+    await t.registrar('RespaldoSano');
+    await t.post('/api/clients', { name: 'Cliente legítimo' });
+    await t.post('/api/inventory', { name: 'Pieza legítima', sku: 'L-1', qty: 7, unit_price: 25 });
+    await t.post('/api/cash', { concept: 'Ingreso legítimo', amount: 500 });
+    await t.post('/api/diagnostics', { vehicle_id: 2, brand: 'Nissan', model: 'Tsuru del taller', measured_psi: 55 });
+  });
+  after(() => ctx.cerrar());
+
+  it('sigue aceptando un respaldo exportado por la propia app', async () => {
+    const respaldo = (await t.get('/api/backup')).body;
+    const r = await t.post('/api/backup/import', { data: respaldo.data });
+    assert.equal(r.status, 200, `la importación legítima devolvió ${r.status}: ${JSON.stringify(r.body)}`);
+    const pieza = (await t.get('/api/inventory')).body.find(i => i.name === 'Pieza legítima');
+    assert.equal(Number(pieza.qty), 7, 'un respaldo legítimo perdió la existencia');
+    assert.ok((await t.get('/api/cash')).body.some(c => c.concept === 'Ingreso legítimo'));
+  });
+
+  it('conserva la referencia al catálogo de un diagnóstico (vehicle_id no se remapea)', async () => {
+    // diagnostics.vehicle_id apunta al catálogo global, no a client_vehicles:
+    // remapearlo (como a las demás tablas) borraría la referencia al vehículo.
+    const respaldo = (await t.get('/api/backup')).body;
+    assert.ok(respaldo.data.diagnostics.some(d => Number(d.vehicle_id) === 2),
+      'el respaldo debería traer el diagnóstico con su vehicle_id');
+
+    const r = await t.post('/api/backup/import', { data: respaldo.data });
+    assert.equal(r.status, 200, `devolvió ${r.status}: ${JSON.stringify(r.body)}`);
+    const guardado = (await t.get('/api/diagnostics')).body.find(d => d.model === 'Tsuru del taller');
+    assert.equal(Number(guardado.vehicle_id), 2, 'el import perdió la referencia al vehículo del catálogo');
+  });
+
+  it('ignora columnas fuera de la lista blanca y saneo los valores permitidos', async () => {
+    const respaldo = (await t.get('/api/backup')).body;
+    const data = {
+      ...respaldo.data,
+      // Columnas hostiles: workshop_id ajeno, una columna inventada y un tipo de
+      // movimiento de caja que no existe (debe caer en la allowlist).
+      inventory: respaldo.data.inventory.map(r => ({ ...r, workshop_id: 999999, id: 424242, columna_hostil: '<script>alert(1)</script>' })),
+      cash: [...respaldo.data.cash, { concept: 'Inyectado', amount: '50', type: 'inventado', sobra: 1 }],
+    };
+    const r = await t.post('/api/backup/import', { data });
+    assert.equal(r.status, 200, `devolvió ${r.status}: ${JSON.stringify(r.body)}`);
+
+    const caja = (await t.get('/api/cash')).body.find(c => c.concept === 'Inyectado');
+    assert.ok(caja, 'no se importó la fila de caja');
+    assert.equal(caja.type, 'ingreso', 'un tipo de movimiento inventado entró tal cual');
+    assert.equal(Number(caja.amount), 50, 'el monto no se saneó');
+
+    const inventario = (await t.get('/api/inventory')).body;
+    assert.equal(inventario.length, 1, `el workspace_id inyectado creó filas de más: ${inventario.length}`);
+  });
+
+  it('rechaza un respaldo con un número imposible y no toca los datos', async () => {
+    const respaldo = (await t.get('/api/backup')).body;
+    const data = { ...respaldo.data, inventory: [{ id: 1, name: 'Rota', qty: 'mucho', min_qty: 0, unit_price: 1 }] };
+    const r = await t.post('/api/backup/import', { data });
+    assert.equal(r.status, 400, `aceptó un número imposible: ${JSON.stringify(r.body)}`);
+    assert.equal(/constraint|NOT NULL|SQLITE/i.test(String(r.body.error)), false,
+      `el error filtra las tripas del driver: "${r.body.error}"`);
+    assert.ok((await t.get('/api/inventory')).body.some(i => i.name === 'Pieza legítima'),
+      'el respaldo rechazado borró los datos del taller');
+  });
+
+  it('una sección que no es lista se rechaza con 400', async () => {
+    const r = await t.post('/api/backup/import', { data: { inventory: 'no-es-una-lista' } });
+    assert.equal(r.status, 400);
+    assert.match(String(r.body.error), /inventory/, 'el error debe decir QUÉ sección está mal');
+    assert.ok((await t.get('/api/clients')).body.some(c => c.name === 'Cliente legítimo'));
+  });
+
+  it('el import descarta fotos que no son PNG/JPEG/WEBP (no cuela un SVG)', async () => {
+    await t.post('/api/orders', { title: 'Orden con foto hostil' });
+    const respaldo = (await t.get('/api/backup')).body;
+    const orden = respaldo.data.orders.find(o => o.title === 'Orden con foto hostil');
+    const svg = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==';
+    const data = { ...respaldo.data, orderPhotos: [{ order_id: orden.id, photo: svg, caption: 'svg' }] };
+    const r = await t.post('/api/backup/import', { data });
+    assert.equal(r.status, 200, `devolvió ${r.status}: ${JSON.stringify(r.body)}`);
+    const nueva = (await t.get('/api/orders')).body.find(o => o.title === 'Orden con foto hostil');
+    const detalle = (await t.get(`/api/orders/${nueva.id}`)).body;
+    assert.equal((detalle.photos || []).length, 0, 'una foto SVG entró por el import');
+  });
+});
+
+describe('2.21 — un :id inválido responde 404 sin tocar la base', () => {
+  let ctx, t, orden;
+
+  before(async () => {
+    ctx = await levantarServidor();
+    t = crearCliente(ctx.base);
+    await t.registrar('IdInvalido');
+    orden = (await t.post('/api/orders', { title: 'Orden con id válido' })).body.id;
+  });
+  after(() => ctx.cerrar());
+
+  const RUTAS_CON_ID = [
+    ['GET', '/api/orders/abc'], ['PUT', '/api/orders/abc'], ['DELETE', '/api/orders/abc'],
+    ['POST', '/api/orders/abc/items'], ['DELETE', '/api/orders/abc/items/abc'],
+    ['DELETE', '/api/orders/abc/photos/abc'], ['POST', '/api/orders/abc/status'],
+    ['PUT', '/api/inventory/abc'], ['DELETE', '/api/inventory/abc'], ['POST', '/api/inventory/abc/moves'],
+    ['PUT', '/api/clients/abc'], ['DELETE', '/api/clients/abc'],
+    ['GET', '/api/clients/abc/vehicles'], ['POST', '/api/clients/abc/vehicles'],
+    ['DELETE', '/api/clients/vehicles/abc'],
+    ['GET', '/api/documents/abc'], ['GET', '/api/documents/abc/print'],
+    ['PUT', '/api/documents/abc/status'], ['DELETE', '/api/documents/abc'],
+    ['DELETE', '/api/notes/abc'], ['DELETE', '/api/cash/abc'],
+    ['POST', '/api/workshop/notifications/abc/read'],
+  ];
+
+  it('todas las rutas de negocio con :id devuelven 404 con un id no numérico', async () => {
+    for (const [metodo, ruta] of RUTAS_CON_ID) {
+      const opts = { method: metodo };
+      if (metodo === 'POST' || metodo === 'PUT') opts.body = JSON.stringify({});
+      const r = await t.req(ruta, opts);
+      assert.equal(r.status, 404, `${metodo} ${ruta} devolvió ${r.status} (${JSON.stringify(r.body)})`);
+      assert.equal(typeof r.body.error, 'string', `${metodo} ${ruta} no devolvió el error en JSON`);
+    }
+  });
+
+  it('un id numérico inexistente también es 404 y no un 500', async () => {
+    for (const ruta of ['/api/orders/999999', '/api/documents/999999', '/api/orders/999999/items', '/api/cash/999999']) {
+      const r = await t.get(ruta);
+      assert.equal(r.status, 404, `GET ${ruta} devolvió ${r.status}`);
+    }
+    const notif = await t.post('/api/workshop/notifications/999999/read', {});
+    assert.equal(notif.status, 200, 'marcar como leída una notificación ajena/inexistente no debe reventar');
+  });
+
+  it('las rutas válidas siguen funcionando después (nada quedó roto)', async () => {
+    assert.equal((await t.get(`/api/orders/${orden}`)).status, 200);
+    assert.equal((await t.get(`/api/orders/${orden}`)).body.id, orden);
+  });
+});
+
+describe('2.28 — las fechas de los documentos salen en ISO-8601 con zona', () => {
+  let ctx, t, doc;
+
+  before(async () => {
+    ctx = await levantarServidor();
+    t = crearCliente(ctx.base);
+    await t.registrar('Fechas');
+    doc = (await t.post('/api/documents', { kind: 'entrega', items: [{ descr: 'Concepto', qty: 1, unit_price: 10 }] })).body.id;
+  });
+  after(() => ctx.cerrar());
+
+  it('created_at viene normalizado (Z) en la lista y en el detalle', async () => {
+    const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
+    const lista = (await t.get('/api/documents')).body;
+    const deLaLista = lista.find(d => d.id === doc);
+    assert.match(String(deLaLista.created_at), ISO, `la lista trae "${deLaLista.created_at}"`);
+
+    const detalle = (await t.get(`/api/documents/${doc}`)).body;
+    assert.match(String(detalle.created_at), ISO, `el detalle trae "${detalle.created_at}"`);
   });
 });

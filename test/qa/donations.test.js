@@ -104,7 +104,8 @@ describe('Donaciones y Rangos de Donador', () => {
     assert.equal(rej.body.status, 'rejected');
   });
 
-  it('GET /api/donations/quick-approve aprueba en 1 clic mediante enlace con token criptográfico', async () => {
+  it('la vía GET quick-approve ya no existe; la aprobación es solo vía POST admin', async () => {
+    // S1 (F2/F6/B5/V-A7): el GET que mutaba estado se eliminó (CSRF + XSS).
     // Registrar donación de $35 para alcanzar nivel 5 ($15 anterior + $35 = $50 -> Socio Fundador Diamante)
     const nueva = await anon.post('/api/donations', {
       method: 'binance',
@@ -117,12 +118,16 @@ describe('Donaciones y Rangos de Donador', () => {
 
     const lista = await admin.get('/api/admin/donations');
     const don = lista.body.find(d => d.id === nueva.body.id);
-    assert.ok(don.approve_token, 'la donación debe generar un token de aprobación rápida');
+    assert.ok(don, 'la donación debe aparecer en la lista del admin');
 
-    // Visitar el enlace directo
-    const quickRes = await anon.get(`/api/donations/quick-approve?token=${don.approve_token}`);
-    assert.equal(quickRes.status, 200);
-    assert.ok(quickRes.body.includes('Aprobado'));
+    // El enlace viejo responde 404 (ruta eliminada), no 200.
+    const quickRes = await anon.get(`/api/donations/quick-approve?token=${don.approve_token || 'x'}`);
+    assert.equal(quickRes.status, 404);
+
+    // Aprobación por la vía oficial: POST admin.
+    const appRes = await admin.post(`/api/admin/donations/${don.id}/approve`, { amount: 35 });
+    assert.equal(appRes.status, 200);
+    assert.equal(appRes.body.status, 'approved');
 
     // Verificar que el taller ahora es nivel 5 (Socio Fundador Diamante con $50 acumulados)
     const me = await taller.get('/api/auth/me');

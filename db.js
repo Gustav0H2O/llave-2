@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { Pool } = require('pg');
 const Database = require('better-sqlite3');
+const fs = require('fs');
 const path = require('path');
 
 function sanitizeEnv(val) {
@@ -30,9 +31,34 @@ if (USE_TURSO) {
   console.log('☁️  Conectado a Turso (libSQL)');
 } else if (USE_PG) {
   const isInternal = DATABASE_URL.includes('.internal');
+  const PG_CA_PATH = sanitizeEnv(process.env.PG_CA_PATH);
+  const PG_POOL_MAX_RAW = parseInt(sanitizeEnv(process.env.PG_POOL_MAX) || '10', 10);
+  // F-11: TLS verificado. .internal va sin ssl (red privada); fuera de ella se
+  // exige rejectUnauthorized:true + CA. Falla cerrado en prod si no hay CA.
+  function buildPgSsl() {
+    if (isInternal) return false;
+    if (PG_CA_PATH) {
+      try {
+        const ca = fs.readFileSync(PG_CA_PATH, 'utf8');
+        return { rejectUnauthorized: true, ca };
+      } catch (err) {
+        console.error(`FATAL: No se pudo leer PG_CA_PATH=${PG_CA_PATH}: ${err && err.message}`);
+        process.exit(1);
+      }
+    }
+    if (process.env.NODE_ENV === 'production') {
+      console.error('FATAL: En producción PostgreSQL requiere TLS verificado: define PG_CA_PATH con el certificado CA.');
+      process.exit(1);
+    }
+    return { rejectUnauthorized: true };
+  }
   pgPool = new Pool({
     connectionString: DATABASE_URL,
-    ssl: isInternal ? false : { rejectUnauthorized: false }
+    ssl: buildPgSsl(),
+    max: Number.isFinite(PG_POOL_MAX_RAW) && PG_POOL_MAX_RAW > 0 ? PG_POOL_MAX_RAW : 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+    statement_timeout: 10000
   });
   pgPool.on('error', (err) => {
     console.error('❌ Error inesperado en PostgreSQL:', err);
@@ -256,6 +282,84 @@ class DBAdapter {
       const info = Array.isArray(params) ? this.sqlite.prepare(sql).run(...params) : this.sqlite.prepare(sql).run(params || {});
       return info.lastInsertRowid;
     }
+  }
+
+  /* AR-C1: transacción atómica. En PG usa cliente dedicado de pool.connect()
+     con BEGIN/COMMIT/ROLLBACK + release() en finally (patrón migrate.js).
+     En SQLite/Turso degrada a exec BEGIN/COMMIT/ROLLBACK. No rompe la API
+     existente: fn recibe un objeto con get/all/run/exec/insertReturningId. */
+  async withTransaction(fn) {
+    if (this.isPg) {
+      const client = await pgPool.connect();
+      try {
+        await client.query('BEGIN');
+        const tx = {
+          isPg: true,
+          isTurso: false,
+          get: async (sql, params) => {
+            const { sql: pgSql, arr } = parseQuery(sql, params);
+            const res = await client.query(pgSql, arr);
+            return res.rows[0] || null;
+          },
+          all: async (sql, params) => {
+            const { sql: pgSql, arr } = parseQuery(sql, params);
+            const res = await client.query(pgSql, arr);
+            return res.rows;
+          },
+          run: async (sql, params) => {
+            let pgSql = sql;
+            let onConflict = '';
+            if (pgSql.includes('INSERT OR IGNORE')) {
+              pgSql = pgSql.replace('INSERT OR IGNORE', 'INSERT');
+              onConflict = ' ON CONFLICT DO NOTHING';
+            }
+            pgSql = pgSql + onConflict;
+            const { sql: finalSql, arr } = parseQuery(pgSql, params);
+            const res = await client.query(finalSql, arr);
+            return { changes: res.rowCount, lastInsertRowid: null };
+          },
+          exec: async (sql) => {
+            await client.query(sql);
+          },
+          insertReturningId: async (sql, params) => {
+            const pgSql = sql.replace(/INSERT OR IGNORE/g, 'INSERT') + ' RETURNING id';
+            const { sql: finalSql, arr } = parseQuery(pgSql, params);
+            const res = await client.query(finalSql, arr);
+            return res.rows[0]?.id || null;
+          },
+          prepare: (prepSql) => ({
+            get: async (params) => tx.get(prepSql, params),
+            all: async (params) => tx.all(prepSql, params),
+            run: async (params) => tx.run(prepSql, params)
+          })
+        };
+        tx.withTransaction = async (nestedFn) => nestedFn(tx);
+        tx.enTransaccion = tx.withTransaction;
+        const out = await fn(tx);
+        await client.query('COMMIT');
+        return out;
+      } catch (e) {
+        try { await client.query('ROLLBACK'); } catch (_) {}
+        throw e;
+      } finally {
+        client.release();
+      }
+    }
+    if (this.isTurso && this.tursoTx) return await fn(this);
+    if (!this.isTurso && !this.isPg && this.sqlite && this.sqlite.inTransaction) return await fn(this);
+    await this.exec('BEGIN');
+    try {
+      const out = await fn(this);
+      await this.exec('COMMIT');
+      return out;
+    } catch (e) {
+      try { await this.exec('ROLLBACK'); } catch (_) {}
+      throw e;
+    }
+  }
+
+  async enTransaccion(fn) {
+    return await this.withTransaction(fn);
   }
 
   prepare(sql) {

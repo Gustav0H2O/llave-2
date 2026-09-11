@@ -17,3 +17,19 @@ stats.db-shm
 nul
 
 test/screenshots/
+
+# --- MATRIZ 1.2 (R-2, CC-02/03, ALTA): higiene de repo ---
+*.db
+*.db-*
+*.db-wal
+*.db-shm
+*.sqlite
+*.dump
+*.bak
+.env*
+!.env.example
+_dbg.js
+_opt.js
+_shot*.js
+commit_msg.txt
+*command-messagedesigncommand-message.txt

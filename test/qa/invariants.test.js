@@ -18,6 +18,11 @@ const leer = (p) => fs.readFileSync(path.join(RAIZ, p), 'utf8');
 const existe = (p) => fs.existsSync(path.join(RAIZ, p));
 
 const SERVER = leer('server-pg.js');
+/* 4.9 (W6): el nonce/CSP viven en src/middleware/seguridad.js y el manejador de
+   errores en src/routes/misc.js. Las invariantes son las mismas; se leen los
+   módulos donde está el código ahora (server-pg.js es un ensamblador). */
+const SEGURIDAD = leer('src/middleware/seguridad.js');
+const MISC = leer('src/routes/misc.js');
 const INDEX = leer('public/index.html');
 const SCHEMA = leer('schema.sql');
 const SCHEMA_PG = leer('schema-pg.sql');
@@ -150,17 +155,17 @@ describe('Política de seguridad de contenido (CSP)', () => {
   it('los hashes de los scripts inline se calculan del archivo, no se escriben a mano', () => {
     // Un hash escrito a mano caduca en silencio al tocar el script: el navegador
     // bloquea el script y el servidor no se entera de nada.
-    assert.match(SERVER, /INLINE_SCRIPT_HASHES/, 'el servidor debe calcular los hashes de los scripts inline');
-    assert.match(SERVER, /createHash\('sha256'\)/, 'debe calcular sha256 del contenido real del script');
+    assert.match(SEGURIDAD, /calcularHashesInline/, 'el servidor debe calcular los hashes de los scripts inline');
+    assert.match(SEGURIDAD, /createHash\('sha256'\)/, 'debe calcular sha256 del contenido real del script');
 
-    const aMano = [...SERVER.matchAll(/'sha256-[A-Za-z0-9+/=]{40,}'/g)].map(m => m[0]);
-    assert.deepEqual(aMano, [], `hay hashes sha256 escritos a mano en server-pg.js: ${aMano.join(', ')}`);
+    const aMano = [...SEGURIDAD.matchAll(/'sha256-[A-Za-z0-9+/=]{40,}'/g)].map(m => m[0]);
+    assert.deepEqual(aMano, [], `hay hashes sha256 escritos a mano en src/middleware/seguridad.js: ${aMano.join(', ')}`);
   });
 
   it('el cálculo normaliza CRLF a LF (el proyecto se edita en Windows)', () => {
     // El navegador normaliza los saltos de línea antes de hashear. Con el archivo
     // en CRLF, hashear el texto crudo da un valor que el navegador nunca reproduce.
-    const bloque = SERVER.slice(SERVER.indexOf('INLINE_SCRIPT_HASHES'), SERVER.indexOf('INLINE_SCRIPT_HASHES') + 900);
+    const bloque = SEGURIDAD.slice(SEGURIDAD.indexOf('calcularHashesInline'), SEGURIDAD.indexOf('calcularHashesInline') + 900);
     assert.match(bloque, /replace\(\/\\r\\n\?\/g, '\\n'\)/,
       'el cálculo del hash debe normalizar CRLF a LF o la CSP bloqueará los scripts en producción');
   });
@@ -179,6 +184,53 @@ describe('Política de seguridad de contenido (CSP)', () => {
   it('index.html no tiene manejadores de evento en línea (onclick=…), que la CSP bloquea', () => {
     const malos = [...INDEX.matchAll(/\son(click|load|error|submit|change)=["']/gi)].map(m => m[0].trim());
     assert.deepEqual(malos, [], `manejadores en línea que la CSP bloquea: ${malos.join(', ')}`);
+  });
+
+  /* 2.31 — La página del mecánico NO autoriza scripts inline sueltos.
+     El permiso que AdSense necesita vive en el documento del contenedor
+     (src/services/anuncios.js), que tiene su propia cabecera CSP. Si alguien
+     vuelve a meter 'unsafe-inline' en el scriptSrc del sitio, esta prueba lo
+     para: es la diferencia entre un HTML mal escapado que se ve raro y uno que
+     ejecuta código. */
+  it('scriptSrc del sitio no contiene unsafe-inline (2.31)', () => {
+    const bloque = SEGURIDAD.slice(SEGURIDAD.indexOf('scriptSrc:'), SEGURIDAD.indexOf('styleSrc:'));
+    assert.equal(/unsafe-inline/.test(bloque), false,
+      `el scriptSrc del sitio volvió a abrirse: ${bloque.replace(/\s+/g, ' ').slice(0, 200)}`);
+  });
+
+  it('el contenedor de anuncios sí lo lleva, y lo tiene aislado en su propio módulo (2.31)', () => {
+    const anuncios = leer('src/services/anuncios.js');
+    assert.match(anuncios, /'unsafe-inline'/, 'la política que Google documenta para su código lo exige');
+    assert.match(SERVER, /require\('\.\/src\/services\/anuncios'\)/, 'server-pg.js tiene que servir ese contenedor');
+    // Y ninguno de los módulos que sirven al mecánico puede heredarlo.
+    for (const archivo of ['src/services/chat.js', 'src/services/identificador.js', 'src/config/index.js']) {
+      if (!existe(archivo)) continue;
+      assert.equal(/unsafe-inline|unsafe-eval/.test(leer(archivo)), false,
+        `${archivo} no debería hablar de políticas CSP abiertas: eso vive solo en el contenedor`);
+    }
+  });
+
+  it('las plantillas del SSR usan la tipografía del sitio (Inter), no Montserrat (2.38)', () => {
+    // public/index.html carga Inter desde Google Fonts y todo el CSS del sitio
+    // la usa. Una plantilla en Montserrat hace que la página renderizada en
+    // servidor salte de familia al montar React.
+    assert.match(INDEX, /family=Inter/, 'index.html debería seguir cargando Inter');
+    const plantillas = [SERVER, leer('lib/portada.js')];
+    for (const src of plantillas) {
+      assert.equal(/Montserrat/.test(src), false,
+        'queda Montserrat en una plantilla del SSR: el sitio entero usa Inter (2.38)');
+    }
+  });
+
+  it('los metadatos de la SERP se recortan con recortarMeta, no con slice a mano (2.38)', () => {
+    /* La invariante es la misma desde la oleada 5 de 4.8; lo que cambió es el
+       archivo que escribe esos metadatos: las fichas (`/vehiculo/:slug`) y los
+       perfiles de taller (`/taller/:slug`) se renderizan desde
+       src/routes/paginas.js. Se miran los dos sitios para que la prueba siga
+       fallando si nadie recorta el título y la descripción. */
+    const SSR = [SERVER, leer('src/routes/paginas.js')].join('\n');
+    assert.match(SSR, /recortarMeta\(/, 'el <title> y la descripción de las fichas tienen que recortarse por palabra');
+    assert.match(leer('lib/pure.js'), /const recortarMeta =/);
   });
 });
 
@@ -294,9 +346,17 @@ describe('Trampas conocidas de este proyecto', () => {
   });
 
   it('el manejador de errores distingue el 4xx del cliente del 500 del servidor', () => {
-    const bloque = SERVER.slice(SERVER.lastIndexOf('app.use((err'));
+    const bloque = MISC.slice(MISC.lastIndexOf('app.use((err'));
     assert.match(bloque, /err\.status/, 'debe respetar el código que traen los errores de express/body-parser');
     assert.match(bloque, /entity\.too\.large/, 'un cuerpo demasiado grande es 413, no 500');
+  });
+
+  it('el arranque valida la configuración antes de montar nada (4.2)', () => {
+    // En producción sin VISIT_SALT el proceso tiene que morir al subir, no
+    // empezar a contar dos veces al mismo visitante en cada reinicio.
+    const boot = SERVER.slice(SERVER.indexOf('if (require.main === module)'));
+    assert.ok(boot.length > 0, 'no se encontró el arranque del servidor');
+    assert.match(boot, /validarConfig\(config\)/, 'falta la validación de configuración en el arranque');
   });
 
   it('el contador de visitas usa una base separada del catálogo', () => {
@@ -309,8 +369,10 @@ describe('Trampas conocidas de este proyecto', () => {
 
   it('el modelo de IA configurado es un identificador plausible de Google', () => {
     // 'gemini-3.5-flash' no existe y hacía que el chat respondiera 502.
-    const m = SERVER.match(/GEMINI_MODEL\s*=\s*process\.env\.GEMINI_MODEL\s*\|\|\s*'([^']+)'/);
-    assert.ok(m, 'no se encontró el modelo por defecto de Gemini');
+    // 4.2: el default vive ahora en src/config/index.js (el chat lo consume
+    // desde ahí), así que el invariante se comprueba donde está la definición.
+    const m = leer('src/config/index.js').match(/GEMINI_MODEL:\s*texto\(env\.GEMINI_MODEL\)\s*\|\|\s*'([^']+)'/);
+    assert.ok(m, 'no se encontró el modelo por defecto de Gemini en src/config/index.js');
     assert.match(m[1], /^gemini-[\d.]+-(flash|pro)/, `"${m[1]}" no parece un id de modelo válido de Google`);
   });
 

@@ -88,4 +88,18 @@ describe('lib/notificaciones.js — Avisos automáticos', () => {
       server.close();
     }
   });
+
+  it('2.33 devuelve el fallo en el resultado (lib/ no escribe en consola)', async () => {
+    // Puerto que abrimos y cerramos: el webhook fallará al conectar.
+    const srv = http.createServer();
+    await new Promise(r => srv.listen(0, r));
+    const port = srv.address().port;
+    await new Promise(r => srv.close(r));
+
+    const res = await enviarAvisoDonacion({ id: 7, amount: 1 }, `http://127.0.0.1:${port}/hook`);
+    assert.equal(res.enviado, false);
+    assert.equal(res.motivo, 'error_red');
+    assert.ok(res.error, 'el error debe volver en el resultado para que el llamador lo registre');
+    assert.equal(/https?:\/\//.test(String(res.detalle)), false, 'el detalle no debe llevar la URL (puede tener token)');
+  });
 });

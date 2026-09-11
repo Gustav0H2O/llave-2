@@ -1,24 +1,32 @@
 /* llave — Panel de administración (vanilla JS, sin scripts inline por CSP) */
 const $ = (id) => document.getElementById(id);
-const TOKEN_KEY = 'ft_admin_token';
-let token = sessionStorage.getItem(TOKEN_KEY) || '';
 let boot = null;
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const show = (el, on) => { el.classList.toggle('hidden', !on); if (el.dataset.flex !== undefined) el.style.display = on ? 'flex' : 'none'; };
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
+/* 2.30/2.32: el token de admin viaja en la cookie HttpOnly `ft_admin` (ya no en
+   sessionStorage, de donde un XSS lo leía). El nonce CSRF se lee de la cookie
+   `ft_csrf` —que el servidor emite en cada respuesta— y se copia a la cabecera. */
+const csrfToken = () => {
+  const m = document.cookie.match(/(?:^|;\s*)ft_csrf=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+};
+
 async function authFetch(path, opts = {}) {
   const res = await fetch(path, {
+    credentials: 'same-origin',
     ...opts,
-    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}), ...(token ? { Authorization: 'Bearer ' + token } : {}) }
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken(), ...(opts.headers || {}) }
   });
   if (res.status === 401) { logout(); throw new Error('Sesión expirada'); }
   return res;
 }
 
 function logout() {
-  token = ''; sessionStorage.removeItem(TOKEN_KEY);
+  /* Best-effort: revoca el token en el servidor y limpia la cookie ft_admin. */
+  fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() } }).catch(() => {});
   show($('app'), false); show($('login'), true);
 }
 
@@ -26,10 +34,10 @@ function logout() {
 async function doLogin() {
   $('loginErr').textContent = '';
   try {
-    const res = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: $('pass').value }) });
+    const res = await fetch('/api/admin/login', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: $('pass').value }) });
     const d = await res.json().catch(() => ({}));
     if (!res.ok) { $('loginErr').textContent = d.error || 'Error de conexión'; return; }
-    token = d.token; sessionStorage.setItem(TOKEN_KEY, token); $('pass').value = '';
+    $('pass').value = '';
     start();
   } catch (e) { $('loginErr').textContent = 'Error de conexión'; }
 }
@@ -389,10 +397,10 @@ async function loadDonations() {
           const act = btn.dataset.act;
           const id = btn.dataset.id;
           if (act === 'approve') {
-            const nuevoMonto = prompt(`Aprobar donación #${id}.\nMonto en USD a acreditar:`, btn.dataset.amount);
+            const nuevoMonto = prompt(`Aprobar donación #${id}.\nMonto en USD a acreditar (0.1 - 10000):`, btn.dataset.amount);
             if (nuevoMonto === null) return;
             const amt = parseFloat(nuevoMonto);
-            if (isNaN(amt) || amt <= 0) { alert('Monto inválido'); return; }
+            if (isNaN(amt) || amt < 0.1 || amt > 10000) { alert('Monto inválido (debe estar entre 0.1 y 10000 USD)'); return; }
             let wsId = btn.dataset.ws;
             if (!wsId) {
               const wsPrompt = prompt(`Vincular a taller existente (opcional).\nIngresa ID numérico de taller o déjalo vacío:`, '');
@@ -768,4 +776,6 @@ $('notice_copy_script_btn').addEventListener('click', () => {
 });
 
 /* ---------- Init ---------- */
-if (token) start(); else show($('login'), true);
+/* 2.30: si ya hay cookie de admin válida entra directo; si no, authFetch
+   responde 401 y logout() muestra el formulario. */
+start();
