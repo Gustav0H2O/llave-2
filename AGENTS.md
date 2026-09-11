@@ -363,7 +363,7 @@ conocimiento del negocio para resolverse:
 
 | | |
 | --- | --- |
-| Pruebas | **757**, todas en verde |
+| Pruebas | **769**, todas en verde |
 | Cobertura de `lib/` | **100 %** |
 | Rutas de API | **103**, **100 %** con prueba |
 | Reglas de restricción | **20**, 0 violaciones |

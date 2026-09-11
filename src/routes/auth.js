@@ -18,7 +18,7 @@
    talleres, para no cambiar el orden de registro. Recibe por `deps` los helpers
    de createApp (db, str, esDataUrlImagenPermitida, enTransaccion, haceSlug,
    leerCookie…); los que dependen de la instancia (requireWorkshop,
-   tokenCookieOpts, getDummyHash, failedLoginAttempts, slugLibre) los produce
+   tokenCookieOpts, getDummyHash, lockoutLogin, slugLibre) los produce
    src/services/auth.js. Ver src/routes/README.md.
 
    PRIMITIVAS COMPARTIDAS
@@ -35,10 +35,11 @@
    ========================================================================= */
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
+const { StoreBD } = require('../services/rate-limit-store');
 const {
   hashToken, hashPassword, verifyPassword, normEmail,
   WEAK_PASSWORDS, SESSION_COOKIE, CAMPOS_PERFIL, normalizaPerfil, escMail, enviarCorreo,
-  SCRYPT_N, FAILED_LOGIN_LIMIT, FAILED_HARD_LIMIT, LOCKOUT_STEPS_MS, LOCKOUT_MAX_MS,
+  SCRYPT_N, FAILED_LOGIN_LIMIT, FAILED_HARD_LIMIT,
 } = require('../services/auth');
 
 /* Enlace de confirmación de correo: vence en 24 horas. */
@@ -48,19 +49,21 @@ function montarAuth(app, deps) {
   const {
     db, str, esDataUrlImagenPermitida, enTransaccion, haceSlug, leerCookie,
     PROD, BASE_URL, SESSION_TTL_MS,
-    requireWorkshop, tokenCookieOpts, getDummyHash, failedLoginAttempts, slugLibre,
+    requireWorkshop, tokenCookieOpts, getDummyHash, lockoutLogin, slugLibre,
   } = deps;
 
   /* Regla 3.4 (rate limit): 20 intentos por minuto por IP. Suficiente para
      usuarios reales (un humano no intenta loguearse 20 veces en un minuto)
      pero frena ataques automatizados. En tests se sube a 2000 para que la
      suite pueda ejecutar muchas altas/logins sin chocar con el limitador
-     (los tests de seguridad disparan muchos en pocos segundos). */
+     (los tests de seguridad disparan muchos en pocos segundos). El conteo vive
+     en la base (StoreBD) para que lo compartan todas las instancias. */
   const authLimiter = rateLimit({
     windowMs: 60_000,
     limit: process.env.AUTH_LIMIT ? Number(process.env.AUTH_LIMIT) : (process.env.NODE_ENV === 'test' ? 2000 : 20),
     standardHeaders: true,
     legacyHeaders: false,
+    store: new StoreBD(db, 'auth'),
   });
 
   // Registro: crea taller + sesión
@@ -133,9 +136,11 @@ function montarAuth(app, deps) {
     }
     const ws = await db.get('SELECT id, name, email, pass_hash, status, locked_until FROM workshops WHERE email = ?', email);
     const lockKey = `${email}|${req.ip}`;
-    const memLock = failedLoginAttempts.get(lockKey);
-    if (memLock?.lockedUntil && memLock.lockedUntil > Date.now()) {
-      const mins = Math.max(1, Math.ceil((memLock.lockedUntil - Date.now()) / 60000));
+    /* Lockout persistido en BD (login_attempts): la clave sigue siendo email|IP.
+       Sin IP, un atacante bloquearía cuentas ajenas a voluntad. */
+    const previo = await lockoutLogin.estado(lockKey);
+    if (previo?.bloqueado_hasta_ms && Number(previo.bloqueado_hasta_ms) > Date.now()) {
+      const mins = Math.max(1, Math.ceil((Number(previo.bloqueado_hasta_ms) - Date.now()) / 60000));
       return res.status(423).json({ code: 'account_locked', error: `Cuenta bloqueada temporalmente por seguridad. Intenta más tarde (${mins} min).` });
     }
     /* Mitigación de timing attack (regla 3.2): verifyPassword contra hash dummy si no existe. */
@@ -147,22 +152,17 @@ function montarAuth(app, deps) {
       await verifyPassword(pass, dummy);
     }
     const registrarFalloLogin = async (wsId) => {
-      const prev = failedLoginAttempts.get(lockKey);
-      const isExp = prev?.lastAttempt && (Date.now() - prev.lastAttempt > LOCKOUT_MAX_MS);
-      const cur = (isExp ? 0 : (prev?.count || 0)) + 1;
+      /* El conteo y el backoff (1,2,4,8,15 min; duro a 8) los calcula
+         src/services/auth.js sobre la BD; aquí solo se responde igual que antes. */
+      const { intentos: cur, bloqueadoHasta, bloqueoMs } = await lockoutLogin.registrarFallo(lockKey);
       if (cur >= FAILED_LOGIN_LIMIT) {
-        const idx = Math.min(Math.max(0, cur - FAILED_LOGIN_LIMIT), LOCKOUT_STEPS_MS.length - 1);
-        const lockMs = LOCKOUT_STEPS_MS[idx];
-        const lockUntil = Date.now() + lockMs;
-        failedLoginAttempts.set(lockKey, { count: cur, lastAttempt: Date.now(), lockedUntil: lockUntil });
-        if (wsId) await db.run('UPDATE workshops SET locked_until = ? WHERE id = ?', [new Date(lockUntil).toISOString(), wsId]).catch(() => {});
-        const minsLock = Math.max(1, Math.round(lockMs / 60000));
+        if (wsId) await db.run('UPDATE workshops SET locked_until = ? WHERE id = ?', [new Date(bloqueadoHasta).toISOString(), wsId]).catch(() => {});
+        const minsLock = Math.max(1, Math.round(bloqueoMs / 60000));
         if (cur >= FAILED_HARD_LIMIT) {
           return res.status(423).json({ code: 'account_locked', error: `Cuenta bloqueada por seguridad tras ${cur} intentos fallidos. Intenta más tarde (${minsLock} min).` });
         }
         return res.status(423).json({ code: 'account_locked', error: `Has superado el límite de ${FAILED_LOGIN_LIMIT} intentos fallidos. Bloqueo temporal de ${minsLock} min.` });
       }
-      failedLoginAttempts.set(lockKey, { count: cur, lastAttempt: Date.now(), lockedUntil: null });
       return res.status(401).json({ code: 'bad_credentials', error: `Correo o contraseña incorrectos. Intento ${cur} de ${FAILED_LOGIN_LIMIT} (te quedan ${FAILED_LOGIN_LIMIT - cur} antes del bloqueo temporal).` });
     };
     if (!ws) return registrarFalloLogin(null);
@@ -176,7 +176,7 @@ function montarAuth(app, deps) {
       return res.status(401).json({ code: 'use_google', error: 'Esta cuenta usa Google. Entra con «Continuar con Google».' });
     }
     if (!passwordOk) return registrarFalloLogin(ws.id);
-    failedLoginAttempts.delete(lockKey);
+    await lockoutLogin.limpiar(lockKey);
     if (ws.locked_until) await db.run('UPDATE workshops SET locked_until = NULL WHERE id = ?', [ws.id]).catch(() => {});
     // F13 (2.9): rehash progresivo si el hash usa N viejo (p. ej. 16384).
     try {

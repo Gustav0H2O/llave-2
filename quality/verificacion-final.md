@@ -67,10 +67,17 @@ que monta middlewares y routers. La API y el SSR viven en módulos:
 
 El contrato de API (103 rutas) sigue idéntico y la suite + los 6 robots están en verde.
 
-### Lo que queda como deuda de escalado (no bloquea)
+### Deuda de escalado — resuelta
 
-- Los **rate limiters** y `failedLoginAttempts`/`visitSalt` siguen siendo por proceso: para
-  escalar horizontalmente hace falta un store externo (Redis/BD). Está señalado, no resuelto.
+- Los **rate limiters** (express-rate-limit) ya no usan el MemoryStore: un `StoreBD`
+  (`src/services/rate-limit-store.js`) guarda los contadores en la tabla `rate_limits`
+  (migración `003-estado-escalado`). El cupo lo comparten todas las instancias y sobrevive
+  a un reinicio; el incremento es un UPSERT atómico.
+- El **lockout de login** (`failedLoginAttempts`) pasó del `Map` de proceso a la tabla
+  `login_attempts`, con la misma clave `email|IP`, el mismo backoff (1,2,4,8,15 min) y el
+  mismo bloqueo duro a 8.
+- Queda como caché de proceso (aceptable, no es corrección): `metaCache`/`pumpsCache` y
+  `visitSalt`. `VISIT_SALT` ya es obligatorio en producción.
 - `src/repositories/` (sacar el SQL de los handlers) no se hizo: el SQL quedó junto a su ruta
   dentro de cada módulo de `src/routes/`, que ya es una capa suficiente para el tamaño actual.
 

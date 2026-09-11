@@ -5,8 +5,9 @@ process.env.NODE_ENV = 'test';
 
    NUNCA se llama a un proveedor real: se levanta un proveedor falso en
    localhost y se apunta la configuración a él, igual que en chat.test.js. No se
-   abre ninguna base (AGENTS.md §5) porque la ruta no toca base de datos: su
-   contrato es (descripción) → (candidatos).
+   abre ninguna base (AGENTS.md §5): el doble de `db` solo existe para el StoreBD
+   del limitador (deuda de escalado), que cuenta contra la tabla rate_limits; el
+   contrato de la ruta sigue siendo (descripción) → (candidatos).
    ========================================================================= */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
@@ -70,11 +71,13 @@ function configDe(baseProveedor, extra = {}) {
   };
 }
 
-/* Monta la ruta como la monta server-pg.js, sobre un Express pelado. */
+/* Monta la ruta como la monta server-pg.js, sobre un Express pelado. El `db`
+   es un doble en memoria (sin tabla) que solo usa el StoreBD del limitador. */
 async function levantar({ baseProveedor, cfg = {} } = {}) {
   const app = express();
   app.use(express.json());
-  await montarIdentificador(app, { config: configDe(baseProveedor, cfg) });
+  const db = { get: async () => null, all: async () => [], run: async () => ({}) };
+  await montarIdentificador(app, { db, config: configDe(baseProveedor, cfg) });
   const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   return {
     base: `http://127.0.0.1:${server.address().port}`,

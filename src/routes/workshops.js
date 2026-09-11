@@ -21,6 +21,7 @@
    ========================================================================= */
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
+const { StoreBD } = require('../services/rate-limit-store');
 
 function montarWorkshops(app, deps) {
   const { db, str, visitSalt } = deps;
@@ -56,7 +57,9 @@ function montarWorkshops(app, deps) {
     });
   });
 
-  const reviewLimiter = rateLimit({ windowMs: 3600_000, limit: 10, standardHeaders: true, legacyHeaders: false });
+  /* Cupo de reseñas por IP (10/h) contado en la base (StoreBD): compartido
+     entre instancias y persistente entre reinicios. */
+  const reviewLimiter = rateLimit({ windowMs: 3600_000, limit: 10, standardHeaders: true, legacyHeaders: false, store: new StoreBD(db, 'reviews') });
 
   app.post('/api/workshops/:slug/reviews', reviewLimiter, async (req, res) => {
     const slug = str(req.params.slug, 60);

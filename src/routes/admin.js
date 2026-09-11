@@ -35,6 +35,7 @@
    ========================================================================= */
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
+const { StoreBD } = require('../services/rate-limit-store');
 const { invalidarMetaCache, invalidarPumpsCache, invalidarCatalogos } = require('../services/caches');
 
 /* 2.30 — Token de admin (vida 1 h, con `jti` revocable) y helpers CSRF (2.32).
@@ -91,12 +92,15 @@ function montarAdmin(app, deps) {
      `deps`). El orden de ZONES es el de ZONE_LOC, no el que tenía la copia local. */
   const ASSEMBLY = ['external', 'hanger_tbi', 'hanger_return', 'module_returnless', 'vortec', 'gdi_low'];
 
-  const adminLimiter = rateLimit({ windowMs: 60_000, limit: 40, standardHeaders: true, legacyHeaders: false });
+  /* Los dos limitadores del panel usan la base (StoreBD): el cupo lo comparten
+     todas las instancias y sobrevive a un reinicio. */
+  const adminLimiter = rateLimit({ windowMs: 60_000, limit: 40, standardHeaders: true, legacyHeaders: false, store: new StoreBD(db, 'admin') });
   /* 2.30: limitador del login de admin — 5/15 min (relajado en pruebas). */
   const adminLoginLimiter = rateLimit({
     windowMs: 15 * 60_000,
     limit: process.env.NODE_ENV === 'test' ? 1000 : 5,
     standardHeaders: true, legacyHeaders: false,
+    store: new StoreBD(db, 'admin-login'),
   });
   const requireAdmin = (req, res, next) => {
     if (!ADMIN_PASSWORD) return res.status(503).json({ error: 'Panel no configurado. Define la variable ADMIN_PASSWORD.' });

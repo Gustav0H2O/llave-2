@@ -10,9 +10,10 @@
 const crypto = require('crypto');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
+const { StoreBD } = require('../services/rate-limit-store');
 
 function aplicarPeticiones(app, deps) {
-  const { PROD, enTest, CSRF_COOKIE } = deps;
+  const { db, PROD, enTest, CSRF_COOKIE } = deps;
 
   /* Límites por ruta (C3/V-A5/F14 / 2.10): global 20kb; fotos 400kb; backup/
      import 10mb; import CSV 2mb. El global solo rechazaría fotos/backup antes
@@ -29,12 +30,14 @@ function aplicarPeticiones(app, deps) {
     return json20kb(req, res, next);
   });
 
-  // Rate limit solo en /api
+  // Rate limit solo en /api. El conteo vive en la base (StoreBD): todas las
+  // instancias comparten el cupo y un reinicio no lo pone a cero.
   app.use('/api', rateLimit({
     windowMs: 60_000,
     limit: enTest ? 5000 : 120,
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    store: new StoreBD(db, 'api-global')
   }));
 
   /* 2.32: nonce CSRF nuevo por respuesta en cookie legible + cabecera

@@ -21,6 +21,7 @@
    dominio, no del entorno de createApp.
    ========================================================================= */
 const rateLimit = require('express-rate-limit');
+const { StoreBD } = require('../services/rate-limit-store');
 
 function montarConnect(app, deps) {
   const { db, requireWorkshop, str, num, toInt } = deps;
@@ -33,7 +34,7 @@ function montarConnect(app, deps) {
      (misma política del perfil público /taller/:slug); la distancia se calcula en
      servidor y sale como distance_km, jamás el punto crudo. */
   const CONNECT_PUBLICO = 'id, role, name, phone, city, zone, offers, needs';
-  const connectLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false });
+  const connectLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, store: new StoreBD(db, 'connect') });
 
   app.get('/api/connect/profiles', async (req, res) => {
     const rows = await db.all(`SELECT ${CONNECT_PUBLICO} FROM connect_profiles ORDER BY name`);
@@ -76,7 +77,7 @@ function montarConnect(app, deps) {
 
   // Matching por similitud: mismo lugar (ciudad/zona) + cercanía GPS + solape de ofrezco/busco
   // F8/V-A3 (2.6): 20/min propio. V-5.1/5.4/B28 (2.11): radius 1..50, limit<=50 y LIMIT en SQL.
-  const connectMatchLimiter = rateLimit({ windowMs: 60_000, limit: process.env.NODE_ENV === 'test' ? 5000 : 20, standardHeaders: true, legacyHeaders: false });
+  const connectMatchLimiter = rateLimit({ windowMs: 60_000, limit: process.env.NODE_ENV === 'test' ? 5000 : 20, standardHeaders: true, legacyHeaders: false, store: new StoreBD(db, 'connect-match') });
   app.get('/api/connect/match', connectMatchLimiter, async (req, res) => {
     const q = req.query || {};
     const meCity = str(q.city, 120).toLowerCase();

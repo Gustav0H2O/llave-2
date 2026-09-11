@@ -23,13 +23,15 @@
    por `deps` exactamente lo que necesita. Ver src/routes/README.md.
    ========================================================================= */
 const rateLimit = require('express-rate-limit');
+const { StoreBD } = require('../services/rate-limit-store');
 const { leerMetaCache, setMetaCache, leerPumpsCache, setPumpsCache } = require('../services/caches');
 
 function montarCatalog(app, deps) {
   const { db, statsDb, idDe, toInt, psiToBar, vehicleSlug } = deps;
 
-  /* Limitador del catálogo público (mismo tope que tenía en el monolito). */
-  const catalogLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false });
+  /* Limitador del catálogo público (mismo tope que tenía en el monolito). El
+     conteo va a la base (StoreBD) para compartirse entre instancias. */
+  const catalogLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, store: new StoreBD(db, 'catalog') });
 
   /* Registro de búsquedas SIN resultado → hoja de ruta de datos guiada por
      demanda real. Vive en stats.db (la base de estadísticas), por eso llega por
@@ -175,7 +177,7 @@ function montarCatalog(app, deps) {
 
   // --- Comentarios de vehículos ---
   // F8 (2.6): 5/h por IP + paginación (limit 1..50 default 20) contra spam/listados sin tope.
-  const commentLimiter = rateLimit({ windowMs: 3600_000, limit: process.env.NODE_ENV === 'test' ? 5000 : 5, standardHeaders: true, legacyHeaders: false });
+  const commentLimiter = rateLimit({ windowMs: 3600_000, limit: process.env.NODE_ENV === 'test' ? 5000 : 5, standardHeaders: true, legacyHeaders: false, store: new StoreBD(db, 'catalog-comments') });
   app.get('/api/vehicles/:id/comments', async (req, res) => {
     const vehicle_id = idDe(req); /* 2.21 */
     if (vehicle_id === null) return res.status(404).json({ error: 'Vehículo no válido' });

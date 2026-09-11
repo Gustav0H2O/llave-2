@@ -22,13 +22,15 @@
    ========================================================================= */
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
+const { StoreBD } = require('../services/rate-limit-store');
 
 function montarDonations(app, deps) {
   const { db, str, num, toInt, esc, normEmail, BASE_URL, PROD, enviarAvisoDonacion, notificarTaller, webhookUrl } = deps;
 
   /* ---- Donaciones públicas & Solicitud de Rango de Donador ---- */
   // F8 (2.6): 3/h por IP contra spam de aportes (en test se relaja como el global).
-  const donationLimiter = rateLimit({ windowMs: 3600_000, limit: process.env.NODE_ENV === 'test' ? 5000 : 3, standardHeaders: true, legacyHeaders: false });
+  // El conteo vive en la base (StoreBD) para compartirse entre instancias.
+  const donationLimiter = rateLimit({ windowMs: 3600_000, limit: process.env.NODE_ENV === 'test' ? 5000 : 3, standardHeaders: true, legacyHeaders: false, store: new StoreBD(db, 'donations') });
   app.post('/api/donations', donationLimiter, async (req, res) => {
     const b = req.body || {};
     const method = str(b.method, 30);

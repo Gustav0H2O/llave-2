@@ -29,6 +29,7 @@ const rateLimit = require('express-rate-limit');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { validar } = require('../../lib/validar');
 const { proveedorChat, completarProveedor, conTope, enSegundos } = require('./chat');
+const { StoreBD } = require('./rate-limit-store');
 
 /* La entrada: la misma descripción que teclea el mecánico. El mínimo de 6 sale
    del propio cliente (public/microapps.js no deja enviar menos) y el tope de
@@ -75,12 +76,12 @@ function parsearRespuesta(texto) {
   return { candidates, siguiente_prueba: String(dato?.siguiente_prueba ?? '').trim().slice(0, 240) };
 }
 
-async function montarIdentificador(app, { config }) {
+async function montarIdentificador(app, { db, config }) {
   const genAI = config.GEMINI_API_KEY ? new GoogleGenerativeAI(config.GEMINI_API_KEY) : null;
   /* Mismo criterio que el chat: 10 envíos por minuto y por red. La cuota
      gratuita del proveedor es compartida, así que una ráfaga aquí apaga también
-     al asistente. */
-  const limiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false });
+     al asistente. El conteo va a la base (StoreBD): compartido entre instancias. */
+  const limiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, store: new StoreBD(db, 'aid-identify') });
 
   app.post('/api/aid/identify', limiter, async (req, res) => {
     const proveedor = proveedorChat(config);

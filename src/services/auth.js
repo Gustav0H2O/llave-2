@@ -21,10 +21,14 @@
 
      · Lo que depende de la instancia de la app (la base inyectada en createApp)
        se construye con crearAuth({ db, ... }): requireWorkshop, tokenCookieOpts,
-       getDummyHash, failedLoginAttempts y slugLibre. Es una FACTORÍA —no un
+       getDummyHash, lockoutLogin y slugLibre. Es una FACTORÍA —no un
        singleton— porque cada createApp (cada prueba con base en memoria) tiene
-       su propia db y su propio estado de lockout, exactamente igual que cuando
-       estas piezas vivían dentro de createApp.
+       su propia db.
+
+   LOCKOUT PERSISTIDO (deuda de escalado)
+   El contador de intentos fallidos ya NO vive en un Map del proceso: lockoutLogin
+   lee y escribe la tabla `login_attempts` con la db que recibe esta factoría, así
+   que el bloqueo se comparte entre instancias y sobrevive a un reinicio.
 
    SEGURIDAD (al mover el código NO se toca ninguna de estas decisiones):
    scrypt N=2^17 + rehash progresivo, lockout email|IP con backoff 1,2,4,8,15
@@ -183,14 +187,74 @@ function crearAuth({ db, PROD, SESSION_TTL_MS }) {
     next();
   };
 
-  const failedLoginAttempts = new Map(); // email|IP -> { count, lastAttempt, lockedUntil }
-  const _cleanLogins = setInterval(() => {
-    const now = Date.now();
-    for (const [em, info] of failedLoginAttempts) {
-      if (now - (info.lastAttempt || 0) > LOCKOUT_MAX_MS && (!info.lockedUntil || info.lockedUntil <= now)) failedLoginAttempts.delete(em);
+  /* ---------------------------------------------------------------------------
+     Lockout del login PERSISTIDO EN LA BASE (deuda de escalado).
+
+     Antes era un Map `email|IP -> { count, lastAttempt, lockedUntil }` del
+     proceso: con dos instancias cada una bloqueaba por su cuenta, y un reinicio
+     devolvía la cuota de intentos a cero. Ahora vive en `login_attempts`
+     (migración 003) y se lee/escribe con la MISMA db inyectada en crearAuth.
+
+     Se conservan EXACTOS: la clave `email|IP`, el backoff 1,2,4,8,15 min, el
+     bloqueo duro a 8 y la ventana de caducidad del conteo (LOCKOUT_MAX_MS sin
+     intentos nuevos). El login suspendido sigue siendo el mismo 401 genérico.
+     ------------------------------------------------------------------------ */
+
+  /* Estado actual de una clave, o null si no hay intentos registrados. */
+  async function estadoFalloLogin(clave) {
+    return await db.get(
+      'SELECT intentos, bloqueado_hasta_ms, actualizado_ms FROM login_attempts WHERE clave = ?',
+      [clave]
+    );
+  }
+
+  /* Registra un intento fallido y aplica el backoff. Devuelve el conteo ya
+     actualizado, hasta cuándo queda bloqueada la clave (0 si no bloquea) y la
+     duración del bloqueo en ms (para el mensaje, sin recalcular redondeos).
+     Un conteo sin intentos nuevos durante LOCKOUT_MAX_MS se considera caducado
+     y vuelve a 1: es la misma expiración que hacía el limpiador del Map. */
+  async function registrarFalloLogin(clave) {
+    const ahora = Date.now();
+    const previo = await estadoFalloLogin(clave);
+    const caducado = previo && (ahora - Number(previo.actualizado_ms || 0) > LOCKOUT_MAX_MS);
+    const intentos = (caducado ? 0 : Number(previo?.intentos || 0)) + 1;
+    let bloqueoMs = 0;
+    if (intentos >= FAILED_LOGIN_LIMIT) {
+      const idx = Math.min(Math.max(0, intentos - FAILED_LOGIN_LIMIT), LOCKOUT_STEPS_MS.length - 1);
+      bloqueoMs = LOCKOUT_STEPS_MS[idx];
     }
+    const bloqueadoHasta = bloqueoMs ? ahora + bloqueoMs : 0;
+    /* UPSERT atómico: dos intentos simultáneos de la misma clave no se pierden. */
+    await db.run(
+      `INSERT INTO login_attempts (clave, intentos, bloqueado_hasta_ms, actualizado_ms)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(clave) DO UPDATE SET
+         intentos = excluded.intentos,
+         bloqueado_hasta_ms = excluded.bloqueado_hasta_ms,
+         actualizado_ms = excluded.actualizado_ms`,
+      [clave, intentos, bloqueadoHasta, ahora]
+    );
+    return { intentos, bloqueadoHasta, bloqueoMs };
+  }
+
+  /* Login correcto: la clave deja de tener intentos fallidos. */
+  async function limpiarFalloLogin(clave) {
+    await db.run('DELETE FROM login_attempts WHERE clave = ?', [clave]);
+  }
+
+  /* Purga periódica de filas viejas: equivale al limpiador del Map. Una fila sin
+     intentos nuevos desde hace más de LOCKOUT_MAX_MS ya no bloquea ni cuenta, así
+     que se puede borrar. No se hace en cada login (sería un DELETE por petición). */
+  const _purgaLogins = setInterval(() => {
+    db.run('DELETE FROM login_attempts WHERE actualizado_ms < ?', [Date.now() - LOCKOUT_MAX_MS]).catch(() => {});
   }, 10 * 60 * 1000);
-  if (_cleanLogins.unref) _cleanLogins.unref();
+  if (_purgaLogins.unref) _purgaLogins.unref();
+
+  const lockoutLogin = {
+    estado: estadoFalloLogin,
+    registrarFallo: registrarFalloLogin,
+    limpiar: limpiarFalloLogin,
+  };
 
   /* 2.34: purga horaria de sesiones caducadas (no un DELETE en cada login). */
   const _purgaSesiones = setInterval(() => {
@@ -210,7 +274,7 @@ function crearAuth({ db, PROD, SESSION_TTL_MS }) {
     return `${raiz}-${Date.now().toString(36)}`;
   }
 
-  return { requireWorkshop, tokenCookieOpts, getDummyHash, failedLoginAttempts, slugLibre };
+  return { requireWorkshop, tokenCookieOpts, getDummyHash, lockoutLogin, slugLibre };
 }
 
 module.exports = {

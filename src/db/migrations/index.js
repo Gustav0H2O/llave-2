@@ -5,6 +5,7 @@ module.exports = {
   principal: [
     require('./001-esquema-base'),
     require('./002-columnas-negocio'),
+    require('./003-estado-escalado'),
   ],
   stats: [
     require('./stats-001-esquema'),

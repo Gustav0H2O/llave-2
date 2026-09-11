@@ -30,6 +30,7 @@
    ========================================================================= */
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
+const { StoreBD } = require('../services/rate-limit-store');
 const { paginaError, ERRORES: PANTALLAS_ERROR, codigosDeError } = require('../../lib/errores');
 
 /* Fábrica de las dos funciones del reparto de errores. Se construye UNA vez en
@@ -81,7 +82,9 @@ function montarMisc(app, deps) {
     INSERT INTO meta (key, value) VALUES ('total_visits', '1')
     ON CONFLICT(key) DO UPDATE SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)`) };
 
-  const visitLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false });
+  /* El cupo del contador de visitas se cuenta en la base (StoreBD), igual que
+     el resto de limitadores: compartido entre instancias. */
+  const visitLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, store: new StoreBD(db, 'visit') });
   app.post('/api/visit', visitLimiter, async (req, res) => {
     const day = new Date().toISOString().slice(0, 10);
     const hash = crypto.createHash('sha512')

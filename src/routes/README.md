@@ -189,11 +189,21 @@ montarDonations(app, { ..., notificarTaller, ... });
 Un limitador es estado propio del dominio, así que se crea **dentro** del
 módulo con las mismas opciones y los mismos topes que tenía en el monolito
 (`connect.js`, `workshops.js`, `donations.js`, `catalog.js` —catalogLimiter para
-el catálogo y commentLimiter para los comentarios— y `admin.js` —adminLimiter y
-adminLoginLimiter, el de 5/15 min del login de admin—). Los helpers que sí
-dependen de `createApp` —`db`, `requireWorkshop`, `idDe`, `str`, `num`, `toInt`,
-`hashPassword`, `requireAdmin`, `errorAccionable`, `enTransaccion`, `TOPE_*`,
-`esc`, `csvEscape`, `fechaISO`, `visitSalt`…— entran por `deps`.
+el catálogo y commentLimiter para los comentarios—, `admin.js` —adminLimiter y
+adminLoginLimiter, el de 5/15 min del login de admin—, el global de `/api` en
+`src/middleware/peticiones.js` y los de `chat.js`, `identificador.js` y
+`misc.js`). Los helpers que sí dependen de `createApp` —`db`, `requireWorkshop`,
+`idDe`, `str`, `num`, `toInt`, `hashPassword`, `requireAdmin`, `errorAccionable`,
+`enTransaccion`, `TOPE_*`, `esc`, `csvEscape`, `fechaISO`, `visitSalt`…— entran
+por `deps`.
+
+**El conteo ya NO vive en memoria.** Cada limitador recibe un `StoreBD`
+(`src/services/rate-limit-store.js`), un Store de express-rate-limit v8 que
+cuenta en la tabla `rate_limits` con la `db` que el módulo ya tiene por `deps`.
+Como cada Store lleva su propio espacio de nombres (`nombre|clave`), dos
+limitadores con la misma IP no comparten cupo —el aislamiento que daba el
+MemoryStore— y el conteo lo ven todas las instancias y sobrevive a un reinicio.
+La tabla la crea la migración versionada `003-estado-escalado`.
 
 ### Primitivas de autenticación compartidas
 
@@ -206,11 +216,13 @@ donations…), sin cambiar su comportamiento.
 
 Lo que depende de la instancia de la app (la base inyectada en `createApp`) se
 construye con la factoría `crearAuth({ db, PROD, SESSION_TTL_MS })`, que devuelve
-`requireWorkshop`, `tokenCookieOpts`, `getDummyHash`, `failedLoginAttempts` y
-`slugLibre` —con el mismo reparto y el mismo estado por proceso que tenían dentro
-de `createApp`—. `admin.js` sigue siendo el caso del *helper* compartido que
-viaja por `deps` (`notificarTaller`); este es el mismo patrón, con una factoría
-en vez de una sola función.
+`requireWorkshop`, `tokenCookieOpts`, `getDummyHash`, `lockoutLogin` y
+`slugLibre`. `lockoutLogin` (estado/registrarFallo/limpiar) lee y escribe la tabla
+`login_attempts` con esa misma `db`: el lockout `email|IP` ya no es un `Map` por
+proceso, así que se comparte entre instancias y sobrevive a un reinicio. `admin.js`
+sigue siendo el caso del *helper* compartido que viaja por `deps`
+(`notificarTaller`); este es el mismo patrón, con una factoría en vez de una sola
+función.
 
 Los helpers de Google OAuth (`googleRedirectUri` y el intercambio de código)
 viven en `src/routes/auth.js`: la matriz 4.4 pedía `lib/oauth-google.js`, pero

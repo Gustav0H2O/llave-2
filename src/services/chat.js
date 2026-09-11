@@ -23,6 +23,7 @@ const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { toInt, extraerToken } = require('../../lib/pure');
+const { StoreBD } = require('./rate-limit-store');
 
 /* Hash del token de sesión: se inyecta desde server-pg.js para que el algoritmo
    tenga una sola definición en el servidor. El default existe para poder montar
@@ -240,7 +241,9 @@ async function montarChat(app, { db, statsDb, config, hashToken = hashSesionPorD
     ON CONFLICT(day, device_id) DO UPDATE SET count = count + 1
   `, [day, device_id]) };
 
-  const chatLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false });
+  /* Cupo de 10/min por IP en la base (StoreBD): lo comparten todas las
+     instancias y no se reinicia al arrancar. */
+  const chatLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, store: new StoreBD(db, 'chat') });
   const genAI = config.GEMINI_API_KEY ? new GoogleGenerativeAI(config.GEMINI_API_KEY) : null;
 
   app.post('/api/chat', chatLimiter, async (req, res) => {

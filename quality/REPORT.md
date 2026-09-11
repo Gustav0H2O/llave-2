@@ -1,6 +1,6 @@
 # Informe de calidad — FuelTech Master
 
-_Generado el 2026-09-11 16:23 por `npm run metrics`. No lo edites a mano._
+_Generado el 2026-09-11 17:45 por `npm run metrics`. No lo edites a mano._
 
 ## ✅ Todos los presupuestos se cumplen
 
@@ -10,12 +10,12 @@ Nada que corregir.
 
 | Métrica | Valor | Estado |
 | --- | --- | --- |
-| Pruebas que pasan | 757 / 757 | ✅ |
-| Duración de la suite | 81.9 s | ✅ |
+| Pruebas que pasan | 769 / 769 | ✅ |
+| Duración de la suite | 89.3 s | ✅ |
 | Reglas de restricción | 20 reglas, 0 violaciones | ✅ |
 | Rutas de API probadas | 100% de 103 | ✅ |
 | Deuda conocida aceptada | 5 de 5 | ✅ |
-| Razón prueba/código | 0.68x | ✅ |
+| Razón prueba/código | 0.69x | ✅ |
 
 ## Cobertura de las reglas del taller (lib/)
 
@@ -49,14 +49,14 @@ Nada que corregir.
 ✓ public/index.html          195.4 KB  de 196 KB
 ✓ public/three3d.js             35 KB  de 68 KB
 ✓ public/sw.js                 5.8 KB  de 8 KB
-✓ server-pg.js                24.9 KB  de 40 KB
+✓ server-pg.js                  25 KB  de 40 KB
 ```
 
 ## Evolución respecto a la referencia
 
 **Mejoras:**
 
-- pruebas_total: 733 → 757
+- pruebas_total: 733 → 769
 - max_lineas_archivo: 3680 → 3244
 
 

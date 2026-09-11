@@ -88,7 +88,11 @@ async function levantar({ baseProveedor, cfg = {}, db = {}, statsDb } = {}) {
   app.use(express.json());
   const stats = statsDb || { exec: async () => {}, get: async () => null, run: async () => ({}) };
   await montarChat(app, {
-    db: { get: async () => null, all: async () => [], ...db },
+    /* `run` es el doble que espera el StoreBD del limitador (deuda de escalado):
+       sin él, el limitador no tendría tabla donde contar. Aquí no cuenta nada
+       —devuelve vacío y el `get` de arriba responde null—, que es lo que estas
+       pruebas necesitan: el cupo por IP no es lo que están midiendo. */
+    db: { get: async () => null, all: async () => [], run: async () => ({}), ...db },
     statsDb: stats,
     config: configDe(baseProveedor, cfg),
   });

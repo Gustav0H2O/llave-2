@@ -245,8 +245,9 @@ async function createApp(dbOverride, statsOverride) {
 
   /* Límites por ruta (20kb global; 400kb /photos y /api/auth/profile; 10mb
      /api/backup; 2mb /api/admin/vehicles/import), rate-limit global de /api y
-     el nonce CSRF (cookie ft_csrf + cabecera X-CSRF-Token). */
-  aplicarPeticiones(app, { PROD, enTest: process.env.NODE_ENV === 'test', CSRF_COOKIE });
+     el nonce CSRF (cookie ft_csrf + cabecera X-CSRF-Token). El rate-limit
+     global cuenta en la base (StoreBD), por eso recibe `db`. */
+  aplicarPeticiones(app, { db, PROD, enTest: process.env.NODE_ENV === 'test', CSRF_COOKIE });
 
   /* C3/V-A5/F14 (2.10): whitelist MIME ^(png|jpeg|webp) + magic numbers.
      Sin esto un data:image/svg+xml con <script> entra como "foto" y es XSS
@@ -310,8 +311,8 @@ async function createApp(dbOverride, statsOverride) {
      La herramienta 38 del cliente ya llamaba a POST /api/aid/identify desde
      public/microapps.js. El proveedor, el tope de 30 s y el manejo de errores
      son los del chat: viven en src/services/chat.js y src/services/identificador.js
-     los reutiliza. Esta ruta no toca base de datos. */
-  await montarIdentificador(app, { config });
+     los reutiliza. Su limitador cuenta en la base (StoreBD), por eso recibe `db`. */
+  await montarIdentificador(app, { db, config });
 
   /* 4.6: un único envoltorio de transacción para el servidor. Antes había ~11
      bloques BEGIN/COMMIT/ROLLBACK escritos a mano; todos pasan por aquí, que a
@@ -339,11 +340,11 @@ async function createApp(dbOverride, statsOverride) {
 
   /* Las primitivas de autenticación viven en src/services/auth.js (4.8). La
      factoría crearAuth devuelve las que dependen de ESTA instancia de la app
-     (la db inyectada y el estado de lockout por proceso); requireWorkshop se
-     reparte luego por `deps` a todos los módulos que lo usan, sin cambiar el
-     reparto que había cuando vivían en este archivo. */
+     (la db inyectada y el lockout persistido en BD); requireWorkshop se reparte
+     luego por `deps` a todos los módulos que lo usan, sin cambiar el reparto que
+     había cuando vivían en este archivo. */
   const auth = crearAuth({ db, PROD, SESSION_TTL_MS: config.SESSION_TTL_MS });
-  const { requireWorkshop, tokenCookieOpts, getDummyHash, failedLoginAttempts, slugLibre } = auth;
+  const { requireWorkshop, tokenCookieOpts, getDummyHash, lockoutLogin, slugLibre } = auth;
 
   /* Registro, sesión, perfil, verificación de correo y Google OAuth — movidos a
      src/routes/auth.js (4.8), en la MISMA posición en la que empezaba el bloque
@@ -351,7 +352,7 @@ async function createApp(dbOverride, statsOverride) {
   montarAuth(app, {
     db, str, esDataUrlImagenPermitida, enTransaccion, haceSlug, leerCookie,
     PROD, BASE_URL, SESSION_TTL_MS: config.SESSION_TTL_MS,
-    requireWorkshop, tokenCookieOpts, getDummyHash, failedLoginAttempts, slugLibre,
+    requireWorkshop, tokenCookieOpts, getDummyHash, lockoutLogin, slugLibre,
   });
 
   /* Notificaciones e historial de donaciones del taller — movido a src/routes/notifications.js (4.8) */

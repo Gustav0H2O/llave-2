@@ -25,12 +25,22 @@ const { STATS_SCHEMA } = require('../helpers');
 
 /* Envuelve un adaptador contando las llamadas de datos que le llegan desde las
    rutas. withTransaction se delega al adaptador real: sus BEGIN/COMMIT internos
-   no se cuentan (lo que importa es cuántas consultas dispara el bucle). */
+   no se cuentan (lo que importa es cuántas consultas dispara el bucle).
+
+   El tráfico de INFRAESTRUCTURA no se cuenta: los limitadores y el lockout
+   viven en la base (tablas rate_limits/login_attempts del StoreBD) y suman una
+   escritura y una lectura por petición y por limitador. Eso es un coste fijo del
+   middleware, no del handler; lo que esta prueba juzga es cuántas consultas
+   dispara el IMPORT, así que las tablas de infraestructura quedan fuera. */
 function contarConsultas(adapter) {
   const cuenta = { get: 0, all: 0, run: 0, exec: 0, insertReturningId: 0 };
+  const esInfra = (sql) => /rate_limits|login_attempts/i.test(String(sql || ''));
   const espia = Object.create(adapter);
   for (const metodo of Object.keys(cuenta)) {
-    espia[metodo] = (...args) => { cuenta[metodo]++; return adapter[metodo](...args); };
+    espia[metodo] = (...args) => {
+      if (!esInfra(args[0])) cuenta[metodo]++;
+      return adapter[metodo](...args);
+    };
   }
   espia.withTransaction = (fn) => adapter.withTransaction(fn);
   return { espia, cuenta };
@@ -100,7 +110,7 @@ describe('4.5 — Import de vehículos: precarga en lote, sin N+1', () => {
     assert.equal(cuenta.insertReturningId, FILAS * 2);
     assert.equal(cuenta.run, FILAS);
     // El total queda muy por debajo de las ~5–6 consultas/fila de la versión anterior.
-    assert.ok(cuenta.all + cuenta.get + cuenta.run + cuenta.insertReturningId < FILAS * 4,
-      'el import sigue haciendo demasiadas consultas por fila');
+    const deltas = ['all', 'get', 'run', 'insertReturningId'].reduce((n, k) => n + cuenta[k], 0);
+    assert.ok(deltas < FILAS * 4, 'el import sigue haciendo demasiadas consultas por fila');
   });
 });
