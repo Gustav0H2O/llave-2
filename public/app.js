@@ -762,12 +762,10 @@ function PumpCard({ pump }) {
 }
 
 /* ---------- Sección de Comentarios ---------- */
-function CommentsSection({ vehicleId }) {
+function CommentsSection({ vehicleId, user, onLogin }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [savedName, setSavedName] = useState(() => localStorage.getItem('ftm_author_name') || '');
-  const [authorName, setAuthorName] = useState(savedName);
   const [content, setContent] = useState('');
   const [replyTo, setReplyTo] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -786,20 +784,18 @@ function CommentsSection({ vehicleId }) {
 
   const handleSubmit = async (e, parentId = null) => {
     e.preventDefault();
-    if (!authorName.trim() || !content.trim() || submitting) return;
+    if (!content.trim() || submitting) return;
     setSubmitting(true);
     try {
+      /* El nombre ya NO viaja en el cuerpo: el servidor firma con el nombre de
+         la cuenta con la que se inició sesión (requireWorkshop). */
       const res = await fetch(`/api/vehicles/${vehicleId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ author_name: authorName, content, parent_id: parentId })
+        body: JSON.stringify({ content, parent_id: parentId })
       });
       if (!res.ok) throw new Error('Error al enviar el comentario');
       const newComment = await res.json();
-      if (!savedName) {
-        localStorage.setItem('ftm_author_name', authorName.trim());
-        setSavedName(authorName.trim());
-      }
       setComments(prev => [...prev, newComment]);
       setContent('');
       setReplyTo(null);
@@ -828,21 +824,23 @@ function CommentsSection({ vehicleId }) {
         <span class="muted">${new Date(c.created_at).toLocaleString()}</span>
       </div>
       <div class="comment-body">${c.content}</div>
+      ${/* Responder es escribir: también exige cuenta. */''}
+      ${user && html`
       <button type="button" class="link-btn mt-small" onClick=${() => { setReplyTo(c.id); setContent(''); }}>
         <${Icon} name="MessageSquareReply" size=${13} /> Responder
       </button>
       
-      ${replyTo === c.id && html`
-        <form class="comment-form mt" onSubmit=${(e) => handleSubmit(e, c.id)}>
-          <input type="text" class="styled-input" placeholder="Tu Nombre" value=${authorName} onInput=${e => setAuthorName(e.target.value)} required disabled=${!!savedName} style=${savedName ? { opacity: 0.7, cursor: 'not-allowed' } : {}} />
-          <textarea class="styled-input" placeholder="Escribe tu respuesta..." rows="2" value=${content} onInput=${e => setContent(e.target.value)} required style=${{ resize: 'vertical', marginTop: '6px' }}></textarea>
-          <div style=${{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-            <button type="submit" class="tool-add-btn" disabled=${submitting}>
-              ${submitting ? 'Enviando...' : 'Enviar Respuesta'}
-            </button>
-            <button type="button" class="link-btn muted" onClick=${() => setReplyTo(null)}>Cancelar</button>
-          </div>
-        </form>
+        ${replyTo === c.id && html`
+          <form class="comment-form mt" onSubmit=${(e) => handleSubmit(e, c.id)}>
+            <textarea class="styled-input" placeholder="Escribe tu respuesta..." rows="2" value=${content} onInput=${e => setContent(e.target.value)} required style=${{ resize: 'vertical', marginTop: '6px' }}></textarea>
+            <div style=${{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+              <button type="submit" class="tool-add-btn" disabled=${submitting}>
+                ${submitting ? 'Enviando...' : 'Enviar Respuesta'}
+              </button>
+              <button type="button" class="link-btn muted" onClick=${() => setReplyTo(null)}>Cancelar</button>
+            </div>
+          </form>
+        `}
       `}
       
       ${c.children.length > 0 && html`
@@ -864,23 +862,30 @@ function CommentsSection({ vehicleId }) {
           ${tree.length === 0 ? html`<div class="empty" style=${{ padding: '20px' }}>No hay comentarios aún. ¡Sé el primero!</div>` : tree.map(c => renderComment(c))}
         </div>
         
-        ${replyTo === null && html`
-          <form class="comment-form mt" onSubmit=${(e) => handleSubmit(e, null)} style=${{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-            <h3 style=${{ fontSize: '13px', marginBottom: '8px', color: 'var(--text)' }}>Deja un comentario</h3>
-            <input type="text" class="styled-input" placeholder="Tu Nombre" value=${authorName} onInput=${e => setAuthorName(e.target.value)} required disabled=${!!savedName} style=${savedName ? { opacity: 0.7, cursor: 'not-allowed' } : {}} />
-            <textarea class="styled-input" placeholder="Escribe tu duda o comentario..." rows="3" value=${content} onInput=${e => setContent(e.target.value)} required style=${{ resize: 'vertical', marginTop: '6px' }}></textarea>
-            <button type="submit" class="tool-add-btn" style=${{ marginTop: '8px' }} disabled=${submitting}>
-              ${submitting ? 'Enviando...' : 'Comentar'}
-            </button>
-          </form>
-        `}
+        ${/* Sin sesión no hay formulario: se avisa y se ofrece entrar. El POST
+              ya no manda author_name porque el servidor firma con la cuenta. */''}
+        ${!user
+          ? html`
+              <div class="mt" style=${{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                <p class="muted" style=${{ marginBottom: '8px' }}>Entra con tu cuenta para comentar.</p>
+                <button type="button" class="tool-add-btn" onClick=${() => onLogin && onLogin()}>Iniciar sesión</button>
+              </div>`
+          : replyTo === null && html`
+              <form class="comment-form mt" onSubmit=${(e) => handleSubmit(e, null)} style=${{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                <h3 style=${{ fontSize: '13px', marginBottom: '8px', color: 'var(--text)' }}>Deja un comentario</h3>
+                <textarea class="styled-input" placeholder="Escribe tu duda o comentario..." rows="3" value=${content} onInput=${e => setContent(e.target.value)} required style=${{ resize: 'vertical', marginTop: '6px' }}></textarea>
+                <button type="submit" class="tool-add-btn" style=${{ marginTop: '8px' }} disabled=${submitting}>
+                  ${submitting ? 'Enviando...' : 'Comentar'}
+                </button>
+              </form>
+            `}
       `}
     </div>
   `;
 }
 
 /* ---------- Detalle del vehículo (vista en vivo, siempre junto al buscador) ---------- */
-function VehicleDetail({ id }) {
+function VehicleDetail({ id, user, onLogin }) {
   const [v, setV] = useState(null);
   const [err, setErr] = useState(null);
   const garage = useGarage(); // debe ir ANTES de cualquier return temprano (reglas de hooks)
@@ -1011,7 +1016,7 @@ function VehicleDetail({ id }) {
           </div>
         </div>`)}
 
-      <${CommentsSection} vehicleId=${v.id} />
+      <${CommentsSection} vehicleId=${v.id} user=${user} onLogin=${onLogin} />
     </div>`;
 }
 
@@ -1071,8 +1076,6 @@ function getDeviceId() {
 const DEVICE_ID = getDeviceId();
 
 function ChatBot({ vehicleId, user }) {
-  // El chat SOLO aparece para usuarios con sesión iniciada
-  if (!user) return null;
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -1156,6 +1159,13 @@ function ChatBot({ vehicleId, user }) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
+  /* El chat SOLO aparece para usuarios con sesión iniciada. El guard va DESPUÉS
+     de los hooks a propósito: como ahora la burbuja vive también en la home,
+     donde la sesión puede aparecer o desaparecer sin desmontar el componente
+     (cerrar sesión), un return temprano antes de los hooks haría que React
+     contara un número distinto de hooks entre renders y reventara. */
+  if (!user) return null;
+
   return html`
     <${React.Fragment}>
       <!-- Botón flotante -->
@@ -1220,16 +1230,25 @@ function ChatBot({ vehicleId, user }) {
             `}
             ${messages.map((m, i) => html`
               <div key=${i} class=${'chat-msg ' + (m.role === 'user' ? 'user' : 'bot')}>
-                ${m.role === 'bot' && html`<div class="chat-avatar"><${LogoMark} className="chat-avatar-mark" /></div>`}
+                ${/* El avatar va en TODO lo que no sea del usuario: los mensajes
+                      del asistente se guardan con rol 'assistant', no 'bot', así
+                      que comparar con 'bot' dejaba al avatar fuera justo al llegar
+                      la respuesta y la burbuja saltaba de lado. */''}
+                ${m.role !== 'user' && html`<div class="chat-avatar"><${LogoMark} className="chat-avatar-mark" /></div>`}
                 <div class="chat-bubble">${m.content}</div>
               </div>
             `)}
             ${loading && html`
               <div class="chat-msg bot">
                 <div class="chat-avatar"><${LogoMark} className="chat-avatar-mark" /></div>
-                {/* aria-live: la auditoría señaló que el «está pensando» era solo
-                    visual — un lector de pantalla no se enteraba de que hubo
-                    respuesta en camino. */}
+                ${/* aria-live: la auditoría señaló que el «está pensando» era
+                      solo visual — un lector de pantalla no se enteraba de que
+                      hubo respuesta en camino. El comentario va DENTRO de una
+                      expresión (con comilla vacía) a propósito: htm no entiende
+                      el comentario suelto entre llaves y lo pintaba como TEXTO,
+                      y ese texto era un elemento flexible más de la fila que
+                      empujaba la burbuja de carga a la derecha: ese era el salto
+                      real que se veía mientras el asistente respondía. */''}
                 <div class="chat-bubble thinking" role="status" aria-live="polite">
                   <span class="dot-pulse" aria-hidden="true"></span>
                   <span class="sr-only">Consultando al asistente…</span>
@@ -2117,6 +2136,19 @@ function App() {
     if (app) openMicro(app, { silencioso: true });
   }, [authChecked]);
 
+  /* Overlays comunes a TODA la web con cuenta: la burbuja del chat y el
+     diálogo de datos del taller. La home es un return TEMPRANO, así que sin
+     esto no se montaban hasta que el usuario entraba al catálogo: al volver de
+     Google la app queda en 'home' y ni la burbuja ni la verificación del taller
+     aparecían. Se definen una sola vez para no repetir el marcado en cada rama.
+     `vehicleId=${selected}` es lo que corresponde: en la home no hay vehículo
+     elegido (selected es null, salvo que venga ?v= en la URL). */
+  const overlays = html`
+    <${ChatBot} vehicleId=${selected} user=${user} />
+    ${user && (!user.onboarding_completed || !user.doc_id || !user.phone) && html`
+      <${OnboardingModal} user=${user} onComplete=${(u) => { setUser(u); refreshUser(); toast('Taller verificado con éxito'); }} onLogout=${logout} />`}
+  `;
+
   // --- DASHBOARD (pantalla completa) ---
   if (viewState === 'home') {
     const FT = window.FT_MICRO || {};
@@ -2125,7 +2157,7 @@ function App() {
       /* onOpen va a todas: algunas herramientas encadenan con otra ("no
          enciende" manda a batería o a compresión) y sin esto el usuario
          tendría que volver al inicio y buscarla de nuevo. */
-      return html`<div class="micro-app-view">${html`<${AppComp} onBack=${closeMicro} onOpen=${openMicro} onLogout=${logout} onUserChange=${refreshUser} user=${user} />`}</div>`;
+      return html`<div class="micro-app-view">${html`<${AppComp} onBack=${closeMicro} onOpen=${openMicro} onLogout=${logout} onUserChange=${refreshUser} user=${user} />`}${overlays}</div>`;
     }
     if (!authChecked) return html`<div class="home"><div class="empty">Cargando…</div></div>`;
     if (FT.Home) {
@@ -2142,7 +2174,8 @@ function App() {
       if (showLogin) return html`<${LoginScreen} onBack=${() => setShowLogin(false)} notice=${verifyMsg} tabInicial=${loginTab} />`;
       return html`
         ${verifyMsg && html`<div class="toast-stack"><div class="toast" role="status">${verifyMsg}</div></div>`}
-        <${FT.Home} onOpen=${openMicro} user=${user} onLogout=${logout} onLogin=${() => setShowLogin(true)} onUserChange=${refreshUser} />`;
+        <${FT.Home} onOpen=${openMicro} user=${user} onLogout=${logout} onLogin=${() => setShowLogin(true)} onUserChange=${refreshUser} />
+        ${overlays}`;
     }
   }
 
@@ -2292,15 +2325,13 @@ function App() {
                ? html`<${Tools} selectedId=${selected} meta=${meta}
                         onSelectVehicle=${(id) => { setSelected(id); setViewState('search'); }} />`
                : selected
-                 ? html`<${VehicleDetail} id=${selected} />`
+                 ? html`<${VehicleDetail} id=${selected} user=${user} onLogin=${() => setShowLogin(true)} />`
                   : html`<div class="empty">SELECCIONA UN VEHÍCULO PARA VER SU FICHA TÉCNICA</div>`}
         </div>
       </main>
       ${esMovil && pie}
-      <${ChatBot} vehicleId=${selected} user=${user} />
+      ${overlays}
       <${ToastStack} />
-      ${user && (!user.onboarding_completed || !user.doc_id || !user.phone) && html`
-        <${OnboardingModal} user=${user} onComplete=${(u) => { setUser(u); refreshUser(); toast('Taller verificado con éxito'); }} onLogout=${logout} />`}
       ${/* Estilos en clase y no en línea: el enlace medía 179×14 px —imposible de
             acertar con el dedo— y el botón repetía a mano el relleno lima que ya
             existe como token. La clase le da el área tocable y el tema. */''}

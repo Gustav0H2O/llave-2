@@ -1,4 +1,8 @@
 'use strict';
+/* Igual que test/business.test.js: la suite se blinda del entorno. Sin esto,
+   una máquina con NODE_ENV=production (el perfil del usuario, sin ir más lejos)
+   hacía que la app arrancara en modo producción dentro de las pruebas. */
+process.env.NODE_ENV = 'test';
 
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -403,6 +407,18 @@ describe('FuelTech Master API', () => {
 
   /* ===================== Comentarios de Vehículos ===================== */
   describe('GET y POST /api/vehicles/:id/comments', () => {
+    /* Escribir un comentario exige CUENTA y el nombre lo pone el servidor con el
+       de la sesión, así que para probarlo hay que registrarse. */
+    const sesionDe = async (sufijo) => {
+      const r = await fetch(`http://127.0.0.1:${ctx.port}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: `comenta-${sufijo}@prueba.test`, password: 'clave-larga-123', name: `Taller ${sufijo}` })
+      });
+      assert.equal(r.status, 201, `no se pudo registrar la cuenta de prueba (${r.status})`);
+      return (r.headers.getSetCookie() || []).map(c => c.split(';')[0]).join('; ');
+    };
+
     it('obtiene lista vacía inicialmente', async () => {
       const { status, body } = await api(ctx.port, '/api/vehicles/1/comments');
       assert.equal(status, 200);
@@ -410,32 +426,45 @@ describe('FuelTech Master API', () => {
       assert.equal(body.length, 0);
     });
 
-    it('rechaza comentario sin autor o contenido', async () => {
-      const { status, body } = await api(ctx.port, '/api/vehicles/1/comments', {
+    it('sin cuenta no se puede comentar (antes era público y aceptaba un nombre libre)', async () => {
+      const r = await api(ctx.port, '/api/vehicles/1/comments', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ author_name: '', content: '' })
+        body: JSON.stringify({ content: 'comentario anónimo' })
       });
-      assert.equal(status, 400);
-      assert.ok(body.error);
+      assert.equal(r.status, 401);
     });
 
-    it('crea un comentario principal y luego una respuesta', async () => {
+    it('rechaza comentario sin contenido', async () => {
+      const cookie = await sesionDe('vacio');
+      for (const cuerpo of [{}, { content: '' }, { content: '   ' }]) {
+        const r = await api(ctx.port, '/api/vehicles/1/comments', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', cookie },
+          body: JSON.stringify(cuerpo)
+        });
+        assert.equal(r.status, 400, `aceptó ${JSON.stringify(cuerpo)}`);
+      }
+    });
+
+    it('crea un comentario principal y luego una respuesta, firmados con la cuenta', async () => {
+      const cookie = await sesionDe('hilo');
       const post1 = await api(ctx.port, '/api/vehicles/1/comments', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', cookie },
+        /* El author_name del cuerpo se IGNORA: lo pone el servidor. */
         body: JSON.stringify({ author_name: 'Carlos M.', content: '¿Qué bomba alternativa recomiendan?' })
       });
       assert.equal(post1.status, 200);
-      assert.equal(post1.body.author_name, 'Carlos M.');
+      assert.equal(post1.body.author_name, 'Taller hilo', 'el nombre tiene que salir de la cuenta, no del cuerpo');
       assert.equal(post1.body.parent_id, null);
 
       const parentId = post1.body.id;
 
       const post2 = await api(ctx.port, '/api/vehicles/1/comments', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ author_name: 'Admin Tech', content: 'La Walbro GSS342 funciona excelente.', parent_id: parentId })
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify({ content: 'La Walbro GSS342 funciona excelente.', parent_id: parentId })
       });
       assert.equal(post2.status, 200);
       assert.equal(post2.body.parent_id, parentId);

@@ -11,7 +11,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/admin/bootstrap",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -20,7 +20,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/admin/brands",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -29,7 +29,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/admin/donations",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -38,7 +38,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/admin/donations/:id/approve",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -47,7 +47,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/admin/donations/:id/reject",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -56,7 +56,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/admin/donations/manual",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -65,7 +65,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/admin/donations/test-notice",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -74,7 +74,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/admin/login",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": true,
@@ -83,7 +83,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/admin/logout",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -92,7 +92,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/admin/missing",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -101,7 +101,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/admin/pumps",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -110,7 +110,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/admin/vehicles",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -119,7 +119,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/admin/vehicles",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -128,7 +128,7 @@
     {
       "metodo": "DELETE",
       "ruta": "/api/admin/vehicles/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -137,7 +137,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/admin/vehicles/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -146,7 +146,7 @@
     {
       "metodo": "PUT",
       "ruta": "/api/admin/vehicles/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -155,7 +155,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/admin/vehicles/:id/verify",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -164,7 +164,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/admin/vehicles/import",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -173,7 +173,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/admin/workshops",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -182,7 +182,7 @@
     {
       "metodo": "DELETE",
       "ruta": "/api/admin/workshops/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -191,7 +191,7 @@
     {
       "metodo": "PUT",
       "ruta": "/api/admin/workshops/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -200,7 +200,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/admin/workshops/:id/backup",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -209,7 +209,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/admin/workshops/:id/donor-level",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -218,7 +218,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/admin/workshops/:id/password",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -227,7 +227,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/admin/workshops/:id/wipe",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/admin.js",
       "requireWorkshop": false,
       "requireAdmin": true,
       "limitada": false,
@@ -245,7 +245,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/auth/google",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/auth.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": true,
@@ -254,7 +254,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/auth/google/callback",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/auth.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": false,
@@ -263,7 +263,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/auth/login",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/auth.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": true,
@@ -272,7 +272,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/auth/logout",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/auth.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": false,
@@ -281,7 +281,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/auth/me",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/auth.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -290,7 +290,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/auth/onboarding",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/auth.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": true,
@@ -299,7 +299,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/auth/password",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/auth.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -308,7 +308,7 @@
     {
       "metodo": "PUT",
       "ruta": "/api/auth/profile",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/auth.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -317,7 +317,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/auth/register",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/auth.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": true,
@@ -326,7 +326,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/auth/verify",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/auth.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": false,
@@ -335,7 +335,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/auth/verify/send",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/auth.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": true,
@@ -344,7 +344,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/backup",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/backup.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -353,7 +353,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/backup/import",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/backup.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -362,7 +362,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/cash",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/cash.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -371,7 +371,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/cash",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/cash.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -380,7 +380,7 @@
     {
       "metodo": "DELETE",
       "ruta": "/api/cash/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/cash.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -389,7 +389,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/catalog/export",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/diagnostics.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": false,
@@ -407,7 +407,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/clients",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/clients.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -416,7 +416,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/clients",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/clients.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -425,7 +425,7 @@
     {
       "metodo": "DELETE",
       "ruta": "/api/clients/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/clients.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -434,7 +434,7 @@
     {
       "metodo": "PUT",
       "ruta": "/api/clients/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/clients.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -443,7 +443,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/clients/:id/vehicles",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/clients.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -452,7 +452,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/clients/:id/vehicles",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/clients.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -461,7 +461,7 @@
     {
       "metodo": "DELETE",
       "ruta": "/api/clients/vehicles/:vid",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/clients.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -470,7 +470,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/connect/locate",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/connect.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": false,
@@ -479,7 +479,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/connect/match",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/connect.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": true,
@@ -488,7 +488,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/connect/profiles",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/connect.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": false,
@@ -497,7 +497,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/connect/profiles",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/connect.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": true,
@@ -506,7 +506,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/diagnostics",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/diagnostics.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -515,7 +515,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/diagnostics",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/diagnostics.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -524,7 +524,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/documents",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/documents.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -533,7 +533,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/documents",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/documents.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -542,7 +542,7 @@
     {
       "metodo": "DELETE",
       "ruta": "/api/documents/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/documents.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -551,7 +551,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/documents/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/documents.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -560,7 +560,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/documents/:id/print",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/documents.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -569,7 +569,7 @@
     {
       "metodo": "PUT",
       "ruta": "/api/documents/:id/status",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/documents.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -578,7 +578,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/documents/export",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/documents.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -587,7 +587,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/donations",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/donations.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": true,
@@ -596,7 +596,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/donations/public",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/donations.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": false,
@@ -605,7 +605,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/inventory",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/inventory.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -614,7 +614,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/inventory",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/inventory.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -623,7 +623,7 @@
     {
       "metodo": "DELETE",
       "ruta": "/api/inventory/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/inventory.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -632,7 +632,7 @@
     {
       "metodo": "PUT",
       "ruta": "/api/inventory/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/inventory.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -641,7 +641,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/inventory/:id/moves",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/inventory.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -650,7 +650,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/inventory/export",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/inventory.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -659,7 +659,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/inventory/moves",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/inventory.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -668,7 +668,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/meta",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/catalog.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": true,
@@ -677,7 +677,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/modules",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/catalog.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": true,
@@ -686,7 +686,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/modules/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/catalog.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": false,
@@ -695,7 +695,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/notes",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/notes.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -704,7 +704,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/notes",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/notes.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -713,7 +713,7 @@
     {
       "metodo": "DELETE",
       "ruta": "/api/notes/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/notes.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -722,7 +722,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/orders",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/orders.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -731,7 +731,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/orders",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/orders.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -740,7 +740,7 @@
     {
       "metodo": "DELETE",
       "ruta": "/api/orders/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/orders.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -749,7 +749,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/orders/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/orders.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -758,7 +758,7 @@
     {
       "metodo": "PUT",
       "ruta": "/api/orders/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/orders.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -767,7 +767,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/orders/:id/items",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/orders.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -776,7 +776,7 @@
     {
       "metodo": "DELETE",
       "ruta": "/api/orders/:id/items/:iid",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/orders.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -785,7 +785,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/orders/:id/photos",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/orders.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -794,7 +794,7 @@
     {
       "metodo": "DELETE",
       "ruta": "/api/orders/:id/photos/:pid",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/orders.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -803,7 +803,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/orders/:id/status",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/orders.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -812,7 +812,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/pumps",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/catalog.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": true,
@@ -821,7 +821,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/pumps/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/catalog.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": false,
@@ -830,7 +830,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/vehicles",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/catalog.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": false,
@@ -839,7 +839,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/vehicles/:id",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/catalog.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": false,
@@ -848,7 +848,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/vehicles/:id/comments",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/catalog.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": false,
@@ -857,16 +857,16 @@
     {
       "metodo": "POST",
       "ruta": "/api/vehicles/:id/comments",
-      "archivo": "server-pg.js",
-      "requireWorkshop": false,
+      "archivo": "src/routes/catalog.js",
+      "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": true,
-      "status": "200"
+      "status": "401 (sin sesión)"
     },
     {
       "metodo": "POST",
       "ruta": "/api/visit",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/misc.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": true,
@@ -875,7 +875,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/workshop/donations",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/notifications.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -884,7 +884,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/workshop/notifications",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/notifications.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -893,7 +893,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/workshop/notifications/:id/read",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/notifications.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -902,7 +902,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/workshop/notifications/read-all",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/notifications.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -911,7 +911,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/workshops",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/workshops.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": false,
@@ -920,7 +920,7 @@
     {
       "metodo": "GET",
       "ruta": "/api/workshops/:slug",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/workshops.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": false,
@@ -929,7 +929,7 @@
     {
       "metodo": "POST",
       "ruta": "/api/workshops/:slug/reviews",
-      "archivo": "server-pg.js",
+      "archivo": "src/routes/workshops.js",
       "requireWorkshop": false,
       "requireAdmin": false,
       "limitada": true,

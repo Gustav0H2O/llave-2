@@ -101,13 +101,20 @@ function montarDonations(app, deps) {
      La aprobación es solo vía POST admin /api/admin/donations/:id/approve,
      que exige status='pending' y limpia approve_token. */
 
+  /* Muro público de colaboradores (F6).
+     PRIVACIDAD: si el aporte va ligado a un taller, solo se expone si ese taller
+     es público (w.is_public = 1); un negocio que no se publicó no sale en la
+     lista aunque tenga aportes acreditados. Los aportes SIN taller (workshop_id
+     NULL) se conservan: son mecánicos sueltos y no exponen a ningún negocio. El
+     LEFT JOIN deja w.* en NULL para ellos, así que la condición tiene que
+     permitir el NULL de forma explícita o el filtro los perdería. */
   app.get('/api/donations/public', async (req, res) => {
     const rows = await db.all(`
       SELECT d.id, d.donor_name, d.amount, d.method, d.note, d.reviewed_at,
              w.name AS workshop_name, w.slug AS workshop_slug, w.donor_level, w.avatar_url
       FROM donations d
       LEFT JOIN workshops w ON w.id = d.workshop_id
-      WHERE d.status = 'approved'
+      WHERE d.status = 'approved' AND (d.workshop_id IS NULL OR w.is_public = 1)
       ORDER BY d.reviewed_at DESC, d.id DESC
       LIMIT 60
     `);
@@ -115,7 +122,10 @@ function montarDonations(app, deps) {
       id: r.id,
       donor_name: r.donor_name || r.workshop_name || 'Mecánico de la Comunidad',
       workshop_slug: r.workshop_slug,
-      donor_level: r.donor_level || 1,
+      /* El nivel es el REAL. Antes un `|| 1` convertía en "Nivel 1" tanto a un
+         taller sin rango (0) como a un aporte sin taller (NULL del LEFT JOIN):
+         un dato falso. Sin taller o sin rango no hay insignia → null. */
+      donor_level: r.donor_level == null ? null : Number(r.donor_level),
       avatar_url: r.avatar_url,
       amount: r.amount,
       method: r.method,

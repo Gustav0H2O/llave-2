@@ -261,34 +261,6 @@
     { id: 20, brand: 'JAC', brand_id: 12, model: 'J7', year_from: 2018, year_to: 2024, engine: '1.5 L HFC4GB2.4D', injection: 'MFI', injection_code: 'MFI', injection_type_id: 1, rail_pressure_psi_min: 38, rail_pressure_psi_max: 44, fuel_type: 'Gasolina', module_location: 'En el tanque', tank_drop: true, data_verified: false, slug: 'jac-j7-2018' },
   ];
 
-  const runSearchDemo = (setResults, setMeta, setSearchErr, setMetaErr, filters) => {
-    // Simula el fetch con los datos demo, con un pequeño delay para que se vea el "loading"
-    setTimeout(() => {
-      setMeta({
-        total_vehicles: DEMO_VEHICLES.length,
-        brands: DEMO_BRANDS,
-        injection_types: DEMO_INJECTIONS,
-        dtcs: 35,
-        timing: 8,
-      });
-      let r = DEMO_VEHICLES;
-      if (filters.brand_id) r = r.filter(v => v.brand_id === filters.brand_id);
-      if (filters.model) {
-        const m = filters.model.toLowerCase();
-        r = r.filter(v => v.model.toLowerCase().includes(m));
-      }
-      if (filters.year) {
-        const y = parseInt(filters.year);
-        r = r.filter(v => y >= v.year_from && y <= v.year_to);
-      }
-      if (filters.injection_type_id) r = r.filter(v => v.injection_type_id === filters.injection_type_id);
-      if (filters.order_by === 'psi_desc') r = [...r].sort((a, b) => b.rail_pressure_psi_max - a.rail_pressure_psi_max);
-      else if (filters.order_by === 'year_desc') r = [...r].sort((a, b) => b.year_from - a.year_from);
-      else r = [...r].sort((a, b) => (a.brand + a.model).localeCompare(b.brand + b.model));
-      setResults(r);
-    }, 280);
-  };
-
   /* Logos vectoriales limpios (SVG) para métodos de apoyo */
   const BinanceLogo = ({ s = 16 }) => html`
     <svg width=${s} height=${s} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style=${{ display: 'inline-block', verticalAlign: 'middle' }}>
@@ -467,6 +439,23 @@
     `;
   };
 
+  /* Cierra con Escape y bloquea el scroll del fondo mientras hay una capa
+     abierta (modal del Muro, hoja «Más»). Una sola copia para que no se queden
+     atrás por separado. */
+  const useCapaBloqueante = (abierta, cerrar) => {
+    useEffect(() => {
+      if (!abierta) return;
+      const alTeclear = (e) => { if (e.key === 'Escape') cerrar(); };
+      const previo = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', alTeclear);
+      return () => {
+        window.removeEventListener('keydown', alTeclear);
+        document.body.style.overflow = previo;
+      };
+    }, [abierta]);
+  };
+
   const Home = ({ onOpen, user, onLogout, onLogin, onUserChange }) => {
     const [q, setQ] = useState('');
     /* La pestaña arranca desde la URL: así un acceso directo de la app
@@ -636,21 +625,7 @@
     const TABS = ['inicio', 'consulta', 'diag', 'taller'];
     const [hoja, setHoja] = useState(false);
     const extras = NAV.filter(([id]) => !TABS.includes(id));
-    useEffect(() => {
-      if (!hoja) return;
-      const alTeclear = (e) => { if (e.key === 'Escape') setHoja(false); };
-      /* finally: restaura el scroll. */
-      const previo = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      window.addEventListener('keydown', alTeclear);
-      return () => {
-        try {
-          window.removeEventListener('keydown', alTeclear);
-        } finally {
-          document.body.style.overflow = previo;
-        }
-      };
-    }, [hoja]);
+    useCapaBloqueante(hoja, () => setHoja(false));
 
     const [themeActive, setThemeActive] = useState(() => {
       if (window.FT_THEME) return window.FT_THEME.get();
@@ -689,20 +664,34 @@
     const [verMuro, setVerMuro] = useState(false);
     const [donantesPublicos, setDonantesPublicos] = useState([]);
     const [cargandoMuro, setCargandoMuro] = useState(false);
+    const [muroError, setMuroError] = useState(false);
+    /* Guarda de generación: abrir/cerrar/reabrir rápido no puede dejar que una
+       respuesta vieja pise a la nueva; el tope de 10 s evita el "Cargando…" eterno. */
+    const muroGen = useRef(0);
 
-    const abrirMuro = async () => {
-      setVerMuro(true);
-      setCargandoMuro(true);
+    const cargarMuro = async () => {
+      const gen = ++muroGen.current;
+      setCargandoMuro(true); setMuroError(false);
       try {
-        const res = await fetch('/api/donations/public');
+        const res = await Promise.race([
+          fetch('/api/donations/public'),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000)),
+        ]);
+        /* Antes no se miraba res.ok: un 500 mostraba el estado vacío "sé el primero". */
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
+        if (gen !== muroGen.current) return;   // respuesta vieja: se descarta
         setDonantesPublicos(Array.isArray(data) ? data : []);
       } catch (e) {
-        setDonantesPublicos([]);
+        if (gen === muroGen.current) setMuroError(true);  // NO se vacía la lista ya mostrada
       } finally {
-        setCargandoMuro(false);
+        if (gen === muroGen.current) setCargandoMuro(false);
       }
     };
+    const abrirMuro = () => { setVerMuro(true); cargarMuro(); };
+    const cerrarMuro = () => { muroGen.current++; setVerMuro(false); };
+    const btnReintentar = html`<button type="button" class="support-claim-toggle" onClick=${cargarMuro}>Reintentar</button>`;
+    useCapaBloqueante(verMuro, cerrarMuro);
 
     const enviarAporte = async (e) => {
       e.preventDefault();
@@ -1230,41 +1219,43 @@
           </section>
 
           ${verMuro && html`
-            <div class="donors-modal-overlay" onClick=${() => setVerMuro(false)}>
+            <div class="donors-modal-overlay" onClick=${cerrarMuro}>
               <div class="donors-modal-card" onClick=${(e) => e.stopPropagation()}>
                 <div class="donors-modal-head">
                   <div>
                     <h3 class="donors-modal-title">Muro de Colaboradores</h3>
                     <p class="donors-modal-sub">Talleres y mecánicos que impulsan el desarrollo continuo de llave</p>
                   </div>
-                  <button type="button" class="donors-modal-close" onClick=${() => setVerMuro(false)} aria-label="Cerrar">&times;</button>
+                  <button type="button" class="donors-modal-close" onClick=${cerrarMuro} aria-label="Cerrar">&times;</button>
                 </div>
                 <div class="donors-modal-body">
-                  ${cargandoMuro ? html`<p class="donors-modal-msg">Cargando colaboradores…</p>` : (
-                    donantesPublicos.length === 0 ? html`
-                      <div class="donors-empty-box">
-                        <span class="donors-empty-icon"><${CatIc} n="Heart" s=${28} /></span>
-                        <h4>Sé el primer colaborador público</h4>
-                        <p>Cada aporte ayuda a cubrir servidores, diagramas de inyección y nuevas guías. ¡Aporta hoy y tu taller encabezará este cuadro de honor!</p>
-                      </div>
-                    ` : html`
-                      <div class="donors-grid">
-                        ${donantesPublicos.map(d => html`
-                          <div class="donor-item" key=${d.id}>
-                            <div class="donor-item-top">
-                              <span class="donor-item-name">${d.donor_name}</span>
-                              <span class="donor-item-badge" style=${{ color: d.donor_level >= 5 ? '#38bdf8' : (d.donor_level >= 3 ? '#facc15' : '#fb923c') }}>Nivel ${d.donor_level}</span>
-                            </div>
-                            ${d.note ? html`<p class="donor-item-note">“${d.note}”</p>` : null}
-                            <div class="donor-item-meta">
-                              <span>Aporte acreditado</span>
-                              <span>${d.date ? new Date(d.date).toLocaleDateString('es') : ''}</span>
-                            </div>
+                  ${muroError ? html`<p class="donors-modal-msg">No se pudieron cargar los colaboradores. ${btnReintentar}</p>` : null}
+                  ${cargandoMuro && donantesPublicos.length === 0 && html`<p class="donors-modal-msg">Cargando colaboradores…</p>`}
+                  ${!cargandoMuro && !muroError && donantesPublicos.length === 0 && html`
+                    <div class="donors-empty-box">
+                      <span class="donors-empty-icon"><${CatIc} n="Heart" s=${28} /></span>
+                      <h4>Sé el primer colaborador público</h4>
+                      <p>Cada aporte ayuda a cubrir servidores, diagramas de inyección y nuevas guías. ¡Aporta hoy y tu taller encabezará este cuadro de honor!</p>
+                    </div>
+                  `}
+                  ${donantesPublicos.length > 0 && html`
+                    <div class="donors-grid">
+                      ${donantesPublicos.map(d => html`
+                        <div class="donor-item" key=${d.id}>
+                          <div class="donor-item-top">
+                            <span class="donor-item-name">${d.donor_name}</span>
+                            ${Number.isFinite(d.donor_level) && d.donor_level > 0 ? html`<span class="donor-item-badge" style=${{ color: d.donor_level >= 5 ? '#38bdf8' : (d.donor_level >= 3 ? '#facc15' : '#fb923c') }}>Nivel ${d.donor_level}</span>` : null}
                           </div>
-                        `)}
-                      </div>
-                    `
-                  )}
+                          ${d.note ? html`<p class="donor-item-note">“${d.note}”</p>` : null}
+                          <div class="donor-item-meta">
+                            <span>Aporte acreditado</span>
+                            <span>${d.date ? new Date(d.date).toLocaleDateString('es') : ''}</span>
+                          </div>
+                        </div>
+                      `)}
+                    </div>
+                    ${donantesPublicos.length >= 60 ? html`<p class="donors-modal-msg" style=${{ fontSize: '12px' }}>Mostrando los 60 aportes más recientes.</p>` : null}
+                  `}
                 </div>
               </div>
             </div>

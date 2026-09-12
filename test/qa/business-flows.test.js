@@ -397,21 +397,32 @@ describe('Respaldo: exportar y volver a importar', () => {
   });
 });
 
-describe('Comentarios públicos en la ficha del vehículo', () => {
-  let ctx, c;
-  before(async () => { ctx = await levantarServidor(); c = crearCliente(ctx.base); });
+describe('Comentarios de la ficha: se leen sin cuenta y se escriben con ella', () => {
+  let ctx, c, sinCuenta;
+  before(async () => {
+    ctx = await levantarServidor();
+    c = crearCliente(ctx.base);
+    sinCuenta = crearCliente(ctx.base);
+    await c.registrar('comenta'); // el nombre del comentario sale de esta cuenta
+  });
   after(() => ctx.cerrar());
 
-  it('acepta un comentario y lo devuelve en la lista', async () => {
-    const r = await c.post('/api/vehicles/1/comments', { author_name: 'Mecánico Luis', content: 'Confirmo 50 PSI en riel.' });
+  it('sin cuenta no se puede comentar', async () => {
+    const r = await sinCuenta.post('/api/vehicles/1/comments', { content: 'no debería entrar' });
+    assert.equal(r.status, 401);
+  });
+
+  it('con cuenta acepta un comentario y lo devuelve en la lista, firmado con el taller', async () => {
+    const r = await c.post('/api/vehicles/1/comments', { author_name: 'Nombre falso', content: 'Confirmo 50 PSI en riel.' });
     assert.ok(r.status === 200 || r.status === 201, `devolvió ${r.status}`);
+    assert.equal(r.body.author_name, 'Taller comenta', 'el nombre tiene que salir de la cuenta, no del cuerpo');
     const lista = await c.get('/api/vehicles/1/comments');
     assert.equal(lista.status, 200);
     assert.ok(lista.body.some(x => x.content.includes('50 PSI')), 'el comentario no aparece en la lista');
   });
 
-  it('rechaza comentarios sin nombre o sin texto', async () => {
-    for (const cuerpo of [{}, { author_name: 'X' }, { content: 'Y' }, { author_name: '  ', content: '  ' }]) {
+  it('rechaza comentarios sin texto', async () => {
+    for (const cuerpo of [{}, { content: '' }, { content: '  ' }, { author_name: 'X', content: '' }]) {
       const r = await c.post('/api/vehicles/1/comments', cuerpo);
       assert.equal(r.status, 400, `aceptó ${JSON.stringify(cuerpo)}`);
     }

@@ -295,10 +295,20 @@ async function createApp(dbOverride, statsOverride) {
      /admin.js tienen que responder antes— y ANTES de la API. */
   aplicarEstaticos(app, { dirPublico: path.join(__dirname, 'public'), PROD });
 
+  /* Las primitivas de autenticación viven en src/services/auth.js (4.8). La
+     factoría crearAuth devuelve las que dependen de ESTA instancia de la app
+     (la db inyectada y el lockout persistido en BD). Se crea AQUÍ, antes del
+     catálogo, porque escribir un comentario exige sesión (requireWorkshop) y el
+     catálogo se monta antes que la autenticación. Solo se adelanta la FÁBRICA:
+     montarAuth sigue en su sitio, así que el orden de las rutas no cambia. */
+  const auth = crearAuth({ db, PROD, SESSION_TTL_MS: config.SESSION_TTL_MS });
+  const { requireWorkshop, tokenCookieOpts, getDummyHash, lockoutLogin, slugLibre } = auth;
+
   /* Catálogo público (meta, vehículos, comentarios, módulos y pilas) — movido a
      src/routes/catalog.js (4.8). metaCache/pumpsCache son estado compartido por
-     proceso (src/services/caches.js): el panel de admin las invalida más abajo. */
-  montarCatalog(app, { db, statsDb, idDe, toInt, psiToBar, vehicleSlug });
+     proceso (src/services/caches.js): el panel de admin las invalida más abajo.
+     Los comentarios se LEEN sin cuenta y se ESCRIBEN con ella. */
+  montarCatalog(app, { db, statsDb, idDe, toInt, psiToBar, vehicleSlug, requireWorkshop, str });
 
   /* ---------- Chatbot de IA (4.4) ----------
      Todo el asistente —config de proveedores, contexto del catálogo, límites
@@ -338,13 +348,8 @@ async function createApp(dbOverride, statsOverride) {
      CUENTAS DE TALLER (auth multi-mecánico) + DATOS DE NEGOCIO
      ================================================================ */
 
-  /* Las primitivas de autenticación viven en src/services/auth.js (4.8). La
-     factoría crearAuth devuelve las que dependen de ESTA instancia de la app
-     (la db inyectada y el lockout persistido en BD); requireWorkshop se reparte
-     luego por `deps` a todos los módulos que lo usan, sin cambiar el reparto que
-     había cuando vivían en este archivo. */
-  const auth = crearAuth({ db, PROD, SESSION_TTL_MS: config.SESSION_TTL_MS });
-  const { requireWorkshop, tokenCookieOpts, getDummyHash, lockoutLogin, slugLibre } = auth;
+  /* Las primitivas de autenticación (crearAuth) se crearon ARRIBA, antes del
+     catálogo, porque el POST de comentarios ya necesita requireWorkshop. */
 
   /* Registro, sesión, perfil, verificación de correo y Google OAuth — movidos a
      src/routes/auth.js (4.8), en la MISMA posición en la que empezaba el bloque

@@ -303,6 +303,18 @@ en `test/qa/oauth-google.test.js` contra un doble local de Google
 Si faltan `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` en producción, **nadie puede
 entrar ni registrarse**. No es un detalle de configuración: es la única vía.
 
+### 4.12 Comentar exige cuenta, y el nombre lo pone el servidor
+
+`POST /api/vehicles/:id/comments` lleva `requireWorkshop` y **ignora** cualquier
+`author_name` del cuerpo: firma con el nombre de la cuenta. Antes era público y
+aceptaba un nombre libre, así que cualquiera podía firmar como otro taller; y no
+hay forma de moderar lo que no tiene autor. Leerlos (`GET`) sigue siendo público
+—la ficha del vehículo es una página abierta y los comentarios se ven sin
+cuenta—, pero el formulario solo se muestra a quien tiene sesión.
+
+Ese 401 en la escritura es la puerta, no un estorbo: si un cambio lo quita, el
+campo de nombre vuelve por la puerta de atrás.
+
 ---
 
 ## 5. Seguridad al correr pruebas

@@ -480,7 +480,10 @@ describe('Seguridad — cobertura de la protección (análisis estático)', () =
   const PUBLICAS_A_PROPOSITO = new Set([
     'POST /api/visit',
     'GET /api/meta', 'GET /api/vehicles', 'GET /api/vehicles/:id',
-    'GET /api/vehicles/:id/comments', 'POST /api/vehicles/:id/comments',
+    'GET /api/vehicles/:id/comments',
+    /* POST /api/vehicles/:id/comments ya NO es pública: comentar exige cuenta y
+       el nombre lo pone el servidor con el de la sesión (antes aceptaba un
+       nombre libre del cuerpo, así que cualquiera firmaba como otro taller). */
     'GET /api/modules', 'GET /api/modules/:id', 'GET /api/pumps', 'GET /api/pumps/:id',
     'POST /api/chat', 'GET /api/catalog/export',
     // La puerta del panel: es la ruta que ENTREGA el token de admin, así que no

@@ -27,7 +27,7 @@ const { StoreBD } = require('../services/rate-limit-store');
 const { leerMetaCache, setMetaCache, leerPumpsCache, setPumpsCache } = require('../services/caches');
 
 function montarCatalog(app, deps) {
-  const { db, statsDb, idDe, toInt, psiToBar, vehicleSlug } = deps;
+  const { db, statsDb, idDe, toInt, psiToBar, vehicleSlug, requireWorkshop, str } = deps;
 
   /* Limitador del catálogo público (mismo tope que tenía en el monolito). El
      conteo va a la base (StoreBD) para compartirse entre instancias. */
@@ -193,17 +193,26 @@ function montarCatalog(app, deps) {
     res.json(rows);
   });
 
-  app.post('/api/vehicles/:id/comments', commentLimiter, async (req, res) => {
+  /* Escribir un comentario exige CUENTA. Antes era público y aceptaba un nombre
+     libre del cuerpo, así que cualquiera podía firmar como otro taller; ahora el
+     nombre sale de la sesión. Leerlos sigue siendo público: el comentario se ve
+     en la ficha del vehículo, que es una página abierta. */
+  app.post('/api/vehicles/:id/comments', requireWorkshop, commentLimiter, async (req, res) => {
     const vehicle_id = idDe(req); /* 2.21 */
     if (vehicle_id === null) return res.status(404).json({ error: 'Vehículo no válido' });
-    const { author_name, content, parent_id } = req.body || {};
+    /* `author_name` del cuerpo se IGNORA a propósito: lo pone el servidor con el
+       nombre de la cuenta. */
+    const { content, parent_id } = req.body || {};
 
-    if (!author_name || !content || typeof author_name !== 'string' || typeof content !== 'string') {
-      return res.status(400).json({ error: 'Nombre y mensaje son requeridos' });
+    if (!content || typeof content !== 'string') {
+      return res.status(400).json({ error: 'El mensaje es requerido' });
     }
-    const name = author_name.trim().slice(0, 50);
     const msg = content.trim().slice(0, 1000);
-    if (!name || !msg) return res.status(400).json({ error: 'Nombre y mensaje son requeridos' });
+    if (!msg) return res.status(400).json({ error: 'El mensaje es requerido' });
+
+    /* El nombre de quien comenta es el de su cuenta (no un texto libre). */
+    const cuenta = await db.get('SELECT name FROM workshops WHERE id = ?', req.workshopId);
+    const name = str(cuenta?.name, 50) || 'Taller';
 
     /* 2.26 (B33): parent_id inválido → 404, no degradar a raíz. Solo se permite
        omitirlo (respuesta raíz); si viene pero no existe o no es del vehículo,

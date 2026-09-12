@@ -254,4 +254,75 @@ describe('Donaciones y Rangos de Donador', () => {
     assert.equal(me.body.donor_progress.puntos, 55);
     assert.equal(me.body.donor_progress.porcentaje, 100);
   });
+
+  /* --- Muro de Colaboradores (GET /api/donations/public) --------------------
+     El endpoint alimenta el modal «Muro de Colaboradores» del frontend. Los tres
+     casos de abajo son defectos reales que ya se colaron: un nivel falso (un
+     taller sin rango salía como Nivel 1), una fuga de un taller NO publicado por
+     su donativo, y un cambio de forma que rompería el muro sin lanzar error. */
+
+  it('el muro devuelve el donor_level REAL (un taller sin rango no sale como Nivel 1)', async () => {
+    const otro = crearCliente(ctx.base);
+    const reg = await otro.registrar('NivelCero');
+    assert.equal(reg.status, 201, JSON.stringify(reg.body));
+    const wsId = reg.body.id;
+    // Taller público pero SIN rango de donador: donor_level = 0.
+    ctx.db.prepare("UPDATE workshops SET is_public = 1, donor_level = 0, slug = 'taller-nivel-cero-qa' WHERE id = ?").run(wsId);
+    const donId = Number(ctx.db.prepare(`INSERT INTO donations (workshop_id, donor_name, method, reference, amount, status, reviewed_at)
+      VALUES (?, NULL, 'zinli', 'QA-NIVEL-CERO', 5, 'approved', '2024-01-01 00:00:00')`).run(wsId).lastInsertRowid);
+
+    const r = await anon.get('/api/donations/public');
+    assert.equal(r.status, 200);
+    const item = r.body.find(d => d.id === donId);
+    assert.ok(item, 'el aporte acreditado de un taller público debe aparecer en el muro');
+    assert.equal(item.donor_level, 0, 'un taller con donor_level 0 salía como Nivel 1 (dato falso)');
+    assert.notEqual(item.donor_level, 1);
+    // Sin donor_name propio, cae al nombre del taller (el LEFT JOIN sigue resolviendo).
+    assert.equal(item.donor_name, 'Taller NivelCero');
+  });
+
+  it('no expone los aportes de un taller NO publicado, pero conserva los que no tienen taller', async () => {
+    // tallerId tiene aportes aprobados de los pasos previos; se oculta el taller.
+    ctx.db.prepare("UPDATE workshops SET is_public = 0, slug = 'taller-donar-qa' WHERE id = ?").run(tallerId);
+    const propias = ctx.db.prepare("SELECT id FROM donations WHERE workshop_id = ? AND status = 'approved'").all(tallerId).map(x => x.id);
+    assert.ok(propias.length > 0, 'los pasos previos debían dejar aportes aprobados para el taller');
+
+    const oculto = await anon.get('/api/donations/public');
+    assert.equal(oculto.status, 200);
+    assert.equal(oculto.body.some(d => propias.includes(d.id)), false,
+      'un taller no publicado no puede quedar expuesto por su donativo (nombre/slug/nota)');
+
+    // Aporte SIN taller (workshop_id NULL): el LEFT JOIN lo pierde si el filtro no lo contempla.
+    const sueltoId = Number(ctx.db.prepare(`INSERT INTO donations (workshop_id, donor_name, method, reference, amount, status, reviewed_at)
+      VALUES (NULL, 'Mecánico Suelto QA', 'binance', 'QA-SIN-TALLER', 7, 'approved', '2024-01-02 00:00:00')`).run().lastInsertRowid);
+    const conSuelto = await anon.get('/api/donations/public');
+    const suelto = conSuelto.body.find(d => d.id === sueltoId);
+    assert.ok(suelto, 'un aporte sin taller (workshop_id NULL) no se puede perder con el filtro de privacidad');
+    assert.equal(suelto.workshop_slug, null);
+    assert.equal(suelto.donor_level, null, 'sin taller no hay nivel de donador');
+    assert.equal(suelto.donor_name, 'Mecánico Suelto QA');
+
+    // Al volver a publicar el taller, sus aportes reaparecen.
+    ctx.db.prepare("UPDATE workshops SET is_public = 1 WHERE id = ?").run(tallerId);
+    const visible = await anon.get('/api/donations/public');
+    const reaparece = visible.body.find(d => propias.includes(d.id));
+    assert.ok(reaparece, 'al publicar el taller sus aportes vuelven al muro');
+    assert.equal(reaparece.workshop_slug, 'taller-donar-qa');
+  });
+
+  it('el muro mantiene la forma exacta de campos que el frontend usa', async () => {
+    const r = await anon.get('/api/donations/public');
+    assert.equal(r.status, 200);
+    assert.ok(Array.isArray(r.body));
+    assert.ok(r.body.length > 0, 'debe haber aportes públicos para comprobar la forma');
+    const claves = ['amount', 'avatar_url', 'date', 'donor_level', 'donor_name', 'id', 'method', 'note', 'workshop_slug'];
+    for (const item of r.body) {
+      assert.deepEqual(Object.keys(item).sort(), claves, `campos del muro alterados en #${item.id}`);
+      assert.equal(item.email, undefined, 'nunca debe exponer email');
+      assert.equal(item.pass_hash, undefined, 'nunca debe exponer pass_hash');
+      assert.equal(item.doc_id, undefined, 'nunca debe exponer doc_id');
+      assert.ok(item.donor_level === null || Number.isInteger(item.donor_level),
+        'donor_level debe ser entero o null, nunca undefined');
+    }
+  });
 });
