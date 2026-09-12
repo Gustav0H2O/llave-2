@@ -288,18 +288,20 @@ taller perdido. En desarrollo y pruebas las dos rutas siguen abiertas para poder
 trabajar sin credenciales de Google; esa diferencia la cubre
 `test/qa/registro-google.test.js`.
 
-El callback es **una sola puerta**: busca la cuenta por el correo y, si no está,
-la crea. No separa «alta» de «acceso», así que no hay callejones sin salida
-(«esa cuenta ya existe», «ese correo no está registrado»). Una cuenta con
-contraseña del mismo correo entra igual (se le conserva la contraseña por si
-algún día se reabre ese camino). El callback **exige que Google confirme el
-correo** antes de dar por verificado o reclamar una cuenta: sin esa comprobación,
-un correo sin verificar podría tomar una cuenta ajena. Todo el camino está
-cubierto en `test/qa/oauth-google.test.js` contra un doble local de Google
+El callback tiene **dos puertas separadas**, y cada una avisa si te equivocaste
+de botón en vez de hacer lo contrario en silencio: «Crear cuenta» con un correo
+que ya existe manda a iniciar sesión (`google_already_registered`) y «Iniciar
+sesión» con un correo sin cuenta manda a crearla (`google_not_registered`). El
+aviso deja el botón correcto a un clic, así que no es un callejón sin salida.
+Una cuenta con contraseña del mismo correo entra por la puerta de acceso (se le
+conserva la contraseña). El callback **exige que Google confirme el correo**
+antes de dar por verificado o reclamar una cuenta: sin esa comprobación, un
+correo sin verificar podría tomar una cuenta ajena. Todo el camino está cubierto
+en `test/qa/oauth-google.test.js` contra un doble local de Google
 (`GOOGLE_TOKEN_URL` / `GOOGLE_USERINFO_URL`, solo para pruebas).
 
 Si faltan `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` en producción, **nadie puede
-entrar ni registrarse**. No es un detalle de configuración: es la única puerta.
+entrar ni registrarse**. No es un detalle de configuración: es la única vía.
 
 ---
 

@@ -23,7 +23,7 @@ const crypto = require('crypto');
 /* 2.35: el dominio público por defecto es el del sitio real. Un default que
    apunte a un host que ya no existe manda al vacío los enlaces de confirmación
    de correo, el sitemap y las canónicas. */
-const BASE_URL_POR_DEFECTO = 'https://fueltech-master.onrender.com';
+const BASE_URL_POR_DEFECTO = 'https://llave-d3me.onrender.com';
 
 const texto = (valor, porDefecto = '') => String(valor ?? porDefecto).trim();
 

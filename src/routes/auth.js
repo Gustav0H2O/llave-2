@@ -444,7 +444,12 @@ function montarAuth(app, deps) {
     // cookie-parser NO está montado: se leen con el helper único (4.6). La
     // cookie del state se guardó con res.cookie() en /api/auth/google.
     const savedState = leerCookie(req, 'google_oauth_state');
+    const cookieMode = leerCookie(req, 'google_oauth_mode');
     const parts = (state || '').split('_');
+    /* Qué botón pulsó el usuario: viaja en el `state` firmado y, si no, en su
+       cookie. Decide si esta vuelta es un alta o un acceso. */
+    const stateMode = parts.length >= 2 ? parts[1] : null;
+    const oauthMode = stateMode === 'register' ? 'register' : (cookieMode === 'register' ? 'register' : 'login');
     let isStateValid = false;
     if (typeof state === 'string' && savedState && state === savedState && parts.length === 3 && GOOGLE_CLIENT_SECRET) {
       const expectedSig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${parts[0]}_${parts[1]}`).digest('hex');
@@ -512,16 +517,27 @@ function montarAuth(app, deps) {
       // Buscar si ya existe la cuenta
       let ws = await db.get('SELECT * FROM workshops WHERE email = ?', email);
 
-      /* UNA SOLA PUERTA. Da igual si el usuario venía a registrarse o a entrar:
-         con Google como único acceso, separar "alta" de "login" solo servía para
-         dejar callejones sin salida («esa cuenta ya existe», «ese correo no está
-         registrado») que obligaban a pulsar un segundo botón. Aquí se busca y,
-         si no está, se crea.
+      /* Son DOS puertas y cada una avisa si te equivocaste de botón: la de alta
+         rebota a quien ya tiene cuenta y la de acceso a quien no la tiene. No es
+         un callejón sin salida —el aviso deja el botón correcto a un clic— pero
+         evita que un alta silenciosa le cambie el sentido a lo que el usuario
+         pidió hacer.
+         Una cuenta con contraseña del mismo correo entra por la puerta de
+         acceso: Google ya verificó que el correo es suyo (comprobación de
+         arriba), así que no hay suplantación posible, y se le CONSERVA la
+         contraseña. */
 
-         Una cuenta con contraseña del mismo correo también entra: Google ya
-         verificó que el correo es suyo (comprobación de arriba), así que no hay
-         suplantación posible, y se le CONSERVA la contraseña por si algún día se
-         reabre ese camino. */
+      // Pidió CREAR cuenta y ya la tiene: se le manda a iniciar sesión.
+      if (ws && oauthMode === 'register') {
+        if (!PROD) console.warn('[Google OAuth] alta de una cuenta que ya existe');
+        return res.redirect(`/?login=google_already_registered&email=${encodeURIComponent(email)}`);
+      }
+
+      // Pidió ENTRAR y no tiene cuenta: se le manda a crearla.
+      if (!ws && oauthMode === 'login') {
+        if (!PROD) console.warn('[Google OAuth] acceso con un correo sin cuenta');
+        return res.redirect(`/?login=google_not_registered&email=${encodeURIComponent(email)}`);
+      }
 
       let esCuentaNueva = false;
       if (!ws) {

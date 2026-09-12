@@ -16,11 +16,11 @@ const { config, construirConfig, validarConfig, BASE_URL_POR_DEFECTO } = require
 
 describe('config (4.2) — lectura y validación del entorno', () => {
   it('2.35: BASE_URL por defecto es el dominio real, sin barra final', () => {
-    assert.equal(BASE_URL_POR_DEFECTO, 'https://fueltech-master.onrender.com');
-    assert.equal(construirConfig({}).BASE_URL, 'https://fueltech-master.onrender.com');
+    assert.equal(BASE_URL_POR_DEFECTO, 'https://llave-d3me.onrender.com');
+    assert.equal(construirConfig({}).BASE_URL, 'https://llave-d3me.onrender.com');
     // Una barra final duplicada rompe las canónicas y el sitemap al concatenar.
     assert.equal(construirConfig({ BASE_URL: 'https://otro.example/' }).BASE_URL, 'https://otro.example');
-    assert.equal(construirConfig({ BASE_URL: '   ' }).BASE_URL, 'https://fueltech-master.onrender.com');
+    assert.equal(construirConfig({ BASE_URL: '   ' }).BASE_URL, 'https://llave-d3me.onrender.com');
   });
 
   it('en producción sin VISIT_SALT la configuración no se sostiene', () => {

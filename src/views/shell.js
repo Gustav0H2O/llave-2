@@ -84,10 +84,11 @@ function crearRenderShell(deps) {
          (GET /ads), no como <script> de terceros. El documento del mecánico se
          queda sin 'unsafe-inline' en script-src; el permiso que AdSense necesita
          vive encerrado en el marco (src/services/anuncios.js explica qué se
-         pierde con este cambio). */
+         pierde con este cambio). El marco nace con alto 0 y se mide a sí mismo:
+         si la cuenta todavía no sirve anuncios, NO deja un hueco vacío. */
       html = html.replace('</head>',
         `<meta name="google-adsense-account" content="${encodeURIComponent(ADSENSE_CLIENT)}"></head>`);
-      html = html.replace('<body>', `<body>${iframeAnuncios()}`);
+      html = html.replace('<body>', `<body>${iframeAnuncios(nonce)}`);
     }
     if (GA_ID) {
       const ga = `<script async src="https://www.googletagmanager.com/gtag/js?id=${GA_ID}"></script>` +

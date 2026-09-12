@@ -11,9 +11,12 @@ services:
         value: production
       - key: PUPPETEER_SKIP_DOWNLOAD
         value: 1
-      # Cámbiala por tu dominio propio cuando lo conectes (afecta canonical, sitemap y Open Graph).
+      # Dominio público REAL del servicio (afecta canonical, sitemap, Open Graph
+      # y el enlace de los correos). El de antes, fueltech-master.onrender.com,
+      # NO existe: Render responde 404 x-render-routing: no-server. Cámbialo si
+      # algún día conectas un dominio propio.
       - key: BASE_URL
-        value: https://fueltech-master.onrender.com
+        value: https://llave-d3me.onrender.com
       # Modelo de IA (Gemini). Ajusta solo si tu cuenta tiene acceso a otro id válido.
       - key: GEMINI_MODEL
         value: gemini-1.5-flash

@@ -10,7 +10,7 @@ const puppeteer = require('puppeteer');
 const { esc } = require('./lib/pure');
 const { db, pgPool, USE_TURSO, USE_PG } = require('./db');
 
-const BASE_URL = (process.env.BASE_URL || 'https://fueltech-master.onrender.com').replace(/\/+$/, '');
+const BASE_URL = (process.env.BASE_URL || 'https://llave-d3me.onrender.com').replace(/\/+$/, '');
 const BASE_HOST = BASE_URL.replace(/^https?:\/\//, '');
 
 const OUT = path.join(__dirname, 'public', 'og');

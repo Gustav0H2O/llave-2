@@ -7,7 +7,7 @@
 <meta name="description" content="Herramientas y software para talleres mecánicos: diagnóstico automotriz, códigos DTC OBD2, torque, compresión, presión de riel, cotizador y catálogo de autos.">
 <meta name="keywords" content="taller mecánico, software para talleres, gestión de taller, diagnóstico automotriz, herramientas mecánicas, códigos DTC OBD2, calculadora de torque, compresión de motor, presión de gasolina, orden de servicio, cotizador de taller, refaccionaria, repuestos, autopartes, autos, carros, Chevrolet, Ford, Toyota, Nissan, Hyundai, Kia, Aveo, Corsa, Spark, Fiesta, Latinoamérica">
 <meta name="robots" content="index, follow">
-<link rel="canonical" href="https://fueltech-master.onrender.com/">
+<link rel="canonical" href="https://llave-d3me.onrender.com/">
 <meta name="theme-color" content="#F8F7F3" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#111311" media="(prefers-color-scheme: dark)">
 <script>
@@ -68,16 +68,16 @@
 <meta property="og:site_name" content="llave">
 <meta property="og:title" content="llave — Software para Talleres Mecánicos, Diagnóstico y Autos">
 <meta property="og:description" content="Herramientas y software para talleres mecánicos: diagnóstico automotriz, códigos DTC OBD2, torque, compresión, presión de riel, cotizador y catálogo de autos.">
-<meta property="og:url" content="https://fueltech-master.onrender.com/">
+<meta property="og:url" content="https://llave-d3me.onrender.com/">
 <meta property="og:locale" content="es_LA">
-<meta property="og:image" content="https://fueltech-master.onrender.com/og/default.png">
+<meta property="og:image" content="https://llave-d3me.onrender.com/og/default.png">
 <meta property="og:image:alt" content="llave — Software para Talleres Mecánicos, Diagnóstico y Autos">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="llave — Software para Talleres Mecánicos, Diagnóstico y Autos">
 <meta name="twitter:description" content="Herramientas y software para taller mecánico: diagnóstico, códigos DTC, torque, compresión, cotizador y catálogo de autos.">
-<meta name="twitter:image" content="https://fueltech-master.onrender.com/og/default.png">
+<meta name="twitter:image" content="https://llave-d3me.onrender.com/og/default.png">
 
 <script type="application/ld+json">
 {
@@ -2229,6 +2229,21 @@
      formulario acababa con los dos logotipos en fila. Es el mismo fallo que
      tenía el pie del home. */
   .login-form-logo { height: 36px; width: auto; align-self: flex-start; }
+  /* Las dos puertas del acceso, separadas: «Iniciar sesión» y «Crear cuenta».
+     No hay ningún formulario detrás —cada pestaña solo cambia el titular, la
+     explicación y el `mode` del enlace a Google—, así que lo único que necesita
+     son estos tres bloques. */
+  .login-tabs {
+    display: inline-flex; padding: 4px; border-radius: var(--r-full);
+    background: var(--panel2); border: 1px solid var(--border);
+    align-self: flex-start;
+  }
+  .login-tab {
+    padding: 9px 18px; border: 0; background: transparent;
+    font: 600 13px var(--font); color: var(--ink-2);
+    border-radius: var(--r-full); cursor: pointer;
+  }
+  .login-tab.is-active { background: var(--accent); color: var(--accent-ink); }
   .login-h1 {
     font: 700 clamp(24px, 2.6vw, 30px)/1.15 var(--font);
     letter-spacing: -.02em; color: var(--ink); margin: 4px 0 0;
@@ -2954,7 +2969,7 @@
     .micro-back, .tool-add-btn, .home-nav-link, .home-nav-login,
     .styled-input, .filters input, .filters select, .filters button,
     .link-btn.mt-small, .home-cta-ghost, .go, .conv-mode,
-    .login-back, .rs-toggle, .insp-btn, .quote-add, .cli-wa {
+    .login-back, .login-tab, .rs-toggle, .insp-btn, .quote-add, .cli-wa {
       min-height: 44px;
     }
     .styled-input, .filters input, .filters select, .filters textarea,

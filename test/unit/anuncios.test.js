@@ -75,15 +75,45 @@ describe('documentoAnuncios — el HTML del contenedor (2.31)', () => {
 describe('iframeAnuncios — el marco que insertan las páginas (2.31)', () => {
   it('apunta al contenedor propio y no a un dominio de terceros', () => {
     const marco = iframeAnuncios();
-    assert.match(marco, /^<iframe src="\/ads"/);
+    assert.match(marco, /^<iframe id="marco-anuncios" src="\/ads"/);
     assert.equal(/src="https?:/.test(marco), false);
   });
 
-  it('lleva título (accesibilidad) y carga diferida', () => {
+  it('lleva título (accesibilidad) y el sandbox que el anuncio necesita para medir', () => {
     const marco = iframeAnuncios();
     assert.match(marco, /title="Publicidad"/);
-    assert.match(marco, /loading="lazy"/);
     assert.match(marco, /sandbox="allow-scripts allow-same-origin/);
+  });
+
+  it('NACE CON ALTO 0: sin anuncio no reserva ni un píxel', () => {
+    /* Esto fue un fallo real en producción: el marco medía 280 px fijos y se
+       insertaba justo después de <body>, así que mientras la cuenta no servía
+       anuncios dejaba una banda vacía que empujaba TODA la página 308 px hacia
+       abajo. Un hueco así no es un anuncio que no se ve: se come la primera
+       pantalla del mecánico. */
+    const marco = iframeAnuncios();
+    assert.match(marco, /height:0/);
+    assert.equal(/height:280px/.test(marco), false, 'volvió a reservar los 280 px fijos');
+  });
+
+  it('no usa loading="lazy": un marco de 0 px podría no llegar a cargarse nunca', () => {
+    assert.equal(/loading="lazy"/.test(iframeAnuncios()), false,
+      'con lazy, el marco colapsado se quedaría sin cargar y el anuncio no aparecería jamás');
+  });
+
+  it('mide el bloque de anuncio (mismo origen) y solo crece si hay anuncio, con tope', () => {
+    const marco = iframeAnuncios('nonce-de-prueba');
+    assert.match(marco, /<script nonce="nonce-de-prueba">/);
+    assert.match(marco, /contentDocument/);
+    /* Mide `.adsbygoogle`, no el cuerpo del marco: el cuerpo pasa por valores
+       pequeños mientras el cargador arranca. */
+    assert.match(marco, /querySelector\('\.adsbygoogle'\)/);
+    assert.match(marco, /MINIMO=90/, 'por debajo del mínimo, el contenedor está vacío y no reserva nada');
+    assert.match(marco, /Math\.min\(alto,600\)/, 'un anuncio no puede empujar la página sin freno');
+  });
+
+  it('sin nonce no escribe nonce="undefined"', () => {
+    assert.equal(/undefined/.test(iframeAnuncios()), false);
   });
 });
 

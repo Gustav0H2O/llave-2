@@ -152,25 +152,21 @@ describe('Google OAuth — alta, login mixto y correo verificado', () => {
     assert.equal(r.sesion, null);
   });
 
-  it('es una sola puerta: si la cuenta no existe, se crea (sirve para entrar y para registrarse)', async () => {
-    perfilGoogle = { email: 'llega-nueva@prueba.test', verified_email: true, name: 'Llega Nueva' };
+  it('son dos puertas: «entrar» con un correo sin cuenta manda a crearla, no la crea sola', async () => {
+    perfilGoogle = { email: 'sin-cuenta@prueba.test', verified_email: true };
     const r = await flujo('login');
-    assert.match(r.destino, /login=google_registered/, `debe darla de alta, no rebotar: ${r.destino}`);
-    assert.ok(r.sesion, 'la sesión tiene que emitirse');
-    const ws = taller('llega-nueva@prueba.test');
-    assert.ok(ws, 'la cuenta debe existir');
-    assert.equal(ws.pass_hash, 'google_oauth');
+    assert.match(r.destino, /login=google_not_registered/, `debe mandar al alta: ${r.destino}`);
+    assert.equal(r.sesion, null, 'no debe emitirse sesión');
+    assert.equal(taller('sin-cuenta@prueba.test'), undefined, 'el botón de entrar no puede dar de alta');
   });
 
-  it('y si ya existe, entra aunque el botón pidiera «crear cuenta»', async () => {
-    /* Sin esto volverían los callejones sin salida («esa cuenta ya está
-       registrada») que obligaban a pulsar un segundo botón. */
+  it('y «crear cuenta» con un correo que ya existe manda a entrar (no la duplica ni la pisa)', async () => {
     ctx.db.prepare('INSERT INTO workshops (email, pass_hash, name, status) VALUES (?, ?, ?, ?)')
       .run('ya-existe@prueba.test', 'google_oauth', 'Ya Existe', 'active');
     perfilGoogle = { email: 'ya-existe@prueba.test', verified_email: true };
     const r = await flujo('register');
-    assert.match(r.destino, /login=google_ok/, `debe entrar, no rebotar: ${r.destino}`);
-    assert.ok(r.sesion, 'la sesión tiene que emitirse');
+    assert.match(r.destino, /login=google_already_registered/, `debe mandar al acceso: ${r.destino}`);
+    assert.equal(r.sesion, null, 'no debe emitirse sesión: le toca entrar por su puerta');
   });
 
   it('sin state válido no hay sesión (CSRF del callback)', async () => {

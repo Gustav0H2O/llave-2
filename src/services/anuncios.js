@@ -116,12 +116,41 @@ function documentoAnuncios({ client, nonce, lang = 'es' } = {}) {
    `allow-same-origin` es imprescindible para que el anuncio pueda medir y
    personalizar (cookies), y por eso el marco no se presenta como aislamiento de
    seguridad: lo que protege la página es su CSP, que ya no admite script inline.
-   El `loading="lazy"` evita que el anuncio cueste un byte mientras el mecánico
-   lee la ficha, y las medidas son las de un bloque responsivo de AdSense. */
-function iframeAnuncios() {
-  return '<iframe src="/ads" title="Publicidad" loading="lazy" scrolling="no"'
+
+   NACE COLAPSADO (alto 0) Y SE EXPANDE SOLO SI HAY ANUNCIO. Antes medía 280 px
+   fijos y se insertaba al principio del <body>: mientras la cuenta no sirve
+   anuncios —o mientras el cargador no carga— quedaba un BLOQUE VACÍO de 280 px
+   empujando toda la página hacia abajo en todas las páginas del sitio. Un hueco
+   así no es un anuncio que no se ve: es un fallo que se come la primera pantalla
+   del mecánico. El script de al lado mide el documento del marco (es del MISMO
+   origen, por eso se puede leer) y le pone el alto real; si no hay anuncio, el
+   marco se queda en cero y no ocupa nada.
+
+   Sin `loading="lazy"` a propósito: un marco de 0 px de alto puede quedar fuera
+   del cálculo de "cerca del viewport" y no llegar a cargarse NUNCA, con lo que
+   el anuncio no aparecería ni cuando la cuenta lo sirviera. */
+function iframeAnuncios(nonce) {
+  const n = nonce ? ` nonce="${esc(nonce)}"` : '';
+  return '<iframe id="marco-anuncios" src="/ads" title="Publicidad" scrolling="no"'
     + ' sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"'
-    + ' style="display:block;width:100%;max-width:970px;height:280px;margin:14px auto;border:0"></iframe>';
+    + ' style="display:block;width:100%;max-width:970px;height:0;margin:0 auto;border:0"></iframe>'
+    + `<script${n}>(function(){`
+    + `var m=document.getElementById('marco-anuncios');if(!m)return;`
+    + `var intentos=0,ultimo=-1,MINIMO=90;`
+    /* Se mide EL BLOQUE DE ANUNCIO (`.adsbygoogle`) y no el cuerpo del marco: el
+       cuerpo pasa por valores pequeños mientras el cargador arranca y medirlo a
+       él dejaba el marco clavado en 8 px con sus márgenes (un hueco fantasma de
+       36 px). Un anuncio de verdad ocupa bastante más que MINIMO; por debajo de
+       eso el contenedor está vacío y no se reserva nada. Se vuelve a medir unas
+       cuantas veces para que un anuncio que llega tarde —o que se retira— se
+       refleje igual. */
+    + `function ajustar(){var d;try{d=m.contentDocument}catch(e){return}`
+    + `if(d&&d.body){var ins=d.querySelector('.adsbygoogle');`
+    + `var alto=ins?Math.round(ins.getBoundingClientRect().height):0;`
+    + `var util=alto>=MINIMO?Math.min(alto,600):0;`
+    + `if(util!==ultimo){ultimo=util;m.style.height=util+'px';m.style.margin=util?'14px auto':'0'}}`
+    + `if(intentos++<25)setTimeout(ajustar,800)}`
+    + `m.addEventListener('load',ajustar);ajustar()})();</script>`;
 }
 
 module.exports = { DOMINIOS, politicaAnuncios, documentoAnuncios, iframeAnuncios };
