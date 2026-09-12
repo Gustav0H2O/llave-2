@@ -689,7 +689,6 @@
     };
     const abrirMuro = () => { setVerMuro(true); cargarMuro(); };
     const cerrarMuro = () => { muroGen.current++; setVerMuro(false); };
-    const btnReintentar = html`<button type="button" class="support-claim-toggle" onClick=${cargarMuro}>Reintentar</button>`;
     useCapaBloqueante(verMuro, cerrarMuro);
 
     const enviarAporte = async (e) => {
@@ -727,6 +726,13 @@
       }
     };
     const don = window.FT_DONACIONES || {};
+    /* ---- Muro de colaboradores ---- Reutiliza el avatar con marco por nivel de
+       microapps-taller.js y el catálogo de rangos de datos.js: una sola verdad
+       sobre cómo se ve cada nivel. Sin ese archivo caemos al icono, no rompemos. */
+    const Avatar = window.WorkshopAvatar || CatIc;
+    const insignia = (d) => { const r = (don.niveles || []).find(n => n.nivel === d.donor_level); return html`<span class="donor-badge"><${CatIc} n=${r?.icon || 'Award'} s=${11} />${r?.nombre || 'Nivel ' + d.donor_level}</span>`; };
+    const nom = (d, c) => d.workshop_slug ? html`<a class=${c} href=${'/taller/' + d.workshop_slug}>${d.donor_name}</a>` : html`<span class=${c}>${d.donor_name}</span>`;
+    const fecha = (iso) => { const f = new Date(iso); if (!iso || isNaN(f)) return ''; const o = { day: 'numeric', month: 'short' }; if (f.getFullYear() !== new Date().getFullYear()) o.year = '2-digit'; return f.toLocaleDateString('es', o); };
     const copiar = (txt, id) => {
       try { navigator.clipboard.writeText(txt); setCopiado(id); setTimeout(() => setCopiado(''), 2200); } catch (e) {}
     };
@@ -1219,41 +1225,39 @@
 
           ${verMuro && html`
             <div class="donors-modal-overlay" onClick=${cerrarMuro}>
-              <div class="donors-modal-card" onClick=${(e) => e.stopPropagation()}>
+              <div class="donors-modal-card" role="dialog" aria-modal="true" aria-labelledby="muro-t" onClick=${(e) => e.stopPropagation()}>
                 <div class="donors-modal-head">
                   <div>
-                    <h3 class="donors-modal-title">Muro de Colaboradores</h3>
-                    <p class="donors-modal-sub">Talleres y mecánicos que impulsan el desarrollo continuo de llave</p>
+                    <h3 class="donors-modal-title" id="muro-t">Muro de colaboradores</h3>
+                    <p class="donors-modal-sub">${donantesPublicos.length
+                      ? `${donantesPublicos.length} ${donantesPublicos.length === 1 ? 'aporte acreditado' : 'aportes acreditados'} de talleres y mecánicos`
+                      : 'Los talleres y mecánicos que sostienen llave con sus aportes'}</p>
                   </div>
-                  <button type="button" class="donors-modal-close" onClick=${cerrarMuro} aria-label="Cerrar">&times;</button>
+                  <button type="button" class="donors-modal-close" onClick=${cerrarMuro} aria-label="Cerrar el muro">×</button>
                 </div>
                 <div class="donors-modal-body">
-                  ${muroError ? html`<p class="donors-modal-msg">No se pudieron cargar los colaboradores. ${btnReintentar}</p>` : null}
-                  ${cargandoMuro && donantesPublicos.length === 0 && html`<p class="donors-modal-msg">Cargando colaboradores…</p>`}
+                  ${muroError ? html`<p class="donors-modal-msg">No se pudieron cargar los colaboradores.<br /><button type="button" class="support-btn" onClick=${cargarMuro}>Reintentar</button></p>` : null}
+                  ${cargandoMuro && donantesPublicos.length === 0 && html`<p class="donors-modal-msg">Cargando los aportes…</p>`}
                   ${!cargandoMuro && !muroError && donantesPublicos.length === 0 && html`
                     <div class="donors-empty-box">
                       <span class="donors-empty-icon"><${CatIc} n="Heart" s=${28} /></span>
-                      <h4>Sé el primer colaborador público</h4>
-                      <p>Cada aporte ayuda a cubrir servidores, diagramas de inyección y nuevas guías. ¡Aporta hoy y tu taller encabezará este cuadro de honor!</p>
+                      <h4>Sé el primer colaborador</h4>
+                      <p>Tu aporte cubre servidores, diagramas de inyección y guías nuevas, y tu taller queda en este muro con su nombre y su rango.</p>
                     </div>
                   `}
                   ${donantesPublicos.length > 0 && html`
-                    <div class="donors-grid">
+                    <ol class="donors-grid">
                       ${donantesPublicos.map(d => html`
-                        <div class="donor-item" key=${d.id}>
-                          <div class="donor-item-top">
-                            <span class="donor-item-name">${d.donor_name}</span>
-                            ${Number.isFinite(d.donor_level) && d.donor_level > 0 ? html`<span class="donor-item-badge" style=${{ color: d.donor_level >= 5 ? '#38bdf8' : (d.donor_level >= 3 ? '#facc15' : '#fb923c') }}>Nivel ${d.donor_level}</span>` : null}
+                        <li class="donor-item" key=${d.id}>
+                          <${Avatar} avatar_url=${d.avatar_url} donor_level=${d.donor_level || 0} size=${38} name=${d.donor_name} />
+                          <div class="donor-item-txt">
+                            <div class="donor-item-top">${nom(d, 'donor-item-name')}${d.donor_level >= 1 ? insignia(d) : null}</div>
+                            ${d.note ? html`<p class="donor-item-note">“${d.note}”</p>` : null}
                           </div>
-                          ${d.note ? html`<p class="donor-item-note">“${d.note}”</p>` : null}
-                          <div class="donor-item-meta">
-                            <span>Aporte acreditado</span>
-                            <span>${d.date ? new Date(d.date).toLocaleDateString('es') : ''}</span>
-                          </div>
-                        </div>
-                      `)}
-                    </div>
-                    ${donantesPublicos.length >= 60 ? html`<p class="donors-modal-msg" style=${{ fontSize: '12px' }}>Mostrando los 60 aportes más recientes.</p>` : null}
+                          <time class="donor-item-date" datetime=${d.date || ''}>${fecha(d.date)}</time>
+                        </li>`)}
+                    </ol>
+                    ${donantesPublicos.length >= 60 ? html`<p class="donors-modal-msg">Mostrando los 60 aportes más recientes.</p>` : null}
                   `}
                 </div>
               </div>

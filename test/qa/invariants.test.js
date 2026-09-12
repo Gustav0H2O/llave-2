@@ -403,4 +403,23 @@ describe('Trampas conocidas de este proyecto', () => {
       'el estado inicial de la vista debe depender del vehículo de la URL');
     assert.match(src, /dataset\.vehicle/, 'readURLState debe seguir leyendo el data-vehicle del SSR');
   });
+
+  it('ningún var(--token) nuevo del CSS queda sin definir', () => {
+    /* `--surface` se usaba en 11 reglas y no existía en ningún sitio: el
+       navegador descarta la declaración y el fondo queda TRANSPARENTE. En la
+       portada no se notaba, pero el modal del muro es un panel sobre un velo
+       oscuro: su título medía 2.17:1 en tema claro. El robot de interfaz no lo
+       veía porque una transparencia casi nunca rompe el contraste.
+       `--rank-color` sí se define en línea desde microapps.js (con respaldo en
+       el propio var()), y `--text` es deuda conocida (hoy hereda el color, sin
+       fallo medido): los dos quedan listados para no tapar nada nuevo. */
+    const html = leer('public/index.html');
+    const css = html.slice(html.indexOf('<style'), html.indexOf('</style>'));
+    const definidos = new Set([...css.matchAll(/--([\w-]+)\s*:/g)].map(m => m[1]));
+    const usados = new Set([...css.matchAll(/var\(--([\w-]+)/g)].map(m => m[1]));
+    const permitidos = new Set(['rank-color', 'text']);
+    const fantasma = [...usados].filter(t => !definidos.has(t) && !permitidos.has(t)).sort();
+    assert.deepEqual(fantasma, [],
+      `tokens usados sin definir (fondo/color transparente silencioso): ${fantasma.join(', ')}`);
+  });
 });
