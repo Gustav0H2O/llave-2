@@ -392,4 +392,15 @@ describe('Trampas conocidas de este proyecto', () => {
       assert.match(leer(f), /DBAdapter\([^,]+,\s*'local'\)/, `${f} debe construir el adaptador en modo 'local'`);
     }
   });
+
+  it('una URL con vehículo arranca en la ficha, no en la portada (4.13)', () => {
+    /* Estuvo roto: `viewState` nacía siempre en 'home', así que quien abría
+       /vehiculo/<slug> (o un enlace con ?v=) veía la portada con el vehículo
+       seleccionado pero invisible, y los comentarios quedaban inalcanzables.
+       El invariante fija que el estado inicial mire la URL. */
+    const src = leer('public/app.js');
+    assert.match(src, /useState\(initialURL\.selected \? 'search' : 'home'\)/,
+      'el estado inicial de la vista debe depender del vehículo de la URL');
+    assert.match(src, /dataset\.vehicle/, 'readURLState debe seguir leyendo el data-vehicle del SSR');
+  });
 });

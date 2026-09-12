@@ -315,6 +315,17 @@ cuenta—, pero el formulario solo se muestra a quien tiene sesión.
 Ese 401 en la escritura es la puerta, no un estorbo: si un cambio lo quita, el
 campo de nombre vuelve por la puerta de atrás.
 
+### 4.13 Una URL con vehículo arranca en la ficha, no en la portada
+
+`readURLState()` lee el vehículo de `?v=` o del `data-vehicle` que el servidor
+inyecta en las páginas `/vehiculo/:slug`, y comentaba desde el principio que «la
+app arranca directo en ese vehículo». Pero `viewState` nacía siempre en `'home'`,
+así que el vehículo quedaba seleccionado e **invisible**: quien abría una ficha
+desde Google (o un enlace compartido) veía la portada y tenía que buscar el auto
+otra vez, y la sección de comentarios era inalcanzable desde ahí. Ahora el
+estado inicial es `'search'` cuando la URL trae vehículo. Si tocas el arranque
+de `App`, no vuelvas a fijar `viewState` a `'home'` sin mirar esto.
+
 ---
 
 ## 5. Seguridad al correr pruebas

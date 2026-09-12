@@ -941,7 +941,7 @@ function VehicleDetail({ id, user, onLogin }) {
   };
   const shareBtn = {
     display: 'inline-flex', alignItems: 'center', gap: '7px', font: '500 12px var(--font)',
-    letterSpacing: '0', textTransform: 'none', background: 'transparent', color: 'var(--accent)',
+    letterSpacing: '0', textTransform: 'none', background: 'transparent', color: 'var(--accent-strong)',
     border: '1px solid var(--accent-dim)', borderRadius: 'var(--r-sm)', padding: '9px 14px', cursor: 'pointer'
   };
   const saved = garage.some(x => x.id === v.id);
@@ -1708,7 +1708,13 @@ function App() {
   const [searchErr, setSearchErr] = useState(false);
   const [selected, setSelected] = useState(initialURL.selected);
   const [showGarage, setShowGarage] = useState(false);
-  const [viewState, setViewState] = useState('home'); // 'home' | 'search' | 'calculators' | 'tools'
+  /* Si la URL (o el `data-vehicle` que el servidor inyecta en las páginas SEO)
+     trae un vehículo, la app arranca DIRECTAMENTE en su ficha. Antes empezaba
+     siempre en 'home' y el vehículo quedaba seleccionado pero invisible: quien
+     abría /vehiculo/<slug> (o un enlace compartido con ?v=) veía la portada y
+     tenía que buscar el auto otra vez. La intención está escrita desde el
+     principio en readURLState(): «la app arranca directo en ese vehículo». */
+  const [viewState, setViewState] = useState(initialURL.selected ? 'search' : 'home'); // 'home' | 'search' | 'calculators' | 'tools'
   const [microApp, setMicroApp] = useState(null);     // micro app abierta desde el dashboard
   // ── Sesión del taller (cuenta de mecánico) ──
   const [user, setUser] = useState(null);

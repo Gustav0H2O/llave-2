@@ -375,7 +375,7 @@
 
                   <div class="rank-card-info-col">
                     <div class="rank-card-badge-row">
-                      <span class="rank-card-badge" style=${{ background: `${cur.color}18`, borderColor: `${cur.color}50`, color: cur.color }}>
+                      <span class="rank-card-badge" style=${{ borderColor: cur.color }}>
                         ${cur.nombre.toUpperCase()}
                       </span>
                     </div>
@@ -400,7 +400,7 @@
                         <span class="rank-card-period">${cur.nivel === 0 ? 'Acceso libre' : 'Aporte voluntario'}</span>
                       </div>
                       <button type="button" class="rank-card-select-btn"
-                              style=${{ background: cur.color, borderColor: cur.color }}
+                              style=${{ borderColor: cur.color }}
                               tabIndex=${diff === 0 ? '0' : '-1'}
                               onClick=${(e) => { e.stopPropagation(); onSelectLevel && onSelectLevel(cur); }}>
                         <span>${cur.nivel === 0 ? 'Comenzar gratis' : `Elegir ${cur.nombre.split(' ')[0]}`}</span>
@@ -422,7 +422,6 @@
                       role="tab"
                       aria-selected=${act === idx}
                       class=${'rank-pill-tab' + (act === idx ? ' is-active' : '')}
-                      style=${act === idx ? { background: nv.color, borderColor: nv.color, color: '#fff' } : {}}
                       onClick=${() => setAct(idx)}>
                 <span class="rank-pill-dot" style=${{ background: act === idx ? '#fff' : nv.color }}></span>
                 <span>${nv.nombre.split(' ')[0]}</span>
