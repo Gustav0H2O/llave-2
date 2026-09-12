@@ -35,8 +35,12 @@
     v18: actualización con cuentas reales de Binance Pay ID y Zinli con QR interactivos.
     v19: cáscara móvil tipo app (nada encima de la barra inferior, respuesta táctil,
         entrada animada de la herramienta) y enrutado unificado: diag/calc/aid/glossary
-        abren sus micro apps y se retiran las vistas legacy duplicadas. */
-const CACHE = 'llave-v19';
+        abren sus micro apps y se retiran las vistas legacy duplicadas.
+    v20: el código se sirve con `no-cache` (se revalida en cada carga) en vez de
+        un día de caché, así un despliegue se ve al recargar sin vaciar nada; la
+        app busca actualización del worker en cada arranque y se recarga sola una
+        vez cuando uno nuevo toma el control. */
+const CACHE = 'llave-v20';
 const SHELL = [
   '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',

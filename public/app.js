@@ -1729,10 +1729,46 @@ if (!__rootEl || __rootEl.dataset.app !== 'none') {
    y tienen que seguir funcionando en las páginas de solo contenido (/guias,
    legales) donde React ni siquiera se monta. */
 
-// Estrategia network-first: nunca sirve código viejo, pero responde sin señal.
+/* Estrategia network-first: nunca sirve código viejo, pero responde sin señal.
+   Además se busca actualización en cada arranque y, si el service worker nuevo
+   toma el control, se recarga UNA vez: sin esto, una pestaña abierta seguía con
+   el código de antes hasta cerrarla a mano, que es justo lo que obligaba a
+   vaciar la caché para ver un despliegue. */
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+  const teniaControl = !!navigator.serviceWorker.controller;
+  let recargado = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!teniaControl || recargado) return;
+    recargado = true;
+    location.reload();
+  });
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then((reg) => { reg.update().catch(() => {}); })
+      .catch(() => {});
+  });
 }
+
+/* Al salir se vacía el caché de CÓDIGO —el HTML, el JS y los datos de la app—,
+   pero NO las librerías ni las imágenes, y NADA de localStorage: tus datos,
+   preferencias y tema se conservan. Así la próxima visita no arrastra una
+   versión vieja aunque el HTML se hubiera quedado cacheado. Solo se hace con
+   red: cerrar sin señal dejaría la app sin lo único que le permite abrir en la
+   fosa. Es best-effort: el navegador puede cortar el trabajo asíncrono al
+   descargar la página. */
+window.addEventListener('pagehide', () => {
+  try { sessionStorage.clear(); } catch (e) { /* modo privado */ }
+  if (!navigator.onLine || !('caches' in window)) return;
+  const INMUTABLE = /^\/(vendor|media)\//;
+  caches.keys().then((nombres) => Promise.all(nombres.map(async (n) => {
+    const c = await caches.open(n);
+    const reqs = await c.keys();
+    await Promise.all(reqs.map((r) => {
+      try { return INMUTABLE.test(new URL(r.url).pathname) ? null : c.delete(r); }
+      catch (e) { return null; }
+    }));
+  }))).catch(() => {});
+});
 
 /* 1. ¿Está abierta como aplicación instalada? -----------------------------
    `display-mode: standalone` es el estándar; `navigator.standalone` es el

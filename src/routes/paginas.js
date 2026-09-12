@@ -37,8 +37,11 @@ function montarPaginas(app, deps) {
        "N vehículos de M marcas", que se retiró — el catálogo sube y baja y la
        página de entrada no debe comprometerse con una cifra. */
     const muestra = await db.all(`SELECT v.id, b.name AS brand, v.model, v.year_from, v.year_to
-      FROM vehicles v JOIN brands b ON b.id = v.brand_id ORDER BY b.name, v.model LIMIT 12`);
-    res.set('Cache-Control', 'public, max-age=300');
+        FROM vehicles v JOIN brands b ON b.id = v.brand_id ORDER BY b.name, v.model LIMIT 12`);
+    /* La portada es el armazón de la SPA: si se cachea, un despliegue nuevo no
+       se ve hasta que caduque. `no-cache` obliga a revalidar (el ETag responde
+       304 si no cambió) y el navegador ya no tiene que vaciar nada a mano. */
+    res.set('Cache-Control', 'no-cache, must-revalidate');
     res.type('html').send(renderShell({
       title: HOME_TITLE, description: HOME_DESC, canonicalPath: '/', nonce: res.locals.cspNonce,
       /* Única página que CONSERVA su esqueleto: React monta encima. El
