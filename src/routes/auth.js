@@ -397,6 +397,13 @@ function montarAuth(app, deps) {
   /* El redirect_uri debe coincidir con las URI autorizadas en Google Console */
   const googleRedirectUri = (req) => {
     if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
+    /* En producción vale el dominio CANÓNICO del sitio (BASE_URL), que es el que
+       se registra en Google Console. Derivarlo del Host de la petición hacía que
+       un alias distinto generara un redirect_uri no autorizado —el clásico
+       `redirect_uri_mismatch`— y el callback muriera en google_error. En local y
+       pruebas se sigue derivando de la petición, porque BASE_URL trae un
+       dominio de producción por defecto. */
+    if (PROD && BASE_URL) return `${BASE_URL}/api/auth/google/callback`;
     const host = req.headers.host || '';
     // Detrás de Render/Cloudflare el Host público viaja en X-Forwarded-Host
     const fwd = (req.headers['x-forwarded-host'] || '').split(',')[0].trim();
@@ -414,6 +421,9 @@ function montarAuth(app, deps) {
   // Iniciar flujo Google OAuth
   app.get('/api/auth/google', authLimiter, (req, res) => {
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      /* Antes esto era una redirección muda: en el host faltaban las variables
+         y nadie podía entrar sin que el log dijera por qué. */
+      console.error('[Google OAuth] FALTAN GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET en este servidor: el acceso con Google está desconfigurado.');
       return res.redirect('/?login=google_unconfigured');
     }
     const GOOGLE_REDIRECT_URI = googleRedirectUri(req);
@@ -465,8 +475,10 @@ function montarAuth(app, deps) {
     res.clearCookie('google_oauth_mode', { path: '/' });
 
     if (!code || !state || !isStateValid) {
-      if (!PROD) console.log('[Google OAuth] error: state mismatch o falta code');
-      return res.redirect('/?login=google_error');
+      /* El state vive en una cookie; si el navegador no la mandó (o caducó) no
+         hay forma de distinguirlo desde fuera. El detalle lo dice. */
+      console.error('[Google OAuth] state inválido o falta code:', { code: !!code, state: !!state, cookie: !!savedState });
+      return res.redirect('/?login=google_error&detalle=state');
     }
 
     try {
@@ -486,8 +498,15 @@ function montarAuth(app, deps) {
 
       if (!tokenRes.ok) {
         const errText = await tokenRes.text();
-        if (!PROD) console.log('[Google OAuth] token error:', tokenRes.status);
-        throw new Error('Error al obtener tokens de Google');
+        let code = '';
+        try { code = JSON.parse(errText).error || ''; } catch (e) { /* respuesta no-JSON */ }
+        /* Se registra SIEMPRE (también en producción): sin el código de Google
+           —`redirect_uri_mismatch`, `invalid_client`…— el fallo era invisible.
+           No lleva secretos: es el error del intercambio, no el token. */
+        console.error('[Google OAuth] token error:', tokenRes.status, code || errText.slice(0, 120));
+        const tokenErr = new Error('Error al obtener tokens de Google');
+        tokenErr.oauthDetalle = code ? `token_${code}` : `token_${tokenRes.status}`;
+        throw tokenErr;
       }
       const tokenData = await tokenRes.json();
 
@@ -496,12 +515,12 @@ function montarAuth(app, deps) {
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
       });
 
-      if (!userRes.ok) throw new Error('Error al obtener datos del usuario');
+      if (!userRes.ok) { const e = new Error('Error al obtener datos del usuario'); e.oauthDetalle = 'usuario'; throw e; }
       const googleUser = await userRes.json();
       const email = normEmail(googleUser.email);
       if (!PROD) console.log('[Google OAuth] usuario ok');
 
-      if (!email) throw new Error('Google no proporcionó el email');
+      if (!email) { const e = new Error('Google no proporcionó el email'); e.oauthDetalle = 'sin_correo'; throw e; }
 
       /* El correo de Google tiene que venir VERIFICADO. Es la pieza sobre la que
          se apoya todo: damos el correo por bueno (email_verified = 1) y dejamos
@@ -566,7 +585,7 @@ function montarAuth(app, deps) {
         }
         if (!PROD) console.log('[Google OAuth] cuenta existente:', ws.id);
       }
-      if (!ws) throw new Error('No se pudo crear la cuenta');
+      if (!ws) { const e = new Error('No se pudo crear la cuenta'); e.oauthDetalle = 'cuenta'; throw e; }
 
       /* Mismas reglas de estado que el login con contraseña: una cuenta
          suspendida o temporalmente bloqueada no puede colarse por el carril
@@ -600,8 +619,13 @@ function montarAuth(app, deps) {
       res.cookie(SESSION_COOKIE, token, tokenCookieOpts());
       res.redirect(esCuentaNueva ? '/?login=google_registered' : '/?login=google_ok');
     } catch (err) {
-      console.error('Google OAuth error:', err.message);
-      res.redirect('/?login=google_error');
+      const detalle = err.oauthDetalle || 'interno';
+      /* El redirect_uri se registra junto al fallo (sin secretos): es el dato que
+         hay que comparar contra las URI autorizadas de Google Console. */
+      let uriRegistrada = '';
+      try { uriRegistrada = googleRedirectUri(req); } catch (e) { /* host ilegible */ }
+      console.error('Google OAuth error:', err.message, '| detalle:', detalle, '| redirect_uri:', uriRegistrada);
+      res.redirect(`/?login=google_error&detalle=${encodeURIComponent(detalle)}`);
     }
   });
 }

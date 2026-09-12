@@ -32,8 +32,11 @@
         de perfil con avatar y prevención de desborde del botón salir.
     v17: sección editorial de aportes comunitarios (Ko-fi, Buy Me a Coffee, Binance Pay/USDT)
         en inicio, acceso desde hoja móvil y pie sin elementos intrusivos.
-    v18: actualización con cuentas reales de Binance Pay ID y Zinli con QR interactivos. */
-const CACHE = 'llave-v18';
+    v18: actualización con cuentas reales de Binance Pay ID y Zinli con QR interactivos.
+    v19: cáscara móvil tipo app (nada encima de la barra inferior, respuesta táctil,
+        entrada animada de la herramienta) y enrutado unificado: diag/calc/aid/glossary
+        abren sus micro apps y se retiran las vistas legacy duplicadas. */
+const CACHE = 'llave-v19';
 const SHELL = [
   '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',

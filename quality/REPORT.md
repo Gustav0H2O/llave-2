@@ -1,6 +1,6 @@
 # Informe de calidad — FuelTech Master
 
-_Generado el 2026-09-12 06:41 por `npm run metrics`. No lo edites a mano._
+_Generado el 2026-09-12 17:11 por `npm run metrics`. No lo edites a mano._
 
 ## ✅ Todos los presupuestos se cumplen
 
@@ -11,11 +11,11 @@ Nada que corregir.
 | Métrica | Valor | Estado |
 | --- | --- | --- |
 | Pruebas que pasan | 804 / 804 | ✅ |
-| Duración de la suite | 69.6 s | ✅ |
+| Duración de la suite | 69.8 s | ✅ |
 | Reglas de restricción | 20 reglas, 0 violaciones | ✅ |
 | Rutas de API probadas | 100% de 103 | ✅ |
 | Deuda conocida aceptada | 5 de 5 | ✅ |
-| Razón prueba/código | 0.73x | ✅ |
+| Razón prueba/código | 0.74x | ✅ |
 
 ## Cobertura de las reglas del taller (lib/)
 
@@ -42,13 +42,13 @@ Nada que corregir.
 ## Tamaño de los archivos que descarga el usuario
 
 ```
-✓ public/app.js              140.5 KB  de 143 KB
-✓ public/microapps.js        209.9 KB  de 210 KB
-✓ public/microapps-taller.js    81.3 KB  de 83 KB
+✓ public/app.js              101.2 KB  de 106 KB
+✓ public/microapps.js        235.7 KB  de 238 KB
+✓ public/microapps-taller.js      85 KB  de 86 KB
 ✓ public/datos.js               17 KB  de 18 KB
-✓ public/index.html          195.8 KB  de 196 KB
+✓ public/index.html          195.4 KB  de 196 KB
 ✓ public/three3d.js             35 KB  de 68 KB
-✓ public/sw.js                 5.8 KB  de 8 KB
+✓ public/sw.js                 6.1 KB  de 8 KB
 ✓ server-pg.js                25.3 KB  de 40 KB
 ```
 
@@ -58,7 +58,7 @@ Nada que corregir.
 
 - pruebas_total: 733 → 804
 - rutas_api_sin_proteger: 28 → 27
-- max_lineas_archivo: 3680 → 3238
+- max_lineas_archivo: 3680 → 3529
 
 
 ## Deuda conocida pendiente de decisión

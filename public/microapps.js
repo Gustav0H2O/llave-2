@@ -1343,6 +1343,7 @@
               <a href="mailto:newpersonal98@gmail.com">Soporte</a>
               <a href="/contacto">Contacto</a>
             </nav>
+            <p class="home-footer-copy home-footer-reporta">¿Encontraste un bug, un fallo o tienes una crítica? Escríbeme a <a href="mailto:newpersonal98@gmail.com?subject=Reporte%20en%20llave">newpersonal98@gmail.com</a>.</p>
             <p class="home-footer-copy">© ${new Date().getFullYear()} llave · todos los derechos reservados.</p>
           </div>
         </footer>
@@ -1381,6 +1382,14 @@
       setForm(null);
     };
     const borrar = (i) => { guardar(propios.filter((_, j) => j !== i)); setForm(null); };
+    const borrarTodos = () => {
+      if (!propios.length) return;
+      if (confirm(`¿Borrar los ${propios.length} códigos propios de este dispositivo? No se puede deshacer.`)) { guardar([]); setForm(null); }
+    };
+    const exportar = () => {
+      if (!propios.length) return;
+      downloadBlob('codigos-dtc-taller.json', JSON.stringify(propios, null, 2), 'application/json');
+    };
 
     const coincide = (c, n, s) => {
       const t = q.trim().toLowerCase();
@@ -1397,6 +1406,7 @@
     </div>`;
 
     return html`<${MicroShell} title="Buscador DTC (OBD-II)" icon="Ecu" onBack=${onBack}>
+      <p class="mic-lead">Busca por código o por la falla en palabras. Los códigos del estándar son de solo lectura; los tuyos —los que no están estandarizados— se guardan en este dispositivo y se marcan como propios.</p>
       <div class="dtc-barra">
         <input type="search" class="styled-input" placeholder="Código o falla: P0300, MAF, inyector…"
                aria-label="Buscar código o falla" value=${q} onChange=${e => setQ(e.target.value)} />
@@ -1404,6 +1414,16 @@
           <${CatIc} n="Plus" s=${14} /> Agregar código
         </button>
       </div>
+      ${propios.length > 0 && html`
+        <div style=${{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
+          <span class="muted" style=${{ font: '500 12px var(--font)', marginRight: 'auto' }}>${propios.length} código(s) propio(s)</span>
+          <button type="button" class="link-btn" onClick=${exportar} title="Descargar tus códigos como respaldo">
+            <${CatIc} n="Download" s=${13} /> Exportar
+          </button>
+          <button type="button" class="link-btn" onClick=${borrarTodos} title="Borrar todos los códigos propios">
+            <${CatIc} n="Trash2" s=${13} /> Borrar todos
+          </button>
+        </div>`}
 
       ${form && html`
         <div class="dtc-form">
@@ -1456,29 +1476,63 @@
   };
 
   /* ---- 3. Torques ---- */
-  const TorqueApp = ({ onBack }) => html`<${MicroShell} title="Torques de Apriete" icon="Wrench" onBack=${onBack}>
-    <table class="mic-tbl">
-      <thead><tr><th>Componente</th><th>Nm</th><th>lb-ft</th><th>Nota</th></tr></thead>
-      <tbody>${TORQUES.map((r, i) => html`<tr key=${i}><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="muted">${r[3]}</td></tr>`)}</tbody>
-    </table>
-    <div class="alert blue" style=${{ marginTop: '12px' }}><span>Referencia general: confirma siempre con el manual de servicio del fabricante.</span></div>
-  </${MicroShell}>`;
+  const TorqueApp = ({ onBack }) => {
+    const [q, setQ] = useState('');
+    const t = q.trim().toLowerCase();
+    const rows = TORQUES.filter(r => !t || (r[0] + ' ' + r[3]).toLowerCase().includes(t));
+    return html`<${MicroShell} title="Torques de Apriete" icon="Wrench" onBack=${onBack}>
+      <p class="mic-lead">Valores de apriete por componente. El par cambia con el diámetro, el material y si el tornillo es reutilizable, así que confirma siempre contra el manual de servicio del vehículo.</p>
+      <label class="sr-only" htmlFor="tq-q">Buscar componente</label>
+      <input id="tq-q" type="search" class="styled-input" placeholder="Componente: culata, birlo, bujía…"
+             value=${q} onChange=${e => setQ(e.target.value)} style=${{ maxWidth: '340px', marginBottom: '12px' }} />
+      <table class="mic-tbl">
+        <thead><tr><th>Componente</th><th>Nm</th><th>lb-ft</th><th>Nota</th></tr></thead>
+        <tbody>${rows.map((r, i) => html`<tr key=${i}><td>${r[0]}</td><td class="num">${r[1]}</td><td class="num">${r[2]}</td><td class="muted">${r[3]}</td></tr>`)}</tbody>
+      </table>
+      ${rows.length === 0 && html`<div class="empty">Sin resultados para “${q}”.</div>`}
+      <div class="alert blue" style=${{ marginTop: '12px' }}><span>Referencia general: confirma siempre con el manual de servicio del fabricante.</span></div>
+    </${MicroShell}>`;
+  };
 
   /* ---- 4. Bujías ---- */
-  const SparkApp = ({ onBack }) => html`<${MicroShell} title="Bujías y Calibración" icon="Zap" onBack=${onBack}>
-    <table class="mic-tbl">
-      <thead><tr><th>Motor</th><th>Gap mm</th><th>Gap in</th><th>Nota</th></tr></thead>
-      <tbody>${SPARKS.map((r, i) => html`<tr key=${i}><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="muted">${r[3]}</td></tr>`)}</tbody>
-    </table>
-    <div class="alert blue" style=${{ marginTop: '12px' }}><span>Usa galga y no ajustes gap en bujías de iridio. Verifica el manual del motor.</span></div>
-  </${MicroShell}>`;
+  const SparkApp = ({ onBack }) => {
+    const [q, setQ] = useState('');
+    const t = q.trim().toLowerCase();
+    const rows = SPARKS.filter(r => !t || (r[0] + ' ' + r[3]).toLowerCase().includes(t));
+    return html`<${MicroShell} title="Bujías y Calibración" icon="Zap" onBack=${onBack}>
+      <p class="mic-lead">Separación entre electrodos por tipo de motor. Usa galga para medir; no ajustes el gap en bujías de iridio, van calibradas de fábrica.</p>
+      <label class="sr-only" htmlFor="sp-q">Buscar motor</label>
+      <input id="sp-q" type="search" class="styled-input" placeholder="Motor: 1.6L, 2ZR, Vortec…"
+             value=${q} onChange=${e => setQ(e.target.value)} style=${{ maxWidth: '340px', marginBottom: '12px' }} />
+      <table class="mic-tbl">
+        <thead><tr><th>Motor</th><th>Gap mm</th><th>Gap in</th><th>Nota</th></tr></thead>
+        <tbody>${rows.map((r, i) => html`<tr key=${i}><td>${r[0]}</td><td class="num">${r[1]}</td><td class="num">${r[2]}</td><td class="muted">${r[3]}</td></tr>`)}</tbody>
+      </table>
+      ${rows.length === 0 && html`<div class="empty">Sin resultados para “${q}”.</div>`}
+      <div class="alert blue" style=${{ marginTop: '12px' }}><span>Verifica el manual del motor: el gap depende de la bujía y del sistema de encendido.</span></div>
+    </${MicroShell}>`;
+  };
 
   /* ---- 5. Cross-reference de pilas ---- */
   const CrossApp = ({ onBack }) => {
     const [pumps, setPumps] = useState([]);
     const [sel, setSel] = useState('');
-    useEffect(() => { fetch('/api/pumps').then(r => r.json()).then(setPumps).catch(() => {}); }, []);
+    const [sel2, setSel2] = useState('');
+    /* Antes el fallo era mudo (.catch vacío): si /api/pumps no respondía, el
+       desplegable quedaba vacío y parecía que no había pilas. */
+    const [cargando, setCargando] = useState(true);
+    const [error, setError] = useState('');
+    const cargar = () => {
+      setCargando(true); setError('');
+      fetch('/api/pumps')
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(d => setPumps(Array.isArray(d) ? d : []))
+        .catch(e => setError(e.message || 'Error de conexión'))
+        .finally(() => setCargando(false));
+    };
+    useEffect(cargar, []);
     const p = pumps.find(x => x.id === Number(sel));
+    const p2 = pumps.find(x => x.id === Number(sel2));
     const Pump3D = window.FT_APP?.Pump3D;
 
     /* Equivalentes: las demás pilas ordenadas por lo cerca que quedan en
@@ -1501,6 +1555,18 @@
       </div>`;
 
     return html`<${MicroShell} title="Cross-Reference de Pilas" icon="Compare" onBack=${onBack}>
+      <p class="mic-lead">Elige una pila y verás su forma en 3D, sus datos y las que más se le acercan en presión.</p>
+      ${cargando && html`<div class="skel" aria-hidden="true" style=${{ marginBottom: '16px' }}>
+        <div class="skel-line" style=${{ width: '38%' }}></div>
+        <div class="skel-line" style=${{ width: '100%', height: '46px' }}></div>
+      </div>`}
+      ${!cargando && error && html`<div class="empty-state">
+        <div class="empty-icon"><${CatIc} n="WifiOff" s=${26} /></div>
+        <p class="empty-title">No se pudo cargar el catálogo de pilas</p>
+        <p class="empty-hint">Revisa la conexión y vuelve a intentarlo.</p>
+        <button type="button" class="empty-action" onClick=${cargar}><${CatIc} n="RefreshCw" s=${14} /> Reintentar</button>
+      </div>`}
+      ${!error && html`
       <label class="conv-lbl" htmlFor="cross-sel">Pila de referencia</label>
       <select id="cross-sel" class="styled-input" value=${sel} onChange=${e => setSel(e.target.value)}
               style=${{ maxWidth: '460px', minHeight: '46px', fontSize: '16px', marginBottom: '16px' }}>
@@ -1508,7 +1574,14 @@
         ${pumps.map(x => html`<option key=${x.id} value=${x.id}>${x.code} — ${x.manufacturer} (${x.max_psi_direct} PSI)</option>`)}
       </select>
 
-      ${!sel && html`<div class="empty-state">
+      <label class="conv-lbl" htmlFor="cross-sel2">Comparar con otra (opcional)</label>
+      <select id="cross-sel2" class="styled-input" value=${sel2} onChange=${e => setSel2(e.target.value)}
+              style=${{ maxWidth: '460px', minHeight: '46px', fontSize: '16px', marginBottom: '16px' }}>
+        <option value="">Elige la segunda pila…</option>
+        ${pumps.filter(x => x.id !== Number(sel)).map(x => html`<option key=${x.id} value=${x.id}>${x.code} — ${x.manufacturer} (${x.max_psi_direct} PSI)</option>`)}
+      </select>`}
+
+      ${!cargando && !error && !sel && html`<div class="empty-state">
         <div class="empty-icon"><${CatIc} n="Compare" s=${26} /></div>
         <p class="empty-title">Elige una pila para compararla</p>
         <p class="empty-hint">Verás su forma en 3D, sus datos y las que más se le acercan en presión.</p>
@@ -1554,6 +1627,15 @@
           <${CatIc} n="Info" s=${14} />
           <span>Coincidir en PSI no es ser compatible: confirma medidas, entrada, salida y conector contra la pieza original antes de comprar.</span>
         </div>`}
+
+      ${p && p2 && html`
+        <h4 class="cross-titulo">Comparación lado a lado</h4>
+        <table class="mic-tbl">
+          <thead><tr><th>Dato</th><th>${p.code}</th><th>${p2.code}</th></tr></thead>
+          <tbody>
+            ${[['Presión máx', x => x.max_psi_direct + ' PSI'], ['Presión', x => x.max_bar_direct + ' bar'], ['Consumo', x => x.amperage_a + ' A @ ' + x.voltage_v + ' V'], ['Caudal libre', x => (x.flow_lph_free || '—') + ' LPH'], ['Estilo', x => x.pump_style], ['Entrada', x => x.inlet_desc], ['Salida', x => x.outlet_desc], ['Polaridad', x => x.polarity_desc]].map(([lbl, f]) => html`<tr key=${lbl}><td>${lbl}</td><td>${f(p)}</td><td>${f(p2)}</td></tr>`)}
+          </tbody>
+        </table>`}
     </${MicroShell}>`;
   };
 
@@ -1607,10 +1689,13 @@
     return Number(x.toFixed(dec)).toLocaleString('es', { maximumFractionDigits: dec });
   };
 
+  /* La magnitud que el mecánico usa casi siempre se recuerda en el aparato:
+     volver a elegir "presión" cada vez que abre el conversor es trabajo de más. */
+  const convMagInicial = () => MAGNITUDES.find(m => m.id === ls.get('ft_conv_mag', '')) || MAGNITUDES[0];
   const ConverterApp = ({ onBack }) => {
-    const [magId, setMagId] = useState('presion');
+    const [magId, setMagId] = useState(() => convMagInicial().id);
     const [valor, setValor] = useState('');
-    const [desde, setDesde] = useState('PSI');
+    const [desde, setDesde] = useState(() => convMagInicial().us[0][0]);
     const mag = MAGNITUDES.find(m => m.id === magId) || MAGNITUDES[0];
     const n = parseFloat(String(valor).replace(',', '.'));
     const hayValor = Number.isFinite(n);
@@ -1619,6 +1704,7 @@
       const m = MAGNITUDES.find(x => x.id === id);
       setMagId(id);
       setDesde(m.us[0][0]);   // la unidad anterior no existe en la nueva magnitud
+      ls.set('ft_conv_mag', id);
     };
 
     /* Valores que un mecánico teclea a diario: ahorran el teclado numérico con
@@ -1715,6 +1801,24 @@
   };
 
   /* ---- 7. VIN ---- */
+  /* Dígito verificador (posición 9, ISO 3779): se transliteran las letras a
+     número, se multiplican por un peso por posición y el resto módulo 11 es el
+     dígito (10 = "X"). Solo lo exigen los VIN de mercado norteamericano: en
+     otros mercados el dato puede no cuadrar y el VIN sigue siendo válido, por
+     eso es un aviso y no un error. */
+  const VIN_TRANSLIT = { A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8, J: 1, K: 2, L: 3, M: 4, N: 5, P: 7, R: 9, S: 2, T: 3, U: 4, V: 5, W: 6, X: 7, Y: 8, Z: 9 };
+  const VIN_PESOS = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2];
+  const vinCheckDigit = (s) => {
+    let suma = 0;
+    for (let i = 0; i < 17; i++) {
+      const c = s[i];
+      const val = /\d/.test(c) ? Number(c) : VIN_TRANSLIT[c];
+      if (val === undefined) return null;
+      suma += val * VIN_PESOS[i];
+    }
+    const r = suma % 11;
+    return r === 10 ? 'X' : String(r);
+  };
   const VinApp = ({ onBack }) => {
     const [vin, setVin] = useState('');
     const v = vin.toUpperCase().trim();
@@ -1729,14 +1833,25 @@
       '3VW': 'Volkswagen (México)', '1J4': 'Jeep (EE. UU.)', '1N4': 'Nissan (EE. UU.)',
       '3N1': 'Nissan (México)', 'KNA': 'Kia (Corea)', 'KMH': 'Hyundai (Corea)',
       'WAU': 'Audi', 'WDB': 'Mercedes-Benz', 'WBX': 'BMW', 'YV1': 'Volvo', 'LGW': 'Great Wall',
+      'JTD': 'Toyota (Japón)', 'JN1': 'Nissan (Japón)', 'JM1': 'Mazda (Japón)',
+      'JHM': 'Honda (Japón)', 'WVW': 'Volkswagen (Alemania)', 'VF1': 'Renault (Francia)',
+      'VF3': 'Peugeot (Francia)', 'ZFA': 'Fiat (Italia)', '9BG': 'Chevrolet (Brasil)',
+      '9BD': 'Fiat (Brasil)', '93H': 'Honda (Brasil)', '8AP': 'Vehículo (Argentina)',
+      'KL1': 'Chevrolet (Corea)', 'LSV': 'Vehículo (China)',
     };
+    const check = valid ? vinCheckDigit(v) : null;
+    const checkOk = valid && check === v[8];
     return html`<${MicroShell} title="Decodificador VIN" icon="ScanSearch" onBack=${onBack}>
-      <input type="text" class="styled-input" placeholder="17 caracteres: 3VW…" value=${vin} onChange=${e => setVin(e.target.value.toUpperCase())} maxLength="17" style=${{ maxWidth: '340px', fontVariantNumeric: 'tabular-nums', letterSpacing: '2px' }} />
+      <p class="mic-lead">Los 17 caracteres del chasis traen el fabricante, el año del modelo y la planta. Escríbelo completo para leerlo.</p>
+      <label class="sr-only" htmlFor="vin-in">VIN de 17 caracteres</label>
+      <input id="vin-in" name="vin" type="text" class="styled-input" placeholder="17 caracteres: 3VW…" value=${vin} onChange=${e => setVin(e.target.value.toUpperCase())} maxLength="17" style=${{ maxWidth: '340px', fontVariantNumeric: 'tabular-nums', letterSpacing: '2px' }} />
       ${v.length > 0 && !valid && html`<div class="alert" style=${{ marginTop: '10px' }}><span>El VIN debe tener 17 caracteres (sin I, O, Q).</span></div>`}
       ${valid && html`<div class="vin-card" style=${{ marginTop: '14px' }}>
         <div class="vin-line"><span>Fabricante (WMI)</span><strong>${wmiBrand[wmi] || wmi + ' (no en tabla local)'}</strong></div>
         <div class="vin-line"><span>Año del modelo (pos. 10)</span><strong>${year}${year === '—' ? '' : ' (letra ' + v[9] + ')'}</strong></div>
-        <div class="vin-line"><span>País (pos. 1)</span><strong>${wmi[0] === '1' ? 'EE. UU.' : wmi[0] === '2' ? 'Canadá' : wmi[0] === '3' ? 'México' : wmi[0] === 'K' ? 'Corea' : wmi[0] === 'W' ? 'Alemania' : '—'}</strong></div>
+        <div class="vin-line"><span>País (pos. 1)</span><strong>${wmi[0] === '1' ? 'EE. UU.' : wmi[0] === '2' ? 'Canadá' : wmi[0] === '3' ? 'México' : wmi[0] === 'K' ? 'Corea' : wmi[0] === 'J' ? 'Japón' : wmi[0] === 'W' ? 'Alemania' : wmi[0] === 'V' ? 'Francia / España' : wmi[0] === 'Z' ? 'Italia' : wmi[0] === '9' ? 'Brasil / Argentina' : wmi[0] === 'L' ? 'China' : '—'}</strong></div>
+        <div class="vin-line"><span>Dígito verificador (pos. 9)</span><strong>${v[8]} ${checkOk ? '· correcto' : '· no cuadra (calculado: ' + check + ')'}</strong></div>
+        ${!checkOk && html`<div class="alert" style=${{ marginTop: '10px' }}><span>El dígito verificador no cuadra. Si el vehículo es de mercado norteamericano, revisa que copiaste el VIN sin errores; en mercados que no lo exigen, el VIN puede ser válido igual.</span></div>`}
         <div class="alert blue" style=${{ marginTop: '10px' }}><span>Tabla de años 2001–2030. La posición 10 usa letras/cifras que saltan (I, O, Q, U, Z y 0 no se usan).</span></div>
       </div>`}
     </${MicroShell}>`;
@@ -2025,6 +2140,7 @@
     const t = q.trim().toLowerCase();
     const rows = FUSE_CIRCUITS.filter(r => !t || (r[0] + ' ' + r[2]).toLowerCase().includes(t));
     return html`<${MicroShell} title="Fusibles y Relés" icon="Zap" onBack=${onBack}>
+      <p class="mic-lead">El código de colores del fusible de cuchilla es norma; el amperaje por circuito es referencia y varía por modelo. El valor bueno es el que dice la tapa de la caja.</p>
       <h3 class="mic-sub">Código de colores (fusible de cuchilla)</h3>
       <div class="fuse-grid">
         ${FUSE_COLORS.map(([a, c, hex]) => html`<div class="fuse-chip" key=${a}>
@@ -2036,6 +2152,7 @@
       <h3 class="mic-sub">Amperaje típico por circuito</h3>
       <label class="sr-only" htmlFor="fuse-q">Filtrar circuito</label>
       <input id="fuse-q" name="circuito" type="search" class="styled-input" placeholder="Circuito: bomba, ECU, luces…" value=${q} onChange=${e => setQ(e.target.value)} style=${{ maxWidth: '320px', marginBottom: '12px' }} />
+      <p class="muted" role="status" style=${{ font: '500 12px var(--font)', margin: '0 0 8px' }}>${rows.length} de ${FUSE_CIRCUITS.length} circuitos</p>
       <table class="mic-tbl">
         <thead><tr><th>Circuito</th><th>Amperaje</th><th>Nota</th></tr></thead>
         <tbody>${rows.map((r, i) => html`<tr key=${i}><td>${r[0]}</td><td class="num"><strong>${r[1].replace(' A', ' A')}</strong></td><td class="muted">${r[2]}</td></tr>`)}</tbody>
@@ -2088,6 +2205,7 @@
         </div>
         <dl class="kv tire-kv">
           <dt>Velocímetro marcando 100 km/h</dt><dd>Vas realmente a <strong>${real100.toFixed(1)} km/h</strong></dd>
+          <dt>Para ir a 100 km/h reales</dt><dd>El velocímetro marcará <strong>${(100 * dA / dB).toFixed(1)} km/h</strong></dd>
           <dt>Diferencia de altura al piso</dt><dd>${((dB - dA) / 2).toFixed(1)} mm</dd>
           <dt>Vueltas por kilómetro</dt><dd>${revA.toFixed(0)} → ${revB.toFixed(0)}</dd>
           <dt>Odómetro tras 1 000 km reales</dt><dd>Marcará ${(1000 * (dA / dB)).toFixed(0)} km</dd>
@@ -2114,8 +2232,35 @@
   ];
   const INSP_STATES = [['ok', 'Bien'], ['warn', 'Atención'], ['bad', 'Mal']];
 
+  /* Checklist de instalación de bomba/módulo, portado del árbol legacy. Vive
+     aquí y no en su propia micro app porque es otra lista de trabajo del
+     momento, como la inspección; persiste aparte, en `ft_install_check`. */
+  const INSTALL_STEPS = [
+    'Aliviar presión: quitar fusible/relé de la bomba y arrancar hasta que se apague.',
+    'Desconectar el negativo de la batería.',
+    'Localizar el módulo según la ficha (zona y si requiere bajar tanque).',
+    'Limpiar la zona de trabajo y el borde del tanque antes de abrir.',
+    'Retirar el anillo de retención o tornillos; marcar la orientación de la tapa.',
+    'Extraer el módulo con cuidado (el flotador se daña fácil).',
+    'Desconectar el conector eléctrico y las líneas; tapar la boca del tanque.',
+    'Comparar la pila nueva contra la vieja: medidas, conector y polaridad.',
+    'Reemplazar el cedazo (pre-filtro) SIEMPRE al cambiar la bomba.',
+    'Instalar la pila nueva en el módulo; revisar el sello (O-ring) de la tapa.',
+    'Reinsertar el módulo respetando la orientación; no forzar.',
+    'Colocar el anillo de retención con su sello; apretar a su posición.',
+    'Reconectar líneas y conector; conectar la batería.',
+    'Primer encendido: llave en ON 2 s (deja cebar la bomba), luego arrancar.',
+    'Verificar presión en el riel contra la especificación de la ficha.',
+    'Revisar fugas en conexiones y la tapa; probar arranque en caliente.',
+  ];
   const InspectionApp = ({ onBack }) => {
     const [d, setD] = useState(() => ls.get('ft_inspection', { veh: '', plate: '', km: '', notes: '', marks: {} }));
+    const [inst, setInst] = useState(() => {
+      const saved = ls.get('ft_install_check', null);
+      return Array.isArray(saved) && saved.length === INSTALL_STEPS.length ? saved : INSTALL_STEPS.map(() => false);
+    });
+    const toggleInst = (i) => { const next = inst.map((v, j) => j === i ? !v : v); setInst(next); ls.set('ft_install_check', next); };
+    const instDone = inst.filter(Boolean).length;
     const [copiado, setCopiado] = useState(false);
     const save = (next) => { setD(next); ls.set('ft_inspection', next); };
     const mark = (k, v) => save({ ...d, marks: { ...d.marks, [k]: d.marks[k] === v ? undefined : v } });
@@ -2175,6 +2320,18 @@
             </div>`;
           })}
         </section>`)}
+
+      <details class="panel" style=${{ padding: 0 }}>
+        <summary style=${{ padding: '14px 18px', cursor: 'pointer', fontWeight: 600, color: 'var(--ink)' }}>
+          Checklist de instalación de bomba/módulo · ${instDone}/${INSTALL_STEPS.length}
+        </summary>
+        <div style=${{ padding: '0 14px 14px' }}>
+          ${INSTALL_STEPS.map((s, i) => html`<label key=${i} class="insp-check" style=${{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '9px 4px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}>
+            <input type="checkbox" checked=${inst[i]} onChange=${() => toggleInst(i)} style=${{ marginTop: '2px', flex: 'none' }} />
+            <span style=${{ fontSize: '12.5px', lineHeight: 1.5, color: inst[i] ? 'var(--muted)' : 'var(--text)' }}>${s}</span>
+          </label>`)}
+        </div>
+      </details>
 
       <h3 class="mic-sub">Notas</h3>
       <textarea class="styled-input" rows="3" placeholder="Golpes, faltantes, objetos dentro…" value=${d.notes} onChange=${e => save({ ...d, notes: e.target.value })}></textarea>
@@ -2372,34 +2529,42 @@
     ['Amortiguadores (revisión)', 60000],
   ];
 
+  const MAINT_LAST = 'ft_maint_last';
   const MaintenanceApp = ({ onBack }) => {
     const [km, setKm] = useState(() => ls.get('ft_maint_km', ''));
     const [iv, setIv] = useState(() => ls.get('ft_maint_iv', {}));
+    const [last, setLast] = useState(() => ls.get(MAINT_LAST, {}));
     const setKmSave = (v) => { setKm(v); ls.set('ft_maint_km', v); };
     const setIvSave = (n, v) => { const next = { ...iv, [n]: v }; setIv(next); ls.set('ft_maint_iv', next); };
     const actual = parseFloat(km) || 0;
+    /* "Hecho" fija el último servicio de ese renglón en el kilometraje actual.
+       Sin eso el plan siempre supone que nada se ha hecho y vuelve a listar
+       trabajos ya cumplidos; con eso, el "faltan" es real. */
+    const marcarHecho = (n) => { const next = { ...last, [n]: actual }; setLast(next); ls.set(MAINT_LAST, next); };
     const filas = MAINT_DEFAULT.map(([nombre, def]) => {
       const paso = parseFloat(iv[nombre]) || def;
-      const proximo = Math.ceil((actual + 1) / paso) * paso;
+      const base = parseFloat(last[nombre]) || 0;
+      const proximo = actual <= base ? base + paso : base + (Math.floor((actual - base) / paso) + 1) * paso;
       const faltan = proximo - actual;
-      // "vencido" = ya pasó más de un intervalo completo desde el último servicio teórico
+      // "vencido" = el servicio ya pasó su intervalo desde el último hecho/teórico
       const estado = !actual ? '' : faltan <= paso * 0.1 ? 'bad' : faltan <= paso * 0.25 ? 'warn' : 'ok';
-      return { nombre, paso, proximo, faltan, estado };
+      return { nombre, paso, proximo, faltan, estado, hecho: base };
     }).sort((a, b) => a.faltan - b.faltan);
     return html`<${MicroShell} title="Plan de Mantenimiento" icon="History" onBack=${onBack}>
-      <p class="mic-lead">Pon el kilometraje actual y mira qué servicio toca antes. Los intervalos vienen del servicio ligero genérico y son editables: el manual del vehículo manda.</p>
+      <p class="mic-lead">Pon el kilometraje actual y mira qué servicio toca antes. Los intervalos son del servicio ligero genérico y editables; toca "Hecho" cuando completes uno para que el plan lo cuente desde ahí. El manual del vehículo manda.</p>
       <label><span class="mic-lbl">Kilometraje actual</span>
         <input type="number" class="styled-input" placeholder="Ej. 78500" value=${km} onChange=${e => setKmSave(e.target.value)} style=${{ maxWidth: '220px' }} />
       </label>
       ${!actual
         ? html`<div class="alert blue" style=${{ marginTop: '14px' }}><span>Escribe el kilometraje para calcular los próximos servicios.</span></div>`
         : html`<table class="mic-tbl maint-tbl" style=${{ marginTop: '16px' }}>
-            <thead><tr><th>Servicio</th><th>Cada</th><th>Próximo</th><th>Faltan</th></tr></thead>
+            <thead><tr><th>Servicio</th><th>Cada</th><th>Próximo</th><th>Faltan</th><th class="sr-only">Acción</th></tr></thead>
             <tbody>${filas.map(f => html`<tr key=${f.nombre} class=${'maint-' + f.estado}>
-              <td>${f.nombre}</td>
+              <td>${f.nombre}${f.hecho ? html`<span class="muted" style=${{ display: 'block', fontSize: '11px' }}>hecho a ${f.hecho.toLocaleString('es-MX')} km</span>` : ''}</td>
               <td><input type="number" class="styled-input maint-iv" value=${iv[f.nombre] ?? f.paso} onChange=${e => setIvSave(f.nombre, e.target.value)} aria-label=${'Intervalo de ' + f.nombre} /></td>
               <td>${f.proximo.toLocaleString('es-MX')} km</td>
               <td><strong>${f.faltan.toLocaleString('es-MX')} km</strong></td>
+              <td><button type="button" class="link-btn" title=${'Marcar como hecho a ' + actual.toLocaleString('es-MX') + ' km'} onClick=${() => marcarHecho(f.nombre)}>Hecho</button></td>
             </tr>`)}</tbody>
           </table>`}
     </${MicroShell}>`;
@@ -2901,9 +3066,47 @@
         { id: 'sellos', t: 'Fuga externa o sellos de válvula', desc: 'Revisa junta de tapa, sello de cigüeñal y guías de válvula. Una mancha de aceite fresca en el block apunta al culpable.' },
       ]
     },
+    /* Síntomas del sistema de combustible que solo vivían en el árbol de la
+       vista legacy. Van como lista de causas y pruebas —no como preguntas
+       sí/no— porque el árbol binario no los representaba así. */
+    { id: 'ruido', t: 'La bomba hace ruido', icon: 'Pump',
+      steps: [
+        { causa: 'Nivel bajo de gasolina (la bomba se lubrica con el combustible)', prueba: 'Rellena el tanque. Si el ruido desaparece, era falta de combustible y la bomba está sufriendo.' },
+        { causa: 'Cedazo tapado que provoca cavitación', prueba: 'La bomba zumba fuerte porque el cedazo obstruido le impide succionar. Inspecciónalo al desarmar el módulo.' },
+        { causa: 'Bomba con rodamientos gastados', prueba: 'Si el ruido persiste con el tanque lleno y el cedazo limpio, la bomba está por fallar: cámbiala preventivamente.' },
+        { causa: 'Sujeción floja del módulo (vibra)', prueba: 'Revisa el anillo de retención y las gomas del módulo: un módulo suelto transmite ruido al chasis.' },
+      ]
+    },
+    { id: 'fuga', t: 'Huele a gasolina / fuga', icon: 'Injector',
+      steps: [
+        { causa: 'Línea de retorno o conexión del módulo con fuga', prueba: 'Con el motor encendido, inspecciona conexiones y abrazaderas. Limpia y revisa con el vehículo elevado.' },
+        { causa: 'Tapa del módulo mal sellada', prueba: 'Revisa el O-ring de la tapa del módulo: si está cortado o deformado, cámbialo. No reutilices sellos viejos.' },
+        { causa: 'Inyector con fuga interna (drena presión)', prueba: 'Prueba de retención: la presión no debe caer más de 5 PSI en 5 minutos. Si cae, hay fuga en inyector o válvula check.' },
+        { causa: 'Manguera de vacío del regulador con gasolina', prueba: 'Si huele a gasolina por el múltiple, revisa el regulador: diafragma roto deja pasar combustible al vacío.' },
+        { causa: 'Tanque con fuga en costura o tapón', prueba: 'Inspecciona el tanque con el vehículo elevado, sobre todo en zonas de corrosión.' },
+      ]
+    },
+    { id: 'caliente', t: 'Falla en caliente', icon: 'Thermometer',
+      steps: [
+        { causa: 'Bomba con desgaste térmico (pierde presión al calentar)', prueba: 'Mide presión en frío y en caliente: si cae más de 8 PSI en caliente, la bomba está por fallar.' },
+        { causa: 'Válvula check interna del módulo drenando', prueba: 'Prueba de retención en caliente: la presión no debe caer rápido al apagar el motor.' },
+        { causa: 'Sensor de temperatura (CTS) con lectura errónea', prueba: 'Un CTS que lee frío hace que la ECU entregue mezcla rica. Compara su lectura con un multímetro o escáner.' },
+        { causa: 'Módulo de encendido con falla térmica', prueba: 'Cuando falle, rocíale aire frío al módulo: si arranca, es falla térmica del módulo.' },
+        { causa: 'Vapor lock en líneas de combustible', prueba: 'Más común con líneas cerca del escape. Revisa el ruteo de líneas y el aislamiento térmico.' },
+      ]
+    },
+    { id: 'consumo', t: 'Consumo alto de gasolina', icon: 'Droplets',
+      steps: [
+        { causa: 'Regulador con presión alta (mezcla rica)', prueba: 'Mide la presión en ralentí y compara con la especificación. Presión alta = mezcla rica = consumo alto.' },
+        { causa: 'Sensor de oxígeno (O2) gastado', prueba: 'Un O2 lento o muerto hace que la ECU inyecte de más. Escanea su voltaje: debe oscilar rápido entre 0.1 y 0.9 V.' },
+        { causa: 'Sensor de temperatura (CTS) leyendo frío', prueba: 'Mezcla rica constante. Verifica con escáner la temperatura del motor contra la real.' },
+        { causa: 'Filtro de aire tapado', prueba: 'Un filtro saturado ensucia la mezcla y sube el consumo. Revísalo antes de acusar al sistema de combustible.' },
+        { causa: 'Freno de estacionamiento arrastrando o llantas bajas', prueba: 'Descarta lo mecánico antes de condenar la bomba.' },
+      ]
+    },
   ];
 
-  const SymptomDiagApp = ({ onBack }) => {
+  const SymptomDiagApp = ({ onBack, onOpen }) => {
     const [symptomId, setSymptomId] = useState(null);
     const [path, setPath] = useState([]);
     const sym = symptomId ? SYMPTOMS.find(s => s.id === symptomId) : null;
@@ -2920,7 +3123,7 @@
           ${SYMPTOMS.map(s => html`<button type="button" class="micro-card micro-card-app" key=${s.id} onClick=${() => { setSymptomId(s.id); setPath([]); }}>
             <span class="micro-card-icon"><${CatIc} n=${s.icon} s=${24} /></span>
             <span class="micro-card-title">${s.t}</span>
-            <span class="micro-card-desc">Empezar diagnóstico</span>
+            <span class="micro-card-desc">${s.steps ? 'Causas y pruebas rápidas' : 'Empezar diagnóstico'}</span>
           </button>`)}
         </div>
       ` : html`
@@ -2929,7 +3132,14 @@
           <button type="button" class="link-btn" onClick=${reset} style=${{ marginLeft: '12px' }}>↺ Empezar de nuevo</button>
         </div>
         <h2 style=${{ marginTop: '10px', marginBottom: '8px' }}>${sym.t}</h2>
-        ${path.length === 0 ? html`
+        ${sym.steps ? html`
+          <div style=${{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            ${sym.steps.map((s, i) => html`<div class="panel" style=${{ padding: '16px 18px' }} key=${i}>
+              <strong style=${{ display: 'block', marginBottom: '6px', color: 'var(--text)' }}>${i + 1}. ${s.causa}</strong>
+              <p class="muted" style=${{ margin: 0, lineHeight: 1.6 }}>${s.prueba}</p>
+            </div>`)}
+          </div>
+        ` : path.length === 0 ? html`
           <div class="panel" style=${{ padding: '24px' }}>
             <p style=${{ fontWeight: 600, marginBottom: '14px' }}>${sym.nodes[0].q}</p>
             <div style=${{ display: 'flex', gap: '10px' }}>
@@ -2947,8 +3157,8 @@
             ` : html`
               <h3 style=${{ color: 'var(--accent)', marginBottom: '10px' }}>${sym.nodes[path[path.length - 1]].t}</h3>
               <p style=${{ color: 'var(--ink-2)', lineHeight: 1.6 }}>${sym.nodes[path[path.length - 1]].desc}</p>
-              ${sym.nodes[path[path.length - 1]].goto === 'bateria' ? html`<a class="link-btn" style=${{ marginTop: '14px', display: 'inline-block' }} onClick=${() => onBack && onBack()}>Abrir Batería y Sistema de Carga →</a>` : null}
-              ${sym.nodes[path[path.length - 1]].goto === 'fuses' ? html`<a class="link-btn" style=${{ marginTop: '14px', display: 'inline-block' }} onClick=${() => onBack && onBack()}>Abrir Fusibles y Relés →</a>` : null}
+              ${sym.nodes[path[path.length - 1]].goto === 'bateria' ? html`<button type="button" class="link-btn" style=${{ marginTop: '14px' }} onClick=${() => onOpen && onOpen('battery')}>Abrir Batería y Sistema de Carga →</button>` : null}
+              ${sym.nodes[path[path.length - 1]].goto === 'fuses' ? html`<button type="button" class="link-btn" style=${{ marginTop: '14px' }} onClick=${() => onOpen && onOpen('fuses')}>Abrir Fusibles y Relés →</button>` : null}
               <div style=${{ marginTop: '18px' }}>
                 <button type="button" class="home-cta-ghost" onClick=${reset}>Probar otra ruta</button>
               </div>
@@ -2966,12 +3176,16 @@
       <div class="conv-modes" style=${{ marginBottom: '16px' }}>
         <button type="button" class=${'conv-mode' + (tab === 'psi' ? ' active' : '')} onClick=${() => setTab('psi')}>PSI ↔ Bar</button>
         <button type="button" class=${'conv-mode' + (tab === 'flow' ? ' active' : '')} onClick=${() => setTab('flow')}>Caudal LPH</button>
+        <button type="button" class=${'conv-mode' + (tab === 'need' ? ' active' : '')} onClick=${() => setTab('need')}>Consumo HP</button>
         <button type="button" class=${'conv-mode' + (tab === 'current' ? ' active' : '')} onClick=${() => setTab('current')}>Corriente bomba</button>
+        <button type="button" class=${'conv-mode' + (tab === 'ohm' ? ' active' : '')} onClick=${() => setTab('ohm')}>Ley de Ohm</button>
         <button type="button" class=${'conv-mode' + (tab === 'volts' ? ' active' : '')} onClick=${() => setTab('volts')}>Caída de tensión</button>
       </div>
       ${tab === 'psi' ? html`<${PsiConverter} />` : null}
       ${tab === 'flow' ? html`<${FlowCalculator} />` : null}
+      ${tab === 'need' ? html`<${FuelNeedCalculator} />` : null}
       ${tab === 'current' ? html`<${CurrentCalculator} />` : null}
+      ${tab === 'ohm' ? html`<${OhmCalculator} />` : null}
       ${tab === 'volts' ? html`<${VoltageDropCalculator} />` : null}
     </${MicroShell}>`;
   };
@@ -3060,6 +3274,72 @@
     </div>`;
   };
 
+  /* ---- 37b. Consumo por potencia y unidades de caudal ----
+     Portado de la calculadora legacy: dimensiona una pila de reemplazo cuando
+     no se conoce el caudal de la original. BSFC en lb/(HP·h); la gasolina pesa
+     ~0.74 kg/L. El resultado es el MÍNIMO a plena carga, no la capacidad de la
+     bomba (que se elige con margen y a su presión de trabajo). */
+  const BSFC_ASP = [
+    ['na', 'Atmosférico', 0.38],
+    ['turbo', 'Turbo / sobrealimentado', 0.47],
+    ['e85', 'E85 / flex', 0.61],
+  ];
+  const FuelNeedCalculator = () => {
+    const [hp, setHp] = useState(150);
+    const [asp, setAsp] = useState('na');
+    const [lph, setLph] = useState(110);
+    const bsfc = (BSFC_ASP.find(a => a[0] === asp) || BSFC_ASP[0])[2];
+    const reqLph = (hp * bsfc * 0.453592) / 0.74;
+    const gph = lph / 3.785412;
+    const ccmin = lph / 0.06;
+    return html`<div class="panel" style=${{ padding: '20px', maxWidth: '560px' }}>
+      <h3 style=${{ marginBottom: '14px' }}>Consumo requerido por el motor</h3>
+      <div style=${{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <label>Potencia (HP)<input class="styled-input" type="number" value=${hp} onChange=${e => setHp(parseFloat(e.target.value) || 0)} /></label>
+        <label>Aspiración
+          <select class="styled-input" value=${asp} onChange=${e => setAsp(e.target.value)}>
+            ${BSFC_ASP.map(([id, t]) => html`<option key=${id} value=${id}>${t}</option>`)}
+          </select></label>
+      </div>
+      <div style=${{ marginTop: '16px' }}>
+        <span class="muted">Caudal mínimo a plena carga</span><br />
+        <b style=${{ fontSize: '24px', color: 'var(--accent)' }}>${reqLph.toFixed(1)} LPH</b>
+      </div>
+      <p class="muted" style=${{ marginTop: '12px' }}>BSFC ${bsfc} lb/(HP·h). Es el mínimo que pide el motor; la bomba se elige con 20–30 % de margen.</p>
+
+      <h3 style=${{ margin: '20px 0 14px' }}>Convertir caudal</h3>
+      <label>Caudal (LPH)<input class="styled-input" type="number" step="0.1" value=${lph} onChange=${e => setLph(parseFloat(e.target.value) || 0)} /></label>
+      <div style=${{ marginTop: '10px', display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+        <span class="muted">${gph.toFixed(2)} GPH (US)</span>
+        <span class="muted">${ccmin.toFixed(0)} cc/min</span>
+      </div>
+    </div>`;
+  };
+
+  /* ---- 37c. Ley de Ohm (V y Ω → A) ----
+     Umbrales del taller: por encima de 20 A el motor está atascado o hay corto;
+     por debajo de 2 A, el circuito está abierto. */
+  const OhmCalculator = () => {
+    const [v, setV] = useState(12);
+    const [ohm, setOhm] = useState(2);
+    const amps = ohm > 0 ? v / ohm : 0;
+    const estado = amps > 20 ? ['bad', 'Por encima de 20 A: motor atascado o corto.', 'var(--danger)']
+      : amps < 2 ? ['warn', 'Por debajo de 2 A: circuito abierto.', 'var(--amber)']
+        : ['ok', 'Dentro del rango normal de una pila (2–20 A).', 'var(--accent)'];
+    return html`<div class="panel" style=${{ padding: '20px', maxWidth: '520px' }}>
+      <h3 style=${{ marginBottom: '14px' }}>Ley de Ohm — corriente del circuito</h3>
+      <div style=${{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <label>Voltaje (V)<input class="styled-input" type="number" step="0.1" value=${v} onChange=${e => setV(parseFloat(e.target.value) || 0)} /></label>
+        <label>Resistencia (Ω)<input class="styled-input" type="number" step="0.1" value=${ohm} onChange=${e => setOhm(parseFloat(e.target.value) || 0)} /></label>
+      </div>
+      <div style=${{ marginTop: '16px' }}>
+        <span class="muted">Corriente (I = V / R)</span><br />
+        <b style=${{ fontSize: '28px', color: estado[2] }}>${amps.toFixed(2)} A</b>
+      </div>
+      <p class="muted" style=${{ marginTop: '12px' }}>${estado[1]}</p>
+    </div>`;
+  };
+
   /* ---- 38. Identificador con IA ---- */
   const AidApp = ({ onBack }) => {
     const [desc, setDesc] = useState('');
@@ -3136,6 +3416,17 @@
     { t: 'Sincronización (timing)', d: 'Relación de fase entre cigüeñal y árbol de levas. Se marca con puntos en las poleas. "Fuera de tiempo" significa que la banda saltó un diente o se reventó.' },
     { t: 'Compresión del motor', d: 'Presión que genera el pistón en la cámara al subir. Se mide con un manómetro de compresión en el agujero de la bujía. Típica: 120–180 PSI en MFI, 180–250 en GDI.' },
     { t: 'Ratio de compresión', d: 'Cilindro vs cámara. 10:1 significa que la mezcla se comprime 10 veces antes del encendido. Más alto = más eficiencia, pero requiere más octanaje.' },
+    /* Términos que solo vivían en el glosario de la vista legacy: se portan
+       aquí antes de retirarla para no perder el vocabulario del taller. */
+    { t: 'Returnless (sin retorno)', d: 'Sistema donde el regulador vive dentro del módulo y no hay línea de retorno al tanque.' },
+    { t: 'Vortec / CSFI', d: 'Sistema GM con inyectores en el pleno (Central Sequential Fuel Injection). El regulador está en la unidad CSFI; por debajo de su presión los poppets no abren y el motor no enciende.' },
+    { t: 'Cavitación', d: 'La bomba succiona aire o vapor por succión restringida (cedazo tapado o tanque bajo). Suena como grava y destruye la bomba.' },
+    { t: 'Vapor lock', d: 'Burbujas de vapor en la línea que cortan el flujo. Más común con líneas calientes o baja presión.' },
+    { t: 'Check / Válvula antirretorno', d: 'Evita que la presión del riel regrese al tanque al apagar. Su falla causa arranques lentos en caliente.' },
+    { t: 'Amperaje de la bomba', d: 'Consumo eléctrico de la pila. Muy por encima de lo nominal indica motor atascado o corto; muy por debajo, circuito abierto.' },
+    { t: 'Flotador / Aforador', d: 'Sensor de nivel del tanque: un brazo con potenciómetro dentro del módulo.' },
+    { t: 'O-ring / Sello', d: 'Empaque de la tapa del módulo. Si se daña, hay olor a gasolina y posibles fugas.' },
+    { t: 'Jet-pump (GDI)', d: 'Pequeño venturi que llena el vaso del módulo en sistemas GDI de baja presión.' },
   ];
 
   const GlossaryApp = ({ onBack }) => {

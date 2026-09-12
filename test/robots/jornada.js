@@ -57,9 +57,9 @@ const APPS = {
   diag: [
     ['Mi Carro No Enciende', '.ns-opt'],
     ['Batería y Sistema de Carga', '.bat-row'],
-    ['Diagnóstico Rápido de PSI', '.tool-diag-btn, .styled-input, .mic-lead, select'],
-    ['Diagnóstico por Síntomas', '.tool-diag-btn, .diag-opt, .mic-lead'],
-    ['Calculadoras Técnicas', '.styled-input, .mic-sub'],
+    ['Diagnóstico Rápido de PSI', '.styled-input, .mic-lead, select'],
+    ['Diagnóstico por Síntomas', '.micro-card, .mic-lead'],
+    ['Calculadoras Técnicas', '.conv-modes, .styled-input'],
     ['Identificador con IA', '.mic-lead, .styled-input, input'],
     ['Registro de Presión', '.pres-form, .empty, .mic-lead'],
     ['Prueba de Regulador', '.reg-q, .reg-step'],
@@ -90,7 +90,7 @@ const APPS = {
        dentro de MicroShell (antes navegaba a /guias y el robot lo leía como
        pantalla en blanco). Se comprueba con su propio .mic-lead. */
     ['Ruta de Diagnóstico', '.mic-lead'],
-    ['Glosario Técnico', '.tools-wrap, .app-shell, .tool-gloss-item'],
+    ['Glosario Técnico', '.glossary-list, .panel'],
     ['Sincronización / Kit de Tiempo', '.mic-tbl tr'],
   ],
 };
@@ -215,10 +215,10 @@ async function main() {
             /* Cuatro destinos legítimos: la micro app, la vista de búsqueda,
                la pantalla de acceso (para las que exigen cuenta) o una página
                propia como /guias. Lo único inaceptable es quedarse en blanco. */
-            enApp: !!document.querySelector('.micro-shell, .app-shell, .login-screen, .tools-wrap'),
+            enApp: !!document.querySelector('.micro-shell, .app-shell, .login-screen'),
             pideCuenta: !!document.querySelector('.login-screen'),
             conContenido: !!document.querySelector(sel),
-            texto: (document.querySelector('.micro-shell-body, .app-shell, .login-screen, .tools-wrap')?.innerText || document.body.innerText || '').trim().length,
+            texto: (document.querySelector('.micro-shell-body, .app-shell, .login-screen')?.innerText || document.body.innerText || '').trim().length,
             avisoDeCuenta: /inicia sesión|requiere cuenta|crea tu cuenta|inicia sesion/i.test(document.body.innerText),
           }), selector);
 
@@ -402,9 +402,9 @@ async function main() {
           await esperar(520);
           abiertas++;
           const estado = await pag.evaluate((sel) => ({
-            enApp: !!document.querySelector('.micro-shell, .app-shell, .tools-wrap'),
+            enApp: !!document.querySelector('.micro-shell, .app-shell'),
             conContenido: !!document.querySelector(sel),
-            vacioMudo: !(document.querySelector('.micro-shell-body, .app-shell, .tools-wrap')?.innerText || '').trim(),
+            vacioMudo: !(document.querySelector('.micro-shell-body, .app-shell')?.innerText || '').trim(),
           }), selector);
           rep.comprobar(estado.enApp && estado.conContenido,
             `«${titulo}» pinta su contenido con sesión abierta`,

@@ -125,33 +125,11 @@ const toast = (text) => window.dispatchEvent(new CustomEvent('ft-toast', { detai
    mayor. Se usa para fallos de red, 4xx/5xx y avisos que requieren atención. */
 toast.error = (text) => window.dispatchEvent(new CustomEvent('ft-toast-error', { detail: text }));
 
-/* Sube al backend los datos del taller guardados en localStorage (datos
-   creados sin cuenta que se conservan al cambiar de dispositivo si la persona
-   tenía cuenta). Es best-effort: si una fila falla, sigue con las demás.
-   Devuelve un resumen { ok, error, count }. */
-const importTallerFromLocal = async () => {
-  const grab = (k) => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch { return []; } };
-  const inv = grab('ft_inventory'), cli = grab('ft_clients'), ord = grab('ft_orders'), notes = grab('ft_notes'), cash = grab('ft_cash');
-  const total = inv.length + cli.length + ord.length + notes.length + cash.length;
-  if (total === 0) return { ok: false, error: 'sin_datos' };
-  const post = async (path, body) => {
-    const r = await fetch(path, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!r.ok) throw new Error(`${path} → ${r.status}`);
-    return r;
-  };
-  let count = 0;
-  try {
-    for (const i of inv) { await post('/api/inventory', { name: i.name, qty: i.qty, min_qty: i.min, unit_price: i.price || 0 }); count++; }
-    for (const c of cli) { await post('/api/clients', { name: c.name, phone: c.phone, notes: [c.veh, c.plate].filter(Boolean).join(' · ') }); count++; }
-    for (const o of ord) { await post('/api/orders', { title: o.desc || o.title || 'Orden importada', descr: o.desc, status: o.status }); count++; }
-    for (const n of notes) { await post('/api/notes', { text: n.t, vehicle_ref: n.veh }); count++; }
-    for (const m of cash) { await post('/api/cash', { concept: m.concept, amount: m.amount, type: m.type }); count++; }
-    ['ft_inventory', 'ft_clients', 'ft_orders', 'ft_notes', 'ft_cash', 'ft_pressure_log'].forEach(k => localStorage.removeItem(k));
-    return { ok: true, count };
-  } catch (e) {
-    return { ok: false, error: e.message, count };
-  }
-};
+/* Los datos de negocio (inventario, clientes, órdenes, notas, caja) viven SOLO
+   en la nube. Aquí solo se copian del servidor al navegador como espejo de
+   lectura para mirar sin conexión; nunca al revés. Se eliminó la importación
+   de datos locales (botón y subida automática) porque duplicaba filas cuando el
+   servidor ya tenía datos y mezclaba cuentas del mismo dispositivo. */
 
 function ToastStack() {
   const [items, setItems] = useState([]);
@@ -232,6 +210,7 @@ const MARK_ICONS = {
   ChevronDown: 'ChevronDown', Coins: 'Coins',
   Play: 'Play', Pause: 'Pause', ArrowRight: 'ArrowRight', ArrowLeft: 'ArrowLeft',
   Menu: 'Menu', Home: 'House', LogOut: 'LogOut', Download: 'Download',
+  WifiOff: 'WifiOff', RefreshCw: 'RefreshCw',
   Clock: 'Clock', Close: 'X', Upload: 'Upload', LayoutGrid: 'LayoutGrid',
   Sun: 'Sun', Moon: 'Moon', Heart: 'Heart', Wallet: 'Wallet', Mail: 'Mail', Award: 'Award', Users: 'Users',
 };
@@ -252,422 +231,6 @@ window.FT_APP.MARK_ICONS = MARK_ICONS;
    sus herramientas. La Home vive en microapps.js, que carga ANTES que este
    archivo; se resuelve en tiempo de render, igual que MarkIcon. */
 window.FT_APP.ThemeSwitch = ThemeSwitch;
-
-/* ================================================================
-   HERRAMIENTAS DEL TALLER — funciones prácticas para el mecánico
-   ================================================================ */
-
-/* ---- Árbol de diagnóstico por síntomas ----
-   El mecánico elige el síntoma y la herramienta le sugiere causas probables
-   ordenadas por frecuencia y la prueba más rápida para confirmar cada una. */
-const DIAG_TREE = {
-  'no-arranca': {
-    label: 'No arranca / se ahoga', icon: 'Zap',
-    steps: [
-      { causa: 'Falta presión de combustible (bomba muerta o filtro tapado)', prueba: 'Gira la llave a ON y escucha la bomba 2s. Mide presión en el riel: debe estar en el rango de la ficha del vehículo.' },
-      { causa: 'Fusible o relé de la bomba quemado', prueba: 'Revisa el fusible de la bomba y el relé. Puentea el relé: si la bomba gira, el problema es el circuito de control.' },
-      { causa: 'Sin chispa (módulo de encendido o sensor)', prueba: 'Prueba chispa con bujía nueva. Si no hay, revisa el módulo de encendido y el sensor de posición del cigüeñal.' },
-      { causa: 'Inyector sin pulso (ECU en modo seguro)', prueba: 'Con lámpara de inyección (noid light) comprueba pulso en un inyector. Sin pulso: revisa señal del sensor de posición y tierras de la ECU.' },
-      { causa: 'Baja compresión en cilindros', prueba: 'Prueba de compresión: debe estar sobre 100 PSI y pareja entre cilindros.' },
-    ]
-  },
-  'falta-potencia': {
-    label: 'Falta potencia / jalonea', icon: 'Gauge',
-    steps: [
-      { causa: 'Filtro de gasolina tapado → presión cae bajo carga', prueba: 'Mide presión con el vehículo en movimiento o al acelerar a fondo: si cae más de 5 PSI, cambia el filtro.' },
-      { causa: 'Bomba gastada (no entrega flujo suficiente)', prueba: 'Mide el flujo de retorno o el amperaje: una bomba gastada consume menos de lo normal (ver calculadora eléctrica).' },
-      { causa: 'Cedazo del módulo obstruido', prueba: 'Síntoma clásico: arranca bien en frío, falla en caliente o con el tanque bajo. Inspecciona el cedazo al desarmar el módulo.' },
-      { causa: 'Regulador de presión con diafragma roto', prueba: 'Revisa si hay gasolina en la manguera de vacío del regulador. Si la hay, el diafragma está roto.' },
-      { causa: 'Sensor MAF o MAP sucio', prueba: 'Limpia el sensor con limpiador específico. Un sensor sucio provoca mezcla pobre y jaloneo.' },
-    ]
-  },
-  'ruido-bomba': {
-    label: 'Bomba hace ruido', icon: 'Pump',
-    steps: [
-      { causa: 'Nivel bajo de gasolina (la bomba se lubrica con el combustible)', prueba: 'Rellena el tanque. Si el ruido desaparece, era falta de combustible y la bomba está sufriendo.' },
-      { causa: 'Cedazo tapado → cavitación', prueba: 'La bomba "zumba" fuerte: el cedazo obstruido le impide succionar. Inspecciónalo al desarmar.' },
-      { causa: 'Bomba con rodamientos gastados', prueba: 'Si el ruido persiste con el tanque lleno y el cedazo limpio, la bomba está por fallar: cámbiala preventivamente.' },
-      { causa: 'Sujeción floja del módulo (vibra)', prueba: 'Revisa el anillo de retención y las gomas del módulo: un módulo suelto transmite ruido al chasis.' },
-    ]
-  },
-  'fuga-gasolina': {
-    label: 'Huele a gasolina / fuga', icon: 'Injector',
-    steps: [
-      { causa: 'Línea de retorno o conexión del módulo con fuga', prueba: 'Con el motor encendido, inspecciona conexiones y abrazaderas. Limpia y revisa con el vehículo elevado.' },
-      { causa: 'Tapa del módulo mal sellada', prueba: 'Revisa el sello (O-ring) de la tapa del módulo: si está cortado o deformado, cámbialo. No reutilices sellos viejos.' },
-      { causa: 'Inyector con fuga interna (drena presión)', prueba: 'Prueba de retención: la presión no debe caer más de 5 PSI en 5 minutos. Si cae, hay fuga en inyector o válvula check.' },
-      { causa: 'Manguera de vacío del regulador con gasolina', prueba: 'Si huele a gasolina por el múltiple, revisa el regulador: diafragma roto deja pasar combustible al vacío.' },
-      { causa: 'Tanque con fuga en costura o tapón', prueba: 'Inspecciona el tanque con el vehículo elevado, sobre todo en zonas de corrosión.' },
-    ]
-  },
-  'falla-en-caliente': {
-    label: 'Falla en caliente / no arranca en caliente', icon: 'Thermometer',
-    steps: [
-      { causa: 'Bomba con desgaste térmico (pierde presión al calentar)', prueba: 'Mide presión en frío y en caliente: si cae más de 8 PSI en caliente, la bomba está por fallar.' },
-      { causa: 'Válvula check interna del módulo drenando', prueba: 'Prueba de retención en caliente: la presión no debe caer rápido al apagar.' },
-      { causa: 'Sensor de temperatura (CTS) con lectura errónea', prueba: 'El CTS le dice a la ECU que el motor está frío → mezcla rica. Compara su lectura con un multímetro/escáner.' },
-      { causa: 'Módulo de encendido con falla térmica', prueba: 'Cuando falle, rocíale aire frío (o agua) al módulo: si arranca, es falla térmica del módulo.' },
-      { causa: 'Vapor lock en líneas de combustible', prueba: 'Más común en carburados o con líneas cerca del escape. Revisa el ruteo de líneas y el aislamiento térmico.' },
-    ]
-  },
-  'consumo-alto': {
-    label: 'Consumo alto de gasolina', icon: 'Droplets',
-    steps: [
-      { causa: 'Regulador con presión alta (mezcla rica)', prueba: 'Mide la presión en ralentí y compara con la especificación. Presión alta = mezcla rica = consumo alto.' },
-      { causa: 'Sensor de oxígeno (O2) gastado', prueba: 'Un O2 lento o muerto hace que la ECU inyecte de más. Escanea el voltaje del sensor: debe oscilar rápido entre 0.1 y 0.9V.' },
-      { causa: 'Sensor de temperatura (CTS) leyendo frío', prueba: 'Mezcla rica constante. Verifica con escáner la temperatura del motor vs. la real.' },
-      { causa: 'Filtro de aire tapado', prueba: 'Revisa el filtro: un filtro saturado empobrece/ensucia la mezcla y sube el consumo.' },
-      { causa: 'Freno de estacionamiento arrastrando o llantas bajas', prueba: 'Descarta lo mecánico antes de acusar al sistema de combustible.' },
-    ]
-  },
-};
-
-/* ---- Checklist de instalación de bomba/módulo ----
-   Pasos ordenados que el mecánico puede ir marcando; persiste por vehículo. */
-const INSTALL_CHECKLIST = [
-  'Aliviar presión: quitar fusible/relé de la bomba y arrancar hasta que se apague.',
-  'Desconectar el negativo de la batería.',
-  'Localizar el módulo según la ficha (zona y si requiere bajar tanque).',
-  'Limpiar la zona de trabajo y el borde del tanque antes de abrir.',
-  'Retirar el anillo de retención o tornillos; marcar la orientación de la tapa.',
-  'Extraer el módulo con cuidado (el flotador se daña fácil).',
-  'Desconectar el conector eléctrico y las líneas; tapar la boca del tanque.',
-  'Comparar la pila nueva contra la vieja: medidas, conector y polaridad.',
-  'Reemplazar el cedazo (pre-filtro) SIEMPRE al cambiar la bomba.',
-  'Instalar la pila nueva en el módulo; revisar el sello (O-ring) de la tapa.',
-  'Reinsertar el módulo respetando la orientación; no forzar.',
-  'Colocar el anillo de retención con su sello; apretar a su posición.',
-  'Reconectar líneas y conector; conectar la batería.',
-  'Primer encendido: llave en ON 2s (deja cebar la bomba), luego arrancar.',
-  'Verificar presión en el riel contra la especificación de la ficha.',
-  'Revisar fugas en conexiones y la tapa; probar arranque en caliente.',
-];
-
-/* ---- Glosario técnico ---- */
-const GLOSSARY = [
-  { t: 'PSI', d: 'Libras por pulgada cuadrada. Unidad de presión usada en sistemas de combustible (1 bar ≈ 14.5 PSI).' },
-  { t: 'Bar', d: 'Unidad métrica de presión. 1 bar ≈ 14.5 PSI. Común en manuales europeos y latinos.' },
-  { t: 'LPH', d: 'Litros por hora. Mide el flujo (caudal) que la bomba entrega. A mayor demanda del motor, más LPH necesita.' },
-  { t: 'Riel / Flauta', d: 'Tubo que distribuye combustible a los inyectores. Ahí se mide la presión de trabajo.' },
-  { t: 'Módulo de gasolina', d: 'Ensamble completo dentro del tanque: bomba, regulador (a veces), flotador, cedazo y conector.' },
-  { t: 'Pila de gasolina', d: 'La bomba en bruto (el corazón del módulo). Se vende suelta o dentro del módulo.' },
-  { t: 'Regulador de presión', d: 'Mantiene la presión del riel constante aliviando el exceso de retorno. Puede estar en el riel, en el módulo o en el cuerpo TBI.' },
-  { t: 'Cedazo', d: 'Pre-filtro de tela en la succión de la bomba. Se tapa con suciedad y mata bombas: cámbialo siempre.' },
-  { t: 'Returnless (sin retorno)', d: 'Sistema donde el regulador vive dentro del módulo y no hay línea de retorno al tanque.' },
-  { t: 'TBI', d: 'Inyección en el cuerpo del acelerador (Throttle Body Injection). El regulador suele estar en el cuerpo.' },
-  { t: 'MFI', d: 'Inyección multipunto: un inyector por cilindro, en el múltiple de admisión.' },
-  { t: 'GDI', d: 'Inyección directa: el combustible va directo a la cámara. Requiere alta presión y módulos especiales.' },
-  { t: 'Vortec / CSFI', d: 'Sistema GM con inyectores en el pleno (Central Sequential Fuel Injection). El regulador está en la unidad CSFI.' },
-  { t: 'Cavitación', d: 'La bomba succiona aire/vapor por succión restringida (cedazo tapado o tanque bajo). Suena como "grava" y destruye la bomba.' },
-  { t: 'Vapor lock', d: 'Burbujas de vapor en la línea que cortan el flujo. Más común con líneas calientes o baja presión.' },
-  { t: 'Check / Válvula antirretorno', d: 'Evita que la presión del riel regrese al tanque al apagar. Su falla causa arranques lentos en caliente.' },
-  { t: 'Amperaje', d: 'Consumo eléctrico de la bomba. Más de 20A indica motor atascado o corto; menos de 2A, circuito abierto.' },
-  { t: 'Flotador / Aforador', d: 'Sensor de nivel del tanque: un brazo con potenciómetro dentro del módulo.' },
-  { t: 'O-ring / Sello', d: 'Empaque de la tapa del módulo. Si se daña, hay olor a gasolina y posibles fugas.' },
-  { t: 'Jet-pump (GDI)', d: 'Pequeño venturi que llena el vaso del módulo en sistemas GDI de baja presión.' },
-];
-
-/* ---- Registro de trabajos (por vehículo) ---- */
-const JOBS_KEY = 'ft_jobs';
-const getJobs = () => { try { return JSON.parse(localStorage.getItem(JOBS_KEY) || '{}'); } catch (e) { return {}; } };
-const saveJobs = (jobs) => localStorage.setItem(JOBS_KEY, JSON.stringify(jobs));
-
-/* ---- Componente: Herramientas ---- */
-/* Clave y forma del checklist guardado.
-
-   Antes se guardaba un array de booleanos indexado contra INSTALL_CHECKLIST:
-   funcionaba mientras la lista fuera fija, pero ahora el mecánico puede
-   añadir, renombrar y borrar pasos, y un índice suelto no sabe a qué paso
-   pertenece. Se guarda el paso entero — texto y marca — y se acepta el
-   formato viejo al leer para no borrarle el avance a quien ya tenía uno a
-   medias. */
-const checkKey = (id) => `ft_check_${id || 'gral'}`;
-const freshChecklist = () => INSTALL_CHECKLIST.map(t => ({ t, done: false }));
-const loadChecklist = (id) => {
-  try {
-    const saved = JSON.parse(localStorage.getItem(checkKey(id)) || 'null');
-    if (!Array.isArray(saved) || !saved.length) return freshChecklist();
-    // formato viejo: [true, false, …] contra la lista por defecto
-    if (typeof saved[0] === 'boolean') return INSTALL_CHECKLIST.map((t, i) => ({ t, done: !!saved[i] }));
-    return saved.filter(p => p && typeof p.t === 'string').map(p => ({ t: p.t, done: !!p.done }));
-  } catch (e) { return freshChecklist(); }
-};
-
-function Tools({ selectedId, meta, onSelectVehicle }) {
-  const [tab, setTab] = useState('diag');
-  const [diag, setDiag] = useState(null);
-  const [checklist, setChecklist] = useState(() => loadChecklist(selectedId));
-  const [editIdx, setEditIdx] = useState(-1);   // paso en edición (-1 = ninguno)
-  const [editText, setEditText] = useState('');
-  const [newStep, setNewStep] = useState('');
-  const [gloss, setGloss] = useState('');
-  const [jobs, setJobs] = useState(getJobs);
-  const [jobText, setJobText] = useState('');
-  const [jobsFor, setJobsFor] = useState(selectedId || '');
-  const [compareA, setCompareA] = useState('');
-  const [compareB, setCompareB] = useState('');
-  const [pumps, setPumps] = useState([]);
-  const [vehicles, setVehicles] = useState([]);
-  const [fallo, setFallo] = useState(null);
-
-  /* Catch mudo antes: avisa con Reintentar. */
-  const cargar = () => {
-    setFallo(null);
-    api('/api/pumps').then(setPumps).catch(() => setFallo(true));
-    api('/api/vehicles').then(setVehicles).catch(() => setFallo(true));
-  };
-  useEffect(cargar, []);
-
-  const tabBtn = (id, icon, text) => html`
-    <button type="button" class="tool-tab" data-active=${tab === id} onClick=${() => setTab(id)}>
-      <${MarkIcon} name=${icon} size=${15} /> ${text}
-    </button>`;
-
-  /* ---- Diagnóstico ---- */
-  const runDiag = (key) => { setDiag(DIAG_TREE[key]); track('herramienta_diagnostico', { sintoma: key }); };
-  const diagResult = diag && html`
-    <div class="tool-diag">
-      <div class="tool-diag-head">
-        <${MarkIcon} name="Stethoscope" size=${16} />
-        <strong>${diag.label}</strong>
-        <button type="button" class="link-btn" onClick=${() => setDiag(null)}>← elegir otro síntoma</button>
-      </div>
-      ${diag.steps.map((s, i) => html`
-        <div class="tool-diag-step" key=${i}>
-          <div class="tool-diag-num">${i + 1}</div>
-          <div>
-            <div class="tool-diag-causa">${s.causa}</div>
-            <div class="tool-diag-prueba">${s.prueba}</div>
-          </div>
-        </div>`)}
-      <div class="alert blue" style=${{ marginTop: '12px' }}>
-        <${Icon} name="Info" size=${14} />
-        <span>Ordenado por frecuencia en taller. Siempre confirma con el manual de servicio del fabricante.</span>
-      </div>
-    </div>`;
-
-  /* ---- Checklist ----
-     Una sola puerta de escritura: todo cambio pasa por `saveCheck`, que guarda
-     y refresca. Tener el `localStorage.setItem` repetido en cada acción es
-     justo como se pierde un paso al añadir la quinta. */
-  const saveCheck = (next) => {
-    setChecklist(next);
-    try { localStorage.setItem(checkKey(selectedId), JSON.stringify(next)); } catch (e) { /* modo privado */ }
-  };
-  const toggleCheck = (i) => saveCheck(checklist.map((p, j) => j === i ? { ...p, done: !p.done } : p));
-  const addStep = () => {
-    const t = newStep.trim();
-    if (!t) return;
-    saveCheck([...checklist, { t, done: false }]);
-    setNewStep(''); toast('Paso agregado');
-  };
-  const removeStep = (i) => { saveCheck(checklist.filter((_, j) => j !== i)); setEditIdx(-1); };
-  const startEdit = (i) => { setEditIdx(i); setEditText(checklist[i].t); };
-  const commitEdit = () => {
-    const t = editText.trim();
-    // Un paso sin texto no se guarda: dejaría una casilla muda que no dice qué
-    // hacer. Se cancela la edición y el paso se queda como estaba.
-    if (t && editIdx >= 0) saveCheck(checklist.map((p, j) => j === editIdx ? { ...p, t } : p));
-    setEditIdx(-1); setEditText('');
-  };
-  const resetCheck = () => { saveCheck(freshChecklist()); setEditIdx(-1); };
-  const doneCount = checklist.filter(p => p.done).length;
-
-  /* ---- Comparador ---- */
-  const cmp = (id) => pumps.find(p => p.id === Number(id));
-  const cmpRow = (label, a, b) => html`
-    <div class="cmp-row"><span class="cmp-lbl">${label}</span><span class="cmp-a">${a ?? '—'}</span><span class="cmp-b">${b ?? '—'}</span></div>`;
-  const both = compareA && compareB && cmp(compareA) && cmp(compareB);
-  const cmpBadge = (a, b) => a == null || b == null ? '' : (Math.abs(a - b) < 0.5 ? html`<span class="cmp-ok">✓</span>` : html`<span class="cmp-warn">≠</span>`);
-
-  /* ---- Registro ---- */
-  const jobsList = jobs[jobsFor] || [];
-  const addJob = () => {
-    const t = jobText.trim();
-    if (!t) return;
-    const next = { ...jobs, [jobsFor]: [...(jobs[jobsFor] || []), { t, ts: Date.now() }] };
-    setJobs(next); saveJobs(next); setJobText(''); toast('Trabajo registrado');
-  };
-  const rmJob = (i) => {
-    const next = { ...jobs, [jobsFor]: (jobs[jobsFor] || []).filter((_, j) => j !== i) };
-    setJobs(next); saveJobs(next);
-  };
-
-  return html`
-    <div class="tools-wrap">
-      <div class="panel" style=${{ padding: 0, overflow: 'hidden' }}>
-        <div style=${{ padding: '20px 24px 0' }}>
-          <div class="vh-head">
-            <h2><${MarkIcon} name="Wrench" size=${20} /> Herramientas del Taller</h2>
-          </div>
-          <p class="muted mt" style=${{ marginBottom: '18px' }}>Diagnóstico por síntomas, checklist de instalación, comparador de pilas, glosario y registro de trabajos.</p>
-        </div>
-        <div class="tool-tabs">
-          ${tabBtn('diag', 'Stethoscope', 'Diagnóstico')}
-          ${tabBtn('check', 'ClipboardCheck', 'Checklist')}
-          ${tabBtn('compare', 'Compare', 'Comparar Pilas')}
-          ${tabBtn('gloss', 'BookOpen', 'Glosario')}
-          ${tabBtn('jobs', 'History', 'Trabajos')}
-        </div>
-        <div style=${{ padding: '22px 24px 26px' }}>
-          ${fallo && html`<div class="alert" role="alert"><${Icon} name="AlertTriangle" /> No se cargaron los datos. <button type="button" class="link-btn" onClick=${cargar}>Reintentar</button></div>`}
-          ${tab === 'diag' && html`
-            <div>
-              <p class="muted" style=${{ marginBottom: '12px', fontSize: '12.5px' }}>Elige el síntoma y obtén las causas más probables con la prueba para confirmar cada una.</p>
-              <div class="tool-diag-grid">
-                ${Object.entries(DIAG_TREE).map(([k, v]) => html`
-                  <button type="button" class="tool-diag-btn" onClick=${() => runDiag(k)}>
-                    <${MarkIcon} name=${v.icon} size=${18} />
-                    <span>${v.label}</span>
-                  </button>`)}
-              </div>
-              ${diagResult}
-            </div>`}
-
-          ${tab === 'check' && html`
-            <div>
-              <div class="tool-check-head">
-                <strong>Instalación de bomba / módulo</strong>
-                <span class="result-count">${doneCount}/${checklist.length}</span>
-              </div>
-              <div class="tool-progress"><div style=${{ width: (checklist.length ? doneCount / checklist.length * 100 : 0) + '%' }}></div></div>
-              ${/* Cada paso es editable y borrable, y abajo se agregan los
-                    propios. Ningún taller monta dos módulos igual: el que
-                    trabaja Vortec necesita el paso de los poppets y el que solo
-                    ve TBI no quiere leerlo cada vez. La lista por defecto sigue
-                    siendo la de la casa —"Reiniciar" la devuelve entera—, pero
-                    deja de ser inamovible. */''}
-              <div class="tool-check-list">
-                ${checklist.map((c, i) => html`
-                  <div class="tool-check-row" key=${i}>
-                    ${editIdx === i
-                      ? html`
-                        <input type="text" class="styled-input tool-check-edit" autoFocus value=${editText}
-                               aria-label="Texto del paso"
-                               onChange=${e => setEditText(e.target.value)}
-                               onBlur=${commitEdit}
-                               onKeyDown=${e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') { setEditIdx(-1); setEditText(''); } }} />
-                        <button type="button" class="tool-icon-btn" title="Guardar el paso" onMouseDown=${e => e.preventDefault()} onClick=${commitEdit}>
-                          <${Icon} name="Check" size=${15} />
-                        </button>`
-                      : html`
-                        <label class="tool-check-item" data-checked=${c.done}>
-                          <input type="checkbox" checked=${c.done} onChange=${() => toggleCheck(i)} />
-                          <span class="tool-check-box"><${Icon} name="Check" size=${12} /></span>
-                          <span>${c.t}</span>
-                        </label>
-                        <button type="button" class="tool-icon-btn" title="Editar este paso" onClick=${() => startEdit(i)}>
-                          <${Icon} name="Pencil" size=${15} />
-                        </button>
-                        <button type="button" class="tool-icon-btn danger" title="Eliminar este paso" onClick=${() => removeStep(i)}>
-                          <${Icon} name="Trash2" size=${15} />
-                        </button>`}
-                  </div>`)}
-                ${checklist.length === 0 && html`<div class="empty" style=${{ padding: '18px' }}>El checklist está vacío. Agrega un paso abajo o reinícialo.</div>`}
-              </div>
-              <div class="tool-check-add">
-                <input type="text" class="styled-input" placeholder="Agregar un paso al checklist…" maxLength="180"
-                       aria-label="Nuevo paso del checklist" value=${newStep}
-                       onChange=${e => setNewStep(e.target.value)}
-                       onKeyDown=${e => { if (e.key === 'Enter') addStep(); }} />
-                <button type="button" class="tool-add-btn" onClick=${addStep} disabled=${!newStep.trim()}>
-                  <${Icon} name="Plus" size=${14} /> Agregar
-                </button>
-              </div>
-              <button type="button" class="link-btn" onClick=${resetCheck} style=${{ marginTop: '12px' }}>Reiniciar checklist (vuelve a los pasos de fábrica)</button>
-            </div>`}
-
-          ${tab === 'compare' && html`
-            <div>
-              <div class="cmp-selects">
-                <div><label class="muted" style=${{ display: 'block', fontSize: '10px', letterSpacing: '1px', textTransform: 'none', marginBottom: '5px' }}>Pila A</label>
-                  <select class="styled-input" value=${compareA} onChange=${e => setCompareA(e.target.value)}>
-                    <option value="">Elige una pila…</option>
-                    ${pumps.map(p => html`<option key=${p.id} value=${p.id}>${p.code} — ${p.manufacturer}</option>`)}
-                  </select></div>
-                <div><label class="muted" style=${{ display: 'block', fontSize: '10px', letterSpacing: '1px', textTransform: 'none', marginBottom: '5px' }}>Pila B</label>
-                  <select class="styled-input" value=${compareB} onChange=${e => setCompareB(e.target.value)}>
-                    <option value="">Elige una pila…</option>
-                    ${pumps.map(p => html`<option key=${p.id} value=${p.id}>${p.code} — ${p.manufacturer}</option>`)}
-                  </select></div>
-              </div>
-              ${both && html`
-                <div class="cmp-table">
-                  <div class="cmp-head"><span></span><span class="cmp-a">${cmp(compareA).code}</span><span class="cmp-b">${cmp(compareB).code}</span></div>
-                  ${cmpRow('Fabricante', cmp(compareA).manufacturer, cmp(compareB).manufacturer)}
-                  ${cmpRow('Presión máx (PSI)', cmp(compareA).max_psi_direct, cmp(compareB).max_psi_direct)}
-                  ${cmpRow('Amperaje (A)', cmp(compareA).amperage_a, cmp(compareB).amperage_a)}
-                  ${cmpRow('Flujo libre (LPH)', cmp(compareA).flow_lph_free, cmp(compareB).flow_lph_free)}
-                  ${cmpRow('Estilo', cmp(compareA).pump_style, cmp(compareB).pump_style)}
-                  ${cmpRow('Entrada', cmp(compareA).inlet_desc, cmp(compareB).inlet_desc)}
-                  ${cmpRow('Salida', cmp(compareA).outlet_desc, cmp(compareB).outlet_desc)}
-                  ${cmpRow('Polaridad', cmp(compareA).polarity_desc, cmp(compareB).polarity_desc)}
-                  <div class="alert blue" style=${{ marginTop: '12px' }}>
-                    <${Icon} name="Info" size=${14} />
-                    <span>Comprueba medidas físicas y conector antes de comprar. “Universal” no significa compatible.</span>
-                  </div>
-                </div>`}
-            </div>`}
-
-          ${tab === 'gloss' && html`
-            <div>
-              <input type="search" class="styled-input" placeholder="Buscar término (ej. cedazo, regulador, PSI…)" value=${gloss} onChange=${e => setGloss(e.target.value)} style=${{ maxWidth: '420px' }} />
-              <div class="tool-gloss">
-                ${GLOSSARY.filter(g => !gloss || g.t.toLowerCase().includes(gloss.toLowerCase()) || g.d.toLowerCase().includes(gloss.toLowerCase()))
-                  .map(g => html`<div class="tool-gloss-item" key=${g.t}><strong>${g.t}</strong><span>${g.d}</span></div>`)}
-              </div>
-            </div>`}
-
-          ${tab === 'jobs' && html`
-            <div>
-              <div style=${{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'flex-end', marginBottom: '14px' }}>
-                <div style=${{ flex: '1', minWidth: '200px' }}>
-                  <label class="muted" style=${{ display: 'block', fontSize: '10px', letterSpacing: '1px', textTransform: 'none', marginBottom: '5px' }}>Vehículo</label>
-                  ${/* Elegir un vehículo aquí abre su ficha en el catálogo. Antes
-                        solo cambiaba de qué carro se listaban los trabajos y había
-                        que salir a Herramientas, volver al buscador y buscarlo otra
-                        vez a mano para ver su presión — con el nombre ya delante en
-                        el desplegable. El registro del carro no se pierde: la
-                        selección se conserva, así que al reabrir Herramientas se
-                        vuelve a esta misma lista. */''}
-                  <select class="styled-input" value=${jobsFor} onChange=${e => {
-                    const v = e.target.value;
-                    setJobsFor(v);
-                    if (v && onSelectVehicle) onSelectVehicle(Number(v));
-                  }}>
-                    <option value="">General / sin vehículo</option>
-                    ${vehicles.map(v => html`<option key=${v.id} value=${v.id}>${v.brand} ${v.model} ${v.year_from}-${v.year_to}</option>`)}
-                  </select>
-                </div>
-                <div style=${{ flex: '2', minWidth: '220px' }}>
-                  <label class="muted" style=${{ display: 'block', fontSize: '10px', letterSpacing: '1px', textTransform: 'none', marginBottom: '5px' }}>Trabajo realizado</label>
-                  <input type="text" class="styled-input" placeholder="Ej. Cambio de bomba y cedazo; presión 52 PSI OK" value=${jobText} onChange=${e => setJobText(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter') addJob(); }} />
-                </div>
-                <button type="button" class="tool-add-btn" onClick=${addJob} disabled=${!jobText.trim()}><${Icon} name="Plus" size=${14} /> Registrar</button>
-              </div>
-              <div class="tool-jobs">
-                ${jobsList.length === 0 ? html`<div class="empty" style=${{ padding: '24px' }}>No hay trabajos registrados para este vehículo.</div>`
-                  : jobsList.slice().reverse().map((j, ri) => html`
-                    <div class="tool-job" key=${ri}>
-                      <div class="tool-job-t">${j.t}</div>
-                      <div class="tool-job-meta">${new Date(j.ts).toLocaleString()}</div>
-                      ${/* Papelera en vez del enlace "quitar": borra un registro sin
-                            vuelta atrás, y un enlace de 38x14 px con el mismo peso
-                            visual que la fecha no se lee como una acción destructiva
-                            —ni se acierta con el dedo. */''}
-                      <button type="button" class="tool-icon-btn danger" title="Eliminar este registro"
-                              aria-label=${'Eliminar el registro: ' + j.t}
-                              onClick=${() => rmJob(jobsList.length - 1 - ri)}>
-                        <${Icon} name="Trash2" size=${15} />
-                      </button>
-                    </div>`)}
-              </div>
-              <p class="muted" style=${{ fontSize: '11px', marginTop: '10px' }}>Se guarda solo en este navegador (sin conexión a servidor).</p>
-            </div>`}
-        </div>
-      </div>
-    </div>`;
-}
 
 
 /* Reconstruye al cambiar de tema. Las escenas de Three.js fijan sus colores al
@@ -1073,6 +636,10 @@ function getDeviceId() {
   }
   return id;
 }
+/* Un solo generador de `ft_device_id` en todo el sitio: microapps-taller.js lo
+   usaba con otra lógica y otro formato (JSON) sobre la misma clave, así que
+   ambos se pisaban. */
+window.FT_APP.getDeviceId = getDeviceId;
 const DEVICE_ID = getDeviceId();
 
 function ChatBot({ vehicleId, user }) {
@@ -1273,193 +840,6 @@ function ChatBot({ vehicleId, user }) {
     </${React.Fragment}>`;
 }
 
-/* ---------- Calculadoras Técnicas ---------- */
-function Calculators() {
-  const [tab, setTab] = useState('flow');
-
-  // Presión
-  const [psi, setPsi] = useState('');
-  const [bar, setBar] = useState('');
-  const onPsi = (e) => { const v = e.target.value; setPsi(v); setBar(v ? (v * 0.0689476).toFixed(2) : ''); };
-  const onBar = (e) => { const v = e.target.value; setBar(v); setPsi(v ? (v * 14.5038).toFixed(1) : ''); };
-
-  // Caudal
-  const [lph, setLph] = useState('');
-  const [gph, setGph] = useState('');
-  const [cc, setCc] = useState('');
-  const onLph = (e) => { const v = e.target.value; setLph(v); setGph(v ? (v * 0.264172).toFixed(1) : ''); setCc(v ? (v * 16.6667).toFixed(0) : ''); };
-  const onGph = (e) => { const v = e.target.value; setGph(v); setLph(v ? (v / 0.264172).toFixed(0) : ''); setCc(v ? (v * 63.0902).toFixed(0) : ''); };
-  const onCc = (e) => { const v = e.target.value; setCc(v); setLph(v ? (v / 16.6667).toFixed(0) : ''); setGph(v ? (v / 63.0902).toFixed(1) : ''); };
-
-  // Requerimiento BSFC
-  const [hp, setHp] = useState('');
-  const [aspiration, setAspiration] = useState('na'); 
-  const bsfcMap = { na: 0.38, turbo: 0.47, e85: 0.61 };
-  const reqLph = hp ? Math.ceil(hp * bsfcMap[aspiration]) : 0;
-
-  // Eléctrico
-  const [volts, setVolts] = useState('13.5');
-  const [ohms, setOhms] = useState('');
-  const amps = volts && ohms && ohms > 0 ? (volts / ohms).toFixed(1) : 0;
-  
-  let ampStatus = '';
-  let ampColor = '';
-  if (amps > 0) {
-    if (amps > 20) { ampStatus = 'Consumo crítico. Motor atascado o en corto.'; ampColor = 'var(--danger)'; }
-    else if (amps > 14) { ampStatus = 'Consumo alto. Riesgo de sobrecalentar relay.'; ampColor = 'var(--amber)'; }
-    else if (amps < 2) { ampStatus = 'Consumo muy bajo. Circuito abierto o sin carga.'; ampColor = 'var(--amber)'; }
-    else { ampStatus = 'Consumo normal para bomba estándar.'; ampColor = 'var(--text)'; }
-  }
-
-  const innerBoxStyle = {
-    background: 'var(--panel2)', border: '1px solid var(--border)', borderRadius: '6px', 
-    padding: '20px', display: 'flex', flexDirection: 'column'
-  };
-
-  const tabBtn = (id, icon, text) => html`
-    <button type="button" onClick=${() => setTab(id)} style=${{
-      flex: 1, padding: '14px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-      background: tab === id ? 'var(--accent-soft)' : 'transparent',
-      border: 'none', borderBottom: tab === id ? '2px solid var(--accent)' : '2px solid transparent',
-      color: tab === id ? 'var(--text)' : 'var(--muted)',
-      fontFamily: 'var(--font)', fontSize: '12px', fontWeight: '500', letterSpacing: '0', textTransform: 'none',
-      cursor: 'pointer', transition: 'all .2s'
-    }}>
-      <${MarkIcon} name=${({ flow: 'Droplets', pressure: 'Gauge', electrical: 'Zap' })[id] || 'Gauge'} size=${16} /> 
-      <span>${text}</span>
-    </button>
-  `;
-
-  return html`
-    <div style=${{ maxWidth: '800px', margin: '0 auto' }}>
-      <div class="panel" style=${{ padding: 0, overflow: 'hidden' }}>
-        <div style=${{ padding: '20px 24px 0' }}>
-          <div class="vh-head">
-            <h2><${MarkIcon} name="Stethoscope" size=${20} /> Diagnóstico Profesional</h2>
-          </div>
-          <p class="muted mt" style=${{ marginBottom: '20px' }}>Herramientas técnicas para cálculo de caudal y análisis eléctrico de bombas de combustible.</p>
-        </div>
-
-        <div style=${{ display: 'flex', flexWrap: 'wrap', borderBottom: '1px solid var(--border)', background: 'var(--panel)' }}>
-          ${tabBtn('flow', 'Droplets', 'Caudal (LPH)')}
-          ${tabBtn('pressure', 'Gauge', 'Presión (PSI)')}
-          ${tabBtn('electrical', 'Zap', 'Eléctrico (Ley de Ohm)')}        </div>
-
-        <div style=${{ padding: '24px' }}>
-          
-          ${tab === 'flow' ? html`
-            <div class="grid2">
-              <div style=${innerBoxStyle}>
-                <h3 style=${{ fontSize: '14.5px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <${Icon} name="Cpu" size=${16} /> Requerimiento por Motor
-                </h3>
-                <div style=${{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div>
-                    <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'none', marginBottom: '6px' }}>Caballos de fuerza (HP)</label>
-                    <input type="number" class="styled-input" value=${hp} onChange=${e => setHp(e.target.value)} placeholder="Ej: 300" />
-                  </div>
-                  <div>
-                    <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'none', marginBottom: '6px' }}>Tipo de Inducción</label>
-                    <select class="styled-input" value=${aspiration} onChange=${e => setAspiration(e.target.value)}>
-                      <option value="na">Aspirado Natural (NA)</option>
-                      <option value="turbo">Turbo / Supercargado</option>
-                      <option value="e85">Modificado / Etanol (E85)</option>
-                    </select>
-                  </div>
-                </div>
-                ${reqLph > 0 ? html`
-                  <div class="alert blue" style=${{ marginTop: '20px', alignItems: 'center' }}>
-                    <${Icon} name="CheckCircle2" size=${18} color="var(--accent)" /> 
-                    <span>La bomba debe entregar mínimo <b style=${{ color: 'var(--text)', fontSize: '15px' }}>${reqLph} LPH</b> reales a la presión de trabajo.</span>
-                  </div>` : ''}
-              </div>
-
-              <div style=${innerBoxStyle}>
-                <h3 style=${{ fontSize: '14.5px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <${Icon} name="Repeat" size=${16} /> Conversor de Caudal
-                </h3>
-                <div style=${{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div style=${{ display: 'grid', gridTemplateColumns: '1fr 24px', alignItems: 'center', gap: '10px' }}>
-                    <input type="number" class="styled-input" value=${lph} onChange=${onLph} placeholder="255" />
-                    <span style=${{ fontSize: '12px', fontWeight: 700, color: 'var(--muted)' }}>LPH</span>
-                  </div>
-                  <div style=${{ display: 'grid', gridTemplateColumns: '1fr 24px', alignItems: 'center', gap: '10px' }}>
-                    <input type="number" class="styled-input" value=${gph} onChange=${onGph} placeholder="67" />
-                    <span style=${{ fontSize: '12px', fontWeight: 700, color: 'var(--muted)' }}>GPH</span>
-                  </div>
-                  <div style=${{ display: 'grid', gridTemplateColumns: '1fr 24px', alignItems: 'center', gap: '10px' }}>
-                    <input type="number" class="styled-input" value=${cc} onChange=${onCc} placeholder="4250" />
-                    <span style=${{ fontSize: '12px', fontWeight: 700, color: 'var(--muted)' }}>CC</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ` : ''}
-
-          ${tab === 'pressure' ? html`
-            <div style=${innerBoxStyle}>
-              <h3 style=${{ fontSize: '14.5px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <${Icon} name="Gauge" size=${16} /> Conversor de Presión (Riel)
-              </h3>
-              <div style=${{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '20px', alignItems: 'end' }}>
-                <div>
-                  <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'none', marginBottom: '6px' }}>PSI (Libras)</label>
-                  <input type="number" class="styled-input" value=${psi} onChange=${onPsi} placeholder="43.5" />
-                </div>
-                <div style=${{ color: 'var(--border-hi)', paddingBottom: '10px', display: 'flex', justifyContent: 'center' }}>
-                  <${Icon} name="ArrowRight" size=${20} />
-                </div>
-                <div>
-                  <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'none', marginBottom: '6px' }}>Bar</label>
-                  <input type="number" class="styled-input" value=${bar} onChange=${onBar} placeholder="3.0" />
-                </div>
-              </div>
-            </div>
-          ` : ''}
-
-          ${tab === 'electrical' ? html`
-            <div class="grid2">
-              <div style=${innerBoxStyle}>
-                <h3 style=${{ fontSize: '14.5px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <${Icon} name="Plug" size=${16} /> Multímetro (Entradas)
-                </h3>
-                <div style=${{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div>
-                    <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'none', marginBottom: '6px' }}>Voltaje Real en Bomba (V)</label>
-                    <input type="number" class="styled-input" value=${volts} onChange=${e => setVolts(e.target.value)} placeholder="Ej: 13.5" step="0.1" />
-                  </div>
-                  <div>
-                    <label class="muted" style=${{ display: 'block', fontSize: '11px', letterSpacing: '1px', textTransform: 'none', marginBottom: '6px' }}>Resistencia del Motor (Ohms Ω)</label>
-                    <input type="number" class="styled-input" value=${ohms} onChange=${e => setOhms(e.target.value)} placeholder="Ej: 1.2" step="0.1" />
-                  </div>
-                </div>
-              </div>
-
-              <div style=${innerBoxStyle}>
-                <h3 style=${{ fontSize: '14.5px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--amber)' }}>
-                  <${Icon} name="CircuitBoard" size=${16} /> Diagnóstico Amperaje
-                </h3>
-                <div style=${{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '10px 0' }}>
-                  <div style=${{ fontSize: '12px', color: 'var(--muted)', textTransform: 'none', letterSpacing: '0' }}>Consumo Teórico</div>
-                  <div style=${{ fontSize: '42px', fontWeight: 800, color: amps > 0 ? ampColor : 'var(--border-hi)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                    ${amps} <span style=${{ fontSize: '18px' }}>A</span>
-                  </div>
-                </div>
-                ${amps > 0 ? html`
-                  <div style=${{ marginTop: '16px', padding: '12px', background: 'var(--sunken)', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '13px', color: ampColor, textAlign: 'center', fontWeight: 600 }}>
-                    ${ampStatus}
-                  </div>
-                ` : ''}
-              </div>
-            </div>
-          ` : ''}
-
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 function TallerIdentityFields({ form, onChange }) {
   const F = (k) => (e) => onChange({ ...form, [k]: e.target.value });
   return html`
@@ -1595,7 +975,6 @@ function OnboardingModal({ user, onComplete, onLogout }) {
    (nombre, teléfono, documento, ciudad, dirección) los sigue pidiendo
    OnboardingModal al volver de Google. */
 function LoginScreen({ onBack, notice, tabInicial }) {
-  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [mode, setMode] = useState(tabInicial || 'login');
   const [activeNotice, setActiveNotice] = useState(notice || '');
@@ -1610,17 +989,6 @@ function LoginScreen({ onBack, notice, tabInicial }) {
     if (tabInicial) setMode(tabInicial);
   }, [tabInicial]);
 
-  /* Botón "Importar mis datos del navegador": usa el helper global para no
-     duplicar la lógica (la sincronización automática al iniciar sesión también
-     lo usa). Aquí solo se muestra el resultado, sin formulario que limpiar. */
-  const importLocal = async () => {
-    setBusy(true); setMsg('');
-    const r = await importTallerFromLocal();
-    if (r.ok) setMsg(`Datos importados del navegador (${r.count})`);
-    else if (r.error === 'sin_datos') setMsg('No se encontraron datos locales para importar');
-    else setMsg('Error al importar: ' + r.error);
-    setBusy(false);
-  };
   /* Cambiar de pestaña descarta el aviso de la vuelta anterior: era de la OTRA
      puerta y aquí solo confundiría sobre qué botón pulsar. */
   const cambiarModo = (m) => { setMode(m); setMsg(''); setActiveNotice(''); };
@@ -1679,10 +1047,6 @@ function LoginScreen({ onBack, notice, tabInicial }) {
             ${esAlta ? 'Crear cuenta con Google' : 'Iniciar sesión con Google'}
           </a>
 
-          <button type="button" class="login-secondary" onClick=${importLocal} disabled=${busy}>
-            <${Icon} name="Upload" size=${16} /> Importar mis datos del navegador
-          </button>
-
           ${msg && html`<div class="login-msg login-msg--warn"><span>${msg}</span></div>`}
 
           <p class="login-footer-note">
@@ -1714,7 +1078,7 @@ function App() {
      abría /vehiculo/<slug> (o un enlace compartido con ?v=) veía la portada y
      tenía que buscar el auto otra vez. La intención está escrita desde el
      principio en readURLState(): «la app arranca directo en ese vehículo». */
-  const [viewState, setViewState] = useState(initialURL.selected ? 'search' : 'home'); // 'home' | 'search' | 'calculators' | 'tools'
+  const [viewState, setViewState] = useState(initialURL.selected ? 'search' : 'home'); // 'home' | 'search'
   const [microApp, setMicroApp] = useState(null);     // micro app abierta desde el dashboard
   // ── Sesión del taller (cuenta de mecánico) ──
   const [user, setUser] = useState(null);
@@ -1728,10 +1092,10 @@ function App() {
       .then(setUser).catch(() => setUser(null))
       .finally(() => setAuthChecked(true));
   }, []);
-  /* Cachés locales de las herramientas del taller: keys que importLocal borra
-     tras subirlas al backend. Mantener la lista aquí evita que se "cuelen" al
-     cerrar sesión y mezclen datos de dos cuentas en el mismo navegador. */
-  const TALLER_LOCAL_KEYS = ['ft_inventory', 'ft_clients', 'ft_orders', 'ft_notes', 'ft_cash', 'ft_pressure_log'];
+  /* Espejo de LECTURA de los datos de negocio. Se escribe solo desde el servidor
+     (syncFromBackend) y se borra al cerrar sesión, para que la siguiente cuenta
+     en este navegador no vea datos de la anterior. */
+  const TALLER_LOCAL_KEYS = ['ft_inventory', 'ft_clients', 'ft_orders', 'ft_notes', 'ft_cash'];
   const logout = () => {
     setVerifyMsg('Cerrando sesión…');
     fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
@@ -1778,17 +1142,16 @@ function App() {
     }
     return r;
   };
-  /* Sincroniza los datos del taller desde el backend hacia las caches locales.
-     El server es la fuente persistente (sobrevive a borrar caché/cambiar de
-     dispositivo); localStorage queda como espejo para que las herramientas
-     puedan leer offline. Al cerrar sesión esas caches se borran en `logout`. */
+  /* Baja los datos del taller del backend al espejo local de LECTURA. El server
+     es la fuente única (sobrevive a borrar caché o cambiar de dispositivo);
+     localStorage solo sirve para que las herramientas se puedan mirar offline.
+     Nunca se sube nada de aquí al servidor. */
   const syncFromBackend = async () => {
     try {
       const r = await fetch('/api/backup', { credentials: 'same-origin' });
       if (!r.ok) return;
       const body = await r.json();
       const d = body?.data || {};
-      const totalServidor = (d.inventory?.length || 0) + (d.clients?.length || 0) + (d.orders?.length || 0) + (d.notes?.length || 0) + (d.cash?.length || 0);
       // Mapeo: claves del JSON del backup → claves de localStorage que usan
       // las herramientas de taller (microapps.js).
       const map = { inventory: 'ft_inventory', clients: 'ft_clients', orders: 'ft_orders', notes: 'ft_notes', cash: 'ft_cash' };
@@ -1807,21 +1170,11 @@ function App() {
           localStorage.setItem(map[k], JSON.stringify(rows));
         } catch (e) { /* cuota llena / modo privado */ }
       }
-      // Migración automática la primera vez: si el server está vacío y hay
-      // datos locales, subirlos sin pedir al usuario que pulse "Importar".
-      if (totalServidor === 0) {
-        const hayLocal = TALLER_LOCAL_KEYS.some(k => { try { const v = localStorage.getItem(k); return v && JSON.parse(v).length > 0; } catch { return false; } });
-        if (hayLocal) {
-          const r = await importTallerFromLocal();
-          if (r.ok) toast(`Datos importados del navegador (${r.count})`);
-        }
-      }
       toast('Datos del taller sincronizados');
     } catch (e) { /* sin red: la app sigue con localStorage si lo hay */ }
   };
-  /* Cuando hay sesión, sincronizar desde el servidor una sola vez por montaje
-     de la sesión. Sin esto, los datos de la cuenta no aparecen hasta que el
-     usuario pulse "Importar del navegador". */
+  /* Con sesión, refrescar el espejo local desde el servidor una sola vez por
+     montaje: es lo que hace que las herramientas de taller tengan datos. */
   useEffect(() => {
     if (user && user.id) syncFromBackend();
   }, [user?.id]);
@@ -1869,6 +1222,10 @@ function App() {
     const urlParams = new URLSearchParams(location.search);
     const p = urlParams.get('login');
     const correo = urlParams.get('email') || '';
+    /* Motivo corto que manda el callback (state, token_redirect_uri_mismatch…).
+       Sin esto, un fallo de Google solo decía "prueba de nuevo" y no había por
+       dónde empezar a mirar. */
+    const detalle = urlParams.get('detalle') || '';
     /* `login_google_only` no sale de este callback —lo responde la API cuando en
        producción alguien intenta entrar con correo y contraseña—, pero si un
        redirect lo trajera, su aviso tiene que estar. */
@@ -1890,7 +1247,7 @@ function App() {
       if (pestana) setLoginTab(pestana);
       const quien = correo ? `El correo ${correo}` : 'Ese correo';
       const textos = {
-        google_error: 'No se pudo entrar con Google. Prueba de nuevo.',
+        google_error: `No se pudo entrar con Google. Prueba de nuevo.${detalle ? ` (código: ${detalle} — envíalo a soporte si sigue)` : ''}`,
         google_suspended: 'Tu cuenta está suspendida. Contacta a soporte para reactivarla.',
         google_locked: 'Tu cuenta está bloqueada temporalmente por intentos fallidos. Intenta más tarde.',
         google_unconfigured: 'El acceso con Google no está configurado en este servidor. Avisa a soporte.',
@@ -1906,6 +1263,7 @@ function App() {
     url.searchParams.delete('login');
     /* `email` solo venía para identificar el correo del aviso anterior. */
     url.searchParams.delete('email');
+    url.searchParams.delete('detalle');
     history.replaceState(null, '', url);
   }, []);
   const garage = useGarage();
@@ -2080,12 +1438,13 @@ function App() {
   const openMicro = (id, opciones = {}) => {
     const FT = window.FT_MICRO || {};
     const conRuta = (fn) => { if (!opciones.silencioso) rutaEscribir({ app: id }); fn(); };
+    /* 'search' es el único caso especial: no es un componente de FT_MICRO sino
+       la vista del catálogo, que vive en este archivo. Los ids 'diag', 'calc',
+       'aid' y 'glossary' caen al registro de `apps` (abajo), que monta las
+       micro apps reales; antes este `map` los interceptaba y quedaban
+       inalcanzables: el enrutado mandaba a las vistas legacy. */
     const map = {
       search: () => conRuta(() => setViewState('search')),
-      diag: () => conRuta(() => setViewState('tools')),
-      calc: () => conRuta(() => setViewState('calculators')),
-      glossary: () => conRuta(() => setViewState('tools')),
-      aid: () => conRuta(() => setViewState('search')),
     };
     if (map[id]) return map[id]();
     // micro apps del dashboard (componentes propios); las de negocio requieren sesión
@@ -2165,7 +1524,15 @@ function App() {
          tendría que volver al inicio y buscarla de nuevo. */
       return html`<div class="micro-app-view">${html`<${AppComp} onBack=${closeMicro} onOpen=${openMicro} onLogout=${logout} onUserChange=${refreshUser} user=${user} />`}${overlays}</div>`;
     }
-    if (!authChecked) return html`<div class="home"><div class="empty">Cargando…</div></div>`;
+    /* Esqueleto en vez de un texto "Cargando…": reserva el alto del contenido
+       y evita que el home salte cuando llega la sesión. */
+    if (!authChecked) return html`<div class="home"><div class="home-body"><div class="panel" aria-busy="true">
+      <div class="skel" aria-hidden="true">
+        <div class="skel-line" style=${{ width: '38%', height: '22px' }}></div>
+        <div class="skel-line" style=${{ width: '86%' }}></div>
+        <div class="skel-line" style=${{ width: '64%' }}></div>
+      </div>
+    </div></div></div>`;
     if (FT.Home) {
       /* El login es una parada, no la puerta. El dashboard entero está pensado
          para el anónimo (candados en las apps de taller, "$0 sin cuenta", specs
@@ -2200,6 +1567,10 @@ function App() {
       ${/* sin opacity: la bajaba a 4.5:1 justo en el filo del mínimo, y este es
             precisamente el aviso que no conviene que se lea a medias. */''}
       <div class="footer-desc" style=${{ marginTop: '5px' }}>Datos técnicos de referencia: verifica siempre contra el manual de servicio del fabricante antes de intervenir el vehículo.</div>
+      <div class="dev-contact">
+        <${Icon} name="Mail" size=${13} />
+        <a href="mailto:newpersonal98@gmail.com?subject=Reporte%20en%20llave" title="Reportar un bug, un fallo o una crítica">¿Encontraste un bug, un fallo o tienes una crítica? Escríbeme a <strong>newpersonal98@gmail.com</strong></a>
+      </div>
       <div class="footer-copy">© 2025–2026 llave. Todos los derechos reservados.</div>
       <div class="dev-contact">
         <${Icon} name="Mail" size=${13} />
@@ -2253,12 +1624,6 @@ function App() {
                 <option value="year_desc">Año (Más reciente)</option>
               </select></div>
             <button type="button" title="Limpiar filtros (Esc)" onClick=${clearFilters}>Limpiar filtros</button>
-            <button type="button" class="mt" style=${{ marginTop: '8px', background: 'var(--card)', color: 'var(--text)', border: '1px solid var(--border-hi)' }} onClick=${() => { setViewState(viewState === 'calculators' ? 'search' : 'calculators'); }}>
-              <${MarkIcon} name="Stethoscope" size=${14} /> ${viewState === 'calculators' ? 'Cerrar Calculadoras' : 'Abrir Calculadoras'}
-            </button>
-            <button type="button" class="mt" style=${{ marginTop: '8px', background: 'var(--card)', color: 'var(--text)', border: '1px solid var(--border-hi)' }} onClick=${() => { setViewState(viewState === 'tools' ? 'search' : 'tools'); }}>
-              <${MarkIcon} name="Wrench" size=${14} /> ${viewState === 'tools' ? 'Cerrar Herramientas' : 'Herramientas del Taller'}
-            </button>
           </div>
           ${metaErr && html`<div class="alert"><${Icon} name="AlertTriangle" size=${14} /> Error al cargar catálogos. Verifica tu conexión.</div>`}
         </div>
@@ -2325,14 +1690,9 @@ function App() {
         </div>
 
         <div class="preview-inner">
-          ${viewState === 'calculators' 
-             ? html`<${Calculators} />`
-             : viewState === 'tools'
-               ? html`<${Tools} selectedId=${selected} meta=${meta}
-                        onSelectVehicle=${(id) => { setSelected(id); setViewState('search'); }} />`
-               : selected
-                 ? html`<${VehicleDetail} id=${selected} user=${user} onLogin=${() => setShowLogin(true)} />`
-                  : html`<div class="empty">SELECCIONA UN VEHÍCULO PARA VER SU FICHA TÉCNICA</div>`}
+          ${selected
+            ? html`<${VehicleDetail} id=${selected} user=${user} onLogin=${() => setShowLogin(true)} />`
+            : html`<div class="empty">SELECCIONA UN VEHÍCULO PARA VER SU FICHA TÉCNICA</div>`}
         </div>
       </main>
       ${esMovil && pie}

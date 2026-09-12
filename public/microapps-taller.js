@@ -300,6 +300,22 @@
     const [notes, api] = useApi('/api/notes');
     const [t, setT] = useState('');
     const [veh, setVeh] = useState('');
+    /* Registro de trabajos por vehículo, portado de la vista legacy. Guarda en
+       el mismo `ft_jobs` de siempre (misma forma {clave: [{t, ts}]}) para que
+       el historial ya escrito siga accesible; es local, no va a la nube. */
+    const [jobs, setJobs] = useState(() => { try { return JSON.parse(localStorage.getItem('ft_jobs') || '{}'); } catch (e) { return {}; } });
+    const saveJobs = (n) => { setJobs(n); localStorage.setItem('ft_jobs', JSON.stringify(n)); };
+    const [jVeh, setJVeh] = useState('');
+    const [jText, setJText] = useState('');
+    const addJob = () => {
+      const job = jText.trim();
+      if (!job) return;
+      const k = jVeh.trim() || 'General';
+      saveJobs({ ...jobs, [k]: [...(jobs[k] || []), { t: job, ts: Date.now() }] });
+      setJText('');
+    };
+    const rmJob = (k, i) => saveJobs({ ...jobs, [k]: (jobs[k] || []).filter((_, j) => j !== i) });
+    const hayJobs = Object.values(jobs).some(a => a && a.length);
     const add = async () => {
       if (!t.trim()) return;
       try { await apiFetch('/api/notes', { method: 'POST', body: JSON.stringify({ text: t.trim(), vehicle_ref: veh.trim() }) }); setT(''); setVeh(''); api.load(); } catch (e) { alert(e.message); }
@@ -316,6 +332,20 @@
       <div class="note-list">
         ${notes.map(n => html`<div class="note-item" key=${n.id}><div class="note-veh">${n.vehicle_ref || 'General'} <button type="button" class="link-btn" onClick=${() => del(n.id)}>✕</button></div><p>${n.text}</p><span class="muted">${new Date(n.created_at).toLocaleString('es')}</span></div>`)}
         ${notes.length === 0 && !api.loading && html`<div class="empty">Sin notas.</div>`}
+      </div>
+
+      <h3 class="mic-sub" style=${{ marginTop: '22px' }}>Registro de trabajos (en este dispositivo)</h3>
+      <div class="note-form">
+        <input type="text" class="styled-input" placeholder="Vehículo (opcional)" value=${jVeh} onChange=${e => setJVeh(e.target.value)} style=${{ maxWidth: '220px' }} />
+        <input type="text" class="styled-input" placeholder="Trabajo hecho…" value=${jText} onChange=${e => setJText(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter') addJob(); }} />
+        <button type="button" class="tool-add-btn" onClick=${addJob} disabled=${!jText.trim()}>Registrar</button>
+      </div>
+      <div class="note-list">
+        ${Object.entries(jobs).map(([k, arr]) => arr && arr.length ? html`<div class="note-item" key=${k}>
+          <div class="note-veh">${k}</div>
+          ${arr.map((j, i) => html`<p key=${i}>${j.t} <button type="button" class="link-btn" onClick=${() => rmJob(k, i)} aria-label="Borrar trabajo">✕</button> <span class="muted">${new Date(j.ts).toLocaleDateString('es')}</span></p>`)}
+        </div>` : null)}
+        ${!hayJobs && html`<div class="empty">Sin trabajos registrados.</div>`}
       </div>
     </${MicroShell}>`;
   };
@@ -363,7 +393,11 @@
   const ForumApp = ({ onBack }) => {
     const [threads, setThreads] = useStore('ft_forum', []);
     const [t, setT] = useState('');
-    const [author, setAuthor] = useState(() => localStorage.getItem('ftm_author_name') || 'Anónimo');
+    /* El nombre del autor se recuerda en el aparato: el foro es de la comunidad
+       y volver a teclearlo en cada tema era trabajo de más. Antes se LEÍA una
+       clave que nadie escribía, así que siempre salía "Anónimo". */
+    const [author, setAuthorState] = useState(() => localStorage.getItem('ft_forum_author') || 'Anónimo');
+    const setAuthor = (v) => { setAuthorState(v); try { localStorage.setItem('ft_forum_author', v); } catch (e) {} };
     const [openId, setOpenId] = useState(null);
     const [reply, setReply] = useState('');
     const addThread = () => { if (!t.trim()) return; setThreads(p => [{ id: uid(), t: t.trim(), a: author, ts: Date.now(), posts: [] }, ...p]); setT(''); };
@@ -950,10 +984,11 @@
     const [envio, setEnvio] = useState('');
 
     // Identificador de dispositivo: solo sirve para que el servidor limite una
-    // reseña por perfil. No se comparte ni identifica a nadie.
-    const deviceId = (() => {
-      let d = ls.get('ft_device_id', null);
-      if (!d) { d = uid() + uid(); ls.set('ft_device_id', d); }
+    // reseña por perfil. No se comparte ni identifica a nadie. Se usa el
+    // generador único de app.js para no pisar la misma clave con otro formato.
+    const deviceId = (window.FT_APP && window.FT_APP.getDeviceId) ? window.FT_APP.getDeviceId() : (() => {
+      let d = localStorage.getItem('ft_device_id');
+      if (!d) { d = uid() + uid(); localStorage.setItem('ft_device_id', d); }
       return d;
     })();
 
