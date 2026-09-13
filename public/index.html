@@ -1325,13 +1325,13 @@
   .home-nav-links {
     display: flex; align-items: center; gap: 4px; margin: 0 auto;
     flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain;
-    scrollbar-width: none; -ms-overflow-style: none;
+    scrollbar-width: none; -ms-overflow-style: none; flex-shrink: 0;
   }
   .home-nav-links::-webkit-scrollbar { display: none; }
   .home-nav-link {
     display: inline-flex; align-items: center; gap: 6px; cursor: pointer; touch-action: manipulation;
     background: none; border: 1px solid transparent; border-radius: var(--r); color: var(--muted);
-    font: 500 13px var(--font); letter-spacing: 0; padding: 8px 12px; flex: none;
+    font: 500 13px var(--font); letter-spacing: 0; padding: 8px 12px; flex: none; flex-shrink: 0;
     transition: background .15s, color .15s, border-color .15s;
   }
   .home-nav-link:hover { background: var(--panel2); color: var(--text); }
@@ -3278,17 +3278,32 @@
     .quote-add { width: 100%; }
   }
 
-  /* ── 15. Tableta y portátil estrecho (721-1199 px) ──────────────────
-     Ocultar los iconos en .home-nav-links y dejar solo la tipografía limpia
-     ahorra ~140px, asegurando que categorías, buscador y usuario encajen
-     en una sola fila sin desbordamiento ni scroll forzado. */
-  @media (min-width: 721px) and (max-width: 1199px) {
-    .home-nav { flex-wrap: nowrap; gap: 8px; }
-    .home-nav-links { margin: 0 4px 0 auto; gap: 3px; }
+  /* ── 15. Menú superior y buscador (tableta y portátil) ──────────────
+     Evita que "Aprender" colapse o se solape con el buscador:
+     - 721-980px (tableta): barra en 2 filas (categorías completas arriba, buscador centrado abajo).
+     - 981-1279px (portátil): fila única con tipografía limpia en categorías y buscador ajustado.
+     - ≥1280px (escritorio): fila única con iconos completos en categorías. */
+  @media (min-width: 721px) and (max-width: 980px) {
+    .home-nav { flex-wrap: wrap; gap: 8px 12px; padding: 10px 16px 12px; }
+    .home-nav-links { order: 2; margin: 0 auto; gap: 2px; flex-shrink: 0; }
+    .home-nav-link { padding: 6px 8px; font-size: 12px; }
+    .home-nav-ic { display: none; }
+    .home-nav-user { order: 3; margin-left: auto; }
+    .home-nav .home-buscador { order: 4; flex: 1 1 100%; max-width: 520px; margin: 2px auto 0; }
+  }
+  @media (min-width: 981px) and (max-width: 1279px) {
+    .home-nav { flex-wrap: nowrap; gap: 10px; }
+    .home-nav-links { margin: 0 auto; gap: 3px; flex-shrink: 0; }
     .home-nav-link { padding: 6px 9px; font-size: 12.5px; }
     .home-nav-ic { display: none; }
-    .home-buscador { flex: 0 1 210px; min-width: 140px; }
-    .home-nav-who-name { max-width: 80px; }
+    .home-buscador { flex: 0 1 220px; min-width: 160px; max-width: 280px; }
+    .home-nav-user { flex-shrink: 0; margin-left: 0; }
+  }
+  @media (min-width: 1280px) {
+    .home-nav { flex-wrap: nowrap; gap: 12px; }
+    .home-nav-links { margin: 0 auto; flex-shrink: 0; }
+    .home-nav-ic { display: inline-flex; }
+    .home-buscador { flex: 0 1 300px; max-width: 360px; }
   }
 
   /* ── 16. Ilustraciones de marca ─────────────────────────────────────
@@ -3333,24 +3348,8 @@
      lectura; lo único que hacía falta era subir su sombra para despegarlas. */
   .home-eco-card { box-shadow: 0 10px 30px -14px rgba(31, 42, 26, .45); }
 
-  /* Celular. Va DESPUÉS de la regla de escritorio a propósito: estaba escrito
-     200 líneas más arriba y, al tener la misma especificidad, la de escritorio
-     le ganaba por orden y el degradado móvil no se aplicaba nunca. */
-
-
   /* ── 17. La sección del ecosistema en celular ───────────────────────
-     En escritorio una sola capa basta: la sección se acerca a la relación de
-     la ilustración y `cover` deja el cartel arriba y el taller detrás de las
-     tarjetas. En un celular la sección es 3,5 veces más alta que ancha, y con
-     `cover` la escala la manda el alto: la imagen se amplía al 640 % y el
-     taller se convierte en un montón de líneas sueltas.
-
-     Se parte en dos capas, cada una con su trabajo:
-       ::before  sólo el cartel, muy ampliado, para que quepan los TRES bloques
-                 de texto. A esa escala se ve el interior blanco del rótulo,
-                 sin marco: es un panel limpio donde el titular se lee.
-       ::after   el taller a tamaño reconocible, anclado abajo, detrás de las
-                 tarjetas. */
+     Cartel ampliado en ::before y taller de fondo en ::after. */
   @media (max-width: 720px) {
     .home-ecosystem::before {
       background-size: 500% auto;
@@ -3368,9 +3367,6 @@
 
 </style>
 
-<!-- (capa "trazo de taller" eliminada — la dirección editorial del sistema
-     "llave" pide superficies limpias y radios suaves, no marcos dibujados
-     a mano. Ver DESIGN.md §0.) -->
 </head>
 <body>
 <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
@@ -3418,9 +3414,6 @@
 <script src="/vendor/react-dom.production.min.js"></script>
 <script src="/vendor/htm.js"></script>
 <script src="/vendor/tabler-icons.js"></script>
-<!-- (GSAP y ScrollTrigger eliminados: el hero ya no usa scrub, las
-     animaciones de entrada se hacen con IntersectionObserver nativo en
-     microapps.js. Menos JS para el primer pintado.) -->
 <script type="module" src="/three3d.js?v=5"></script>
 <!-- datos.js ANTES que microapps.js: son las tablas de referencia (DTC,
      torques, bujías, sincronización, VIN, mano de obra) y microapps.js las
