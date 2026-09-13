@@ -1125,6 +1125,9 @@
   }
   @media (pointer: coarse) { .dev-contact a { padding: 10px 0; margin: -10px 0; } }
   .dev-contact a:hover, .dev-contact a:focus-visible { color: var(--accent); }
+  /* El segundo aviso de contacto va pegado al primero, sin otra raya: son dos
+     líneas del mismo bloque, no dos secciones. */
+  .dev-contact--sin-borde { margin-top: 6px; padding-top: 0; border-top: 0; }
 
   /* ---------- Chatbot flotante ---------- */
   /* El toast y el aviso de privacidad ya respetaban env(safe-area-inset-*); este
@@ -2035,7 +2038,10 @@
   .home-footer-copy {
     text-align: right; font-size: 12px; color: var(--text-alt); margin: 0;
   }
-  .home-footer-reporta { margin-bottom: 6px; }
+  /* El aviso de reporte ocupa TODA la fila de la rejilla, debajo del logotipo,
+     los enlaces y el copyright. Antes caía en la tercera columna y empujaba el
+     copyright a una segunda fila a la izquierda: el pie quedaba descuadrado. */
+  .home-footer-reporta { grid-column: 1 / -1; text-align: center; margin: 6px 0 0; }
   /* El enlace mide 15 px de alto: el relleno con margen negativo le da los 24
      de objetivo táctil sin descuadrar el renglón (lo exige el robot). */
   .home-footer-reporta a {

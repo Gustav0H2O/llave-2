@@ -48,8 +48,11 @@
         los que devolvían al catálogo al recargar.
     v23: el HTML versiona el código propio con la fecha del archivo, así cada
         despliegue estrena URL de app.js y ningún navegador se queda con la copia
-        anterior en su caché HTTP. */
-const CACHE = 'llave-v23';
+        anterior en su caché HTTP.
+    v24: el aviso de reporte del pie ocupa su fila y el contenedor de anuncios
+        de la portada pasa al final del <body>, que estaba pintando una franja
+        blanca por encima del encabezado en el celular. */
+const CACHE = 'llave-v24';
 const SHELL = [
   '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',

@@ -1343,8 +1343,8 @@
               <a href="mailto:newpersonal98@gmail.com">Soporte</a>
               <a href="/contacto">Contacto</a>
             </nav>
-            <p class="home-footer-copy home-footer-reporta">¿Encontraste un bug, un fallo o tienes una crítica? Escríbeme a <a href="mailto:newpersonal98@gmail.com?subject=Reporte%20en%20llave">newpersonal98@gmail.com</a>.</p>
             <p class="home-footer-copy">© ${new Date().getFullYear()} llave · todos los derechos reservados.</p>
+            <p class="home-footer-copy home-footer-reporta">¿Encontraste un bug, un fallo o tienes una crítica? Escríbeme a <a href="mailto:newpersonal98@gmail.com?subject=Reporte%20en%20llave">newpersonal98@gmail.com</a>.</p>
           </div>
         </footer>
       </div>`;
