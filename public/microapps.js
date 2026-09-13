@@ -1083,7 +1083,7 @@
                     <h2 class="home-cat-title">${label.charAt(0).toUpperCase() + label.slice(1)}</h2>
                     <p class="home-cat-desc">${GRUPOS[g]?.d || ''}</p>
                   </div>
-                  <div class="home-group-grid">${appsOf(g).slice(0, 8).map(a => card(a))}</div>
+                  <div class="home-group-grid">${appsOf(g).map(a => card(a))}</div>
                 </div>` : null)}
             </div>
           </section>
