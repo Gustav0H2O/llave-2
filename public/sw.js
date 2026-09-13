@@ -42,8 +42,11 @@
         vez cuando uno nuevo toma el control.
     v21: la entrada («/») es la página de inicio y no el catálogo: esqueleto de
         arranque del home y portada rastreable con el h1 «Todo lo que necesitas,
-        en una sola llave.». */
-const CACHE = 'llave-v21';
+        en una sola llave.».
+    v22: recargar cae siempre en el inicio. El catálogo no es una ruta (no deja
+        ?app=search) y la URL ya no guarda el vehículo ni los filtros, que eran
+        los que devolvían al catálogo al recargar. */
+const CACHE = 'llave-v22';
 const SHELL = [
   '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',

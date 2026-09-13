@@ -1341,34 +1341,13 @@ function App() {
     });
   }, [results]);
 
-  // mantiene la búsqueda/ficha actual reflejada en la URL para poder compartirla o recargar sin perderla.
-  // En la PRIMERA carga no reescribimos la URL: así se conserva el enlace bonito /vehiculo/... con el
-  // que llegó el usuario (importante para SEO y para compartir).
-  const urlSyncedOnce = useRef(false);
-  useEffect(() => {
-    if (!urlSyncedOnce.current) { urlSyncedOnce.current = true; return; }
-    /* Solo cuando el buscador está a la vista. En el dashboard, la lista de
-       resultados se carga igualmente de fondo y al fijar `selected` este
-       efecto escribía ?v=26 en la URL del inicio: ensuciaba el enlace que se
-       comparte y —peor— metía un paso de historial fantasma, así que el
-       primer gesto de atrás no salía de la aplicación sino que se quedaba en
-       la misma pantalla. */
-    if (viewState === 'home') return;
-    const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v));
-    if (selected) qs.set('v', selected);
-    /* `app` y `cat` son la posición en el dashboard, no un filtro: si este
-       efecto los borrara al primer cambio de marca, el botón atrás de Android
-       saldría de la aplicación en vez de volver a la herramienta anterior. */
-    const actual = new URLSearchParams(location.search);
-    for (const k of ['app', 'cat']) { const v = actual.get(k); if (v) qs.set(k, v); }
-    const next = qs.toString();
-    // desde una página /vehiculo/... la app pasa a usar URLs de sesión con base "/"
-    const base = location.pathname.startsWith('/vehiculo') ? '/' : location.pathname;
-    const url = next ? `${base}?${next}` : base;
-    if (url !== location.pathname + location.search) {
-      history.pushState(null, '', url);
-    }
-  }, [filters, selected, viewState]);
+  /* La URL NO lleva la búsqueda ni el vehículo elegido: solo la posición en el
+     dashboard (?app= para la herramienta abierta, ?cat= para la categoría).
+     Antes escribía aquí ?v= y los filtros, y eso hacía que recargar cayera otra
+     vez en el catálogo con el último vehículo elegido en vez de en la página de
+     inicio. La ficha se sigue compartiendo con su página SEO /vehiculo/<slug>
+     —el botón «Copiar enlace» usa esa—, y un ?v= viejo se sigue leyendo al
+     arrancar (readURLState). */
 
   // Soporte para botón atrás del navegador
   useEffect(() => {
@@ -1434,19 +1413,33 @@ function App() {
     escribir: rutaEscribir,
   };
 
+  /* El catálogo es la VISTA POR DEFECTO, no una herramienta con enlace propio.
+     Antes abrirlo dejaba `?app=search` en la barra de direcciones y recargar
+     volvía al catálogo en vez de al inicio. Por eso no se escribe `app` y se
+     limpia si estaba: la URL queda en "/" y el enlace que se comparte no
+     arrastra una vista. Se deja una entrada de historial con la MISMA dirección
+     para que el gesto de atrás de Android vuelva al inicio. El acceso directo
+     del manifest (?app=search) sigue abriendo el catálogo una vez; a partir de
+     ahí la URL queda limpia. Los demás ids ('dtc', 'diag'…) sí se enrutan:
+     su enlace se manda por WhatsApp y se recupera al recargar. */
+  const abrirCatalogo = (silencioso) => {
+    const limpia = location.pathname.startsWith('/vehiculo') ? '/' : location.pathname;
+    const qs = new URLSearchParams(location.search);
+    qs.delete('app');
+    const destino = qs.toString() ? `${limpia}?${qs}` : limpia;
+    history.replaceState(history.state, '', destino);
+    if (!silencioso) history.pushState({ ft: 1 }, '', destino);
+    setViewState('search');
+  };
+
   // Manejador de apertura de micro app desde el dashboard
   const openMicro = (id, opciones = {}) => {
     const FT = window.FT_MICRO || {};
-    const conRuta = (fn) => { if (!opciones.silencioso) rutaEscribir({ app: id }); fn(); };
     /* 'search' es el único caso especial: no es un componente de FT_MICRO sino
        la vista del catálogo, que vive en este archivo. Los ids 'diag', 'calc',
        'aid' y 'glossary' caen al registro de `apps` (abajo), que monta las
-       micro apps reales; antes este `map` los interceptaba y quedaban
-       inalcanzables: el enrutado mandaba a las vistas legacy. */
-    const map = {
-      search: () => conRuta(() => setViewState('search')),
-    };
-    if (map[id]) return map[id]();
+       micro apps reales. */
+    if (id === 'search') return abrirCatalogo(!!opciones.silencioso);
     // micro apps del dashboard (componentes propios); las de negocio requieren sesión
     const apps = { dtc: 'DtcApp', torque: 'TorqueApp', spark: 'SparkApp', cross: 'CrossApp', convert: 'ConverterApp', vin: 'VinApp', pressure: 'PressureApp', regulator: 'RegulatorApp', orders: 'OrdersApp', inventory: 'InventoryApp', clients: 'ClientsApp', notes: 'NotesApp', cash: 'CashApp', forum: 'ForumApp', connect: 'ConnectApp', quickdiag: 'QuickDiagApp', documents: 'DocumentsApp', market: 'MarketApp', timing: 'TimingApp', fuses: 'FusesApp', tires: 'TireApp', inspection: 'InspectionApp', quote: 'QuoteApp', appointments: 'AppointmentsApp', maintenance: 'MaintenanceApp', trim: 'TrimApp', compression: 'CompressionApp', pinout: 'PinoutApp', labor: 'LaborApp', nostart: 'NoStartApp', battery: 'BatteryApp', profile: 'ProfileApp', perfilPublico: 'PublicProfileApp', guides: 'GuidesApp', diag: 'SymptomDiagApp', calc: 'CalcApp', aid: 'AidApp', glossary: 'GlossaryApp' };
     /* Solo lo que guarda datos del negocio en la nube. Todo lo demás —incluidas
@@ -1482,7 +1475,9 @@ function App() {
      menú de la app instalada en Android). */
   const aplicarRuta = React.useCallback(() => {
     const { app } = window.FT_RUTA.leer();
-    if (!app) { setMicroApp(null); setViewState('home'); return; }
+    /* `search` (el catálogo) no es una ruta: un enlace viejo con ?app=search
+       devolvía al catálogo al recargar en vez de al inicio. */
+    if (!app || app === 'search') { setMicroApp(null); setViewState('home'); return; }
     setMicroApp(null);
     openMicro(app, { silencioso: true });
   }, [user]);
@@ -1498,7 +1493,10 @@ function App() {
     if (!authChecked || rutaInicial.current) return;
     rutaInicial.current = true;
     const { app } = window.FT_RUTA.leer();
-    if (app) openMicro(app, { silencioso: true });
+    /* Al arrancar manda el inicio: `?app=search` (accesos viejos) no reabre el
+       catálogo, así recargar siempre cae en la portada. Las herramientas de
+       verdad sí se recuperan de su enlace. */
+    if (app && app !== 'search') openMicro(app, { silencioso: true });
   }, [authChecked]);
 
   /* Overlays comunes a TODA la web con cuenta: la burbuja del chat y el
