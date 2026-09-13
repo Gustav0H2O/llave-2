@@ -143,10 +143,17 @@ function iframeAnuncios(nonce) {
        36 px). Un anuncio de verdad ocupa bastante más que MINIMO; por debajo de
        eso el contenedor está vacío y no se reserva nada. Se vuelve a medir unas
        cuantas veces para que un anuncio que llega tarde —o que se retira— se
-       refleje igual. */
+       refleje igual.
+
+       `data-ad-status`: AdSense marca el bloque como «filled» solo cuando ha
+       servido un anuncio de verdad. Sin mirarlo, una cuenta que todavía NO sirve
+       anuncios dejaba el bloque con su alto reservado y se veía una FRANJA
+       BLANCA vacía (medido: la banda blanca aparecía arriba, y al mover el marco
+       al pie, abajo). Si no está «filled», el marco se queda en cero. */
     + `function ajustar(){var d;try{d=m.contentDocument}catch(e){return}`
     + `if(d&&d.body){var ins=d.querySelector('.adsbygoogle');`
-    + `var alto=ins?Math.round(ins.getBoundingClientRect().height):0;`
+    + `var lleno=!!(ins&&ins.getAttribute('data-ad-status')==='filled');`
+    + `var alto=lleno?Math.round(ins.getBoundingClientRect().height):0;`
     + `var util=alto>=MINIMO?Math.min(alto,600):0;`
     + `if(util!==ultimo){ultimo=util;m.style.height=util+'px';m.style.margin=util?'14px auto':'0'}}`
     + `if(intentos++<25)setTimeout(ajustar,800)}`

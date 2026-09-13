@@ -102,18 +102,19 @@ function crearRenderShell(deps) {
          pierde con este cambio). El marco nace con alto 0 y se mide a sí mismo:
          si la cuenta todavía no sirve anuncios, NO deja un hueco vacío.
 
-         DÓNDE VA: en las páginas de contenido, arriba, que es su sitio. En la
-         PORTADA de la app va al FINAL del <body>. Insertado al principio quedaba
-         por encima del encabezado y, cuando la cuenta servía un bloque, en el
-         celular se veía una franja blanca antes del logotipo: la app parecía
-         empezar con un hueco ajeno. Como el marco es del mismo origen y se mide
-         solo, se coloca donde no estorba. */
+         DÓNDE VA: solo en las páginas de contenido, arriba, que es su sitio.
+         En la PORTADA de la app NO se inyecta. Medido en el celular: con el
+         marco al principio de <body> aparecía una franja blanca por encima del
+         logotipo, y al moverlo al final aparecía la misma franja debajo del pie
+         —el cuerpo de la portada termina justo en el borde de la pantalla, así
+         que cualquier bloque que se añada se ve como una banda suelta—. La
+         entrada de la aplicación tiene que empezar en su encabezado y terminar
+         en su pie; el bloque publicitario va donde hay contenido que leer. */
       html = html.replace('</head>',
         `<meta name="google-adsense-account" content="${encodeURIComponent(ADSENSE_CLIENT)}"></head>`);
-      const marcoAnuncios = iframeAnuncios(nonce);
-      html = keepPlaceholder
-        ? html.replace('</body>', `${marcoAnuncios}</body>`)
-        : html.replace('<body>', `<body>${marcoAnuncios}`);
+      if (!keepPlaceholder) {
+        html = html.replace('<body>', `<body>${iframeAnuncios(nonce)}`);
+      }
     }
     if (GA_ID) {
       const ga = `<script async src="https://www.googletagmanager.com/gtag/js?id=${GA_ID}"></script>` +

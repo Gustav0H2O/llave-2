@@ -51,8 +51,10 @@
         anterior en su caché HTTP.
     v24: el aviso de reporte del pie ocupa su fila y el contenedor de anuncios
         de la portada pasa al final del <body>, que estaba pintando una franja
-        blanca por encima del encabezado en el celular. */
-const CACHE = 'llave-v24';
+        blanca por encima del encabezado en el celular.
+    v25: la portada de la app no lleva bloque de anuncios (la banda blanca se
+        movía con él) y el marco solo reserva alto si AdSense lo marca «filled». */
+const CACHE = 'llave-v25';
 const SHELL = [
   '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',
