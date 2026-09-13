@@ -53,8 +53,9 @@
         de la portada pasa al final del <body>, que estaba pintando una franja
         blanca por encima del encabezado en el celular.
     v25: la portada de la app no lleva bloque de anuncios (la banda blanca se
-        movía con él) y el marco solo reserva alto si AdSense lo marca «filled». */
-const CACHE = 'llave-v25';
+        movía con él) y el marco solo reserva alto si AdSense lo marca «filled».
+    v26: migración completa a Tabler Icons (/vendor/tabler-icons.js). */
+const CACHE = 'llave-v26';
 const SHELL = [
   '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',
@@ -67,7 +68,7 @@ const SHELL = [
   '/brand/icon-512-llave.png', '/brand/icon-maskable-512-llave.png',
   '/media/hero-llave.webp',
   '/vendor/react.production.min.js', '/vendor/react-dom.production.min.js',
-  '/vendor/htm.js', '/vendor/lucide.js', '/vendor/three.module.js'
+  '/vendor/htm.js', '/vendor/tabler-icons.js', '/vendor/three.module.js'
 ];
 
 /* Rutas cuyo contenido no cambia sin cambiar la versión del caché. */

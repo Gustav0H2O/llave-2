@@ -89,7 +89,7 @@ function ThemeSwitch() {
   const opt = (id, icon, label) => html`
     <button type="button" class=${'theme-btn' + (theme === id ? ' is-active' : '')}
             onClick=${() => pick(id)} aria-pressed=${theme === id}
-            title=${'Modo de color: ' + label} aria-label=${'Modo de color: ' + label}>
+            title=${'Modo ' + label.toLowerCase()} aria-label=${'Modo ' + label.toLowerCase()}>
       <${Icon} name=${icon} size=${13} />
     </button>`;
   return html`
@@ -160,65 +160,60 @@ function ToastStack() {
     </div>`;
 }
 
-/* Icono Lucide montado como SVG (espera a que window.lucide esté listo).
+/* Icono Tabler montado como SVG (espera a que window.tablerIcons o window.lucide esté listo).
    Sin aria-label => decorativo (aria-hidden); con aria-label => icono con significado propio.
    color se aplica al trazo vía CSS (currentColor por defecto) para que funcione
    igual en claro y oscuro; strokeWidth pasa al SVG. */
-function Icon({ name, size = 16, className = '', spin = false, label, color, strokeWidth = 2 }) {
+function Icon({ name, size = 16, className = '', spin = false, label, color, strokeWidth = 1.8 }) {
   const ref = useRef(null);
   useEffect(() => {
-    if (!ref.current || !window.lucide || !window.lucide[name]) return;
+    const provider = window.tablerIcons || window.lucide;
+    if (!ref.current || !provider || !provider[name]) return;
     ref.current.innerHTML = '';
     const attrs = { width: size, height: size, 'stroke-width': strokeWidth };
     if (label) { attrs.role = 'img'; attrs['aria-label'] = label; }
     else attrs['aria-hidden'] = 'true';
-    const svg = window.lucide.createElement(window.lucide[name], attrs);
+    const svg = provider.createElement(provider[name], attrs);
     if (color) svg.style.color = color;
     ref.current.appendChild(svg);
   }, [name, size, label, color, strokeWidth]);
   return html`<span class=${'icon' + (spin ? ' spin' : '') + (className ? ' ' + className : '')} ref=${ref} style=${color ? { color } : null}></span>`;
 }
 
-/* ---------- Iconografía: Lucide ----------
-   El set propio dibujado a mano se retiró: cada icono estaba trazado a ojo, con
-   su propio aire y su propio centro óptico dentro del viewBox de 24, y en fila
-   —la barra inferior del celular, el menú, las 38 tarjetas— la falta de rejilla
-   común saltaba a la vista; los que llevaban `opacity=".55"` en parte del trazo
-   además parecían a medio cargar.
-
-   Lucide ya se descargaba igual (public/vendor/lucide.js, lo usa el componente
-   Icon): 1746 iconos sobre una rejilla de 24 con un solo grosor. Este mapa
-   traduce el nombre interno del proyecto al de Lucide, así que ningún llamador
-   cambia: quien pedía "Ecu" o "Pump" sigue pidiéndolo. */
+/* ---------- Iconografía: Tabler Icons ----------
+   Migrado a Tabler Icons (public/vendor/tabler-icons.js): diseño moderno,
+   trazo nítido y balance óptico uniforme sobre rejilla de 24x24 con grosor
+   homogéneo (1.8–2), fill none y stroke currentColor.
+   Este mapa traduce los nombres internos del proyecto a los identificadores
+   de Tabler, garantizando compatibilidad total y cero regresiones visuales. */
 const MARK_ICONS = {
-  Search: 'Search', Fuel: 'Fuel', Gauge: 'Gauge', Pump: 'SquareActivity',
-  Injector: 'Syringe', Filter: 'Filter', Sensor: 'CircuitBoard', Ecu: 'Cpu',
-  History: 'History', Compare: 'GitCompare', View3D: 'Box', Assistant: 'Bot',
-  Favorite: 'Star', Settings: 'Settings', Droplets: 'Droplets', Zap: 'Zap',
-  Stethoscope: 'Stethoscope', Calendar: 'Calendar', Car: 'Car', Tag: 'Tag',
-  ArrowUpDown: 'ArrowUpDown', Wrench: 'Wrench', BookOpen: 'BookOpen',
-  Check: 'Check', Plus: 'Plus', ClipboardCheck: 'ClipboardCheck',
-  Thermometer: 'Thermometer', Box: 'Box', MapPin: 'MapPin',
-  MessagesSquare: 'MessagesSquare', Repeat: 'Repeat', ScanSearch: 'ScanSearch',
-  /* Conversor de unidades: la regla del mapa completo no es cosmética — un
-     nombre que no esté aquí se le pasa a Lucide tal cual y, si tampoco lo
-     tiene, NO se pinta nada y no hay error que lo delate. */
-  Ruler: 'Ruler', Copy: 'Copy', Info: 'Info', Pencil: 'Pencil', Trash2: 'Trash2',
-  Calculator: 'Calculator', FileText: 'FileText', Store: 'Store',
-  MailWarn: 'MailWarning', MailCheck: 'MailCheck', Phone: 'Phone',
-  Battery: 'Battery', Key: 'KeyRound', ChevronLeft: 'ChevronLeft', ChevronRight: 'ChevronRight',
-  ChevronDown: 'ChevronDown', Coins: 'Coins',
-  Play: 'Play', Pause: 'Pause', ArrowRight: 'ArrowRight', ArrowLeft: 'ArrowLeft',
-  Menu: 'Menu', Home: 'House', LogOut: 'LogOut', Download: 'Download',
-  WifiOff: 'WifiOff', RefreshCw: 'RefreshCw',
-  Clock: 'Clock', Close: 'X', Upload: 'Upload', LayoutGrid: 'LayoutGrid',
-  Sun: 'Sun', Moon: 'Moon', Heart: 'Heart', Wallet: 'Wallet', Mail: 'Mail', Award: 'Award', Users: 'Users',
+  Search: 'search', Fuel: 'gas-station', Gauge: 'gauge', Pump: 'heart-rate-monitor',
+  Injector: 'vaccine', Filter: 'filter', Sensor: 'cpu-2', Ecu: 'cpu',
+  History: 'history', Compare: 'git-compare', View3D: 'box', Assistant: 'robot',
+  Favorite: 'star', Settings: 'settings', Droplets: 'droplets', Zap: 'bolt',
+  Stethoscope: 'stethoscope', Calendar: 'calendar', Car: 'car', Tag: 'tag',
+  ArrowUpDown: 'arrows-sort', Wrench: 'tool', BookOpen: 'book-2',
+  Check: 'check', Plus: 'plus', ClipboardCheck: 'clipboard-check',
+  Thermometer: 'thermometer', Box: 'box', MapPin: 'map-pin',
+  MessagesSquare: 'messages', Repeat: 'repeat', ScanSearch: 'scan',
+  Ruler: 'ruler-2', Copy: 'copy', Info: 'info-circle', Pencil: 'pencil', Trash2: 'trash',
+  Calculator: 'calculator', FileText: 'file-text', Store: 'building-store',
+  MailWarn: 'mail-exclamation', MailCheck: 'mail-check', Phone: 'phone',
+  Battery: 'battery', Key: 'key', ChevronLeft: 'chevron-left', ChevronRight: 'chevron-right',
+  ChevronDown: 'chevron-down', Coins: 'coins',
+  Play: 'player-play', Pause: 'player-pause', ArrowRight: 'arrow-right', ArrowLeft: 'arrow-left',
+  Menu: 'menu-2', Home: 'home', LogOut: 'logout', Download: 'download',
+  WifiOff: 'wifi-off', RefreshCw: 'refresh',
+  Clock: 'clock', Close: 'x', Upload: 'upload', LayoutGrid: 'layout-grid',
+  Sun: 'sun', Moon: 'moon', Heart: 'heart', Wallet: 'wallet', Mail: 'mail', Award: 'award', Users: 'users',
+  Flame: 'flame', TrendingDown: 'trending-down', TrendingUp: 'trending-up',
+  Bell: 'bell', Crown: 'crown', Lock: 'lock', Sparkles: 'sparkles', ShieldCheck: 'shield-check',
 };
 /* Se conserva el nombre MarkIcon: lo usan app.js, microapps.js y
    microapps-taller.js en ~40 sitios, y window.FT_APP.MarkIcon es el puente. */
 function MarkIcon({ name, size = 16, className = '' }) {
-  const lucide = MARK_ICONS[name] || name;
-  return html`<${Icon} name=${lucide} size=${size} strokeWidth=${1.8}
+  const tabler = MARK_ICONS[name] || name;
+  return html`<${Icon} name=${tabler} size=${size} strokeWidth=${1.8}
     className=${'mark-icon' + (className ? ' ' + className : '')} />`;
 }
 // Expuesto para que microapps.js (dashboard) pueda reutilizar la iconografía de marca.

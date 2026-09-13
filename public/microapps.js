@@ -30,10 +30,10 @@
     if (window.FT_APP && window.FT_APP.MarkIcon) return html`<${window.FT_APP.MarkIcon} name=${n} size=${s} />`;
     return null;
   };
-  // Icono de categoría: usa la iconografía de marca; si no está, lucide; si no, emoji
+  // Icono de categoría: usa la iconografía de marca (Tabler Icons); si no, fallback
   const CatIc = ({ n, s = 18 }) => {
-    /* MarkIcon resuelve contra Lucide y admite tanto los nombres internos del
-       proyecto como los de Lucide directamente, así que ya no hace falta
+    /* MarkIcon resuelve contra Tabler Icons y admite tanto los nombres internos del
+       proyecto como los de Tabler directamente, así que ya no hace falta
        comprobar el mapa antes. El hueco del mismo tamaño se mantiene como
        respaldo por si app.js todavía no ha cargado. */
     if (window.FT_APP?.MarkIcon) return html`<${window.FT_APP.MarkIcon} name=${n} size=${s} />`;

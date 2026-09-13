@@ -663,8 +663,9 @@ function module_(el, { kind = 'module_intank_returnless' } = {}) {
   const setBtnState = () => {
     btnLabel.textContent = exploded ? 'ARMAR' : 'VER DESPIECE';
     btnIcon.innerHTML = '';
-    if (window.lucide) {
-      const svg = window.lucide.createElement(exploded ? window.lucide.Box : window.lucide.Layers, { width: 14, height: 14, 'aria-hidden': 'true' });
+    const icons = window.tablerIcons || window.lucide;
+    if (icons) {
+      const svg = icons.createElement(exploded ? (icons.Box || 'box') : (icons.Layers || 'stack-2'), { width: 14, height: 14, 'aria-hidden': 'true' });
       btnIcon.appendChild(svg);
     }
   };
