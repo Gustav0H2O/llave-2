@@ -211,6 +211,7 @@ const MARK_ICONS = {
   Sun: 'sun', Moon: 'moon', Heart: 'heart', Wallet: 'wallet', Mail: 'mail', Award: 'award', Users: 'users',
   Flame: 'flame', TrendingDown: 'trending-down', TrendingUp: 'trending-up',
   Bell: 'bell', Crown: 'crown', Lock: 'lock', Sparkles: 'sparkles', ShieldCheck: 'shield-check',
+  Send: 'send',
 };
 /* Se conserva el nombre MarkIcon: lo usan app.js, microapps.js y
    microapps-taller.js en ~40 sitios, y window.FT_APP.MarkIcon es el puente. */
@@ -991,8 +992,8 @@ function OnboardingModal({ user, onComplete, onLogout }) {
   };
 
   return html`
-    <div style=${{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', overflowY: 'auto' }} role="dialog" aria-modal="true" onKeyDown=${(e) => { if (e.key === 'Escape') e.preventDefault(); }}>
-      <div style=${{ background: 'var(--panel, #18181b)', border: '1px solid var(--border-hi, #3f3f46)', borderRadius: '16px', width: '100%', maxWidth: '540px', padding: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)', margin: 'auto' }}>
+    <div style=${{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', overflowY: 'auto', boxSizing: 'border-box' }} role="dialog" aria-modal="true" onKeyDown=${(e) => { if (e.key === 'Escape') e.preventDefault(); }}>
+      <div style=${{ background: 'var(--panel, #18181b)', border: '1px solid var(--border-hi, #3f3f46)', borderRadius: '16px', width: '100%', maxWidth: '540px', padding: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)', margin: 'auto', boxSizing: 'border-box' }}>
         <div style=${{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '99px', background: 'rgba(16,185,129,0.12)', color: '#10b981', fontSize: '11.5px', fontWeight: 700, marginBottom: '10px' }}>
           <${Icon} name="ShieldCheck" size=${15} /> Verificación Antifraude Obligatoria
         </div>

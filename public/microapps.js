@@ -1390,16 +1390,20 @@
 
   const DtcApp = ({ onBack }) => {
     const [q, setQ] = useState('');
+    const [cat, setCat] = useState('all');
     const [propios, setPropios] = useState(leerDtcPropios);
     const [form, setForm] = useState(null);   // null = cerrado; {i, c, n, s} = editando
-    const guardar = (lista) => { setPropios(lista); ls.set(DTC_CLAVE, lista); };
+    const [openCode, setOpenCode] = useState(null);
+    const [copiado, setCopiado] = useState('');
+    const fileRef = useRef(null);
 
+    const guardar = (lista) => { setPropios(lista); ls.set(DTC_CLAVE, lista); };
     const abrirNuevo = () => setForm({ i: -1, c: '', n: '', s: '' });
     const abrirEdicion = (i) => setForm({ i, ...propios[i] });
     const confirmar = () => {
       const c = (form.c || '').trim().toUpperCase();
       const n = (form.n || '').trim();
-      if (!c || !n) return;   // un código sin descripción no ayuda a nadie
+      if (!c || !n) return;
       const fila = { c, n, s: (form.s || '').trim() };
       guardar(form.i < 0 ? [...propios, fila] : propios.map((p, j) => j === form.i ? fila : p));
       setForm(null);
@@ -1421,40 +1425,140 @@
       if (!propios.length) return;
       downloadBlob('codigos-dtc-taller.json', JSON.stringify(propios, null, 2), 'application/json');
     };
+    const importar = (e) => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const list = JSON.parse(ev.target.result);
+          if (Array.isArray(list)) {
+            const saneados = list.filter(x => x && x.c && x.n).map(x => ({ c: String(x.c).trim().toUpperCase(), n: String(x.n).trim(), s: String(x.s || '').trim() }));
+            guardar([...propios, ...saneados.filter(s => !propios.some(p => p.c === s.c))]);
+          }
+        } catch (err) {}
+      };
+      reader.readAsText(f);
+      e.target.value = '';
+    };
+
+    const copiarDtc = (c, n, s) => {
+      try { navigator.clipboard?.writeText(c + ' — ' + n + (s ? ' | ' + s : '')); } catch (e) {}
+      setCopiado(c);
+      setTimeout(() => setCopiado(''), 1500);
+    };
+
+    const compartirWa = (c, n, s) => {
+      const msg = encodeURIComponent('*Código OBD-II: ' + c + '*\n' + n + '\n' + (s ? 'Diagnóstico: ' + s : '') + '\n_Vía Llave - Consulta Técnica_');
+      window.open('https://wa.me/?text=' + msg, '_blank');
+    };
+
+    const dtcSeverity = (code) => {
+      const c = (code || '').toUpperCase();
+      if (/^P030[0-9]/.test(c) || /^P0087/.test(c) || /^P019[0-3]/.test(c) || /^P0217/.test(c) || /^P0730/.test(c) || /^C0035/.test(c) || /^C0040/.test(c)) {
+        return { lvl: 'critical', lbl: 'Crítico' };
+      }
+      if (/^P0(1|2|4|7)/.test(c) || /^C0/.test(c) || /^B1/.test(c)) {
+        return { lvl: 'warning', lbl: 'Atención' };
+      }
+      return { lvl: 'info', lbl: 'Informativo' };
+    };
 
     const coincide = (c, n, s) => {
       const t = q.trim().toLowerCase();
       return !t || c.toLowerCase().includes(t) || n.toLowerCase().includes(t) || (s || '').toLowerCase().includes(t);
     };
+
     const mios = propios.map((p, i) => ({ ...p, i })).filter(p => coincide(p.c, p.n, p.s));
     const norma = DTCS.filter(([c, n, s]) => coincide(c, n, s));
-    const total = mios.length + norma.length;
+    const miosFiltrados = (cat === 'all' || cat === 'mine') ? mios : [];
+    const normaFiltrada = cat === 'all' ? norma : cat === 'mine' ? [] : norma.filter(([c]) => c.startsWith(cat));
+    const total = miosFiltrados.length + normaFiltrada.length;
 
-    const fila = (c, n, s, extra) => html`<div class="dtc-item" key=${c + (extra ? 'x' : '')}>
-      <div class="dtc-code">${c}</div>
-      <div class="dtc-body"><strong>${n}</strong><span>${s}</span></div>
-      ${extra}
-    </div>`;
+    const CHIPS = [
+      { id: 'all', t: 'Todos', c: 'Todos' },
+      { id: 'P', t: 'P · Motor/Trans', c: 'P' },
+      { id: 'B', t: 'B · Carrocería', c: 'B' },
+      { id: 'C', t: 'C · Chasis/Frenos', c: 'C' },
+      { id: 'U', t: 'U · Red/CAN', c: 'U' },
+      { id: 'mine', t: 'Taller', c: 'Míos' }
+    ];
+
+    const card = (c, n, s, extra) => {
+      const isOpen = openCode === c;
+      const sev = dtcSeverity(c);
+      return html`<div class=${'dtc-card-rich' + (isOpen ? ' is-open' : '')} key=${c + (extra ? 'x' : '')}>
+        <div class="dtc-card-rich-head" onClick=${() => setOpenCode(isOpen ? null : c)}>
+          <span class="dtc-code-pill">${c}</span>
+          <div class="dtc-title-block">
+            <strong>${n}</strong>
+            <span>${s || 'Consulte esquema y señal eléctrica'}</span>
+          </div>
+          <span class=${'badge-tag ' + sev.lvl}><span class="pulse-dot"></span>${sev.lbl}</span>
+          <div class="dtc-acciones" onClick=${e => e.stopPropagation()}>
+            <button type="button" class=${'copy-pill-btn' + (copiado === c ? ' copied' : '')} title="Copiar código" onClick=${() => copiarDtc(c, n, s)}>
+              <${CatIc} n=${copiado === c ? 'Check' : 'Copy'} s=${13} />
+              <span class="home-cat-desc--larga">${copiado === c ? 'Copiado' : 'Copiar'}</span>
+            </button>
+            <button type="button" class="copy-pill-btn" title="Compartir por WhatsApp" onClick=${() => compartirWa(c, n, s)}>
+              <${CatIc} n="Send" s=${13} />
+            </button>
+            ${extra}
+          </div>
+        </div>
+        ${isOpen && html`
+          <div class="dtc-card-drawer">
+            <div class="dtc-drawer-section">
+              <h4>CAUSA PROBABLE Y SÍNTOMAS</h4>
+              <p style=${{ font: '500 13px var(--font)', color: 'var(--text)', margin: '2px 0 6px' }}>${s || 'Sin causas específicas registradas. Verifique el subsistema asociado.'}</p>
+            </div>
+            <div class="dtc-drawer-section">
+              <h4>PROCEDIMIENTO DE DIAGNÓSTICO SUGERIDO</h4>
+              <ul class="dtc-steps-list">
+                <li>1. Conectar escáner y verificar datos en vivo y cuadro congelado (Freeze Frame).</li>
+                <li>2. Inspeccionar conectores, sulfatación en pines, arnés rozado y masa de motor.</li>
+                <li>3. Medir alimentación (5V ref o 12V batería) y caída de tensión en sensores involucrados.</li>
+                <li>4. Borrar código tras reparar y realizar ciclo de manejo OBD-II para confirmar extinción del Check Engine.</li>
+              </ul>
+            </div>
+          </div>`}
+      </div>`;
+    };
 
     return html`<${MicroShell} title="Buscador DTC (OBD-II)" icon="Ecu" onBack=${onBack}>
-      <p class="mic-lead">Busca por código o por la falla en palabras. Los códigos del estándar son de solo lectura; los tuyos —los que no están estandarizados— se guardan en este dispositivo y se marcan como propios.</p>
+      <p class="mic-lead">Códigos de falla estándar y específicos. Toca una tarjeta para abrir la guía diagnóstica y pruebas con multímetro.</p>
+      
+      <div class="chip-group" role="tablist" aria-label="Categoría DTC">
+        ${CHIPS.map(ch => html`
+          <button type="button" role="tab" aria-selected=${cat === ch.id} key=${ch.id}
+                  class=${'filter-chip' + (cat === ch.id ? ' active' : '') + (ch.id !== 'all' && ch.id !== 'mine' ? ' chip-' + ch.id.toLowerCase() : '')}
+                  onClick=${() => setCat(ch.id)}>
+            ${ch.t}
+          </button>`)}
+      </div>
+
       <div class="dtc-barra">
-        <input type="search" class="styled-input" placeholder="Código o falla: P0300, MAF, inyector…"
+        <input type="search" class="styled-input" placeholder="Código o falla: P0300, MAF, sensor oxígeno…"
                aria-label="Buscar código o falla" value=${q} onChange=${e => setQ(e.target.value)} />
         <button type="button" class="tool-add-btn" onClick=${abrirNuevo}>
           <${CatIc} n="Plus" s=${14} /> Agregar código
         </button>
       </div>
-      ${propios.length > 0 && html`
-        <div style=${{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
-          <span class="muted" style=${{ font: '500 12px var(--font)', marginRight: 'auto' }}>${propios.length} código(s) propio(s)</span>
+
+      <div style=${{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', margin: '8px 0 12px' }}>
+        <span class="muted" style=${{ font: '500 12px var(--font)', marginRight: 'auto' }}>${total} código(s) disponible(s)</span>
+        <input type="file" accept=".json" ref=${fileRef} style=${{ display: 'none' }} onChange=${importar} />
+        <button type="button" class="link-btn" onClick=${() => fileRef.current?.click()} title="Importar respaldo JSON">
+          <${CatIc} n="Upload" s=${13} /> Importar
+        </button>
+        ${propios.length > 0 && html`
           <button type="button" class="link-btn" onClick=${exportar} title="Descargar tus códigos como respaldo">
             <${CatIc} n="Download" s=${13} /> Exportar
           </button>
           <button type="button" class="link-btn" onClick=${borrarTodos} title="Borrar todos los códigos propios">
-            <${CatIc} n="Trash2" s=${13} /> Borrar todos
-          </button>
-        </div>`}
+            <${CatIc} n="Trash2" s=${13} /> Borrar
+          </button>`}
+      </div>
 
       ${form && html`
         <div class="dtc-form">
@@ -1480,24 +1584,19 @@
           </div>
         </div>`}
 
-      <div class="dtc-list">
-        ${mios.length > 0 && html`<div class="dtc-grupo">Códigos de tu taller · ${mios.length}</div>`}
-        ${mios.map(p => fila(p.c, p.n, p.s, html`
-          <div class="dtc-acciones">
-            <span class="dtc-propio">propio</span>
-            <button type="button" class="tool-icon-btn" title="Editar este código" onClick=${() => abrirEdicion(p.i)}>
-              <${CatIc} n="Pencil" s=${15} />
-            </button>
-            <button type="button" class="tool-icon-btn danger" title="Eliminar este código" onClick=${() => borrar(p.i)}>
-              <${CatIc} n="Trash2" s=${15} />
-            </button>
-          </div>`))}
-        ${norma.length > 0 && html`<div class="dtc-grupo">Estándar OBD-II · ${norma.length}</div>`}
-        ${norma.map(([c, n, s]) => fila(c, n, s, null))}
+      <div style=${{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+        ${miosFiltrados.map(p => card(p.c, p.n, p.s, html`
+          <button type="button" class="copy-pill-btn" title="Editar este código" onClick=${() => abrirEdicion(p.i)}>
+            <${CatIc} n="Pencil" s=${13} />
+          </button>
+          <button type="button" class="copy-pill-btn" title="Eliminar este código" onClick=${() => borrar(p.i)}>
+            <${CatIc} n="Trash2" s=${13} />
+          </button>`))}
+        ${normaFiltrada.map(([c, n, s]) => card(c, n, s, null))}
         ${total === 0 && html`<div class="empty-state">
           <div class="empty-icon"><${CatIc} n="Search" s=${26} /></div>
-          <p class="empty-title">Sin códigos para “${q}”</p>
-          <p class="empty-hint">Prueba con menos letras, o agrégalo tú si es un código de marca que ya diagnosticaste.</p>
+          <p class="empty-title">Sin códigos para “${q}” en esta categoría</p>
+          <p class="empty-hint">Prueba con otra categoría o agrégalo tú con los datos de tu taller.</p>
           <button type="button" class="empty-action" onClick=${() => { abrirNuevo(); setForm(f => ({ ...f, c: q.trim().toUpperCase() })); }}>
             <${CatIc} n="Plus" s=${14} /> Agregar “${q.trim().toUpperCase()}”
           </button>
@@ -1509,38 +1608,231 @@
   /* ---- 3. Torques ---- */
   const TorqueApp = ({ onBack }) => {
     const [q, setQ] = useState('');
+    const [cat, setCat] = useState('all');
+    const [calcVal, setCalcVal] = useState('80');
+    const [calcUnit, setCalcUnit] = useState('nm'); // 'nm' | 'lbft'
+    const [verGuias, setVerGuias] = useState(false);
+    const [copiado, setCopiado] = useState('');
+
     const t = q.trim().toLowerCase();
-    const rows = TORQUES.filter(r => !t || (r[0] + ' ' + r[3]).toLowerCase().includes(t));
+    const rows = TORQUES.filter(r => {
+      const matchCat = cat === 'all' || (r[4] && r[4].toLowerCase() === cat);
+      const matchQ = !t || (r[0] + ' ' + r[3]).toLowerCase().includes(t);
+      return matchCat && matchQ;
+    });
+
+    const valNum = parseFloat(calcVal) || 0;
+    const convResult = calcUnit === 'nm'
+      ? (valNum * 0.737562).toFixed(1) + ' lb-ft (' + (valNum * 8.85075).toFixed(0) + ' lb-in)'
+      : (valNum * 1.355818).toFixed(1) + ' N·m (' + (valNum * 0.138255).toFixed(1) + ' kgf·m)';
+
+    const ajustarPaso = (delta) => {
+      const n = Math.max(0, Math.round((parseFloat(calcVal) || 0) + delta));
+      setCalcVal(String(n));
+    };
+
+    const copiarFila = (comp, nm, lbft) => {
+      try { navigator.clipboard?.writeText(comp + ': ' + nm + ' (' + lbft + ')'); } catch (e) {}
+      setCopiado(comp);
+      setTimeout(() => setCopiado(''), 1500);
+    };
+
+    const TQ_CATS = [
+      { id: 'all', t: 'Todos' },
+      { id: 'culata', t: 'Culata y Múltiples' },
+      { id: 'bielas', t: 'Bielas y Bancada' },
+      { id: 'ruedas', t: 'Ruedas y Ejes' },
+      { id: 'frenos', t: 'Frenos y Suspensión' },
+      { id: 'motor', t: 'Motor y Accesorios' }
+    ];
+
     return html`<${MicroShell} title="Torques de Apriete" icon="Wrench" onBack=${onBack}>
-      <p class="mic-lead">Valores de apriete por componente. El par cambia con el diámetro, el material y si el tornillo es reutilizable, así que confirma siempre contra el manual de servicio del vehículo.</p>
-      <label class="sr-only" htmlFor="tq-q">Buscar componente</label>
-      <input id="tq-q" type="search" class="styled-input" placeholder="Componente: culata, birlo, bujía…"
-             value=${q} onChange=${e => setQ(e.target.value)} style=${{ maxWidth: '340px', marginBottom: '12px' }} />
-      <table class="mic-tbl">
-        <thead><tr><th>Componente</th><th>Nm</th><th>lb-ft</th><th>Nota</th></tr></thead>
-        <tbody>${rows.map((r, i) => html`<tr key=${i}><td>${r[0]}</td><td class="num">${r[1]}</td><td class="num">${r[2]}</td><td class="muted">${r[3]}</td></tr>`)}</tbody>
-      </table>
+      <p class="mic-lead">Pares de apriete críticos por componente. Incluye calculadora interactiva de conversión y patrones de secuencia.</p>
+
+      <!-- Calculadora interactiva rápida -->
+      <div class="tq-calc-box">
+        <div>
+          <label class="conv-lbl" htmlFor="tq-calc-in">Conversor instantáneo</label>
+          <input id="tq-calc-in" type="number" class="styled-input" value=${calcVal}
+                 onChange=${e => setCalcVal(e.target.value)} style=${{ fontSize: '16px', fontWeight: '700' }} />
+          <div class="tq-stepper-bar">
+            ${[-10, -5, -1, 1, 5, 10].map(s => html`
+              <button type="button" class="tq-step-btn" key=${s} onClick=${() => ajustarPaso(s)}>
+                ${s > 0 ? '+' + s : s}
+              </button>`)}
+          </div>
+        </div>
+        <div style=${{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+          <button type="button" class="tool-icon-btn" title="Invertir unidad" onClick=${() => setCalcUnit(calcUnit === 'nm' ? 'lbft' : 'nm')}>
+            <${CatIc} n="Repeat" s=${18} />
+          </button>
+          <span class="muted" style=${{ font: '600 11px var(--font)' }}>${calcUnit === 'nm' ? 'N·m → lb-ft' : 'lb-ft → N·m'}</span>
+        </div>
+        <div>
+          <span class="conv-lbl">Equivalencia exacta</span>
+          <div style=${{ font: '800 20px var(--font)', color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>
+            ${convResult}
+          </div>
+          <span class="muted" style=${{ font: '500 11.5px var(--font)' }}>1 lb-ft = 1.356 N·m · 1 N·m = 0.738 lb-ft</span>
+        </div>
+      </div>
+
+      <!-- Filtros de categoría -->
+      <div class="chip-group" role="tablist" aria-label="Categoría de Torques">
+        ${TQ_CATS.map(c => html`
+          <button type="button" role="tab" aria-selected=${cat === c.id} key=${c.id}
+                  class=${'filter-chip' + (cat === c.id ? ' active' : '')}
+                  onClick=${() => setCat(c.id)}>
+            ${c.t}
+          </button>`)}
+      </div>
+
+      <div style=${{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+        <input type="search" class="styled-input" placeholder="Buscar: culata, birlo, biela, bujía…"
+               value=${q} onChange=${e => setQ(e.target.value)} style=${{ flex: '1 1 240px' }} />
+        <button type="button" class="copy-pill-btn" onClick=${() => setVerGuias(!verGuias)}>
+          <${CatIc} n="BookOpen" s=${14} /> ${verGuias ? 'Ocultar patrones' : 'Ver secuencias de apriete'}
+        </button>
+      </div>
+
+      ${verGuias && html`
+        <div class="alert blue" style=${{ marginBottom: '14px' }}>
+          <h4 style=${{ margin: '0 0 6px', font: '700 13px var(--font)' }}>Patrones de apriete fundamentales</h4>
+          <ul style=${{ margin: '0', paddingLeft: '18px', fontSize: '12.5px', lineHeight: '1.5' }}>
+            <li><strong>Culata:</strong> En espiral de adentro hacia afuera en 3 pasos graduales para no arquear el bloque/cabezote.</li>
+            <li><strong>Ruedas y tambores:</strong> En cruz o estrella diametral (1-4-2-5-3) para asentar el rin parejo contra la maza.</li>
+            <li><strong>Bielas y bancada:</strong> Pernos de deformación plástica (TTY) requieren goniómetro para fase de grados angulares (+60°/+90°).</li>
+          </ul>
+        </div>`}
+
+      <div class="mic-tbl-wrap">
+        <table class="mic-tbl">
+          <thead><tr><th>Componente</th><th>Nm</th><th>lb-ft</th><th>Nota / Método</th><th></th></tr></thead>
+          <tbody>${rows.map((r, i) => html`<tr key=${i}>
+            <td><strong>${r[0]}</strong></td>
+            <td class="num" style=${{ fontVariantNumeric: 'tabular-nums' }}>${r[1]}</td>
+            <td class="num" style=${{ fontVariantNumeric: 'tabular-nums' }}>${r[2]}</td>
+            <td class="muted">${r[3]}</td>
+            <td>
+              <button type="button" class=${'copy-pill-btn' + (copiado === r[0] ? ' copied' : '')}
+                      onClick=${() => copiarFila(r[0], r[1], r[2])} title="Copiar valores">
+                <${CatIc} n=${copiado === r[0] ? 'Check' : 'Copy'} s=${12} />
+              </button>
+            </td>
+          </tr>`)}</tbody>
+        </table>
+      </div>
       ${rows.length === 0 && html`<div class="empty">Sin resultados para “${q}”.</div>`}
-      <div class="alert blue" style=${{ marginTop: '12px' }}><span>Referencia general: confirma siempre con el manual de servicio del fabricante.</span></div>
+      <div class="alert blue" style=${{ marginTop: '14px' }}>
+        <span>Referencia general de taller: el par cambia con el diámetro del birlo y el tipo de rosca. Confirma siempre con el manual de servicio del fabricante.</span>
+      </div>
     </${MicroShell}>`;
   };
 
   /* ---- 4. Bujías ---- */
   const SparkApp = ({ onBack }) => {
     const [q, setQ] = useState('');
+    const [tech, setTech] = useState('all');
+    const [boostPsi, setBoostPsi] = useState('0');
+    const [gapCustom, setGapCustom] = useState('0.90');
+
     const t = q.trim().toLowerCase();
-    const rows = SPARKS.filter(r => !t || (r[0] + ' ' + r[3]).toLowerCase().includes(t));
+    const rows = SPARKS.filter(r => {
+      const matchTech = tech === 'all' || (r[4] && r[4].toLowerCase() === tech);
+      const matchQ = !t || (r[0] + ' ' + r[3]).toLowerCase().includes(t);
+      return matchTech && matchQ;
+    });
+
+    const gapVal = parseFloat(gapCustom) || 0.9;
+    const gapInches = (gapVal / 25.4).toFixed(3);
+    const boostNum = parseFloat(boostPsi) || 0;
+    const gapTurboRecom = Math.max(0.60, (0.85 - boostNum * 0.012)).toFixed(2);
+
+    const TECH_CHIPS = [
+      { id: 'all', t: 'Todas' },
+      { id: 'cobre', t: 'Cobre Estándar' },
+      { id: 'platino', t: 'Platino' },
+      { id: 'iridio', t: 'Iridio / Doble' },
+      { id: 'turbo', t: 'Turbo / Sobre' },
+      { id: 'gdi', t: 'Inyección Directa' }
+    ];
+
     return html`<${MicroShell} title="Bujías y Calibración" icon="Zap" onBack=${onBack}>
-      <p class="mic-lead">Separación entre electrodos por tipo de motor. Usa galga para medir; no ajustes el gap en bujías de iridio, van calibradas de fábrica.</p>
-      <label class="sr-only" htmlFor="sp-q">Buscar motor</label>
-      <input id="sp-q" type="search" class="styled-input" placeholder="Motor: 1.6L, 2ZR, Vortec…"
+      <p class="mic-lead">Separación entre electrodos (gap) y galga milimétrica. Calcula la reducción de luz requerida para motores sobrealimentados (turbo/supercargador).</p>
+
+      <!-- Galga visual y conversor de Gap -->
+      <div class="spark-gauge-card">
+        <div style=${{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <label class="conv-lbl" htmlFor="sp-gap-in">Galga interactiva de gap</label>
+            <div style=${{ font: '800 24px var(--font)', color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
+              ${gapVal.toFixed(2)} mm <span class="muted" style=${{ font: '600 15px var(--font)' }}>(${gapInches}")</span>
+            </div>
+          </div>
+          <div style=${{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <button type="button" class="tq-step-btn" onClick=${() => setGapCustom(String(Math.max(0.5, gapVal - 0.05).toFixed(2)))}>-0.05</button>
+            <button type="button" class="tq-step-btn" onClick=${() => setGapCustom(String(Math.min(1.6, gapVal + 0.05).toFixed(2)))}>+0.05</button>
+          </div>
+        </div>
+
+        <div class="spark-gauge-track">
+          <div class="spark-gauge-range" style=${{ left: '20%', width: '60%' }}></div>
+          <div class="spark-gauge-marker" style=${{ left: Math.min(100, Math.max(0, ((gapVal - 0.5) / 1.1) * 100)) + '%' }}></div>
+        </div>
+        <div style=${{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>
+          <span>0.50 mm (0.020")</span>
+          <span>Rango habitual de fábrica (0.75 - 1.10 mm)</span>
+          <span>1.60 mm (0.063")</span>
+        </div>
+
+        <!-- Calculadora de reducción por Boost -->
+        <div style=${{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border)', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style=${{ flex: '1 1 180px' }}>
+            <label class="conv-lbl" htmlFor="sp-boost">Presión de turbo adicional (Boost)</label>
+            <input id="sp-boost" type="number" class="styled-input" value=${boostPsi} onChange=${e => setBoostPsi(e.target.value)} placeholder="0 PSI" />
+          </div>
+          <div style=${{ flex: '1 1 200px' }}>
+            <span class="conv-lbl">Gap recomendado con boost</span>
+            <strong style=${{ font: '800 18px var(--font)', color: boostNum > 0 ? 'var(--accent)' : 'var(--text)' }}>
+              ${boostNum > 0 ? gapTurboRecom + ' mm (' + (gapTurboRecom / 25.4).toFixed(3) + '")' : 'Sin sobrealimentación'}
+            </strong>
+            <p class="muted" style=${{ margin: '2px 0 0', fontSize: '11px' }}>Reduce el gap para evitar soplado de chispa por alta densidad en cámara.</p>
+          </div>
+        </div>
+
+        <div class="spark-material-alert">
+          <strong>Regla de oro de bujías finas:</strong> Nunca uses palanca ni golpees bujías con punta de aguja de Iridio o Platino (0.4–0.6 mm). Vienen precalibradas y la soldadura láser de la punta se fractura al forzarla. Usa siempre galgas de alambre.
+        </div>
+      </div>
+
+      <!-- Filtro de tecnologías -->
+      <div class="chip-group" role="tablist" aria-label="Tecnología de Bujías">
+        ${TECH_CHIPS.map(c => html`
+          <button type="button" role="tab" aria-selected=${tech === c.id} key=${c.id}
+                  class=${'filter-chip' + (tech === c.id ? ' active' : '')}
+                  onClick=${() => setTech(c.id)}>
+            ${c.t}
+          </button>`)}
+      </div>
+
+      <input type="search" class="styled-input" placeholder="Buscar: 1.6L, Vortec, EcoBoost, GDI, gas…"
              value=${q} onChange=${e => setQ(e.target.value)} style=${{ maxWidth: '340px', marginBottom: '12px' }} />
-      <table class="mic-tbl">
-        <thead><tr><th>Motor</th><th>Gap mm</th><th>Gap in</th><th>Nota</th></tr></thead>
-        <tbody>${rows.map((r, i) => html`<tr key=${i}><td>${r[0]}</td><td class="num">${r[1]}</td><td class="num">${r[2]}</td><td class="muted">${r[3]}</td></tr>`)}</tbody>
-      </table>
+
+      <div class="mic-tbl-wrap">
+        <table class="mic-tbl">
+          <thead><tr><th>Motor / Aplicación</th><th>Gap mm</th><th>Gap in</th><th>Tecnología y Notas</th></tr></thead>
+          <tbody>${rows.map((r, i) => html`<tr key=${i}>
+            <td><strong>${r[0]}</strong></td>
+            <td class="num" style=${{ fontVariantNumeric: 'tabular-nums' }}>${r[1]}</td>
+            <td class="num" style=${{ fontVariantNumeric: 'tabular-nums' }}>${r[2]}</td>
+            <td><span class="badge-tag info" style=${{ marginRight: '6px' }}>${r[4] || 'estándar'}</span><span class="muted">${r[3]}</span></td>
+          </tr>`)}</tbody>
+        </table>
+      </div>
       ${rows.length === 0 && html`<div class="empty">Sin resultados para “${q}”.</div>`}
-      <div class="alert blue" style=${{ marginTop: '12px' }}><span>Verifica el manual del motor: el gap depende de la bujía y del sistema de encendido.</span></div>
+      <div class="alert blue" style=${{ marginTop: '14px' }}>
+        <span>Verifica el manual del motor: en sistemas de bobina sobre bujía (COP) un gap excesivo recalienta y quema la bobina de encendido.</span>
+      </div>
     </${MicroShell}>`;
   };
 
@@ -1549,10 +1841,12 @@
     const [pumps, setPumps] = useState([]);
     const [sel, setSel] = useState('');
     const [sel2, setSel2] = useState('');
-    /* Antes el fallo era mudo (.catch vacío): si /api/pumps no respondía, el
-       desplegable quedaba vacío y parecía que no había pilas. */
+    const [brand, setBrand] = useState('all');
+    const [filtro, setFiltro] = useState('');
     const [cargando, setCargando] = useState(true);
     const [error, setError] = useState('');
+    const [copiado, setCopiado] = useState(false);
+
     const cargar = () => {
       setCargando(true); setError('');
       fetch('/api/pumps')
@@ -1566,27 +1860,44 @@
     const p2 = pumps.find(x => x.id === Number(sel2));
     const Pump3D = window.FT_APP?.Pump3D;
 
-    /* Equivalentes: las demás pilas ordenadas por lo cerca que quedan en
-       presión de la elegida. Una equivalencia se busca justo así —"¿qué otra me
-       da los mismos PSI?"— y antes había que leer el desplegable entero
-       comparando a ojo. La diferencia se dice en PSI y no en "compatible": el
-       veredicto lo da el mecánico con la pieza en la mano, no esta pantalla. */
     const equivalentes = !p ? [] : pumps
       .filter(x => x.id !== p.id)
       .map(x => ({ ...x, dif: Math.abs((x.max_psi_direct || 0) - (p.max_psi_direct || 0)) }))
       .sort((a, b) => a.dif - b.dif)
       .slice(0, 4);
 
-    /* Sin pie propio: el visor ya pinta "arrastra · rueda = zoom" por dentro y
-       salían los dos superpuestos. */
     const ficha = (x) => html`
       <div class="cross-visual">
         ${Pump3D ? html`<${Pump3D} psi=${x.max_psi_direct} style=${x.pump_style} code=${x.code} />`
           : html`<div class="v3d"></div>`}
       </div>`;
 
+    const BRANDS = [
+      { id: 'all', t: 'Todas las marcas' },
+      { id: 'bosch', t: 'Bosch' },
+      { id: 'walbro', t: 'Walbro' },
+      { id: 'denso', t: 'Denso' },
+      { id: 'delphi', t: 'Delphi' },
+      { id: 'otras', t: 'Otras marcas' }
+    ];
+
+    const tf = filtro.trim().toLowerCase();
+    const pumpsFiltradas = pumps.filter(x => {
+      const b = (x.manufacturer || '').toLowerCase();
+      const matchBrand = brand === 'all' || (brand === 'otras' ? !['bosch', 'walbro', 'denso', 'delphi'].some(k => b.includes(k)) : b.includes(brand));
+      const matchQ = !tf || (x.code + ' ' + x.manufacturer).toLowerCase().includes(tf);
+      return matchBrand && matchQ;
+    });
+
+    const compartirComparacion = () => {
+      if (!p || !p2) return;
+      const txt = encodeURIComponent(`*Comparativa de Pilas de Gasolina*\n🔹 *${p.code} (${p.manufacturer})*: ${p.max_psi_direct} PSI · ${p.flow_lph_free || '—'} LPH · ${p.pump_style}\n🔹 *${p2.code} (${p2.manufacturer})*: ${p2.max_psi_direct} PSI · ${p2.flow_lph_free || '—'} LPH · ${p2.pump_style}\n_Vía Llave - Consulta Técnica_`);
+      window.open('https://wa.me/?text=' + txt, '_blank');
+    };
+
     return html`<${MicroShell} title="Cross-Reference de Pilas" icon="Compare" onBack=${onBack}>
-      <p class="mic-lead">Elige una pila y verás su forma en 3D, sus datos y las que más se le acercan en presión.</p>
+      <p class="mic-lead">Elige una pila y verás su modelo 3D interactivo, ficha técnica y las pilas alternativas con presión equivalente.</p>
+      
       ${cargando && html`<div class="skel" aria-hidden="true" style=${{ marginBottom: '16px' }}>
         <div class="skel-line" style=${{ width: '38%' }}></div>
         <div class="skel-line" style=${{ width: '100%', height: '46px' }}></div>
@@ -1597,25 +1908,41 @@
         <p class="empty-hint">Revisa la conexión y vuelve a intentarlo.</p>
         <button type="button" class="empty-action" onClick=${cargar}><${CatIc} n="RefreshCw" s=${14} /> Reintentar</button>
       </div>`}
-      ${!error && html`
-      <label class="conv-lbl" htmlFor="cross-sel">Pila de referencia</label>
-      <select id="cross-sel" class="styled-input" value=${sel} onChange=${e => setSel(e.target.value)}
-              style=${{ maxWidth: '460px', minHeight: '46px', fontSize: '16px', marginBottom: '16px' }}>
-        <option value="">Elige una pila…</option>
-        ${pumps.map(x => html`<option key=${x.id} value=${x.id}>${x.code} — ${x.manufacturer} (${x.max_psi_direct} PSI)</option>`)}
-      </select>
+      
+      ${!error && !cargando && html`
+        <!-- Filtro por marca -->
+        <div class="chip-group" role="tablist" aria-label="Marca de pila">
+          ${BRANDS.map(b => html`
+            <button type="button" role="tab" aria-selected=${brand === b.id} key=${b.id}
+                    class=${'filter-chip' + (brand === b.id ? ' active' : '')}
+                    onClick=${() => setBrand(b.id)}>
+              ${b.t}
+            </button>`)}
+        </div>
 
-      <label class="conv-lbl" htmlFor="cross-sel2">Comparar con otra (opcional)</label>
-      <select id="cross-sel2" class="styled-input" value=${sel2} onChange=${e => setSel2(e.target.value)}
-              style=${{ maxWidth: '460px', minHeight: '46px', fontSize: '16px', marginBottom: '16px' }}>
-        <option value="">Elige la segunda pila…</option>
-        ${pumps.filter(x => x.id !== Number(sel)).map(x => html`<option key=${x.id} value=${x.id}>${x.code} — ${x.manufacturer} (${x.max_psi_direct} PSI)</option>`)}
-      </select>`}
+        <div style=${{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+          <div>
+            <label class="conv-lbl" htmlFor="cross-sel">Pila principal de referencia</label>
+            <select id="cross-sel" class="styled-input" value=${sel} onChange=${e => setSel(e.target.value)}
+                    style=${{ width: '100%', minHeight: '46px', fontSize: '15px' }}>
+              <option value="">Selecciona pila…</option>
+              ${pumpsFiltradas.map(x => html`<option key=${x.id} value=${x.id}>${x.code} — ${x.manufacturer} (${x.max_psi_direct} PSI)</option>`)}
+            </select>
+          </div>
+          <div>
+            <label class="conv-lbl" htmlFor="cross-sel2">Comparar lado a lado (opcional)</label>
+            <select id="cross-sel2" class="styled-input" value=${sel2} onChange=${e => setSel2(e.target.value)}
+                    style=${{ width: '100%', minHeight: '46px', fontSize: '15px' }}>
+              <option value="">Segunda pila para comparar…</option>
+              ${pumpsFiltradas.filter(x => x.id !== Number(sel)).map(x => html`<option key=${x.id} value=${x.id}>${x.code} — ${x.manufacturer} (${x.max_psi_direct} PSI)</option>`)}
+            </select>
+          </div>
+        </div>`}
 
       ${!cargando && !error && !sel && html`<div class="empty-state">
         <div class="empty-icon"><${CatIc} n="Compare" s=${26} /></div>
-        <p class="empty-title">Elige una pila para compararla</p>
-        <p class="empty-hint">Verás su forma en 3D, sus datos y las que más se le acercan en presión.</p>
+        <p class="empty-title">Elige una pila para analizarla</p>
+        <p class="empty-hint">Podrás examinar su geometría en 3D, comparar voltajes, caudales y encontrar sustitutos directos de presión.</p>
       </div>`}
 
       ${p && html`
@@ -1627,28 +1954,29 @@
           <div class="cross-cuerpo">
             ${ficha(p)}
             <dl class="kv">
-              <dt>Presión máx</dt><dd class="psi">${p.max_psi_direct} PSI (${p.max_bar_direct} bar)</dd>
-              <dt>Consumo</dt><dd>${p.amperage_a} A @ ${p.voltage_v} V · ${p.flow_lph_free || '—'} LPH</dd>
-              <dt>Estilo</dt><dd>${p.pump_style}</dd>
-              <dt>Entrada</dt><dd>${p.inlet_desc}</dd>
-              <dt>Salida</dt><dd>${p.outlet_desc}</dd>
-              <dt>Polaridad</dt><dd>${p.polarity_desc}</dd>
+              <dt>Presión máx</dt><dd class="psi"><strong>${p.max_psi_direct} PSI</strong> (${p.max_bar_direct} bar)</dd>
+              <dt>Consumo eléctrico</dt><dd>${p.amperage_a} A @ ${p.voltage_v} V</dd>
+              <dt>Caudal libre</dt><dd><strong>${p.flow_lph_free || '—'} LPH</strong></dd>
+              <dt>Tipo de bomba</dt><dd>${p.pump_style}</dd>
+              <dt>Boca de entrada</dt><dd>${p.inlet_desc}</dd>
+              <dt>Boca de salida</dt><dd>${p.outlet_desc}</dd>
+              <dt>Polaridad conector</dt><dd>${p.polarity_desc}</dd>
             </dl>
           </div>
         </div>
 
         ${equivalentes.length > 0 && html`
-          <h4 class="cross-titulo">Las más cercanas en presión</h4>
+          <h4 class="cross-titulo">Alternativas más cercanas en presión de riel</h4>
           <div class="cross-rejilla">
             ${equivalentes.map(x => html`
               <button type="button" class="cross-alt" key=${x.id} onClick=${() => setSel(String(x.id))}
-                      title=${'Ver ' + x.code}>
+                      title=${'Examinar ' + x.code}>
                 ${ficha(x)}
                 <div class="cross-alt-txt">
                   <strong>${x.code}</strong>
                   <span>${x.manufacturer}</span>
                   <span class="cross-alt-psi">${x.max_psi_direct} PSI
-                    <em>${x.dif === 0 ? 'misma presión' : (x.dif > 0 ? '±' + x.dif + ' PSI' : '')}</em>
+                    <em>${x.dif === 0 ? '· misma presión' : (x.dif > 0 ? '· dif ±' + x.dif + ' PSI' : '')}</em>
                   </span>
                 </div>
               </button>`)}
@@ -1656,17 +1984,37 @@
 
         <div class="alert blue" style=${{ marginTop: '14px' }}>
           <${CatIc} n="Info" s=${14} />
-          <span>Coincidir en PSI no es ser compatible: confirma medidas, entrada, salida y conector contra la pieza original antes de comprar.</span>
+          <span>La igualdad de PSI no garantiza compatibilidad física: comprueba siempre el diámetro de la carcasa, la polaridad (+/-) y la forma del conector antes de montar en el tanque.</span>
         </div>`}
 
       ${p && p2 && html`
-        <h4 class="cross-titulo">Comparación lado a lado</h4>
-        <table class="mic-tbl">
-          <thead><tr><th>Dato</th><th>${p.code}</th><th>${p2.code}</th></tr></thead>
-          <tbody>
-            ${[['Presión máx', x => x.max_psi_direct + ' PSI'], ['Presión', x => x.max_bar_direct + ' bar'], ['Consumo', x => x.amperage_a + ' A @ ' + x.voltage_v + ' V'], ['Caudal libre', x => (x.flow_lph_free || '—') + ' LPH'], ['Estilo', x => x.pump_style], ['Entrada', x => x.inlet_desc], ['Salida', x => x.outlet_desc], ['Polaridad', x => x.polarity_desc]].map(([lbl, f]) => html`<tr key=${lbl}><td>${lbl}</td><td>${f(p)}</td><td>${f(p2)}</td></tr>`)}
-          </tbody>
-        </table>`}
+        <div style=${{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', flexWrap: 'wrap', gap: '8px' }}>
+          <h4 class="cross-titulo" style=${{ margin: '0' }}>Matriz comparativa lado a lado</h4>
+          <button type="button" class="copy-pill-btn" onClick=${compartirComparacion} title="Compartir comparativa por WhatsApp">
+            <${CatIc} n="Send" s=${13} /> Compartir por WhatsApp
+          </button>
+        </div>
+        <div class="mic-tbl-wrap">
+          <table class="mic-tbl" style=${{ marginTop: '10px' }}>
+            <thead><tr><th>Especificación técnica</th><th>${p.code} (${p.manufacturer})</th><th>${p2.code} (${p2.manufacturer})</th></tr></thead>
+            <tbody>
+              ${[
+                ['Presión máxima (PSI)', x => x.max_psi_direct + ' PSI', p.max_psi_direct === p2.max_psi_direct],
+                ['Presión en Bar', x => x.max_bar_direct + ' bar', p.max_bar_direct === p2.max_bar_direct],
+                ['Consumo y Voltaje', x => x.amperage_a + ' A @ ' + x.voltage_v + ' V', p.amperage_a === p2.amperage_a],
+                ['Caudal libre (LPH)', x => (x.flow_lph_free || '—') + ' LPH', p.flow_lph_free === p2.flow_lph_free],
+                ['Estilo de mecanismo', x => x.pump_style, p.pump_style === p2.pump_style],
+                ['Boca de entrada', x => x.inlet_desc, p.inlet_desc === p2.inlet_desc],
+                ['Boca de salida', x => x.outlet_desc, p.outlet_desc === p2.outlet_desc],
+                ['Polaridad eléctrica', x => x.polarity_desc, p.polarity_desc === p2.polarity_desc]
+              ].map(([lbl, f, igual]) => html`<tr key=${lbl}>
+                <td><strong>${lbl}</strong></td>
+                <td>${f(p)}</td>
+                <td>${f(p2)} ${igual ? html`<span class="badge-tag ok" style=${{ marginLeft: '6px' }}>Idéntico</span>` : ''}</td>
+              </tr>`)}
+            </tbody>
+          </table>
+        </div>`}
     </${MicroShell}>`;
   };
 
@@ -1674,25 +2022,28 @@
      Tabla declarativa: magnitud y unidades con factor hacia la unidad base. */
   const MAGNITUDES = [
     { id: 'presion', t: 'Presión', ic: 'Fuel', base: 'kPa',
-      nota: 'La presión de riel se publica en PSI; los manuales europeos y muchos escáneres, en bar o kPa.',
+      nota: 'Presión de riel: MPFI trabaja a 35–55 PSI; sistemas GDI/inyección directa a 500–2500 PSI (35–170 bar).',
       us: [['PSI', 6.894757], ['bar', 100], ['kPa', 1], ['kgf/cm²', 98.0665], ['inHg', 3.386389], ['mmHg', 0.1333224]] },
     { id: 'torque', t: 'Torque', ic: 'Wrench', base: 'N·m',
       nota: 'Los torquímetros del taller suelen venir en lb-ft; las fichas de fábrica, en N·m.',
       us: [['N·m', 1], ['lb-ft', 1.3558179], ['lb-in', 0.1129848], ['kgf·m', 9.80665]] },
     { id: 'caudal', t: 'Caudal', ic: 'Gauge', base: 'L/h',
-      nota: 'El flujo libre de una pila se da en LPH. cc/min es lo que marcan los bancos de inyectores.',
+      nota: 'El flujo libre de una pila se da en LPH. cc/min es lo que marcan los bancos de inyectores (1 LPH ≈ 16.7 cc/min).',
       us: [['L/h', 1], ['L/min', 60], ['cc/min', 0.06], ['GPH (US)', 3.785412], ['GPM (US)', 227.1247]] },
     { id: 'longitud', t: 'Longitud', ic: 'Ruler', base: 'mm',
-      nota: 'El gap de bujía va en mm o en milésimas de pulgada (thou); las líneas, en pulgadas.',
+      nota: 'El gap de bujía va en mm o en milésimas de pulgada (thou); las mangueras, en fracciones de pulgada.',
       us: [['mm', 1], ['cm', 10], ['in', 25.4], ['thou (0.001")', 0.0254], ['m', 1000]] },
+    { id: 'potencia', t: 'Potencia', ic: 'Zap', base: 'kW',
+      nota: '1 kW = 1.341 HP (mecánico) = 1.360 CV (métrico). 1 HP ≈ 745.7 Watts.',
+      us: [['HP', 0.7456999], ['kW', 1], ['CV', 0.7354988], ['W', 0.001]] },
     { id: 'volumen', t: 'Volumen', ic: 'Fuel', base: 'L',
-      nota: 'Capacidad de tanque y de aceite. El galón US (3,785 L) no es el imperial (4,546 L).',
+      nota: 'Capacidad de tanque y de cárter. 1 Galón US = 3.785 L (diferente al imperial de 4.546 L).',
       us: [['L', 1], ['mL', 0.001], ['gal (US)', 3.785412], ['gal (imp)', 4.546092], ['qt (US)', 0.9463529]] },
     { id: 'temperatura', t: 'Temperatura', ic: 'Gauge', base: '°C', esTemp: true,
-      nota: 'El sensor ECT y las fichas de termostato saltan entre °C y °F según el origen del manual.',
+      nota: 'El sensor ECT y termostatos alternan entre °C y °F según procedencia del manual.',
       us: [['°C', 1], ['°F', 1], ['K', 1]] },
     { id: 'electrico', t: 'Eléctrico', ic: 'Zap', base: 'A',
-      nota: 'Consumo de una pila: más de 20 A es motor atascado o corto; menos de 2 A, circuito abierto.',
+      nota: 'Consumo de una pila: >10-12 A suele indicar filtro tapado o bomba forzada; <2 A circuito abierto.',
       us: [['A', 1], ['mA', 0.001]] },
   ];
 
@@ -1710,8 +2061,6 @@
     return n * fd / fh;
   }
 
-  /* Cifras significativas en vez de dos decimales fijos: 0,03 bar se quedaba en
-     "0.03" y 0,0007 en "0.00", que en una conversión es un dato perdido. */
   const formatear = (x) => {
     if (!Number.isFinite(x)) return '—';
     const abs = Math.abs(x);
@@ -1720,12 +2069,10 @@
     return Number(x.toFixed(dec)).toLocaleString('es', { maximumFractionDigits: dec });
   };
 
-  /* La magnitud que el mecánico usa casi siempre se recuerda en el aparato:
-     volver a elegir "presión" cada vez que abre el conversor es trabajo de más. */
   const convMagInicial = () => MAGNITUDES.find(m => m.id === ls.get('ft_conv_mag', '')) || MAGNITUDES[0];
   const ConverterApp = ({ onBack }) => {
     const [magId, setMagId] = useState(() => convMagInicial().id);
-    const [valor, setValor] = useState('');
+    const [valor, setValor] = useState('45');
     const [desde, setDesde] = useState(() => convMagInicial().us[0][0]);
     const mag = MAGNITUDES.find(m => m.id === magId) || MAGNITUDES[0];
     const n = parseFloat(String(valor).replace(',', '.'));
@@ -1734,25 +2081,27 @@
     const cambiarMag = (id) => {
       const m = MAGNITUDES.find(x => x.id === id);
       setMagId(id);
-      setDesde(m.us[0][0]);   // la unidad anterior no existe en la nueva magnitud
+      setDesde(m.us[0][0]);
       ls.set('ft_conv_mag', id);
     };
 
-    /* Valores que un mecánico teclea a diario: ahorran el teclado numérico con
-       guantes, que es donde de verdad se pierde tiempo. */
-    const ATAJOS = {
-      presion: [['60 PSI', 60, 'PSI'], ['90 PSI', 90, 'PSI'], ['3 bar', 3, 'bar']],
-      torque: [['20 N·m', 20, 'N·m'], ['80 N·m', 80, 'N·m'], ['15 lb-ft', 15, 'lb-ft']],
-      caudal: [['110 L/h', 110, 'L/h'], ['190 L/h', 190, 'L/h']],
-      longitud: [['1.1 mm', 1.1, 'mm'], ['0.044 in', 0.044, 'in']],
-      volumen: [['50 L', 50, 'L'], ['5 qt', 5, 'qt (US)']],
-      temperatura: [['90 °C', 90, '°C'], ['180 °F', 180, '°F']],
-      electrico: [['6.5 A', 6.5, 'A'], ['800 mA', 800, 'mA']],
+    const ajustarPaso = (delta) => {
+      const actual = parseFloat(String(valor).replace(',', '.')) || 0;
+      const nuevo = Math.max(0, actual + delta);
+      setValor(String(Number(nuevo.toFixed(2))));
     };
 
-    /* Acuse propio y no el `toast` global: ToastStack solo se monta en la vista
-       del catálogo, así que desde una micro app el aviso no se vería nunca. El
-       "copiado" se marca en la fila que se tocó, que además dice CUÁL se copió. */
+    const ATAJOS = {
+      presion: [['45 PSI (MPFI)', 45, 'PSI'], ['60 PSI (GM)', 60, 'PSI'], ['3 bar (Euro)', 3, 'bar'], ['15 PSI (TBI)', 15, 'PSI']],
+      torque: [['25 N·m (Bujía)', 25, 'N·m'], ['80 N·m (Birlo)', 80, 'N·m'], ['18 lb-ft', 18, 'lb-ft'], ['75 lb-ft', 75, 'lb-ft']],
+      caudal: [['90 L/h', 90, 'L/h'], ['110 L/h', 110, 'L/h'], ['190 L/h', 190, 'L/h'], ['255 L/h (HP)', 255, 'L/h']],
+      longitud: [['0.8 mm (Cobre)', 0.8, 'mm'], ['1.1 mm (Std)', 1.1, 'mm'], ['0.044 in', 0.044, 'in']],
+      potencia: [['100 HP', 100, 'HP'], ['75 kW', 75, 'kW'], ['150 CV', 150, 'CV']],
+      volumen: [['45 L', 45, 'L'], ['5 qt', 5, 'qt (US)'], ['3.785 L (1 Gal)', 3.785, 'L']],
+      temperatura: [['90 °C (ECT)', 90, '°C'], ['105 °C (Fan)', 105, '°C'], ['195 °F', 195, '°F']],
+      electrico: [['5.5 A (Normal)', 5.5, 'A'], ['8.5 A (Cargada)', 8.5, 'A'], ['800 mA', 800, 'mA']],
+    };
+
     const [copiado, setCopiado] = useState('');
     useEffect(() => {
       if (!copiado) return;
@@ -1760,7 +2109,7 @@
       return () => clearTimeout(t);
     }, [copiado]);
     const copiar = (unidad, texto) => {
-      try { navigator.clipboard?.writeText(texto); } catch (e) { /* sin permiso: se marca igual */ }
+      try { navigator.clipboard?.writeText(texto); } catch (e) {}
       setCopiado(unidad);
     };
 
@@ -1775,10 +2124,16 @@
 
       <div class="conv-entrada">
         <div class="conv-campo">
-          <label class="conv-lbl" htmlFor="conv-v">Cantidad</label>
+          <label class="conv-lbl" htmlFor="conv-v">Cantidad a convertir</label>
           <input id="conv-v" type="number" inputMode="decimal" step="any" class="styled-input"
                  value=${valor} onChange=${e => setValor(e.target.value)} placeholder="0"
                  autoFocus />
+          <div class="tq-stepper-bar">
+            ${[-10, -1, 1, 10].map(s => html`
+              <button type="button" class="tq-step-btn" key=${s} onClick=${() => ajustarPaso(s)}>
+                ${s > 0 ? '+' + s : s}
+              </button>`)}
+          </div>
         </div>
         <div class="conv-campo">
           <label class="conv-lbl" htmlFor="conv-u">Unidad de entrada</label>
@@ -1793,16 +2148,23 @@
       </div>
 
       <div class="conv-atajos">
-        <span class="conv-atajos-lbl">Frecuentes:</span>
+        <span class="conv-atajos-lbl">Frecuentes del taller:</span>
         ${(ATAJOS[magId] || []).map(([etiqueta, num, unidad]) => html`
           <button type="button" class="conv-atajo" key=${etiqueta}
                   onClick=${() => { setValor(String(num)); setDesde(unidad); }}>${etiqueta}</button>`)}
       </div>
 
-      ${/* TODAS las equivalencias a la vez, no dos elegidas de antemano: el
-            mecánico no siempre quiere la misma, y una tabla completa se lee de
-            un vistazo. La unidad de entrada se marca en vez de esconderse, para
-            que se vea de dónde sale el cálculo. */''}
+      ${magId === 'presion' && hayValor && html`
+        <div class="alert blue" style=${{ margin: '12px 0' }}>
+          <span style=${{ font: '700 12.5px var(--font)' }}>Referencia de Inyección Automotriz:</span>
+          <div style=${{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px', fontSize: '11.5px' }}>
+            <span class="badge-tag info">Carburador: 4–7 PSI</span>
+            <span class="badge-tag info">TBI: 9–15 PSI</span>
+            <span class="badge-tag ok">MPFI (Riel): 35–55 PSI</span>
+            <span class="badge-tag warning">GDI Directa: 500–2500 PSI</span>
+          </div>
+        </div>`}
+
       <div class="conv-tabla" aria-live="polite">
         ${mag.us.map(([u]) => {
           const r = convertir(mag, n, desde, u);
@@ -1832,11 +2194,6 @@
   };
 
   /* ---- 7. VIN ---- */
-  /* Dígito verificador (posición 9, ISO 3779): se transliteran las letras a
-     número, se multiplican por un peso por posición y el resto módulo 11 es el
-     dígito (10 = "X"). Solo lo exigen los VIN de mercado norteamericano: en
-     otros mercados el dato puede no cuadrar y el VIN sigue siendo válido, por
-     eso es un aviso y no un error. */
   const VIN_TRANSLIT = { A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8, J: 1, K: 2, L: 3, M: 4, N: 5, P: 7, R: 9, S: 2, T: 3, U: 4, V: 5, W: 6, X: 7, Y: 8, Z: 9 };
   const VIN_PESOS = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2];
   const vinCheckDigit = (s) => {
@@ -1852,6 +2209,7 @@
   };
   const VinApp = ({ onBack }) => {
     const [vin, setVin] = useState('');
+    const [copiado, setCopiado] = useState(false);
     const v = vin.toUpperCase().trim();
     const valid = /^[A-HJ-NPR-Z0-9]{17}$/.test(v);
     const year = v.length >= 10 ? (VIN_YEARS[v[9]] || '—') : '—';
@@ -1863,27 +2221,107 @@
       '4T1': 'Toyota (EE. UU.)', '2T1': 'Toyota (Canadá)', '1VW': 'Volkswagen (EE. UU.)',
       '3VW': 'Volkswagen (México)', '1J4': 'Jeep (EE. UU.)', '1N4': 'Nissan (EE. UU.)',
       '3N1': 'Nissan (México)', 'KNA': 'Kia (Corea)', 'KMH': 'Hyundai (Corea)',
-      'WAU': 'Audi', 'WDB': 'Mercedes-Benz', 'WBX': 'BMW', 'YV1': 'Volvo', 'LGW': 'Great Wall',
+      'WAU': 'Audi', 'WDB': 'Mercedes-Benz', 'WBX': 'BMW', 'YV1': 'Volvo', 'LGW': 'Great Wall (China)',
       'JTD': 'Toyota (Japón)', 'JN1': 'Nissan (Japón)', 'JM1': 'Mazda (Japón)',
       'JHM': 'Honda (Japón)', 'WVW': 'Volkswagen (Alemania)', 'VF1': 'Renault (Francia)',
       'VF3': 'Peugeot (Francia)', 'ZFA': 'Fiat (Italia)', '9BG': 'Chevrolet (Brasil)',
       '9BD': 'Fiat (Brasil)', '93H': 'Honda (Brasil)', '8AP': 'Vehículo (Argentina)',
-      'KL1': 'Chevrolet (Corea)', 'LSV': 'Vehículo (China)',
+      'KL1': 'Chevrolet (Corea)', 'LSV': 'Vehículo (China)', 'LVV': 'Chery (China)',
+      'LB3': 'Geely (China)', 'LGX': 'BYD (China)', 'LS5': 'Changan (China)',
+      'LJ1': 'JAC (China)', '1D3': 'Dodge (EE. UU.)', '1C4': 'RAM / Chrysler (EE. UU.)',
+      '3D7': 'RAM (México)', 'JMB': 'Mitsubishi (Japón)', 'JF1': 'Subaru (Japón)', 'JS2': 'Suzuki (Japón)'
     };
     const check = valid ? vinCheckDigit(v) : null;
     const checkOk = valid && check === v[8];
-    return html`<${MicroShell} title="Decodificador VIN" icon="ScanSearch" onBack=${onBack}>
-      <p class="mic-lead">Los 17 caracteres del chasis traen el fabricante, el año del modelo y la planta. Escríbelo completo para leerlo.</p>
-      <label class="sr-only" htmlFor="vin-in">VIN de 17 caracteres</label>
-      <input id="vin-in" name="vin" type="text" class="styled-input" placeholder="17 caracteres: 3VW…" value=${vin} onChange=${e => setVin(e.target.value.toUpperCase())} maxLength="17" style=${{ maxWidth: '340px', fontVariantNumeric: 'tabular-nums', letterSpacing: '2px' }} />
-      ${v.length > 0 && !valid && html`<div class="alert" style=${{ marginTop: '10px' }}><span>El VIN debe tener 17 caracteres (sin I, O, Q).</span></div>`}
+
+    const EJEMPLOS = [
+      ['Toyota Corolla', '4T1BURHE9GU123456'],
+      ['Ford F-150', '1FTFW1ET5EK123456'],
+      ['Nissan Versa', '3N1CN7AP5FL123456'],
+      ['Chevrolet Silverado', '1GCRCSE09HZ123456'],
+      ['VW Jetta', '3VW2K7AJ0HM123456']
+    ];
+
+    const copiarInforme = () => {
+      if (!valid) return;
+      const texto = `INFORME DE IDENTIFICACIÓN VIN\nVIN: ${v}\nFabricante: ${wmiBrand[wmi] || wmi}\nAño Modelo: ${year} (Posición 10: ${v[9]})\nPlanta: ${v[10]}\nSerial: ${v.slice(11)}\nCheck Digit: ${v[8]} (${checkOk ? 'Válido' : 'No cuadra con norma USA'})\nGenerado en Llave Taller`;
+      try { navigator.clipboard?.writeText(texto); } catch (e) {}
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 1600);
+    };
+
+    return html`<${MicroShell} title="Decodificador VIN (ISO 3779)" icon="ScanSearch" onBack=${onBack}>
+      <p class="mic-lead">Estructura internacional de 17 caracteres del chasis. Desglosa WMI (fabricante), VDS (modelo), dígito verificador y año de ensamble.</p>
+
+      <div style=${{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+        <span class="muted" style=${{ font: '600 11.5px var(--font)', alignSelf: 'center', marginRight: '4px' }}>Ejemplos rápidos:</span>
+        ${EJEMPLOS.map(([nom, codigo]) => html`
+          <button type="button" class="tq-step-btn" key=${nom} onClick=${() => setVin(codigo)}>
+            ${nom}
+          </button>`)}
+      </div>
+
+      <div style=${{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <input id="vin-in" name="vin" type="text" class="styled-input" placeholder="17 caracteres: 3VW…"
+               value=${vin} onChange=${e => setVin(e.target.value.toUpperCase())} maxLength="17"
+               style=${{ maxWidth: '340px', fontVariantNumeric: 'tabular-nums', letterSpacing: '2px', fontWeight: '700' }} />
+        ${valid && html`
+          <button type="button" class=${'copy-pill-btn' + (copiado ? ' copied' : '')} onClick=${copiarInforme}>
+            <${CatIc} n=${copiado ? 'Check' : 'Copy'} s=${13} /> ${copiado ? 'Informe copiado' : 'Copiar informe'}
+          </button>`}
+      </div>
+
+      ${v.length > 0 && !valid && html`
+        <div class="alert" style=${{ marginTop: '10px' }}>
+          <span>El VIN debe tener 17 caracteres alfanuméricos válidos (sin letras I, O ni Q para evitar confusión con 1 y 0). Llevas ${v.length}/17.</span>
+        </div>`}
+
+      <!-- Desglose visual en pills de los 17 caracteres -->
+      ${v.length > 0 && html`
+        <div class="vin-pill-container">
+          ${v.split('').map((char, idx) => {
+            const grp = idx < 3 ? 'wmi' : idx < 8 ? 'vds' : idx === 8 ? 'chk' : idx === 9 ? 'yr' : idx === 10 ? 'plt' : 'ser';
+            const grpLbl = idx < 3 ? 'WMI' : idx < 8 ? 'VDS' : idx === 8 ? 'CHK' : idx === 9 ? 'AÑO' : idx === 10 ? 'PLT' : 'VIS';
+            return html`<div class="vin-char-block" key=${idx}>
+              <span class="vin-char-pos">${idx + 1}</span>
+              <span class="vin-char-val">${char}</span>
+              <span class=${'vin-char-grp vin-grp-' + grp}>${grpLbl}</span>
+            </div>`;
+          })}
+        </div>`}
+
       ${valid && html`<div class="vin-card" style=${{ marginTop: '14px' }}>
-        <div class="vin-line"><span>Fabricante (WMI)</span><strong>${wmiBrand[wmi] || wmi + ' (no en tabla local)'}</strong></div>
-        <div class="vin-line"><span>Año del modelo (pos. 10)</span><strong>${year}${year === '—' ? '' : ' (letra ' + v[9] + ')'}</strong></div>
-        <div class="vin-line"><span>País (pos. 1)</span><strong>${wmi[0] === '1' ? 'EE. UU.' : wmi[0] === '2' ? 'Canadá' : wmi[0] === '3' ? 'México' : wmi[0] === 'K' ? 'Corea' : wmi[0] === 'J' ? 'Japón' : wmi[0] === 'W' ? 'Alemania' : wmi[0] === 'V' ? 'Francia / España' : wmi[0] === 'Z' ? 'Italia' : wmi[0] === '9' ? 'Brasil / Argentina' : wmi[0] === 'L' ? 'China' : '—'}</strong></div>
-        <div class="vin-line"><span>Dígito verificador (pos. 9)</span><strong>${v[8]} ${checkOk ? '· correcto' : '· no cuadra (calculado: ' + check + ')'}</strong></div>
-        ${!checkOk && html`<div class="alert" style=${{ marginTop: '10px' }}><span>El dígito verificador no cuadra. Si el vehículo es de mercado norteamericano, revisa que copiaste el VIN sin errores; en mercados que no lo exigen, el VIN puede ser válido igual.</span></div>`}
-        <div class="alert blue" style=${{ marginTop: '10px' }}><span>Tabla de años 2001–2030. La posición 10 usa letras/cifras que saltan (I, O, Q, U, Z y 0 no se usan).</span></div>
+        <div class="vin-line">
+          <span>Fabricante y País (WMI)</span>
+          <strong>${wmiBrand[wmi] || wmi + ' (Fabricante fuera de tabla local)'}</strong>
+        </div>
+        <div class="vin-line">
+          <span>Año del modelo (Posición 10)</span>
+          <strong>${year} <span class="badge-tag info" style=${{ marginLeft: '6px' }}>Código: ${v[9]}</span></strong>
+        </div>
+        <div class="vin-line">
+          <span>Región geográfica (Posición 1)</span>
+          <strong>${wmi[0] === '1' ? 'EE. UU.' : wmi[0] === '2' ? 'Canadá' : wmi[0] === '3' ? 'México' : wmi[0] === 'K' ? 'Corea' : wmi[0] === 'J' ? 'Japón' : wmi[0] === 'W' ? 'Alemania' : wmi[0] === 'V' ? 'Francia / España' : wmi[0] === 'Z' ? 'Italia' : wmi[0] === '9' ? 'Brasil / Argentina' : wmi[0] === 'L' ? 'China' : 'Internacional'}</strong>
+        </div>
+        <div class="vin-line">
+          <span>Dígito verificador matemático (Posición 9)</span>
+          <div>
+            <strong>${v[8]}</strong>
+            <span class=${'badge-tag ' + (checkOk ? 'ok' : 'warning')} style=${{ marginLeft: '8px' }}>
+              ${checkOk ? 'Válido (ISO 3779)' : 'No coincide (calculado: ' + check + ')'}
+            </span>
+          </div>
+        </div>
+        <div class="vin-line">
+          <span>Número secuencial de chasis (VIS)</span>
+          <strong>${v.slice(11)}</strong>
+        </div>
+        ${!checkOk && html`<div class="alert" style=${{ marginTop: '10px' }}>
+          <span>Nota sobre el dígito verificador: es de exigencia estricta en vehículos para el mercado norteamericano (EE.UU./Canadá). En vehículos de mercado europeo, asiático o mercosur, este dígito no es mandatorio y el chasis es legítimo igual.</span>
+        </div>`}
+        <div class="alert blue" style=${{ marginTop: '10px' }}>
+          <span>La norma ISO 3779 se apoya en ciclos de 30 años sin usar caracteres conflictivos (I, O, Q, U, Z, 0).</span>
+        </div>
       </div>`}
     </${MicroShell}>`;
   };
@@ -2080,10 +2518,12 @@
 
   /* ---- 23. Sincronización ---- */
   const TimingApp = ({ onBack }) => html`<${MicroShell} title="Sincronización / Kit de Tiempo" icon="History" onBack=${onBack}>
-    <table class="mic-tbl">
-      <thead><tr><th>Motor</th><th>Marca de sincronización</th></tr></thead>
-      <tbody>${TIMING.map((r, i) => html`<tr key=${i}><td>${r[0]}</td><td class="muted">${r[1]}</td></tr>`)}</tbody>
-    </table>
+    <div class="mic-tbl-wrap">
+      <table class="mic-tbl">
+        <thead><tr><th>Motor</th><th>Marca de sincronización</th></tr></thead>
+        <tbody>${TIMING.map((r, i) => html`<tr key=${i}><td>${r[0]}</td><td class="muted">${r[1]}</td></tr>`)}</tbody>
+      </table>
+    </div>
     <div class="alert blue" style=${{ marginTop: '12px' }}><span>Referencia: la marca exacta y el método varían por año y mercado. Usa el manual de servicio.</span></div>
   </${MicroShell}>`;
 
@@ -2168,28 +2608,126 @@
 
   const FusesApp = ({ onBack }) => {
     const [q, setQ] = useState('');
+    const [amperajeSel, setAmperajeSel] = useState('');
+    const [relayOn, setRelayOn] = useState(false);
+    const [relayPinSel, setRelayPinSel] = useState(null);
+
     const t = q.trim().toLowerCase();
-    const rows = FUSE_CIRCUITS.filter(r => !t || (r[0] + ' ' + r[2]).toLowerCase().includes(t));
+    const rows = FUSE_CIRCUITS.filter(r => {
+      const matchQ = !t || (r[0] + ' ' + r[2]).toLowerCase().includes(t);
+      const matchAmp = !amperajeSel || r[1].includes(amperajeSel);
+      return matchQ && matchAmp;
+    });
+
+    const PINS = [
+      { id: '85', name: 'Bobina (Mando -)', desc: 'Conexión a masa o señal negativa de la ECU / interruptor.' },
+      { id: '86', name: 'Bobina (Mando +)', desc: 'Alimentación de 12V bajo switch (Ignición) para activar bobina.' },
+      { id: '30', name: 'Común (BATT +)', desc: 'Entrada de corriente de potencia directa de batería (fusible principal).' },
+      { id: '87', name: 'Salida N.O.', desc: 'Normalmente Abierto. Conecta a la bomba o faros al energizar el relé.' },
+      { id: '87a', name: 'Salida N.C.', desc: 'Normalmente Cerrado (solo relés de 5 pines). Conectado a 30 en reposo.' }
+    ];
+
     return html`<${MicroShell} title="Fusibles y Relés" icon="Zap" onBack=${onBack}>
-      <p class="mic-lead">El código de colores del fusible de cuchilla es norma; el amperaje por circuito es referencia y varía por modelo. El valor bueno es el que dice la tapa de la caja.</p>
-      <h3 class="mic-sub">Código de colores (fusible de cuchilla)</h3>
-      <div class="fuse-grid">
-        ${FUSE_COLORS.map(([a, c, hex]) => html`<div class="fuse-chip" key=${a}>
-          <span class="fuse-dot" style=${{ background: hex }} aria-hidden="true"></span>
-          <b>${a}</b><span>${c}</span>
-        </div>`)}
+      <p class="mic-lead">Código de color DIN para fusibles de cuchilla y simulador de relé automotriz (SPDT 4/5 pines).</p>
+
+      <!-- Rejilla de fusibles realistas -->
+      <h3 class="mic-sub">Fusibles de cuchilla (DIN 72581)</h3>
+      <div class="fuse-realistic-grid">
+        ${FUSE_COLORS.map(([a, c, hex]) => {
+          const numA = a.replace(/[^0-9.]/g, '');
+          const isSel = amperajeSel === numA;
+          return html`<button type="button" class="fuse-blade-card" key=${a}
+                              style=${isSel ? { borderColor: 'var(--accent)', background: 'var(--accent-soft)' } : {}}
+                              onClick=${() => setAmperajeSel(isSel ? '' : numA)}>
+            <div class="fuse-blade-art">
+              <svg viewBox="0 0 54 58" width="54" height="58" style=${{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.15))' }}>
+                <rect x="10" y="36" width="9" height="20" rx="1.5" fill="#D2D6DC" stroke="#9CA3AF" strokeWidth="1" />
+                <rect x="35" y="36" width="9" height="20" rx="1.5" fill="#D2D6DC" stroke="#9CA3AF" strokeWidth="1" />
+                <rect x="4" y="4" width="46" height="34" rx="5" fill=${hex} fillOpacity="0.88" stroke="#111" strokeWidth="1.2" />
+                <path d="M 21 34 Q 27 16 33 34" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" />
+                <rect x="14" y="6" width="5" height="3" rx="1" fill="#FFF" fillOpacity="0.7" />
+                <rect x="35" y="6" width="5" height="3" rx="1" fill="#FFF" fillOpacity="0.7" />
+                <text x="27" y="24" fill="#FFF" fontSize="13" fontWeight="900" textAnchor="middle" fontFamily="sans-serif" style=${{ textShadow: '0 1px 2px rgba(0,0,0,.8)' }}>${numA}</text>
+              </svg>
+            </div>
+            <strong style=${{ fontSize: '13px', color: 'var(--text)' }}>${a}</strong>
+            <span class="muted" style=${{ fontSize: '11px' }}>${c}</span>
+          </button>`;
+        })}
       </div>
 
-      <h3 class="mic-sub">Amperaje típico por circuito</h3>
-      <label class="sr-only" htmlFor="fuse-q">Filtrar circuito</label>
-      <input id="fuse-q" name="circuito" type="search" class="styled-input" placeholder="Circuito: bomba, ECU, luces…" value=${q} onChange=${e => setQ(e.target.value)} style=${{ maxWidth: '320px', marginBottom: '12px' }} />
-      <p class="muted" role="status" style=${{ font: '500 12px var(--font)', margin: '0 0 8px' }}>${rows.length} de ${FUSE_CIRCUITS.length} circuitos</p>
-      <table class="mic-tbl">
-        <thead><tr><th>Circuito</th><th>Amperaje</th><th>Nota</th></tr></thead>
-        <tbody>${rows.map((r, i) => html`<tr key=${i}><td>${r[0]}</td><td class="num"><strong>${r[1].replace(' A', ' A')}</strong></td><td class="muted">${r[2]}</td></tr>`)}</tbody>
-      </table>
-      ${rows.length === 0 && html`<div class="empty">Sin resultados para “${q}”</div>`}
-      <div class="alert" style=${{ marginTop: '14px' }}><span>Los amperajes por circuito son <strong>referencia</strong>: el valor bueno es el que dice la tapa de la caja de fusibles del vehículo. Nunca subas de amperaje para que “aguante” — el fusible protege el cable, no el componente.</span></div>
+      <!-- Simulador de Relé automotriz -->
+      <h3 class="mic-sub">Simulador interactivo de Relé automotriz (4 y 5 pines)</h3>
+      <div class="relay-box-visual">
+        <div style=${{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginBottom: '10px' }}>
+          <div>
+            <strong style=${{ fontSize: '14px', color: 'var(--text)' }}>Caja del Relé SPDT</strong>
+            <span class="muted" style=${{ display: 'block', fontSize: '11px' }}>Toca un pin para ver su función técnica</span>
+          </div>
+          <button type="button" class="tool-add-btn" onClick=${() => setRelayOn(!relayOn)}>
+            ${relayOn ? '⚡ Bobina Energizada (ON)' : '⭕ En Reposo (OFF)'}
+          </button>
+        </div>
+
+        <div class="relay-pins-grid">
+          <button type="button" class=${'relay-pin-btn' + (relayPinSel === '86' ? ' active' : '')} style=${{ gridArea: 'p86' }} onClick=${() => setRelayPinSel('86')}>
+            <b>86</b><span>Bobina (+)</span>
+          </button>
+          <button type="button" class=${'relay-pin-btn' + (relayPinSel === '85' ? ' active' : '')} style=${{ gridArea: 'p85' }} onClick=${() => setRelayPinSel('85')}>
+            <b>85</b><span>Bobina (-)</span>
+          </button>
+          <button type="button" class=${'relay-pin-btn' + (relayPinSel === '87a' ? ' active' : '')} style=${{ gridArea: 'p87a', opacity: relayOn ? '0.4' : '1' }} onClick=${() => setRelayPinSel('87a')}>
+            <b>87a</b><span>N.C. ${relayOn ? '(Abierto)' : '(Cerrado)'}</span>
+          </button>
+          <button type="button" class=${'relay-pin-btn' + (relayPinSel === '30' ? ' active' : '')} style=${{ gridArea: 'p30' }} onClick=${() => setRelayPinSel('30')}>
+            <b>30</b><span>BATT (+)</span>
+          </button>
+          <button type="button" class=${'relay-pin-btn' + (relayPinSel === '87' ? ' active' : '')} style=${{ gridArea: 'p87', opacity: relayOn ? '1' : '0.4', background: relayOn ? 'var(--accent-fill)' : '' }} onClick=${() => setRelayPinSel('87')}>
+            <b>87</b><span>N.O. ${relayOn ? '(Cerrado ⚡)' : '(Abierto)'}</span>
+          </button>
+        </div>
+
+        <div style=${{ width: '100%', padding: '10px', background: 'var(--panel)', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', fontSize: '12px' }}>
+          ${relayPinSel ? html`
+            <div>
+              <strong>Pin ${relayPinSel}: ${PINS.find(p => p.id === relayPinSel)?.name}</strong>
+              <p style=${{ margin: '4px 0 0', color: 'var(--text-alt)' }}>${PINS.find(p => p.id === relayPinSel)?.desc}</p>
+            </div>`
+            : html`<div>
+              <strong>Estado actual:</strong> ${relayOn ? 'Corriente fluye de Pin 30 hacia Pin 87 (Bomba activa ⚡)' : 'Sin excitación en bobina. Pin 30 conectado a 87a (Reposo)'}.
+            </div>`}
+        </div>
+      </div>
+
+      <div class="spark-material-alert" style=${{ margin: '14px 0' }}>
+        <strong>Regla de comprobación con multímetro:</strong> La bobina sana (pines 85–86) debe medir entre <strong>60 y 90 Ω</strong>. Cero ohms indica bobina cruzada (cortocircuito); resistencia infinita indica bobina abierta/quemada. Con bobina energizada, la caída de tensión entre 30 y 87 debe ser menor a <strong>0.2 V</strong> bajo carga.
+      </div>
+
+      <!-- Amperaje típico por circuito -->
+      <h3 class="mic-sub">Circuitos típicos y capacidad recomendada</h3>
+      <div style=${{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap' }}>
+        <input id="fuse-q" name="circuito" type="search" class="styled-input" placeholder="Filtrar circuito: bomba, ECU, luces…"
+               value=${q} onChange=${e => setQ(e.target.value)} style=${{ flex: '1 1 240px' }} />
+        ${amperajeSel && html`<button type="button" class="copy-pill-btn" onClick=${() => setAmperajeSel('')}>
+          Filtrando por ${amperajeSel}A ✕
+        </button>`}
+      </div>
+
+      <div class="mic-tbl-wrap">
+        <table class="mic-tbl">
+          <thead><tr><th>Circuito protegido</th><th>Amperaje</th><th>Función y recomendación de taller</th></tr></thead>
+          <tbody>${rows.map((r, i) => html`<tr key=${i}>
+            <td><strong>${r[0]}</strong></td>
+            <td class="num"><strong style=${{ color: 'var(--accent)' }}>${r[1]}</strong></td>
+            <td class="muted">${r[2]}</td>
+          </tr>`)}</tbody>
+        </table>
+      </div>
+      ${rows.length === 0 && html`<div class="empty">Sin circuitos coincidentes</div>`}
+
+      <div class="alert" style=${{ marginTop: '14px' }}>
+        <span>El fusible protege la instalación y el cableado, no la pieza. <strong>Nunca coloques un fusible de mayor capacidad</strong> para resolver un disparo recurrente; repararás el síntoma incendiando el arnés del vehículo.</span>
+      </div>
     </${MicroShell}>`;
   };
 
@@ -2199,18 +2737,36 @@
   const TireApp = ({ onBack }) => {
     const [a, setA] = useState({ w: '195', p: '65', r: '15' });
     const [b, setB] = useState({ w: '205', p: '60', r: '16' });
+
+    const PRESETS = [
+      ['175/70R13', { w: '175', p: '70', r: '13' }],
+      ['185/65R14', { w: '185', p: '65', r: '14' }],
+      ['195/65R15', { w: '195', p: '65', r: '15' }],
+      ['205/55R16', { w: '205', p: '55', r: '16' }],
+      ['225/45R17', { w: '225', p: '45', r: '17' }],
+      ['265/70R17', { w: '265', p: '70', r: '17' }]
+    ];
+
     const diam = (t) => {
       const w = parseFloat(t.w), p = parseFloat(t.p), r = parseFloat(t.r);
       if (!w || !p || !r) return 0;
-      return r * 25.4 + 2 * (w * p / 100);   // mm
+      return r * 25.4 + 2 * (w * p / 100);
     };
+    const perfilMm = (t) => {
+      const w = parseFloat(t.w), p = parseFloat(t.p);
+      return (!w || !p) ? 0 : (w * p / 100);
+    };
+
     const dA = diam(a), dB = diam(b);
     const ok = dA > 0 && dB > 0;
     const diff = ok ? ((dB - dA) / dA) * 100 : 0;
-    const real100 = ok ? 100 * (dB / dA) : 0;
-    const revA = dA ? 1e6 / (Math.PI * dA) : 0;   // vueltas por km
-    const revB = dB ? 1e6 / (Math.PI * dB) : 0;
     const grave = Math.abs(diff) > 3;
+    const leve = Math.abs(diff) > 1.5;
+    const revA = dA ? 1e6 / (Math.PI * dA) : 0;
+    const revB = dB ? 1e6 / (Math.PI * dB) : 0;
+
+    const SPEED_STEPS = [40, 60, 80, 100, 120, 140];
+
     const campo = (t, set, label) => html`
       <div class="tire-col">
         <span class="mic-lbl">${label}</span>
@@ -2221,29 +2777,105 @@
           <span>R</span>
           <input type="number" class="styled-input" value=${t.r} onChange=${e => set({ ...t, r: e.target.value })} aria-label="Rin en pulgadas" />
         </div>
-        <span class="muted" style=${{ fontSize: '11px' }}>Ø ${diam(t) ? diam(t).toFixed(1) + ' mm · ' + (diam(t) / 25.4).toFixed(2) + ' in' : '—'}</span>
-      </div>`;
-    return html`<${MicroShell} title="Medidas de Llanta" icon="Car" onBack=${onBack}>
-      <p class="mic-lead">Compara la medida original con la que quieres montar: cuánto cambia el diámetro, cuánto miente el velocímetro y si el cambio se pasa del margen sano.</p>
-      <div class="tire-row">
-        ${campo(a, setA, 'Medida original')}
-        ${campo(b, setB, 'Medida nueva')}
-      </div>
-      ${ok && html`
-        <div class=${'tire-verdict' + (grave ? ' bad' : '')}>
-          <b>${diff > 0 ? '+' : ''}${diff.toFixed(2)} %</b>
-          <span>de diferencia en diámetro</span>
+        <div style=${{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>
+          <span>Ø ${diam(t).toFixed(1)} mm</span>
+          <span>Flanco: ${perfilMm(t).toFixed(1)} mm</span>
         </div>
-        <dl class="kv tire-kv">
-          <dt>Velocímetro marcando 100 km/h</dt><dd>Vas realmente a <strong>${real100.toFixed(1)} km/h</strong></dd>
-          <dt>Para ir a 100 km/h reales</dt><dd>El velocímetro marcará <strong>${(100 * dA / dB).toFixed(1)} km/h</strong></dd>
-          <dt>Diferencia de altura al piso</dt><dd>${((dB - dA) / 2).toFixed(1)} mm</dd>
-          <dt>Vueltas por kilómetro</dt><dd>${revA.toFixed(0)} → ${revB.toFixed(0)}</dd>
-          <dt>Odómetro tras 1 000 km reales</dt><dd>Marcará ${(1000 * (dA / dB)).toFixed(0)} km</dd>
+        <div style=${{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+          ${PRESETS.map(([lbl, val]) => html`
+            <button type="button" class="tq-step-btn" style=${{ fontSize: '10px', padding: '2px 6px', minHeight: '26px' }}
+                    key=${lbl} onClick=${() => set(val)}>
+              ${lbl}
+            </button>`)}
+        </div>
+      </div>`;
+
+    return html`<${MicroShell} title="Medidas de Llanta y Velocímetro" icon="Car" onBack=${onBack}>
+      <p class="mic-lead">Cálculo de tolerancia geométrica, altura de marcha y error de velocímetro según norma ETRTO (máx ±3%).</p>
+
+      <div class="tire-row">
+        ${campo(a, setA, 'Medida original de fábrica')}
+        ${campo(b, setB, 'Nueva medida a instalar')}
+      </div>
+
+      ${ok && html`
+        <!-- Visualización vectorial comparativa -->
+        <div class="tire-visual-card">
+          <div class="tire-svg-wrap">
+            <svg viewBox="0 0 320 200" width="100%" height="100%">
+              <!-- Llanta A -->
+              <g transform="translate(80, 100)">
+                <circle r=${Math.min(75, dA * 0.11)} fill="none" stroke="var(--border-hi)" strokeWidth="18" />
+                <circle r=${(parseFloat(a.r) * 25.4 * 0.11) / 2} fill="var(--panel2)" stroke="var(--muted)" strokeWidth="2" />
+                <text y="4" textAnchor="middle" fontSize="10" fill="var(--text)" fontWeight="700">${a.w}/${a.p}R${a.r}</text>
+                <text y="92" textAnchor="middle" fontSize="11" fill="var(--muted)">Orig: Ø ${dA.toFixed(0)} mm</text>
+              </g>
+              <!-- Separador / vs -->
+              <text x="160" y="105" textAnchor="middle" fontSize="13" fill="var(--muted)" fontWeight="800">VS</text>
+              <!-- Llanta B -->
+              <g transform="translate(240, 100)">
+                <circle r=${Math.min(75, dB * 0.11)} fill="none" stroke=${grave ? 'var(--danger)' : 'var(--accent)'} strokeWidth="18" />
+                <circle r=${(parseFloat(b.r) * 25.4 * 0.11) / 2} fill="var(--panel2)" stroke="var(--muted)" strokeWidth="2" />
+                <text y="4" textAnchor="middle" fontSize="10" fill="var(--text)" fontWeight="700">${b.w}/${b.p}R${b.r}</text>
+                <text y="92" textAnchor="middle" fontSize="11" fill="var(--text)" fontWeight="700">Nueva: Ø ${dB.toFixed(0)} mm</text>
+              </g>
+            </svg>
+          </div>
+
+          <div class=${'tire-verdict' + (grave ? ' bad' : '')}>
+            <b>${diff > 0 ? '+' : ''}${diff.toFixed(2)} %</b>
+            <span>diferencia de diámetro</span>
+            <span class=${'badge-tag ' + (grave ? 'critical' : leve ? 'warning' : 'ok')} style=${{ marginTop: '4px' }}>
+              ${grave ? 'Fuera de tolerancia (>3%)' : leve ? 'Variación moderada (1.5-3%)' : 'Excelente equivalencia (<1.5%)'}
+            </span>
+          </div>
+
+          <!-- Cuadrante de velocímetro -->
+          <div class="speedo-dial">
+            <div class="speedo-num-box">
+              <span>Velocímetro marca</span>
+              <strong>100</strong>
+              <span>km/h</span>
+            </div>
+            <div style=${{ fontSize: '20px', color: 'var(--muted)' }}>➔</div>
+            <div class="speedo-num-box">
+              <span>Velocidad real</span>
+              <strong style=${{ color: grave ? 'var(--danger)' : 'var(--accent)' }}>${(100 * (dB / dA)).toFixed(1)}</strong>
+              <span>km/h</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Matriz de velocidad -->
+        <h4 class="cross-titulo" style=${{ marginTop: '16px' }}>Desviación del velocímetro por velocidad</h4>
+        <div class="mic-tbl-wrap">
+          <table class="mic-tbl">
+            <thead><tr><th>Marcador</th><th>Velocidad real calculada</th><th>Diferencia</th></tr></thead>
+            <tbody>
+              ${SPEED_STEPS.map(vel => {
+                const real = vel * (dB / dA);
+                const difVel = real - vel;
+                return html`<tr key=${vel}>
+                  <td><strong>${vel} km/h</strong></td>
+                  <td class="num">${real.toFixed(1)} km/h</td>
+                  <td class="num" style=${{ color: Math.abs(difVel) > 3 ? 'var(--danger)' : 'var(--text)' }}>
+                    ${difVel > 0 ? '+' : ''}${difVel.toFixed(1)} km/h
+                  </td>
+                </tr>`;
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <dl class="kv tire-kv" style=${{ marginTop: '14px' }}>
+          <dt>Diferencia de altura al piso</dt><dd><strong>${((dB - dA) / 2).toFixed(1)} mm</strong> (${((dB - dA) / 50.8).toFixed(2)}")</dd>
+          <dt>Revoluciones por kilómetro</dt><dd>${revA.toFixed(0)} vueltas/km ➔ ${revB.toFixed(0)} vueltas/km</dd>
+          <dt>Odómetro tras 10.000 km reales</dt><dd>${(10000 * (dA / dB)).toFixed(0)} km marcados</dd>
         </dl>
+
         ${grave
-          ? html`<div class="alert"><span>Más de 3 % de diferencia: el velocímetro y el odómetro se van notablemente, y en vehículos con ABS o control de tracción el cambio puede alterar las lecturas de velocidad de rueda. Busca una medida más cercana.</span></div>`
-          : html`<div class="alert blue"><span>Dentro del ±3 % que se considera aceptable. Verifica igual que no roce con suspensión ni salpicaderas a tope de dirección.</span></div>`}`}
+          ? html`<div class="alert" style=${{ marginTop: '12px' }}><span>Peligro: Más de 3% de desviación altera el funcionamiento del sensor de velocidad de rueda (WSS), el cálculo del módulo ABS, el control de estabilidad (ESP) y el régimen de cambios de transmisiones automáticas. Busca una medida más cercana.</span></div>`
+          : html`<div class="alert blue" style=${{ marginTop: '12px' }}><span>Dentro del rango seguro (±3%). Verifica siempre que con la dirección a tope y la suspensión comprimida no exista roce con la tolva interior o la base del amortiguador.</span></div>`}`}
     </${MicroShell}>`;
   };
 
@@ -2571,41 +3203,135 @@
   const MAINT_LAST = 'ft_maint_last';
   const MaintenanceApp = ({ onBack }) => {
     const [km, setKm] = useState(() => ls.get('ft_maint_km', ''));
+    const [perfil, setPerfil] = useState('normal'); // 'normal' | 'severo' | 'turbo'
     const [iv, setIv] = useState(() => ls.get('ft_maint_iv', {}));
     const [last, setLast] = useState(() => ls.get(MAINT_LAST, {}));
+    const [nuevoItem, setNuevoItem] = useState('');
+    const [nuevoKm, setNuevoKm] = useState('');
+    const [customItems, setCustomItems] = useState(() => ls.get('ft_maint_custom', []));
+
     const setKmSave = (v) => { setKm(v); ls.set('ft_maint_km', v); };
     const setIvSave = (n, v) => { const next = { ...iv, [n]: v }; setIv(next); ls.set('ft_maint_iv', next); };
     const actual = parseFloat(km) || 0;
-    /* "Hecho" fija el último servicio de ese renglón en el kilometraje actual.
-       Sin eso el plan siempre supone que nada se ha hecho y vuelve a listar
-       trabajos ya cumplidos; con eso, el "faltan" es real. */
     const marcarHecho = (n) => { const next = { ...last, [n]: actual }; setLast(next); ls.set(MAINT_LAST, next); };
-    const filas = MAINT_DEFAULT.map(([nombre, def]) => {
-      const paso = parseFloat(iv[nombre]) || def;
+
+    const factorPerfil = perfil === 'severo' ? 0.70 : perfil === 'turbo' ? 0.65 : 1.0;
+
+    const listaBase = [...MAINT_DEFAULT, ...customItems];
+    const filas = listaBase.map(([nombre, def]) => {
+      const pasoBase = parseFloat(iv[nombre]) || def;
+      const paso = Math.round(pasoBase * (nombre.includes('Aceite') || nombre.includes('Bujía') || perfil === 'severo' ? factorPerfil : 1));
       const base = parseFloat(last[nombre]) || 0;
       const proximo = actual <= base ? base + paso : base + (Math.floor((actual - base) / paso) + 1) * paso;
       const faltan = proximo - actual;
-      // "vencido" = el servicio ya pasó su intervalo desde el último hecho/teórico
-      const estado = !actual ? '' : faltan <= paso * 0.1 ? 'bad' : faltan <= paso * 0.25 ? 'warn' : 'ok';
-      return { nombre, paso, proximo, faltan, estado, hecho: base };
+      const pctUso = Math.min(100, Math.max(0, Math.round(((paso - faltan) / paso) * 100)));
+      const estado = !actual ? '' : faltan <= paso * 0.15 ? 'bad' : faltan <= paso * 0.35 ? 'warn' : 'ok';
+      return { nombre, paso, proximo, faltan, pctUso, estado, hecho: base };
     }).sort((a, b) => a.faltan - b.faltan);
-    return html`<${MicroShell} title="Plan de Mantenimiento" icon="History" onBack=${onBack}>
-      <p class="mic-lead">Pon el kilometraje actual y mira qué servicio toca antes. Los intervalos son del servicio ligero genérico y editables; toca "Hecho" cuando completes uno para que el plan lo cuente desde ahí. El manual del vehículo manda.</p>
-      <label><span class="mic-lbl">Kilometraje actual</span>
-        <input type="number" class="styled-input" placeholder="Ej. 78500" value=${km} onChange=${e => setKmSave(e.target.value)} style=${{ maxWidth: '220px' }} />
-      </label>
+
+    const agregarCustom = () => {
+      const nom = nuevoItem.trim();
+      const k = parseInt(nuevoKm, 10);
+      if (!nom || isNaN(k) || k <= 0) return;
+      const next = [...customItems, [nom, k]];
+      setCustomItems(next);
+      ls.set('ft_maint_custom', next);
+      setNuevoItem(''); setNuevoKm('');
+    };
+
+    const compartirWa = () => {
+      if (!actual) return;
+      const vencidos = filas.filter(f => f.estado === 'bad').map(f => `❌ ${f.nombre} (Vencido hace ${Math.abs(f.faltan)} km)`).join('\n');
+      const proximos = filas.filter(f => f.estado === 'warn').map(f => `⚠️ ${f.nombre} (Faltan ${f.faltan} km)`).join('\n');
+      const alDia = filas.filter(f => f.estado === 'ok').slice(0, 4).map(f => `✅ ${f.nombre} (Próximo: ${f.proximo} km)`).join('\n');
+      const txt = encodeURIComponent(`*PLAN DE MANTENIMIENTO - ${actual.toLocaleString('es-MX')} KM*\n_Perfil: ${perfil.toUpperCase()}_\n\n${vencidos ? '*SERVICIOS VENCIDOS:*\n' + vencidos + '\n\n' : ''}${proximos ? '*PRÓXIMOS SERVICIOS:*\n' + proximos + '\n\n' : ''}${alDia ? '*AL DÍA:*\n' + alDia + '\n\n' : ''}_Generado en Llave Taller_`);
+      window.open('https://wa.me/?text=' + txt, '_blank');
+    };
+
+    const PERFILES = [
+      { id: 'normal', t: 'Servicio Ligero / Mixto' },
+      { id: 'severo', t: 'Servicio Severo (-30% km)' },
+      { id: 'turbo', t: 'Motor Turbo / Inyección Directa' }
+    ];
+
+    return html`<${MicroShell} title="Plan de Mantenimiento Preventivo" icon="History" onBack=${onBack}>
+      <p class="mic-lead">Plan de servicio predictivo según odómetro y severidad de uso. Registra servicios completados y genera el reporte para el cliente.</p>
+
+      <!-- Selector de perfil de manejo -->
+      <div class="chip-group" role="tablist" aria-label="Perfil de uso">
+        ${PERFILES.map(p => html`
+          <button type="button" role="tab" aria-selected=${perfil === p.id} key=${p.id}
+                  class=${'filter-chip' + (perfil === p.id ? ' active' : '')}
+                  onClick=${() => setPerfil(p.id)}>
+            ${p.t}
+          </button>`)}
+      </div>
+
+      <div style=${{ display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: '14px' }}>
+        <div>
+          <label class="mic-lbl" htmlFor="maint-km-in">Kilometraje actual (Odómetro)</label>
+          <input id="maint-km-in" type="number" class="styled-input" placeholder="Ej. 85000"
+                 value=${km} onChange=${e => setKmSave(e.target.value)}
+                 style=${{ maxWidth: '200px', fontSize: '16px', fontWeight: '700' }} />
+        </div>
+        <div style=${{ display: 'flex', gap: '6px' }}>
+          ${[1000, 5000, 10000].map(step => html`
+            <button type="button" class="tq-step-btn" key=${step} onClick=${() => setKmSave(String((parseFloat(km) || 0) + step))}>
+              +${step / 1000}k
+            </button>`)}
+        </div>
+        ${actual > 0 && html`
+          <button type="button" class="copy-pill-btn" onClick=${compartirWa} style=${{ marginLeft: 'auto' }}>
+            <${CatIc} n="Send" s=${13} /> Enviar reporte al cliente
+          </button>`}
+      </div>
+
       ${!actual
-        ? html`<div class="alert blue" style=${{ marginTop: '14px' }}><span>Escribe el kilometraje para calcular los próximos servicios.</span></div>`
-        : html`<table class="mic-tbl maint-tbl" style=${{ marginTop: '16px' }}>
-            <thead><tr><th>Servicio</th><th>Cada</th><th>Próximo</th><th>Faltan</th><th class="sr-only">Acción</th></tr></thead>
-            <tbody>${filas.map(f => html`<tr key=${f.nombre} class=${'maint-' + f.estado}>
-              <td>${f.nombre}${f.hecho ? html`<span class="muted" style=${{ display: 'block', fontSize: '11px' }}>hecho a ${f.hecho.toLocaleString('es-MX')} km</span>` : ''}</td>
-              <td><input type="number" class="styled-input maint-iv" value=${iv[f.nombre] ?? f.paso} onChange=${e => setIvSave(f.nombre, e.target.value)} aria-label=${'Intervalo de ' + f.nombre} /></td>
-              <td>${f.proximo.toLocaleString('es-MX')} km</td>
-              <td><strong>${f.faltan.toLocaleString('es-MX')} km</strong></td>
-              <td><button type="button" class="link-btn" title=${'Marcar como hecho a ' + actual.toLocaleString('es-MX') + ' km'} onClick=${() => marcarHecho(f.nombre)}>Hecho</button></td>
-            </tr>`)}</tbody>
-          </table>`}
+        ? html`<div class="alert blue"><span>Escribe el kilometraje para calcular los próximos servicios y el desgaste estimado.</span></div>`
+        : html`
+          <!-- Tarjetas de Hito con Barra de Vida de Componente -->
+          <div class="maint-cards-grid">
+            ${filas.map(f => html`<div class=${'maint-milestone-card st-' + f.estado} key=${f.nombre}>
+              <div style=${{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <strong style=${{ fontSize: '14px', color: 'var(--text)' }}>${f.nombre}</strong>
+                  <span class="muted" style=${{ display: 'block', fontSize: '11px', marginTop: '2px' }}>
+                    ${f.hecho ? 'Último hecho a ' + f.hecho.toLocaleString('es-MX') + ' km' : 'Intervalo: cada ' + f.paso.toLocaleString('es-MX') + ' km'}
+                  </span>
+                </div>
+                <span class=${'badge-tag ' + (f.estado === 'bad' ? 'critical' : f.estado === 'warn' ? 'warning' : 'ok')}>
+                  ${f.estado === 'bad' ? 'Vencido' : f.estado === 'warn' ? 'Próximo' : 'Al día'}
+                </span>
+              </div>
+
+              <div class="maint-life-meter">
+                <div class="maint-life-fill" style=${{ width: f.pctUso + '%' }}></div>
+              </div>
+
+              <div style=${{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                <span style=${{ fontSize: '12px', color: f.faltan <= 0 ? 'var(--danger)' : 'var(--text)' }}>
+                  <strong>${f.faltan <= 0 ? 'Vencido hace ' + Math.abs(f.faltan).toLocaleString('es-MX') + ' km' : 'Faltan ' + f.faltan.toLocaleString('es-MX') + ' km'}</strong>
+                </span>
+                <button type="button" class="copy-pill-btn" onClick=${() => marcarHecho(f.nombre)} title="Fijar realizado al km actual">
+                  <${CatIc} n="Check" s=${12} /> Hecho
+                </button>
+              </div>
+            </div>`)}
+          </div>
+
+          <!-- Agregar ítem de servicio personalizado -->
+          <div style=${{ marginTop: '20px', padding: '14px', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)' }}>
+            <h4 style=${{ margin: '0 0 8px', fontSize: '13px', font: '700 13px var(--font)' }}>Agregar servicio personalizado</h4>
+            <div style=${{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <input type="text" class="styled-input" placeholder="Nombre (Ej. Filtro GNV, Valvulina)"
+                     value=${nuevoItem} onChange=${e => setNuevoItem(e.target.value)} style=${{ flex: '1 1 200px' }} />
+              <input type="number" class="styled-input" placeholder="Cada cuántos km (Ej. 30000)"
+                     value=${nuevoKm} onChange=${e => setNuevoKm(e.target.value)} style=${{ width: '160px' }} />
+              <button type="button" class="tool-add-btn" onClick=${agregarCustom} disabled=${!nuevoItem || !nuevoKm}>
+                <${CatIc} n="Plus" s=${13} /> Agregar
+              </button>
+            </div>
+          </div>`}
     </${MicroShell}>`;
   };
 
