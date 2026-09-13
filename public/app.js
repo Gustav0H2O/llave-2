@@ -604,11 +604,14 @@ const LogoMark = ({ className = '' }) => html`
     <img class=${'logo-mark logo-img--dark ' + className} src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" decoding="async" />
   <//>`;
 
-/* Lee filtros y vehículo seleccionado desde la URL para que una búsqueda o ficha sea compartible/marcable */
+/* Lee los filtros y el vehículo con el que arranca la app.
+   El vehículo viene SOLO del `data-vehicle` que el servidor inyecta en las
+   páginas /vehiculo/<slug>, que es el enlace que se comparte. Antes también se
+   leía `?v=` de la barra: eso hacía que recargar un `/?v=26` (o cualquier enlace
+   con `?v=`) abriera el catálogo en vez del inicio, que es justo lo que el dueño
+   no quiere. Los filtros sí se siguen leyendo: no cambian de vista. */
 function readURLState() {
   const p = new URLSearchParams(location.search);
-  // En las páginas SEO (/vehiculo/slug) el servidor inyecta data-vehicle en #root,
-  // así la app arranca directo en ese vehículo aunque no haya ?v= en la URL.
   const rootEl = document.getElementById('root');
   const dataV = rootEl && rootEl.dataset ? rootEl.dataset.vehicle : '';
   return {
@@ -619,7 +622,7 @@ function readURLState() {
       injection_type_id: p.get('injection_type_id') || '',
       order_by: p.get('order_by') || ''
     },
-    selected: p.get('v') ? Number(p.get('v')) : (dataV ? Number(dataV) : null),
+    selected: dataV ? Number(dataV) : null,
   };
 }
 
