@@ -160,6 +160,22 @@ describe('Google OAuth — alta, login mixto y correo verificado', () => {
     assert.equal(taller('sin-cuenta@prueba.test'), undefined, 'el botón de entrar no puede dar de alta');
   });
 
+  it('una cookie de modo vieja no convierte un «entrar» en un alta', async () => {
+    /* El caso real: el usuario pulsó «Crear cuenta», se quedó en la pantalla de
+       Google y volvió atrás. La cookie `google_oauth_mode=register` se quedó
+       viva. Al pulsar «Iniciar sesión» con un correo SIN cuenta, el callback
+       miraba esa cookie y creaba la cuenta: el usuario acababa en el formulario
+       de identidad como si se hubiera registrado. El `state` firmado dice la
+       verdad, así que la cookie ya no puede cambiar la puerta. */
+    perfilGoogle = { email: 'cookie-vieja@prueba.test', verified_email: true };
+    const { state, cookie } = await empezar('login');
+    const conCookieVieja = cookie.replace(/google_oauth_mode=[^;]*/, 'google_oauth_mode=register');
+    const r = await volver({ state, cookie: conCookieVieja });
+    assert.match(r.destino, /login=google_not_registered/, `debe mandar al alta, no darla: ${r.destino}`);
+    assert.equal(r.sesion, null, 'no debe emitirse sesión');
+    assert.equal(taller('cookie-vieja@prueba.test'), undefined, 'el botón de entrar no puede dar de alta');
+  });
+
   it('y «crear cuenta» con un correo que ya existe manda a entrar (no la duplica ni la pisa)', async () => {
     ctx.db.prepare('INSERT INTO workshops (email, pass_hash, name, status) VALUES (?, ?, ?, ?)')
       .run('ya-existe@prueba.test', 'google_oauth', 'Ya Existe', 'active');

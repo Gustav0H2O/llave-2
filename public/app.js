@@ -1845,17 +1845,36 @@ window.addEventListener('pagehide', () => {
    clase la usa el CSS para reservar el notch y esconder la invitación a
    instalar dentro de algo que ya está instalado. */
 (function modoInstalado() {
+  const CLAVE = 'ft_app_instalada';
+  const mm = (q) => window.matchMedia && window.matchMedia(q).matches;
   const suelta = () =>
-    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
-    || (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches)
-    || window.navigator.standalone === true;
-  const marcar = () => document.body.classList.toggle('pwa', suelta());
+    mm('(display-mode: standalone)') || mm('(display-mode: fullscreen)')
+    || mm('(display-mode: minimal-ui)') || window.navigator.standalone === true;
+  /* Queda anotado en el aparato. Si el mecánico abre la web desde el navegador
+     después de instalarla, el modo standalone ya no está activo pero la app
+     sigue instalada: no hay que volver a ofrecerle que la instale. */
+  const recordar = () => { try { localStorage.setItem(CLAVE, '1'); } catch (e) {} };
+  const marcar = () => {
+    const dentro = suelta();
+    if (dentro) recordar();
+    document.body.classList.toggle('pwa', dentro);
+  };
   marcar();
   /* Android puede pasar de pestaña a aplicación instalada sin recargar. */
   if (window.matchMedia) {
     const mq = window.matchMedia('(display-mode: standalone)');
     if (mq.addEventListener) mq.addEventListener('change', marcar);
   }
+  /* Chrome sabe si el WebAPK de este sitio está instalado (necesita
+     `related_applications` en el manifiesto). Si lo está, se anota para no
+     volver a pedirlo, aunque se esté navegando en una pestaña normal. */
+  try {
+    if (navigator.getInstalledRelatedApps) {
+      navigator.getInstalledRelatedApps()
+        .then((apps) => { if (apps && apps.length) recordar(); })
+        .catch(() => {});
+    }
+  } catch (e) { /* navegador sin soporte */ }
 })();
 
 /* 2. Invitación a instalar ------------------------------------------------
@@ -1879,13 +1898,19 @@ window.addEventListener('pagehide', () => {
       return t && (Date.now() - t) < TRES_MESES;
     } catch (e) { return false; }
   };
+  /* Ya instalada en este aparato (lo anota modoInstalado al abrirse a pantalla
+     completa, al instalarse o cuando Chrome confirma el WebAPK): no se le vuelve
+     a ofrecer. Es la diferencia entre "no lo rechazó" y "ya la tiene". */
+  const yaInstalada = () => {
+    try { return localStorage.getItem('ft_app_instalada') === '1'; } catch (e) { return false; }
+  };
   const cerrar = (recordar) => {
     if (recordar) { try { localStorage.setItem(CLAVE, String(Date.now())); } catch (e) {} }
     if (banner) { banner.remove(); banner = null; }
   };
 
   const mostrar = () => {
-    if (banner || !evento || rechazadoHacePoco() || document.body.classList.contains('pwa')) return;
+    if (banner || !evento || rechazadoHacePoco() || yaInstalada() || document.body.classList.contains('pwa')) return;
     banner = document.createElement('div');
     banner.className = 'instalar-banner';
     banner.setAttribute('role', 'dialog');
@@ -1923,6 +1948,9 @@ window.addEventListener('pagehide', () => {
   });
   window.addEventListener('appinstalled', () => {
     cerrar(false); evento = null;
+    /* Se recuerda en el aparato para siempre: si vuelve por el navegador, ya no
+       se le ofrece instalar algo que tiene. */
+    try { localStorage.setItem('ft_app_instalada', '1'); } catch (e) {}
     document.body.classList.add('pwa');
     track('pwa_instalada');
   });

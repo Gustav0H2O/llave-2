@@ -454,12 +454,17 @@ function montarAuth(app, deps) {
     // cookie-parser NO está montado: se leen con el helper único (4.6). La
     // cookie del state se guardó con res.cookie() en /api/auth/google.
     const savedState = leerCookie(req, 'google_oauth_state');
-    const cookieMode = leerCookie(req, 'google_oauth_mode');
     const parts = (state || '').split('_');
-    /* Qué botón pulsó el usuario: viaja en el `state` firmado y, si no, en su
-       cookie. Decide si esta vuelta es un alta o un acceso. */
-    const stateMode = parts.length >= 2 ? parts[1] : null;
-    const oauthMode = stateMode === 'register' ? 'register' : (cookieMode === 'register' ? 'register' : 'login');
+    /* Qué botón pulsó el usuario. Se mira SOLO el `state`, que va firmado con
+       HMAC: es la única fuente en la que se puede confiar y ya trae el modo.
+       Antes, si el `state` no decía «register», se caía a la cookie
+       `google_oauth_mode` —y esa cookie puede quedar de un intento de alta que
+       el usuario abandonó en la pantalla de Google (nunca vuelve al callback,
+       así que no se limpia)—. Resultado: pulsar «Iniciar sesión» con un correo
+       sin cuenta DABA DE ALTA la cuenta y abría el formulario de identidad. El
+       `state` válido siempre tiene tres partes, así que esa cookie de respaldo
+       solo podía actuar en la dirección peligrosa. */
+    const oauthMode = parts.length === 3 && parts[1] === 'register' ? 'register' : 'login';
     let isStateValid = false;
     if (typeof state === 'string' && savedState && state === savedState && parts.length === 3 && GOOGLE_CLIENT_SECRET) {
       const expectedSig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${parts[0]}_${parts[1]}`).digest('hex');
@@ -548,13 +553,17 @@ function montarAuth(app, deps) {
 
       // Pidió CREAR cuenta y ya la tiene: se le manda a iniciar sesión.
       if (ws && oauthMode === 'register') {
-        if (!PROD) console.warn('[Google OAuth] alta de una cuenta que ya existe');
+        /* Se registra también en producción: es el rastro que dice por qué puerta
+           entró un usuario. Sin PII. */
+        console.warn('[Google OAuth] puerta de alta con una cuenta que ya existe; se le manda a entrar');
         return res.redirect(`/?login=google_already_registered&email=${encodeURIComponent(email)}`);
       }
 
       // Pidió ENTRAR y no tiene cuenta: se le manda a crearla.
       if (!ws && oauthMode === 'login') {
-        if (!PROD) console.warn('[Google OAuth] acceso con un correo sin cuenta');
+        /* Se registra también en producción: es el rastro que dice por qué puerta
+           entró un usuario. Sin PII. */
+        console.warn('[Google OAuth] puerta de acceso con un correo sin cuenta; se le manda a crear la cuenta');
         return res.redirect(`/?login=google_not_registered&email=${encodeURIComponent(email)}`);
       }
 

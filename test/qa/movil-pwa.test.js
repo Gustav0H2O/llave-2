@@ -159,6 +159,24 @@ describe('Manifiesto de la aplicación instalada', () => {
   });
 });
 
+describe('La aplicación ya instalada', () => {
+  it('el manifiesto declara la app relacionada: es lo que permite detectarla', () => {
+    /* Sin `related_applications`, `navigator.getInstalledRelatedApps()` no puede
+       confirmar que el WebAPK ya está instalado y la web volvía a ofrecer
+       instalar algo que el mecánico ya tiene. */
+    const rel = MANIFEST.related_applications || [];
+    assert.ok(rel.some(a => a.platform === 'webapp' && a.url),
+      'falta related_applications con platform "webapp"');
+    assert.equal(MANIFEST.prefer_related_applications, false,
+      'la app es esta web: la tienda no puede tener prioridad');
+  });
+
+  it('el aviso de instalar no sale si la app ya está instalada en el aparato', () => {
+    assert.match(APP, /ft_app_instalada/, 'app.js debe recordar que la app ya está instalada');
+    assert.match(APP, /yaInstalada\(\)/, 'la invitación tiene que consultar ese recuerdo antes de mostrarse');
+  });
+});
+
 describe('Service worker', () => {
   it('precarga solo archivos que existen', () => {
     /* El install de sw.js añade uno por uno para que un 404 no vacíe el caché,
