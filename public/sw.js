@@ -45,8 +45,11 @@
         en una sola llave.».
     v22: recargar cae siempre en el inicio. El catálogo no es una ruta (no deja
         ?app=search) y la URL ya no guarda el vehículo ni los filtros, que eran
-        los que devolvían al catálogo al recargar. */
-const CACHE = 'llave-v22';
+        los que devolvían al catálogo al recargar.
+    v23: el HTML versiona el código propio con la fecha del archivo, así cada
+        despliegue estrena URL de app.js y ningún navegador se queda con la copia
+        anterior en su caché HTTP. */
+const CACHE = 'llave-v23';
 const SHELL = [
   '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',

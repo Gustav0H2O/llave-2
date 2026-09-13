@@ -15,6 +15,21 @@
    compartidas del servidor.
    ========================================================================= */
 
+const fs = require('fs');
+const path = require('path');
+
+const DIR_PUBLICO = path.join(__dirname, '..', '..', 'public');
+
+/* Versión de un asset = la fecha de su archivo, en base36. Se calcula UNA vez
+   al arrancar y viaja en el HTML: cada despliegue cambia la URL de sus propios
+   archivos, así que el navegador no puede seguir sirviendo el JS de ayer desde
+   su caché HTTP (el service worker es network-first, pero eso no salva de una
+   entrada de caché todavía fresca: la única salida es que la URL cambie). */
+function versionDe(rel) {
+  try { return Math.floor(fs.statSync(path.join(DIR_PUBLICO, rel)).mtimeMs).toString(36); }
+  catch (e) { return null; }
+}
+
 // Pie legal común: AdSense exige que privacidad y contacto sean accesibles desde cualquier página.
 const LEGAL_LINKS = [
   ['/acerca-de', 'Acerca de'], ['/contacto', 'Contacto'],
@@ -95,6 +110,17 @@ function crearRenderShell(deps) {
         `<script${nonce ? ` nonce="${nonce}"` : ''}>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_ID}');</script>`;
       html = html.replace('</head>', ga + '</head>');
     }
+    /* Versión automática del código propio: la que trae index.html a mano se
+       reemplaza por la fecha del archivo. Sin esto, la URL de app.js no cambia
+       entre despliegues y un navegador con la copia de ayer la sigue sirviendo
+       aunque las cabeceras digan `no-cache` (la entrada ya está fresca). Las
+       librerías de /vendor/ se dejan como están: son inmutables y versionarlas
+       obligaría a rebajar 1,9 MB en cada despliegue. */
+    html = html.replace(/(src|href)="(\/(?!vendor\/)[^"?]+\.(?:js|css))(?:\?v=[^"]*)?"/g,
+      (m, attr, url) => {
+        const v = versionDe(url.slice(1));
+        return v ? `${attr}="${url}?v=${v}"` : m;
+      });
     return html;
   };
 }
