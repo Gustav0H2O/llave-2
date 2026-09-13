@@ -39,8 +39,11 @@
     v20: el código se sirve con `no-cache` (se revalida en cada carga) en vez de
         un día de caché, así un despliegue se ve al recargar sin vaciar nada; la
         app busca actualización del worker en cada arranque y se recarga sola una
-        vez cuando uno nuevo toma el control. */
-const CACHE = 'llave-v20';
+        vez cuando uno nuevo toma el control.
+    v21: la entrada («/») es la página de inicio y no el catálogo: esqueleto de
+        arranque del home y portada rastreable con el h1 «Todo lo que necesitas,
+        en una sola llave.». */
+const CACHE = 'llave-v21';
 const SHELL = [
   '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',

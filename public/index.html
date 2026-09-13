@@ -3358,34 +3358,36 @@
 </head>
 <body>
 <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
-<noscript>llave requiere JavaScript: consulta técnica de presión de riel (PSI/Bar), ubicación de módulos y pilas de gasolina compatibles para vehículos de Latinoamérica.</noscript>
+<noscript>llave requiere JavaScript para las herramientas interactivas: consulta de presión de riel (PSI/Bar), códigos DTC, torques, diagnóstico guiado y gestión del taller. Puedes leer la portada completa más abajo y las guías en /guias.</noscript>
 <div id="root">
   <!--ROOT-CONTENT-START-->
-  <div class="app-shell" style="opacity:0.6;filter:blur(1px);pointer-events:none;transition:opacity .4s,filter .4s">
-    <aside class="search-pane">
-      <div class="logo-block" style="opacity:0.4">
-        <img class="logo-img logo-img--light" src="/brand/logo-llave.svg" alt="llave">
-        <img class="logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="">
-      </div>
-      <div class="panel" aria-busy="true">
-        <div class="skel" aria-hidden="true">
-          <div class="skel-line" style="width:40%;height:16px"></div>
-          <div class="skel-line" style="width:100%;height:38px;margin-top:10px"></div>
-          <div class="skel-line" style="width:100%;height:38px"></div>
-          <div class="skel-line" style="width:100%;height:38px"></div>
-          <div class="skel-line" style="width:100%;height:44px;margin-top:12px"></div>
-        </div>
-      </div>
-    </aside>
-    <div class="content-pane"><div class="preview-inner"><div class="panel" aria-busy="true">
+  <!-- Esqueleto de la PÁGINA DE INICIO, no del catálogo: es lo primero que se
+       ve mientras arranca React. Antes era el panel de filtros del catálogo y
+       la entrada parecía la ficha de un producto. React lo reemplaza entero
+       al montar, así que esto es solo el primer pintado. -->
+  <div class="home" style="opacity:0.6;filter:blur(1px);pointer-events:none;transition:opacity .4s,filter .4s">
+    <nav class="home-nav">
+      <span class="home-nav-logo">
+        <img class="logo-mark logo-img--light" src="/brand/logo-llave.svg" alt="llave" width="112" height="32">
+        <img class="logo-mark logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" width="112" height="32">
+      </span>
+    </nav>
+    <div class="home-body">
       <div class="skel" aria-hidden="true">
-        <div class="skel-line" style="width:45%;height:22px"></div>
-        <div class="skel-line" style="width:70%"></div>
-        <div class="skel-line" style="width:35%;height:30px;margin-top:8px"></div>
-        <div class="skel-line" style="width:90%;margin-top:14px"></div>
-        <div class="skel-line" style="width:80%"></div>
+        <div class="skel-line" style="width:62%;height:30px"></div>
+        <div class="skel-line" style="width:88%"></div>
+        <div class="skel-line" style="width:48%"></div>
       </div>
-    </div></div></div>
+      <div class="home-group-grid" style="margin-top:24px" aria-hidden="true">
+        <!-- seis tarjetas: la retícula real de herramientas -->
+        <div class="micro-card"><div class="skel"><div class="skel-line" style="width:36%;height:20px"></div><div class="skel-line" style="width:92%"></div><div class="skel-line" style="width:70%"></div></div></div>
+        <div class="micro-card"><div class="skel"><div class="skel-line" style="width:36%;height:20px"></div><div class="skel-line" style="width:92%"></div><div class="skel-line" style="width:70%"></div></div></div>
+        <div class="micro-card"><div class="skel"><div class="skel-line" style="width:36%;height:20px"></div><div class="skel-line" style="width:92%"></div><div class="skel-line" style="width:70%"></div></div></div>
+        <div class="micro-card"><div class="skel"><div class="skel-line" style="width:36%;height:20px"></div><div class="skel-line" style="width:92%"></div><div class="skel-line" style="width:70%"></div></div></div>
+        <div class="micro-card"><div class="skel"><div class="skel-line" style="width:36%;height:20px"></div><div class="skel-line" style="width:92%"></div><div class="skel-line" style="width:70%"></div></div></div>
+        <div class="micro-card"><div class="skel"><div class="skel-line" style="width:36%;height:20px"></div><div class="skel-line" style="width:92%"></div><div class="skel-line" style="width:70%"></div></div></div>
+      </div>
+    </div>
   </div>
   <!--ROOT-CONTENT-END-->
 </div>
