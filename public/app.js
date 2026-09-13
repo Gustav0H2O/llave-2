@@ -1155,6 +1155,18 @@ function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [showLogin, setShowLogin] = useState(false);   // login bajo demanda, no como peaje de entrada
   const [verifyMsg, setVerifyMsg] = useState('');      // acuse al volver del enlace de confirmación
+  /* Los avisos de esta tira son pasajeros y se van SOLOS. Antes solo los de
+     éxito programaban su borrado: «No se pudo entrar con Google. Prueba de
+     nuevo», «Sesión cerrada» o «Tu sesión terminó» se quedaban en pantalla
+     para siempre. `avisar` es la única puerta: cada aviso reinicia el contador
+     del anterior, así que el último es el que dura sus segundos. */
+  const verifyTimer = useRef(null);
+  const avisar = (texto, ms = 8000) => {
+    setVerifyMsg(texto);
+    if (verifyTimer.current) clearTimeout(verifyTimer.current);
+    verifyTimer.current = texto ? setTimeout(() => setVerifyMsg(''), ms) : null;
+  };
+  useEffect(() => () => { if (verifyTimer.current) clearTimeout(verifyTimer.current); }, []);
   const [loginTab, setLoginTab] = useState('login');   // pestaña con la que abre la pantalla de acceso
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'same-origin' })
@@ -1167,7 +1179,7 @@ function App() {
      en este navegador no vea datos de la anterior. */
   const TALLER_LOCAL_KEYS = ['ft_inventory', 'ft_clients', 'ft_orders', 'ft_notes', 'ft_cash'];
   const logout = () => {
-    setVerifyMsg('Cerrando sesión…');
+    avisar('Cerrando sesión…');
     fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
       .catch(() => {})
       .finally(() => {
@@ -1182,7 +1194,7 @@ function App() {
         setMicroApp(null);
         setViewState('home');
         setShowLogin(false);
-        setVerifyMsg('Sesión cerrada');
+        avisar('Sesión cerrada');
         // Quitar ?app=… / ?cat=… de la URL: sin esto el botón atrás del
         // navegador volvía a abrir la herramienta recién cerrada.
         const p = new URLSearchParams(location.search);
@@ -1207,7 +1219,7 @@ function App() {
       const body = await r.clone().json().catch(() => ({}));
       if (body.code === 'auth_expired' || body.code === 'auth_invalid') {
         setUser(null);
-        setVerifyMsg(body.error || 'Tu sesión terminó. Inicia sesión de nuevo.');
+        avisar(body.error || 'Tu sesión terminó. Inicia sesión de nuevo.');
       }
     }
     return r;
@@ -1269,13 +1281,11 @@ function App() {
       'vencido': 'El enlace venció: pide uno nuevo',
       'falta-token': 'Enlace de confirmación incompleto',
     };
-    setVerifyMsg(textos[p] || '');
+    avisar(textos[p] || '');
     if (p === '1') refreshUser();
     const url = new URL(location.href);
     url.searchParams.delete('verificado');
     history.replaceState(null, '', url);
-    const t = setTimeout(() => setVerifyMsg(''), 6000);
-    return () => clearTimeout(t);
   }, []);
 
   /* Vuelta del flujo de Google: /?login=google_ok|google_registered|google_error|
@@ -1303,8 +1313,7 @@ function App() {
     if (p === 'google_ok' || p === 'google_registered') {
       refreshUser();
       setShowLogin(false);
-      setVerifyMsg(p === 'google_registered' ? 'Cuenta creada con Google. Bienvenido' : 'Sesión iniciada con Google');
-      setTimeout(() => setVerifyMsg(''), 6000);
+      avisar(p === 'google_registered' ? 'Cuenta creada con Google. Bienvenido' : 'Sesión iniciada con Google');
     } else {
       setUser(null);
       fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
@@ -1326,7 +1335,7 @@ function App() {
         google_already_registered: `${quien} ya tiene cuenta. Pulsa «Iniciar sesión con Google», en esta pestaña.`,
         login_google_only: 'El acceso al taller es con Google. Pulsa «Iniciar sesión con Google».',
       };
-      setVerifyMsg(textos[p] || textos.google_error);
+      avisar(textos[p] || textos.google_error);
       setShowLogin(true);
     }
     const url = new URL(location.href);

@@ -404,6 +404,17 @@ describe('Trampas conocidas de este proyecto', () => {
     assert.match(src, /dataset\.vehicle/, 'readURLState debe seguir leyendo el data-vehicle del SSR');
   });
 
+  it('los avisos de la app se borran solos a los segundos', () => {
+    /* Un aviso que no se va deja la pantalla sucia. Le pasó al de «No se pudo
+       entrar con Google»: se quedaba abajo para siempre porque solo los avisos
+       de éxito programaban su borrado. Todos pasan por `avisar`, que es quien
+       pone el temporizador. */
+    const src = leer('public/app.js');
+    assert.match(src, /const avisar = \(texto, ms = \d+\)/, 'falta el ayudante que programa el borrado');
+    const usos = (src.match(/setVerifyMsg\(/g) || []).length;
+    assert.equal(usos, 2, 'setVerifyMsg solo debe llamarse dentro de avisar (poner el texto y borrarlo)');
+  });
+
   it('ningún var(--token) nuevo del CSS queda sin definir', () => {
     /* `--surface` se usaba en 11 reglas y no existía en ningún sitio: el
        navegador descarta la declaración y el fondo queda TRANSPARENTE. En la
