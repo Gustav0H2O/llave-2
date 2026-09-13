@@ -29,19 +29,7 @@ function useGarage() {
   return g;
 }
 
-/* ---------- Tema (auto / claro / oscuro) ----------
-   El script inline del <head> ya aplicó la preferencia antes del primer pintado;
-   aquí solo se lee y se cambia.
-
-   'auto' RESUELVE a light o dark y estampa el atributo igual que el arranque,
-   en vez de quitarlo. Quitarlo era el origen de un desajuste real: el script
-   del <head> SIEMPRE deja un data-theme explícito, así que las reglas escritas
-   para `:root:not([data-theme])` no se aplicaban nunca… hasta que el usuario
-   pulsaba "Auto" en caliente y entonces sí. A partir de ese clic la página
-   pasaba a regirse por una rama del CSS distinta de la que se ve al recargar:
-   la misma preferencia daba dos resultados según cómo hubieras llegado. Con el
-   atributo siempre puesto hay UNA sola rama, y el modo automático sigue al
-   sistema por el listener de abajo, que es lo que hacía el media query. */
+/* ---------- Tema (auto / claro / oscuro) ---------- */
 const THEME_KEY = 'llave_theme';
 const prefersDark = () => window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 const getTheme = () => {
@@ -124,6 +112,21 @@ const toast = (text) => window.dispatchEvent(new CustomEvent('ft-toast', { detai
 /* Variante de error: misma pila visual pero con icono de alerta y duración
    mayor. Se usa para fallos de red, 4xx/5xx y avisos que requieren atención. */
 toast.error = (text) => window.dispatchEvent(new CustomEvent('ft-toast-error', { detail: text }));
+window.toast = toast;
+
+/* Diálogos modales del sistema (Confirmación y Alertas):
+   Sustituyen confirm() y alert() nativos con diseño editorial, iconos Tabler,
+   soporte para tema claro/oscuro y teclado accesible (Escape/Enter). */
+const confirmDialog = (options) => new Promise((resolve) => {
+  const opts = typeof options === 'string' ? { message: options } : (options || {});
+  window.dispatchEvent(new CustomEvent('ft-open-dialog', { detail: { ...opts, onResolve: resolve } }));
+});
+const alertDialog = (options) => new Promise((resolve) => {
+  const opts = typeof options === 'string' ? { message: options, isAlert: true } : { ...options, isAlert: true };
+  window.dispatchEvent(new CustomEvent('ft-open-dialog', { detail: { ...opts, onResolve: resolve } }));
+});
+window.confirmDialog = confirmDialog;
+window.alertDialog = alertDialog;
 
 /* Los datos de negocio (inventario, clientes, órdenes, notas, caja) viven SOLO
    en la nube. Aquí solo se copian del servidor al navegador como espejo de
@@ -226,6 +229,75 @@ window.FT_APP.MARK_ICONS = MARK_ICONS;
    sus herramientas. La Home vive en microapps.js, que carga ANTES que este
    archivo; se resuelve en tiempo de render, igual que MarkIcon. */
 window.FT_APP.ThemeSwitch = ThemeSwitch;
+
+/* Modal interactivo para confirmaciones y alertas del sistema.
+   Sustituye a confirm() nativo con diseño editorial, tema dinámico y animación. */
+function GlobalDialog() {
+  const [dialog, setDialog] = useState(null);
+  const cancelBtnRef = useRef(null);
+  const confirmBtnRef = useRef(null);
+
+  useEffect(() => {
+    const onOpen = (e) => setDialog(e.detail);
+    window.addEventListener('ft-open-dialog', onOpen);
+    return () => window.removeEventListener('ft-open-dialog', onOpen);
+  }, []);
+
+  const handleClose = (result) => {
+    if (dialog && typeof dialog.onResolve === 'function') dialog.onResolve(result);
+    setDialog(null);
+  };
+
+  useEffect(() => {
+    if (!dialog) return;
+    const timer = setTimeout(() => {
+      if (dialog.danger && cancelBtnRef.current) cancelBtnRef.current.focus();
+      else if (confirmBtnRef.current) confirmBtnRef.current.focus();
+    }, 40);
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); handleClose(false); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [dialog]);
+
+  if (!dialog) return null;
+
+  const isAlert = !!dialog.isAlert;
+  const isDanger = !!dialog.danger;
+  const iconName = dialog.icon || (isDanger ? 'AlertCircle' : (isAlert ? 'Info' : 'Check'));
+  const title = dialog.title || (isDanger ? '¿Estás seguro?' : (isAlert ? 'Aviso' : 'Confirmación'));
+  const confirmText = dialog.confirmText || (isAlert ? 'Entendido' : (isDanger ? 'Confirmar' : 'Aceptar'));
+  const cancelText = dialog.cancelText || 'Cancelar';
+
+  return html`
+    <div class="ft-dialog-overlay" onClick=${() => handleClose(false)}>
+      <div class="ft-dialog-card" role="dialog" aria-modal="true" aria-labelledby="ft-dlg-title" aria-describedby="ft-dlg-desc" onClick=${(e) => e.stopPropagation()}>
+        <div class="ft-dialog-head">
+          <div class=${'ft-dialog-badge' + (isDanger ? ' is-danger' : ' is-accent')} aria-hidden="true">
+            <${MarkIcon} name=${iconName} size=${22} />
+          </div>
+          <div class="ft-dialog-titles">
+            <h3 class="ft-dialog-title" id="ft-dlg-title">${title}</h3>
+            ${dialog.message && html`<p class="ft-dialog-desc" id="ft-dlg-desc">${dialog.message}</p>`}
+          </div>
+        </div>
+        <div class="ft-dialog-actions">
+          ${!isAlert && html`
+            <button type="button" class="ft-dialog-btn ft-dialog-btn--cancel" ref=${cancelBtnRef} onClick=${() => handleClose(false)}>
+              ${cancelText}
+            </button>`}
+          <button type="button" class=${'ft-dialog-btn ft-dialog-btn--confirm' + (isDanger ? ' is-danger' : ' is-primary')} ref=${confirmBtnRef} onClick=${() => handleClose(true)}>
+            ${confirmText}
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+window.FT_APP.GlobalDialog = GlobalDialog;
 
 
 /* Reconstruye al cambiar de tema. Las escenas de Three.js fijan sus colores al
@@ -1506,6 +1578,8 @@ function App() {
      elegido (selected es null, salvo que venga ?v= en la URL). */
   const overlays = html`
     <${ChatBot} vehicleId=${selected} user=${user} />
+    <${GlobalDialog} />
+    <${ToastStack} />
     ${user && (!user.onboarding_completed || !user.doc_id || !user.phone) && html`
       <${OnboardingModal} user=${user} onComplete=${(u) => { setUser(u); refreshUser(); toast('Taller verificado con éxito'); }} onLogout=${logout} />`}
   `;
@@ -1693,7 +1767,6 @@ function App() {
       </main>
       ${esMovil && pie}
       ${overlays}
-      <${ToastStack} />
       ${/* Estilos en clase y no en línea: el enlace medía 179×14 px —imposible de
             acertar con el dedo— y el botón repetía a mano el relleno lima que ya
             existe como token. La clase le da el área tocable y el tema. */''}

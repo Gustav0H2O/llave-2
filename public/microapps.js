@@ -24,6 +24,8 @@
   };
   const telValido = (t) => /^\d{7,15}$/.test(soloDigitos(t));
   const now = () => new Date().toLocaleString('es', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const confirmDialog = (opts) => window.confirmDialog ? window.confirmDialog(opts) : Promise.resolve(window.confirm(typeof opts === 'string' ? opts : opts?.message || ''));
+  const alertDialog = (opts) => window.alertDialog ? window.alertDialog(opts) : Promise.resolve(window.alert(typeof opts === 'string' ? opts : opts?.message || ''));
 
   /* Icono: usa el MarkIcon de app.js si existe, si no, emoji fallback */
   const Ic = ({ n, s = 16, c }) => {
@@ -793,7 +795,17 @@
                   <span class="home-nav-who-name">${user.name || user.email || 'Mi taller'}</span>
                   <span class="home-nav-who-chevron" aria-hidden="true"><${CatIc} n="ChevronDown" s=${11} /></span>
                 </button>
-                <button type="button" class="home-nav-logout" onClick=${() => { if (confirm('¿Cerrar sesión en este dispositivo?')) onLogout(); }}
+                <button type="button" class="home-nav-logout" onClick=${async () => {
+                  const ok = await confirmDialog({
+                    title: 'Cerrar sesión',
+                    message: '¿Cerrar sesión en este dispositivo? Tendrás que identificarte de nuevo para acceder a tus datos.',
+                    confirmText: 'Cerrar sesión',
+                    cancelText: 'Permanecer',
+                    danger: true,
+                    icon: 'LogOut'
+                  });
+                  if (ok) onLogout();
+                }}
                   title="Cerrar sesión en este dispositivo" aria-label="Cerrar sesión">
                   <${CatIc} n="LogOut" s=${14} />
                   <span class="home-nav-logout-label">Salir</span>
@@ -1323,7 +1335,18 @@
               <span><strong>Comunidad y evolución</strong><em>Binance, Zinli e ideas para llave</em></span>
             </button>
             ${user && html`
-              <button type="button" class="home-sheet-item" onClick=${() => { setHoja(false); if (confirm('¿Cerrar sesión en este dispositivo?')) onLogout(); }}>
+              <button type="button" class="home-sheet-item" onClick=${async () => {
+                setHoja(false);
+                const ok = await confirmDialog({
+                  title: 'Cerrar sesión',
+                  message: '¿Cerrar sesión en este dispositivo? Tendrás que identificarte de nuevo para acceder a tus datos.',
+                  confirmText: 'Cerrar sesión',
+                  cancelText: 'Permanecer',
+                  danger: true,
+                  icon: 'LogOut'
+                });
+                if (ok) onLogout();
+              }}>
                 <span class="home-sheet-ic"><${CatIc} n="LogOut" s=${20} /></span>
                 <span><strong>Cerrar sesión</strong><em>${user.email || ''}</em></span>
               </button>`}
@@ -1382,9 +1405,17 @@
       setForm(null);
     };
     const borrar = (i) => { guardar(propios.filter((_, j) => j !== i)); setForm(null); };
-    const borrarTodos = () => {
+    const borrarTodos = async () => {
       if (!propios.length) return;
-      if (confirm(`¿Borrar los ${propios.length} códigos propios de este dispositivo? No se puede deshacer.`)) { guardar([]); setForm(null); }
+      const ok = await confirmDialog({
+        title: 'Borrar códigos propios',
+        message: `¿Deseas borrar los ${propios.length} códigos propios guardados en este dispositivo? Esta acción no se puede deshacer.`,
+        confirmText: 'Borrar códigos',
+        cancelText: 'Cancelar',
+        danger: true,
+        icon: 'Trash2'
+      });
+      if (ok) { guardar([]); setForm(null); }
     };
     const exportar = () => {
       if (!propios.length) return;
@@ -2499,9 +2530,17 @@
             </div>
             <div class="cita-acts">
               <button type="button" class="link-btn" onClick=${() => save(items.map(x => x.id === c.id ? { ...x, done: !x.done } : x))}>${c.done ? 'reabrir' : 'atendida'}</button>
-              ${/* borrar es irreversible y el botón vive junto a "atendida": sin
-                    confirmar, un dedo torpe pierde la cita sin forma de recuperarla */''}
-              <button type="button" class="link-btn" onClick=${() => { if (confirm(`¿Borrar la cita de ${c.client}?`)) save(items.filter(x => x.id !== c.id)); }}>borrar</button>
+              <button type="button" class="link-btn" onClick=${async () => {
+                const ok = await confirmDialog({
+                  title: 'Eliminar cita',
+                  message: `¿Eliminar la cita de ${c.client}?`,
+                  confirmText: 'Eliminar cita',
+                  cancelText: 'Cancelar',
+                  danger: true,
+                  icon: 'Trash2'
+                });
+                if (ok) save(items.filter(x => x.id !== c.id));
+              }}>borrar</button>
             </div>
           </div>`)}
     </${MicroShell}>`;
@@ -3518,7 +3557,7 @@
      archivo: juntas superaban el tope de 3.000 líneas y los 200 KB de presupuesto
      de quality/budgets.json. Comparten estos ayudantes en vez de duplicarlos, y
      ese archivo se carga DESPUÉS de este para poder ampliar window.FT_MICRO. */
-  window.FT_MICRO_UTIL = { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, useStore, apiFetch, useApi, downloadBlob };
+  window.FT_MICRO_UTIL = { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog };
   window.FT_MICRO = {
    Home, DtcApp, TorqueApp, SparkApp, CrossApp, ConverterApp, VinApp, PressureApp,
    RegulatorApp, QuickDiagApp, TimingApp, GuidesApp, FusesApp, TireApp, InspectionApp,

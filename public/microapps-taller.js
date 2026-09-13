@@ -2,10 +2,9 @@
 (function () {
   const { useState, useEffect } = React;
   const U = window.FT_MICRO_UTIL;
-  /* Sin el puente no hay nada que hacer: fallar en voz alta aquí es mejor que
-     dejar once micro apps rotas con un «undefined is not a function» al abrirlas. */
-  if (!U) { console.error('microapps-taller.js: falta window.FT_MICRO_UTIL (¿microapps.js no cargó?)'); return; }
-  const { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, useStore, apiFetch, useApi, downloadBlob } = U;
+  /* Verificación de utilidades */
+  if (!U) { console.error('microapps-taller.js: falta window.FT_MICRO_UTIL'); return; }
+  const { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog } = U;
   /* ---- 13. Órdenes de trabajo ---- */
   const ORDER_TYPES = [['reparacion', 'Reparación'], ['servicio', 'Servicio'], ['garantia', 'Garantía'], ['promocion', 'Promoción'], ['otro', 'Otro']];
   const ORDER_STATUS = ['Pendiente', 'En proceso', 'Listo', 'Entregado', 'Cancelado'];
@@ -29,7 +28,15 @@
       try { await apiFetch(`/api/orders/${id}/status`, { method: 'POST', body: JSON.stringify({ status: st }) }); api.load(); } catch (e) { alert(e.message); }
     };
     const del = async (id) => {
-      if (!confirm('¿Eliminar esta orden?')) return;
+      const ok = await confirmDialog({
+        title: 'Eliminar orden',
+        message: '¿Estás seguro de que deseas eliminar esta orden de trabajo? No se puede deshacer.',
+        confirmText: 'Eliminar orden',
+        cancelText: 'Cancelar',
+        danger: true,
+        icon: 'Trash2'
+      });
+      if (!ok) return;
       try { await apiFetch(`/api/orders/${id}`, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
     };
     const addItem = async (oid) => {
@@ -136,7 +143,15 @@
     };
     const edit = (i) => { setEditing(i.id); setF({ name: i.name, sku: i.sku || '', category: i.category || '', qty: i.qty, min: i.min_qty, price: i.unit_price, notes: i.notes || '' }); };
     const del = async (id) => {
-      if (!confirm('¿Eliminar esta pieza del inventario?')) return;
+      const ok = await confirmDialog({
+        title: 'Eliminar pieza',
+        message: '¿Estás seguro de que deseas eliminar esta pieza del inventario?',
+        confirmText: 'Eliminar pieza',
+        cancelText: 'Cancelar',
+        danger: true,
+        icon: 'Trash2'
+      });
+      if (!ok) return;
       try { await apiFetch(`/api/inventory/${id}`, { method: 'DELETE' }); api.load(); movesApi.load(); } catch (e) { alert(e.message); }
     };
     const applyMove = async () => {
@@ -223,7 +238,15 @@
     };
     const edit = (c) => { setEditing(c.id); setF({ name: c.name, phone: c.phone || '', email: c.email || '', address: c.address || '', city: c.city || '', notes: c.notes || '' }); };
     const del = async (id) => {
-      if (!confirm('¿Eliminar este cliente?')) return;
+      const ok = await confirmDialog({
+        title: 'Eliminar cliente',
+        message: '¿Estás seguro de que deseas eliminar este cliente y sus vehículos asociados?',
+        confirmText: 'Eliminar cliente',
+        cancelText: 'Cancelar',
+        danger: true,
+        icon: 'Trash2'
+      });
+      if (!ok) return;
       try { await apiFetch(`/api/clients/${id}`, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
     };
     const toggle = async (c) => {
@@ -300,9 +323,7 @@
     const [notes, api] = useApi('/api/notes');
     const [t, setT] = useState('');
     const [veh, setVeh] = useState('');
-    /* Registro de trabajos por vehículo, portado de la vista legacy. Guarda en
-       el mismo `ft_jobs` de siempre (misma forma {clave: [{t, ts}]}) para que
-       el historial ya escrito siga accesible; es local, no va a la nube. */
+    /* Registro de trabajos por vehículo (local ft_jobs) */
     const [jobs, setJobs] = useState(() => { try { return JSON.parse(localStorage.getItem('ft_jobs') || '{}'); } catch (e) { return {}; } });
     const saveJobs = (n) => { setJobs(n); localStorage.setItem('ft_jobs', JSON.stringify(n)); };
     const [jVeh, setJVeh] = useState('');
@@ -393,9 +414,7 @@
   const ForumApp = ({ onBack }) => {
     const [threads, setThreads] = useStore('ft_forum', []);
     const [t, setT] = useState('');
-    /* El nombre del autor se recuerda en el aparato: el foro es de la comunidad
-       y volver a teclearlo en cada tema era trabajo de más. Antes se LEÍA una
-       clave que nadie escribía, así que siempre salía "Anónimo". */
+    /* Autor recordado localmente */
     const [author, setAuthorState] = useState(() => localStorage.getItem('ft_forum_author') || 'Anónimo');
     const setAuthor = (v) => { setAuthorState(v); try { localStorage.setItem('ft_forum_author', v); } catch (e) {} };
     const [openId, setOpenId] = useState(null);
@@ -530,7 +549,15 @@
       try { await apiFetch(`/api/documents/${id}/status`, { method: 'PUT', body: JSON.stringify({ status: st }) }); api.load(); } catch (e) { alert(e.message); }
     };
     const del = async (id) => {
-      if (!confirm('¿Eliminar este documento?')) return;
+      const ok = await confirmDialog({
+        title: 'Eliminar documento',
+        message: '¿Estás seguro de que deseas eliminar este documento presupuestario/factura?',
+        confirmText: 'Eliminar documento',
+        cancelText: 'Cancelar',
+        danger: true,
+        icon: 'Trash2'
+      });
+      if (!ok) return;
       try { await apiFetch(`/api/documents/${id}`, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
     };
     const exportCsv = async () => {
@@ -965,7 +992,17 @@
           </div>`}
         ${passMsg && html`<div class=${'alert' + (passEstado === 'ok' ? ' blue' : '')} style=${{ marginTop: '12px' }}><span>${passMsg}</span></div>`}
         ${onLogout && html`<div class="insp-actions" style=${{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
-          <button type="button" class="home-cta-ghost" style=${{ color: 'var(--danger, #c0392b)', borderColor: 'currentColor', width: '100%', justifyContent: 'center' }} onClick=${() => { if (confirm('¿Cerrar sesión en este dispositivo?')) onLogout(); }}>
+          <button type="button" class="home-cta-ghost" style=${{ color: 'var(--danger, #c0392b)', borderColor: 'currentColor', width: '100%', justifyContent: 'center' }} onClick=${async () => {
+            const ok = await confirmDialog({
+              title: 'Cerrar sesión',
+              message: '¿Cerrar sesión en este dispositivo? Tus datos sincronizados en la nube se mantendrán seguros.',
+              confirmText: 'Cerrar sesión',
+              cancelText: 'Cancelar',
+              danger: true,
+              icon: 'LogOut'
+            });
+            if (ok) onLogout();
+          }}>
             <${CatIc} n="LogOut" s=${16} /> Cerrar sesión en este dispositivo
           </button>
         </div>`}
