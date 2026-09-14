@@ -1,6 +1,6 @@
 # Informe de calidad — FuelTech Master
 
-_Generado el 2026-09-13 23:11 por `npm run metrics`. No lo edites a mano._
+_Generado el 2026-09-14 11:01 por `npm run metrics`. No lo edites a mano._
 
 ## ✅ Todos los presupuestos se cumplen
 
@@ -10,12 +10,12 @@ Nada que corregir.
 
 | Métrica | Valor | Estado |
 | --- | --- | --- |
-| Pruebas que pasan | 808 / 808 | ✅ |
-| Duración de la suite | 84.4 s | ✅ |
+| Pruebas que pasan | 810 / 810 | ✅ |
+| Duración de la suite | 74.3 s | ✅ |
 | Reglas de restricción | 20 reglas, 0 violaciones | ✅ |
 | Rutas de API probadas | 100% de 103 | ✅ |
 | Deuda conocida aceptada | 5 de 5 | ✅ |
-| Razón prueba/código | 0.73x | ✅ |
+| Razón prueba/código | 0.67x | ✅ |
 
 ## Cobertura de las reglas del taller (lib/)
 
@@ -35,19 +35,19 @@ Nada que corregir.
 
 ## Catálogo
 
-- **208** vehículos de **33** marcas, con **10** pilas.
-- Por sistema de inyección: MFI 157 · TBI 1 · VORTEC_CSFI 3 · GDI 47.
-- **104** vehículos (50%) llevan datos ESTIMADOS y salen marcados en la ficha.
+- **294** vehículos de **37** marcas, con **10** pilas.
+- Por sistema de inyección: MFI 237 · TBI 1 · VORTEC_CSFI 3 · GDI 53.
+- **104** vehículos (35.4%) llevan datos ESTIMADOS y salen marcados en la ficha.
 
 ## Tamaño de los archivos que descarga el usuario
 
 ```
 ✓ public/app.js              107.9 KB  de 109 KB
-✓ public/microapps.js        237.2 KB  de 238 KB
+✓ public/microapps.js        273.4 KB  de 278 KB
 ✓ public/microapps-taller.js    85.9 KB  de 86 KB
-✓ public/datos.js               17 KB  de 18 KB
-✓ public/index.html          197.2 KB  de 198 KB
-✓ public/three3d.js           35.1 KB  de 68 KB
+✓ public/datos.js             29.9 KB  de 32 KB
+✓ public/index.html          210.8 KB  de 218 KB
+✓ public/three3d.js           65.2 KB  de 68 KB
 ✓ public/sw.js                 7.5 KB  de 8 KB
 ✓ server-pg.js                25.3 KB  de 40 KB
 ```
@@ -56,9 +56,7 @@ Nada que corregir.
 
 **Mejoras:**
 
-- pruebas_total: 733 → 808
-- rutas_api_sin_proteger: 28 → 27
-- max_lineas_archivo: 3680 → 3568
+- pruebas_total: 808 → 810
 
 
 ## Deuda conocida pendiente de decisión

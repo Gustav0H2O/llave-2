@@ -66,8 +66,8 @@
   },
 
   "limites": {
-    "_comentario": "Topes estructurales. Sirven para que el proyecto no se degrade en silencio. Se ajustan a 3850 líneas y 29 rutas públicas por la administración integral de cuentas de talleres en admin y el endpoint público del Muro de Colaboradores.",
-    "max_lineas_por_archivo": 3850,
+    "_comentario": "Topes estructurales. Sirven para que el proyecto no se degrade en silencio. Se ajustan a 4350 líneas por la ampliación integral UI/UX de microapps.js y 29 rutas públicas.",
+    "max_lineas_por_archivo": 4350,
     "max_deuda_conocida": 5,
     "min_pruebas_totales": 380,
     "min_rutas_api_probadas_pct": 100,

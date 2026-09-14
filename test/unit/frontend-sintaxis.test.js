@@ -21,6 +21,8 @@ const FRONTEND = [
      --experimental-vm-modules de Node. */
 ];
 
+const { execFileSync } = require('node:child_process');
+
 test('cada archivo del frontend compila', () => {
   const fallos = [];
   for (const f of FRONTEND) {
@@ -32,3 +34,36 @@ test('cada archivo del frontend compila', () => {
   }
   assert.deepEqual(fallos, [], `archivos que no compilan:\n${fallos.join('\n')}`);
 });
+
+test('public/three3d.js compila como módulo ES', () => {
+  const file = path.join(__dirname, '..', '..', 'public', 'three3d.js');
+  assert.doesNotThrow(() => {
+    execFileSync(process.execPath, ['--check', file], { stdio: 'pipe' });
+  }, 'public/three3d.js tiene errores de sintaxis ES');
+});
+
+test('public/three3d.js cumple presupuesto de tamaño y especificación 3D', () => {
+  const file = path.join(__dirname, '..', '..', 'public', 'three3d.js');
+  const code = fs.readFileSync(file, 'utf8');
+  const sizeKb = +(fs.statSync(file).size / 1024).toFixed(2);
+  const budgets = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'quality', 'budgets.json'), 'utf8'));
+  const maxKb = budgets.tamano_kb['public/three3d.js'];
+
+  assert.ok(sizeKb <= maxKb, `three3d.js excede presupuesto: ${sizeKb} KB > ${maxKb} KB`);
+  assert.ok(code.includes('createViewer'), 'Debe exportar/definir createViewer');
+  assert.ok(code.includes('buildProceduralCar'), 'Debe exportar/definir buildProceduralCar');
+  assert.ok(code.includes('buildFuelSystem'), 'Debe exportar/definir buildFuelSystem');
+  assert.ok(code.includes('window.FT3D'), 'Debe registrar global window.FT3D');
+
+  // Siluetas de carrocería únicas
+  const bodyTypes = ['sedan', 'hatchback', 'pickup', 'suv', 'van'];
+  for (const bt of bodyTypes) {
+    assert.ok(code.includes(`case '${bt}':`) || code.includes(`'${bt}'`), `Debe implementar silueta ${bt}`);
+  }
+
+  // Componentes técnicos del sistema de combustible
+  assert.ok(code.includes('PAL_LIGHT') && code.includes('PAL_DARK'), 'Debe tener soporte de temas claro y oscuro');
+  assert.ok(code.includes('dispose'), 'Debe implementar método dispose() para liberar recursos WebGL');
+});
+
+
