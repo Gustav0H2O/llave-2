@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Gestión, diagnóstico y consulta técnica de módulos y pilas (bombas) de gasolina",
   "license": "UNLICENSED",
+  "author": "Gustavo Jesús Heredia Romero <newpersonal98@gmail.com>",
   "main": "server-pg.js",
   "scripts": {
     "seed": "node seed.js",

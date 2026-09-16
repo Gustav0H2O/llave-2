@@ -1,12 +1,20 @@
 Licencia de propietario — llave
 Catálogo técnico de presión de combustible para talleres
 
-Copyright (c) 2026 GustavoH20 <newpersonal98@gmail.com>
+Copyright (c) 2026 Gustavo Jesús Heredia Romero <newpersonal98@gmail.com>
 Todos los derechos reservados.
 
 Este repositorio se publica para consulta, transparencia y demostración del
 trabajo. NO es software libre ni de código abierto: su publicación no concede
 licencia alguna.
+
+ÁMBITO
+
+Esta licencia rige el repositorio completo —código, documentación, catálogo e
+ilustraciones— y todas sus versiones y revisiones, incluidas las publicadas
+antes de que existiera este archivo. Ninguna versión de este software está
+autorizada bajo otros términos: la ausencia de un archivo de licencia en
+revisiones anteriores no concedía ni concede derecho alguno.
 
 
 1. SIN CONCESIÓN DE DERECHOS
@@ -43,8 +51,11 @@ ilustraciones, ni retirar o alterar los avisos de autoría.
 
 5. COMPONENTES DE TERCEROS
 
-El software redistribuye componentes de terceros bajo sus propias licencias,
-que se conservan intactas y son las que rigen para esos archivos:
+Este repositorio redistribuye componentes de terceros cuyos autores conservan
+sus derechos. Esta licencia NO se extiende a ellos: cada uno se rige por la
+suya, que se conserva intacta.
+
+5.1 Librerías que se sirven al navegador:
 
 - public/vendor/react.production.min.js
 - public/vendor/react-dom.production.min.js
@@ -62,9 +73,14 @@ que se conservan intactas y son las que rigen para esos archivos:
 - public/vendor/tabler-icons.js
     Tabler Icons — licencia MIT.
 
-Las dependencias declaradas en package.json (express, better-sqlite3,
-@libsql/client, helmet, pg… ) no se redistribuyen en este repositorio y se
-rigen por las licencias de sus respectivos autores.
+5.2 Skill de terceros incluida sin modificar: «scandinavian-design»
+(ericzakariasson/scandinavian-design). Vive en .agents/skills/,
+.claude/skills/ y .commandcode/skills/, y skills-lock.json la referencia.
+NO es obra del titular de este repositorio.
+
+5.3 Dependencias declaradas en package.json (express, better-sqlite3,
+@libsql/client, helmet, pg…): no se redistribuyen aquí y se rigen por las
+licencias de sus respectivos autores.
 
 
 6. PLATAFORMA
@@ -89,4 +105,4 @@ manual de servicio del fabricante antes de intervenir un vehículo.
 
 
 Licencias comerciales, cesiones y encargos:
-newpersonal98@gmail.com
+Gustavo Jesús Heredia Romero — newpersonal98@gmail.com

@@ -49,18 +49,19 @@ Desde el navegador del teléfono, **llave** ofrece instalarse. Una vez instalada
 
 ## 📄 Licencia
 
-**Propietario — todos los derechos reservados.** Este repositorio se publica
-para consulta y demostración del trabajo; **no** es software libre ni de código
-abierto, y verlo no te da derecho a usarlo, copiarlo, modificarlo,
-redistribuirlo ni a explotarlo comercialmente, incluido el catálogo de datos
-técnicos.
+**Gustavo Jesús Heredia Romero — propietario, todos los derechos reservados.**
+Este repositorio se publica para consulta y demostración del trabajo; **no** es
+software libre ni de código abierto, y verlo no te da derecho a usarlo,
+copiarlo, modificarlo, redistribuirlo ni a explotarlo comercialmente, incluido
+el catálogo de datos técnicos.
 
-Los componentes de terceros que se redistribuyen en `public/vendor/` (React,
-htm, three.js, Tabler Icons) siguen bajo sus propias licencias MIT. El detalle
-completo está en [LICENSE](LICENSE).
+La obra de terceros que el repositorio redistribuye —las librerías de
+`public/vendor/` (React, htm, three.js, Tabler Icons) y la skill
+`scandinavian-design` de las carpetas de herramientas— sigue bajo la licencia
+de sus autores. El detalle completo está en [LICENSE](LICENSE).
 
 Para licencias comerciales, cesiones o encargos:
-**newpersonal98@gmail.com**
+**Gustavo Jesús Heredia Romero — newpersonal98@gmail.com**
 
 ---
 
