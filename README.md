@@ -47,6 +47,21 @@ Desde el navegador del teléfono, **llave** ofrece instalarse. Una vez instalada
 3.  Revisa la ficha técnica a la derecha para ver la presión recomendada y los códigos de las refacciones.
 4.  Explora el modelo 3D para guiarte en el despiece.
 
+## 📄 Licencia
+
+**Propietario — todos los derechos reservados.** Este repositorio se publica
+para consulta y demostración del trabajo; **no** es software libre ni de código
+abierto, y verlo no te da derecho a usarlo, copiarlo, modificarlo,
+redistribuirlo ni a explotarlo comercialmente, incluido el catálogo de datos
+técnicos.
+
+Los componentes de terceros que se redistribuyen en `public/vendor/` (React,
+htm, three.js, Tabler Icons) siguen bajo sus propias licencias MIT. El detalle
+completo está en [LICENSE](LICENSE).
+
+Para licencias comerciales, cesiones o encargos:
+**newpersonal98@gmail.com**
+
 ---
 
 <div align="center">

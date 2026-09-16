@@ -2,6 +2,7 @@
   "name": "fueltech-master",
   "version": "1.0.0",
   "description": "Gestión, diagnóstico y consulta técnica de módulos y pilas (bombas) de gasolina",
+  "license": "UNLICENSED",
   "main": "server-pg.js",
   "scripts": {
     "seed": "node seed.js",

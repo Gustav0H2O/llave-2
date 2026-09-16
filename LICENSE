@@ -1,0 +1,92 @@
+Licencia de propietario — llave
+Catálogo técnico de presión de combustible para talleres
+
+Copyright (c) 2026 GustavoH20 <newpersonal98@gmail.com>
+Todos los derechos reservados.
+
+Este repositorio se publica para consulta, transparencia y demostración del
+trabajo. NO es software libre ni de código abierto: su publicación no concede
+licencia alguna.
+
+
+1. SIN CONCESIÓN DE DERECHOS
+
+No se concede permiso, expreso ni implícito, para usar, ejecutar, copiar,
+reproducir, modificar, adaptar, traducir, crear obras derivadas, distribuir,
+publicar, sublicenciar, vender, alquilar ni ceder este software, su código
+fuente o cualquier parte de él, salvo autorización previa y por escrito del
+titular.
+
+
+2. SIN EXPLOTACIÓN COMERCIAL
+
+Queda prohibido desplegar o usar el software, total o parcialmente, como
+producto o servicio —propio o de terceros— y emplearlo para prestar servicios
+a clientes, con o sin cobro.
+
+
+3. CATÁLOGO DE DATOS TÉCNICOS
+
+El catálogo técnico que este software incluye y sirve —vehículos, presiones de
+riel y de banco, ubicación del módulo, pilas (bombas) OEM y alternativas,
+equivalencias, torques y códigos de falla— forma parte del producto y goza de
+la misma protección. No se autoriza su extracción, copia, redistribución ni
+publicación, ni por lectura directa del repositorio ni por consulta
+automatizada de la API o de las páginas del sitio.
+
+
+4. MARCA, LOGOTIPO E ILUSTRACIONES
+
+No se autoriza el uso del nombre «llave», de su logotipo ni de sus
+ilustraciones, ni retirar o alterar los avisos de autoría.
+
+
+5. COMPONENTES DE TERCEROS
+
+El software redistribuye componentes de terceros bajo sus propias licencias,
+que se conservan intactas y son las que rigen para esos archivos:
+
+- public/vendor/react.production.min.js
+- public/vendor/react-dom.production.min.js
+    React — licencia MIT — Copyright (c) Meta Platforms, Inc. y afiliados.
+
+- public/vendor/htm.js
+    htm — licencia MIT — Copyright (c) Jason Miller.
+
+- public/vendor/three.module.js
+- public/vendor/controls/OrbitControls.js
+- public/vendor/loaders/GLTFLoader.js
+- public/vendor/utils/BufferGeometryUtils.js
+    three.js — licencia MIT — Copyright (c) three.js authors.
+
+- public/vendor/tabler-icons.js
+    Tabler Icons — licencia MIT.
+
+Las dependencias declaradas en package.json (express, better-sqlite3,
+@libsql/client, helmet, pg… ) no se redistribuyen en este repositorio y se
+rigen por las licencias de sus respectivos autores.
+
+
+6. PLATAFORMA
+
+La visualización y el «fork» dentro de GitHub se rigen además por los Términos
+de Servicio de GitHub. Esta licencia no los amplía ni los sustituye, y no
+otorga ningún derecho más allá de lo que esa plataforma permite.
+
+
+7. SIN GARANTÍA
+
+EL SOFTWARE SE ENTREGA «TAL CUAL», SIN GARANTÍA DE NINGÚN TIPO, EXPRESA O
+IMPLÍCITA, INCLUIDAS LAS DE COMERCIABILIDAD, IDONEIDAD PARA UN FIN PARTICULAR
+Y NO INFRACCIÓN. EN NINGÚN CASO EL TITULAR SERÁ RESPONSABLE DE RECLAMO, DAÑO
+O PERJUICIO ALGUNO DERIVADO DEL SOFTWARE O DE SU USO.
+
+
+8. DATOS DE REFERENCIA
+
+Las especificaciones del catálogo son de referencia. Verifica siempre contra el
+manual de servicio del fabricante antes de intervenir un vehículo.
+
+
+Licencias comerciales, cesiones y encargos:
+newpersonal98@gmail.com
