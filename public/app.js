@@ -1649,10 +1649,6 @@ function App() {
       <div class="footer-desc" style=${{ marginTop: '5px' }}>Datos técnicos de referencia: verifica siempre contra el manual de servicio del fabricante antes de intervenir el vehículo.</div>
       <div class="dev-contact">
         <${Icon} name="Mail" size=${13} />
-        <a href="mailto:newpersonal98@gmail.com?subject=Reporte%20en%20llave" title="Reportar un bug, un fallo o una crítica">¿Encontraste un bug, un fallo o tienes una crítica? Escríbeme a <strong>newpersonal98@gmail.com</strong></a>
-      </div>
-      <div class="dev-contact dev-contact--sin-borde">
-        <${Icon} name="Mail" size=${13} />
         <a href="#" onClick=${handleEmailClick} title="Enviar correo a newpersonal98@gmail.com">¿Quieres un desarrollo similar? Contáctame: <strong>newpersonal98@gmail.com</strong></a>
       </div>
       <div class="footer-copy">© 2025–2026 llave. Todos los derechos reservados.</div>
