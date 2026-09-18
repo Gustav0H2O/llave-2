@@ -49,7 +49,7 @@
   },
   "devDependencies": {
     "@tabler/icons": "^3.46.0",
-    "puppeteer": "^25.5.0",
+    "puppeteer": "^25.11.0",
     "puppeteer-core": "^25.8.0"
   },
   "overrides": {
