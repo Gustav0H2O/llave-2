@@ -4,6 +4,7 @@
  const U = window.FT_MICRO_UTIL;
  if (!U) { console.error('microapps-taller.js: falta window.FT_MICRO_UTIL'); return; }
  const { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog } = U;
+ const askDel = (t, m = '¿Eliminar registro?') => confirmDialog({ title: t, message: m, confirmText: 'Eliminar', danger: true, icon: 'Trash2' });
   const ORDER_TYPES = [['reparacion', 'Reparación'], ['servicio', 'Servicio'], ['garantia', 'Garantía'], ['promocion', 'Promoción'], ['otro', 'Otro']];
  const ORDER_STATUS = ['Recibido', 'En diagnóstico', 'Esperando repuesto', 'Listo', 'Entregado', 'Cancelado'];
  const WORKFLOW_STEPS = ORDER_STATUS.slice(0, 5);
@@ -44,8 +45,7 @@
    } catch (e) { alert(e.message); }
   };
   const del = async (id) => {
-   const ok = await confirmDialog({ title: 'Eliminar orden', message: '¿Eliminar orden de trabajo?', confirmText: 'Eliminar', danger: true, icon: 'Trash2' });
-   if (!ok) return;
+   if (!(await askDel('Eliminar orden', '¿Eliminar orden de trabajo?'))) return;
    try { await apiFetch('/api/orders/' + id, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
   };
   const addItem = async (oid) => {
@@ -57,8 +57,7 @@
    } catch (e) { alert(e.message); }
   };
   const delItem = async (oid, iid) => {
-   const ok = await confirmDialog({ title: 'Eliminar partida', message: '¿Quitar partida? El stock se devolverá.', confirmText: 'Eliminar', danger: true, icon: 'Trash2' });
-   if (!ok) return;
+   if (!(await askDel('Eliminar partida', '¿Quitar partida? El stock se devolverá.'))) return;
    try { await apiFetch('/api/orders/' + oid + '/items/' + iid, { method: 'DELETE' }); api.load(); invApi.load(); loadDetail(oid); } catch (e) { alert(e.message); }
   };
   const uploadPhoto = (oid, tag) => (e) => {
@@ -80,8 +79,7 @@
    r.readAsDataURL(fl);
   };
   const delPhoto = async (oid, pid) => {
-   const ok = await confirmDialog({ title: 'Eliminar foto', message: '¿Eliminar evidencia?', confirmText: 'Eliminar', danger: true, icon: 'Trash2' });
-   if (!ok) return;
+   if (!(await askDel('Eliminar foto', '¿Eliminar evidencia?'))) return;
    try { await apiFetch('/api/orders/' + oid + '/photos/' + pid, { method: 'DELETE' }); loadDetail(oid); if (lightbox?.id === pid) setLightbox(null); } catch (e) { alert(e.message); }
   };
   const makeDoc = async (oid, kind) => {
@@ -181,16 +179,16 @@
   const InventoryApp = ({ onBack }) => {
   const [items, api] = useApi('/api/inventory');
   const [moves, movesApi] = useApi('/api/inventory/moves');
-  const [f, setF] = useState({ name: '', sku: '', category: '', qty: '', min: '', price: '', notes: '' });
+  const [f, setF] = useState({ name: '', sku: '', category: '', qty: '', min: '', price: '', cost: '', notes: '' });
   const [editing, setEditing] = useState(null);
   const [moveFor, setMoveFor] = useState(null);
   const [move, setMove] = useState({ delta: '', kind: 'entrada', note: '' });
   const [filterTab, setFilterTab] = useState('all');
   const [search, setSearch] = useState('');
-  const reset = () => { setF({ name: '', sku: '', category: '', qty: '', min: '', price: '', notes: '' }); setEditing(null); };
+  const reset = () => { setF({ name: '', sku: '', category: '', qty: '', min: '', price: '', cost: '', notes: '' }); setEditing(null); };
   const save = async () => {
    if (!f.name.trim()) return;
-   const payload = { ...f, qty: f.qty || 0, min_qty: f.min, unit_price: f.price };
+   const payload = { ...f, qty: f.qty || 0, min_qty: f.min, unit_price: f.price, cost_price: f.cost || 0 };
    try {
     if (editing) await apiFetch('/api/inventory/' + editing, { method: 'PUT', body: JSON.stringify(payload) });
     else await apiFetch('/api/inventory', { method: 'POST', body: JSON.stringify(payload) });
@@ -199,11 +197,10 @@
   };
   const edit = (i) => {
    setEditing(i.id);
-   setF({ name: i.name, sku: i.sku || '', category: i.category || '', qty: i.qty, min: i.min_qty, price: i.unit_price, notes: i.notes || '' });
+   setF({ name: i.name, sku: i.sku || '', category: i.category || '', qty: i.qty, min: i.min_qty, price: i.unit_price, cost: i.cost_price || '', notes: i.notes || '' });
   };
   const del = async (id) => {
-   const ok = await confirmDialog({ title: 'Eliminar pieza', message: '¿Eliminar pieza?', confirmText: 'Eliminar', danger: true, icon: 'Trash2' });
-   if (!ok) return;
+   if (!(await askDel('Eliminar pieza', '¿Eliminar pieza del inventario?'))) return;
    try { await apiFetch('/api/inventory/' + id, { method: 'DELETE' }); api.load(); movesApi.load(); } catch (e) { alert(e.message); }
   };
   const quickDelta = async (id, delta, kind) => {
@@ -234,16 +231,18 @@
   return html`<${MicroShell} title="Inventario / Stock" icon="Box" onBack=${onBack}><div class="f-between mb-2"><div class="tabs-bar f-row"><button type="button" class=${'filter-chip ' + (filterTab === 'all' ? 'active' : '')} onClick=${() => setFilterTab('all')}>Todos (${items.length})</button><button type="button" class=${'filter-chip ' + (filterTab === 'low' ? 'active' : '')} onClick=${() => setFilterTab('low')}>Bajo stock (${lowCount})</button><button type="button" class=${'filter-chip ' + (filterTab === 'out' ? 'active' : '')} onClick=${() => setFilterTab('out')}>Agotados (${outCount})</button></div><button type="button" class="link-btn" onClick=${exportCsv}>⬇ CSV</button></div><input type="text" class="styled-input mb-3" placeholder="🔍 Buscar pieza, código o categoría…" value=${search} onChange=${e => setSearch(e.target.value)} />${lowCount > 0 && filterTab === 'all' && html`<div class="alert mb-3"><strong class="st-amber">${lowCount} pieza(s) con stock crítico bajo el mínimo.</strong></div>`}
    <div class="inv-form panel p-3 mb-3">
     <div class="grid2">
-     <input type="text" class="styled-input" placeholder="Nombre pieza (ej. Pila Bosch 69100)" value=${f.name} onChange=${e => setF({ ...f, name: e.target.value })} />
-     <input type="text" class="styled-input" placeholder="SKU / Código referencia" value=${f.sku} onChange=${e => setF({ ...f, sku: e.target.value })} />
+     ${[['name','Nombre pieza (ej. Pila)'],['sku','SKU / Código']].map(([k,p]) => html`<input type="text" class="styled-input" placeholder=${p} value=${f[k]} onChange=${e => setF({ ...f, [k]: e.target.value })} />`)}
     </div>
     <div class="grid2 mt-2">
      <input type="text" class="styled-input" placeholder="Categoría (ej. Bombas, Filtros)" value=${f.category} onChange=${e => setF({ ...f, category: e.target.value })} />
      ${!editing && html`<input type="number" class="styled-input" placeholder="Existencia inicial" value=${f.qty} onChange=${e => setF({ ...f, qty: e.target.value })} />`}
     </div>
     <div class="grid2 mt-2">
-     <input type="number" class="styled-input" placeholder="Stock Mínimo" value=${f.min} onChange=${e => setF({ ...f, min: e.target.value })} />
+     ${[['min','Stock Mínimo'],['cost','Costo ($)']].map(([k,p]) => html`<input type="number" class="styled-input" placeholder=${p} value=${f[k]} onChange=${e => setF({ ...f, [k]: e.target.value })} />`)}
+    </div>
+    <div class="grid2 mt-2">
      <input type="number" class="styled-input" placeholder="Precio venta ($)" value=${f.price} onChange=${e => setF({ ...f, price: e.target.value })} />
+     <div class="text-xs muted flex items-center">${f.price && f.cost ? `Margen: +$${(Number(f.price) - Number(f.cost)).toFixed(2)}` : 'Margen auto'}</div>
     </div>
     <input type="text" class="styled-input mt-2" placeholder="Notas (compatibilidad, ubicación)" value=${f.notes} onChange=${e => setF({ ...f, notes: e.target.value })} />
     <div class="f-row mt-2">
@@ -281,13 +280,19 @@
   </${MicroShell}>`;
  };
   const ClientsApp = ({ onBack }) => {
+  const [tab, setTab] = useState('clients');
   const [clients, api] = useApi('/api/clients');
-  const [f, setF] = useState({ name: '', phone: '', email: '', address: '', city: '', notes: '' });
+  const [suppliers, supApi] = useApi('/api/suppliers');
+  const [f, setF] = useState({ name: '', doc_id: '', phone: '', email: '', address: '', city: '', notes: '' });
+  const [sf, setSf] = useState({ name: '', rif: '', phone: '', email: '', specialty: '', contact_person: '', notes: '' });
   const [editing, setEditing] = useState(null);
+  const [editingSup, setEditingSup] = useState(null);
   const [openId, setOpenId] = useState(null);
   const [vehicles, setVehicles] = useState({});
+  const [clientOrders, setClientOrders] = useState({});
   const [vf, setVf] = useState({ brand: '', model: '', year: '', plate: '' });
-  const reset = () => { setF({ name: '', phone: '', email: '', address: '', city: '', notes: '' }); setEditing(null); };
+  const reset = () => { setF({ name: '', doc_id: '', phone: '', email: '', address: '', city: '', notes: '' }); setEditing(null); };
+  const resetSup = () => { setSf({ name: '', rif: '', phone: '', email: '', specialty: '', contact_person: '', notes: '' }); setEditingSup(null); };
   const save = async () => {
    if (!f.name.trim()) return;
    try {
@@ -296,23 +301,36 @@
     reset(); api.load();
    } catch (e) { alert(e.message); }
   };
-  const edit = (c) => { setEditing(c.id); setF({ name: c.name, phone: c.phone || '', email: c.email || '', address: c.address || '', city: c.city || '', notes: c.notes || '' }); };
+  const saveSup = async () => {
+   if (!sf.name.trim()) return;
+   try {
+    if (editingSup) await apiFetch(`/api/suppliers/${editingSup}`, { method: 'PUT', body: JSON.stringify(sf) });
+    else await apiFetch('/api/suppliers', { method: 'POST', body: JSON.stringify(sf) });
+    resetSup(); supApi.load();
+   } catch (e) { alert(e.message); }
+  };
+  const edit = (c) => { setEditing(c.id); setF({ name: c.name, doc_id: c.doc_id || '', phone: c.phone || '', email: c.email || '', address: c.address || '', city: c.city || '', notes: c.notes || '' }); };
+  const editSup = (s) => { setEditingSup(s.id); setSf({ name: s.name, rif: s.rif || '', phone: s.phone || '', email: s.email || '', specialty: s.specialty || '', contact_person: s.contact_person || '', notes: s.notes || '' }); };
   const del = async (id) => {
-   const ok = await confirmDialog({
-    title: 'Eliminar cliente',
-    message: '¿Estás seguro de que deseas eliminar este cliente y sus vehículos asociados?',
-    confirmText: 'Eliminar cliente',
-    cancelText: 'Cancelar',
-    danger: true,
-    icon: 'Trash2'
-   });
-   if (!ok) return;
+   if (!(await askDel('Eliminar cliente', '¿Eliminar cliente y sus vehículos?'))) return;
    try { await apiFetch(`/api/clients/${id}`, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
   };
+  const delSup = async (id) => {
+   if (!(await askDel('Eliminar proveedor', '¿Eliminar proveedor / repuestera?'))) return;
+   try { await apiFetch(`/api/suppliers/${id}`, { method: 'DELETE' }); supApi.load(); } catch (e) { alert(e.message); }
+  };
   const toggle = async (c) => {
-   setOpenId(openId === c.id ? null : c.id);
-   if (openId !== c.id) {
-    try { const rows = await apiFetch(`/api/clients/${c.id}/vehicles`); setVehicles(v => ({ ...v, [c.id]: rows })); } catch (e) { alert(e.message); }
+   const next = openId === c.id ? null : c.id;
+   setOpenId(next);
+   if (next) {
+    try {
+     const [vRows, oRows] = await Promise.all([
+      apiFetch(`/api/clients/${c.id}/vehicles`),
+      apiFetch(`/api/orders?client_id=${c.id}`)
+     ]);
+     setVehicles(v => ({ ...v, [c.id]: vRows }));
+     setClientOrders(o => ({ ...o, [c.id]: oRows }));
+    } catch (e) { alert(e.message); }
    }
   };
   const addVehicle = async (cid) => {
@@ -320,7 +338,6 @@
    try {
     await apiFetch(`/api/clients/${cid}/vehicles`, { method: 'POST', body: JSON.stringify(vf) });
     setVf({ brand: '', model: '', year: '', plate: '' });
-    setVehicles(v => ({ ...v, [cid]: v[cid] ? [...v[cid]] : [] }));
     const rows = await apiFetch(`/api/clients/${cid}/vehicles`);
     setVehicles(v => ({ ...v, [cid]: rows }));
    } catch (e) { alert(e.message); }
@@ -331,45 +348,73 @@
     setVehicles(v => ({ ...v, [cid]: (v[cid] || []).filter(x => x.id !== vid) }));
    } catch (e) { alert(e.message); }
   };
-  return html`<${MicroShell} title="Clientes" icon="Car" onBack=${onBack}>${api.err && html`<div class="alert"><span>${api.err}</span></div>`}
-   <div class="cli-form grid2">
-    <input type="text" name="nombre" autocomplete="name" class="styled-input" placeholder="Nombre…" aria-label="Nombre del cliente" value=${f.name} onChange=${e => setF({ ...f, name: e.target.value })} />
-    ${/* tel + código de país: es lo que necesita wa.me para abrir el chat */''}
-    <input type="tel" name="telefono" autocomplete="tel" inputmode="tel" class="styled-input" placeholder="WhatsApp: +58 412…" aria-label="Teléfono con código de país" value=${f.phone} onChange=${e => setF({ ...f, phone: e.target.value })} />
-    <input type="email" name="correo" autocomplete="email" spellcheck="false" class="styled-input" placeholder="Correo…" aria-label="Correo del cliente" value=${f.email} onChange=${e => setF({ ...f, email: e.target.value })} />
-    <input type="text" name="direccion" autocomplete="street-address" class="styled-input" placeholder="Dirección…" aria-label="Dirección" value=${f.address} onChange=${e => setF({ ...f, address: e.target.value })} />
-    <input type="text" name="ciudad" autocomplete="address-level2" class="styled-input" placeholder="Ciudad…" aria-label="Ciudad" value=${f.city} onChange=${e => setF({ ...f, city: e.target.value })} />
-    <input type="text" name="notas" class="styled-input" placeholder="Notas…" aria-label="Notas del cliente" value=${f.notes} onChange=${e => setF({ ...f, notes: e.target.value })} />
+  return html`<${MicroShell} title="Cartera: Clientes y Proveedores" icon="Car" onBack=${onBack}>
+   <div class="tabs-bar f-row mb-3">
+    <button type="button" class=${'filter-chip ' + (tab === 'clients' ? 'active' : '')} onClick=${() => setTab('clients')}>👥 Clientes (${clients.length})</button>
+    <button type="button" class=${'filter-chip ' + (tab === 'suppliers' ? 'active' : '')} onClick=${() => setTab('suppliers')}>🏭 Proveedores (${suppliers.length})</button>
    </div>
-   <div class="f-row my-2">
-    <button type="button" class="tool-add-btn" onClick=${save} disabled=${!f.name.trim()}>${editing ? 'Guardar cambios' : 'Agregar cliente'}</button>
-    ${editing && html`<button type="button" class="link-btn" onClick=${reset}>cancelar</button>`}
-   </div>
-   <div class="cli-list">
-    ${clients.map(c => html`<div class="cli-item" key=${c.id}><button type="button" class="link-btn font-bold text-sm" onClick=${() => toggle(c)}>${c.name}</button>${c.phone && html`<a href=${'tel:' + c.phone} class="link-btn">${c.phone}</a>`}
-     ${c.city && html`<span class="muted">· ${c.city}</span>`}
-     ${/* mandar presupuesto o catálogo directo al chat del cliente */''}
-     ${telValido(c.phone) && html`<button type="button" class="cli-wa" title=${'Escribir a ' + c.name + ' por WhatsApp'}
-      onClick=${() => enviarWhatsApp(c.phone, `Hola ${c.name}, le escribo del taller.`)}>WhatsApp</button>`}
-     <button type="button" class="link-btn" onClick=${() => edit(c)}>editar</button>
-     <button type="button" class="link-btn" onClick=${() => del(c.id)} aria-label=${'Borrar a ' + c.name}>✕</button>
-     ${openId === c.id && html`<div class="mt-2 pt-2 border-t w-full"><strong class="muted text-xs">Vehículos</strong>${(vehicles[c.id] || []).map(v => html`<div key=${v.id} class="order-item-line f-between text-sm my-1">
-      <span>${[v.brand, v.model, v.year, v.plate].filter(Boolean).join(' · ')}</span>
-      <button type="button" class="link-btn" onClick=${() => delVehicle(c.id, v.id)}>✕</button></div>`)}
-      ${(vehicles[c.id] || []).length === 0 && html`<div class="muted text-xs">Sin vehículos registrados</div>`}
-      <div class="grid2 mt-2 f-row">
-      <input type="text" class="styled-input" placeholder="Marca" value=${vf.brand} onChange=${e => setVf({ ...vf, brand: e.target.value })} />
-      <input type="text" class="styled-input" placeholder="Modelo" value=${vf.model} onChange=${e => setVf({ ...vf, model: e.target.value })} />
-      <input type="number" class="styled-input" placeholder="Año" value=${vf.year} onChange=${e => setVf({ ...vf, year: e.target.value })} />
-      <input type="text" class="styled-input" placeholder="Placa" value=${vf.plate} onChange=${e => setVf({ ...vf, plate: e.target.value })} />
+   ${tab === 'clients' ? html`
+    <div class="cli-form grid2">
+     ${[['name','Nombre…'],['doc_id','Doc ID / Cédula'],['phone','WhatsApp / Teléfono','tel'],['email','Correo…','email'],['address','Dirección…'],['city','Ciudad…'],['notes','Notas…']].map(([k,p,t='text']) => html`<input type=${t} class="styled-input" placeholder=${p} value=${f[k]} onChange=${e => setF({ ...f, [k]: e.target.value })} />`)}
+    </div>
+    <div class="f-row my-2">
+     <button type="button" class="tool-add-btn" onClick=${save} disabled=${!f.name.trim()}>${editing ? 'Guardar cambios' : '+ Agregar cliente'}</button>
+     ${editing && html`<button type="button" class="link-btn" onClick=${reset}>cancelar</button>`}
+    </div>
+    <div class="cli-list">
+     ${clients.map(c => html`<div class="cli-item" key=${c.id}>
+      <div class="f-between w-full"><button type="button" class="link-btn font-bold text-sm" onClick=${() => toggle(c)}>${c.name} ${c.doc_id ? html`<span class="muted font-normal text-xs">(${c.doc_id})</span>` : ''}</button>
+       <div class="f-row gap-2">
+        ${telValido(c.phone) && html`<button type="button" class="cli-wa" onClick=${() => enviarWhatsApp(c.phone, `Hola ${c.name}, le escribimos del taller.`)}>WhatsApp</button>`}
+        <button type="button" class="link-btn" onClick=${() => edit(c)}>editar</button>
+        <button type="button" class="link-btn st-danger" onClick=${() => del(c.id)}>✕</button>
+       </div>
       </div>
-      <button type="button" class="tool-add-btn mt-2" onClick=${() => addVehicle(c.id)} disabled=${!vf.brand.trim() && !vf.model.trim()}>Agregar vehículo</button>
-      <div class="muted mt-2 text-xs">${c.email ? '· ' + c.email : ''} ${c.address ? '· ' + c.address : ''} ${c.notes ? '· ' + c.notes : ''}</div></div>`}
-    </div>`)}
-    ${clients.length === 0 && !api.loading && html`<div class="empty">Sin clientes registrados.</div>`}
-   </div>
+      <div class="muted text-xs">${[c.phone, c.city, c.email].filter(Boolean).join(' · ')}</div>
+      ${openId === c.id && html`<div class="mt-2 pt-2 border-t w-full">
+       <strong class="muted text-xs">Vehículos (${(vehicles[c.id] || []).length})</strong>
+       ${(vehicles[c.id] || []).map(v => html`<div key=${v.id} class="order-item-line f-between text-sm my-1">
+        <span>${[v.brand, v.model, v.year, v.plate].filter(Boolean).join(' · ')}</span>
+        <button type="button" class="link-btn" onClick=${() => delVehicle(c.id, v.id)}>✕</button></div>`)}
+       <div class="grid2 mt-2 f-row">
+        <input type="text" class="styled-input" placeholder="Marca" value=${vf.brand} onChange=${e => setVf({ ...vf, brand: e.target.value })} />
+        <input type="text" class="styled-input" placeholder="Modelo" value=${vf.model} onChange=${e => setVf({ ...vf, model: e.target.value })} />
+        <input type="number" class="styled-input" placeholder="Año" value=${vf.year} onChange=${e => setVf({ ...vf, year: e.target.value })} />
+        <input type="text" class="styled-input" placeholder="Placa" value=${vf.plate} onChange=${e => setVf({ ...vf, plate: e.target.value })} />
+       </div>
+       <button type="button" class="tool-add-btn mt-2" onClick=${() => addVehicle(c.id)} disabled=${!vf.brand.trim() && !vf.model.trim()}>+ Vehículo</button>
+       <div class="mt-3 pt-2 border-t">
+        <strong class="muted text-xs">Historial de órdenes (${(clientOrders[c.id] || []).length})</strong>
+        ${(clientOrders[c.id] || []).map(o => html`<div key=${o.id} class="f-between text-xs p-1 my-1 bg-panel2 rounded"><span>#${o.id} · ${o.title} · <strong class="st-accent">${o.status}</strong></span><span class="tabular font-bold">$${Number(o.total || 0).toFixed(2)}</span></div>`)}
+        ${!(clientOrders[c.id] && clientOrders[c.id].length) && html`<div class="muted text-xs italic">Sin órdenes registradas para este cliente.</div>`}
+       </div>
+      </div>`}
+     </div>`)}
+     ${clients.length === 0 && !api.loading && html`<div class="empty">Sin clientes registrados.</div>`}
+    </div>` : html`
+    <div class="cli-form grid2">
+     ${[['name','Nombre proveedor…'],['rif','RIF / Doc'],['phone','Teléfono','tel'],['email','Correo','email'],['specialty','Especialidad'],['contact_person','Contacto'],['notes','Notas / Crédito']].map(([k,p,t='text']) => html`<input type=${t} class="styled-input" placeholder=${p} value=${sf[k]} onChange=${e => setSf({ ...sf, [k]: e.target.value })} />`)}
+    </div>
+    <div class="f-row my-2">
+     <button type="button" class="tool-add-btn" onClick=${saveSup} disabled=${!sf.name.trim()}>${editingSup ? 'Guardar cambios' : '+ Agregar proveedor'}</button>
+     ${editingSup && html`<button type="button" class="link-btn" onClick=${resetSup}>cancelar</button>`}
+    </div>
+    <div class="cli-list">
+     ${suppliers.map(s => html`<div class="cli-item" key=${s.id}>
+      <div class="f-between w-full">
+       <span class="font-bold text-sm">${s.name} ${s.specialty ? html`<span class="inv-stock-badge ok ml-1">${s.specialty}</span>` : ''}</span>
+       <div class="f-row gap-2">
+        ${telValido(s.phone) && html`<button type="button" class="cli-wa" onClick=${() => enviarWhatsApp(s.phone, `Hola ${s.contact_person || s.name}, le consultamos por repuestos.`)}>WhatsApp</button>`}
+        <button type="button" class="link-btn" onClick=${() => editSup(s)}>editar</button>
+        <button type="button" class="link-btn st-danger" onClick=${() => delSup(s.id)}>✕</button>
+       </div>
+      </div>
+      <div class="muted text-xs">${[s.rif, s.phone, s.contact_person ? 'Contacto: ' + s.contact_person : '', s.notes].filter(Boolean).join(' · ')}</div>
+     </div>`)}
+     ${suppliers.length === 0 && !supApi.loading && html`<div class="empty">Sin proveedores registrados. Agrega tus repuesteras de confianza.</div>`}
+    </div>`}
   </${MicroShell}>`;
- };
+  };
   const NotesApp = ({ onBack }) => {
   const [notes, api] = useApi('/api/notes');
   const [t, setT] = useState('');
@@ -410,27 +455,28 @@
   </${MicroShell}>`;
  };
   const CASH_METHODS = [
-  { id: 'Efectivo USD', icon: 'DollarSign', cls: 'm-usd', prefix: '$' },
-  { id: 'Efectivo Bs', icon: 'Banknote', cls: 'm-bs', prefix: 'Bs ' },
-  { id: 'Pago Móvil', icon: 'Smartphone', cls: 'm-pm', prefix: 'Bs ' },
-  { id: 'Zelle', icon: 'Zap', cls: 'm-zelle', prefix: '$' }
+  { id: 'cash', label: 'Efectivo', icon: 'DollarSign', cls: 'm-usd', prefix: '$' },
+  { id: 'card', label: 'Tarjeta', icon: 'CreditCard', cls: 'm-pm', prefix: '$' },
+  { id: 'transfer', label: 'Transferencia', icon: 'Building2', cls: 'm-zelle', prefix: '$' },
+  { id: 'other', label: 'Otro', icon: 'Wallet', cls: 'm-bs', prefix: '$' }
  ];
  const CashApp = ({ onBack }) => {
   const [moves, api] = useApi('/api/cash');
-  const [f, setF] = useState({ concept: '', amount: '', type: 'ingreso', method: 'efectivo_usd' });
-  const getMethod = (txt) => { const m = (txt || '').match(/^\[(.*?)\]/); return m ? m[1] : 'Efectivo USD'; };
+  const [f, setF] = useState({ concept: '', amount: '', type: 'ingreso', method: 'cash' });
+  const getMethod = (m) => {
+   const k = ((typeof m === 'object' ? m.method || m.concept : m) || '').toLowerCase();
+   return /card|tarjeta/.test(k) ? 'card' : /trans|banco|zelle/.test(k) ? 'transfer' : /other|otro|m[oó]vil|bs/.test(k) ? 'other' : 'cash';
+  };
   const cleanConcept = (txt) => (txt || '').replace(/^\[.*?\]\s*/, '');
   const save = async () => {
    const a = parseFloat(f.amount); if (!f.concept.trim() || isNaN(a)) return;
-   const fullConcept = '[' + f.method + '] ' + f.concept.trim();
    try {
-    await apiFetch('/api/cash', { method: 'POST', body: JSON.stringify({ concept: fullConcept, amount: Math.abs(a), type: f.type }) });
+    await apiFetch('/api/cash', { method: 'POST', body: JSON.stringify({ concept: f.concept.trim(), amount: Math.abs(a), type: f.type, method: f.method }) });
     setF({ concept: '', amount: '', type: 'ingreso', method: f.method }); api.load();
    } catch (e) { alert(e.message); }
   };
   const del = async (id) => {
-   const ok = await confirmDialog({ title: 'Eliminar movimiento', message: '¿Eliminar registro?', confirmText: 'Eliminar', danger: true, icon: 'Trash2' });
-   if (!ok) return;
+   if (!(await askDel('Eliminar movimiento', '¿Eliminar registro de caja?'))) return;
    try { await apiFetch('/api/cash/' + id, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
   };
   const total = moves.reduce((s, m) => s + (m.type === 'ingreso' ? m.amount : -m.amount), 0);
@@ -457,7 +503,7 @@
     <button type="button" class="tool-add-btn taller-touch-btn" onClick=${save} disabled=${!f.concept.trim() || !f.amount}>+ Registrar</button></div>
    <div class="cash-list">
     ${moves.map(m => {
-     const met = getMethod(m.concept);
+     const met = getMethod(m);
      const foundM = CASH_METHODS.find(x => x.id === met) || CASH_METHODS[0];
      const txt = cleanConcept(m.concept);
      return html`<div class="cash-item" key=${m.id}><span class=${'cash-type ' + m.type}>${m.type === 'ingreso' ? '+' : '−'}</span><span class=${'cash-method-chip ' + foundM.cls}>${foundM.label}</span><span class="cash-concept">${txt} <span class="muted text-xs ml-1">${new Date(m.created_at).toLocaleDateString('es')}</span></span><span class=${'cash-amount ' + m.type}>$${Number(m.amount).toFixed(2)}</span><button type="button" class="link-btn" onClick=${() => del(m.id)}>✕</button></div>`;
@@ -525,7 +571,7 @@
    }, (err) => { setLocBusy(false); setLocMsg('No se pudo obtener el GPS (' + err.message + ')'); }, { timeout: 10000 });
   };
   const roleLabel = (r) => r === 'mecanico' ? 'Mecánico' : r === 'tienda' ? 'Refaccionaria' : 'Cliente';
-  return html`<${MicroShell} title="Conectar Cliente ↔ Mecánico" icon="MapPin" onBack=${onBack}><div class="alert blue mb-3"><span>Completa tu perfil con tu ubicación y lo que ofreces/buscas. Te mostramos perfiles compatibles por cercanía y similitud.</span></div><div class="conn-me panel p-3 mb-3"><h3 class="text-sm st-accent mb-2">Tu perfil</h3><div class="conn-form grid2"><input type="text" class="styled-input" placeholder="Nombre / taller *" value=${me.name} onChange=${e => setMe({ ...me, name: e.target.value })} /><select class="styled-input" value=${me.role} onChange=${e => setMe({ ...me, role: e.target.value })}><option value="mecanico">Mecánico</option><option value="cliente">Cliente</option><option value="tienda">Refaccionaria</option></select><input type="email" class="styled-input" placeholder="Correo" value=${me.email} onChange=${e => setMe({ ...me, email: e.target.value })} /><input type="tel" class="styled-input" placeholder="Teléfono" value=${me.phone} onChange=${e => setMe({ ...me, phone: e.target.value })} /><input type="text" class="styled-input" placeholder="Ciudad *" value=${me.city} onChange=${e => setMe({ ...me, city: e.target.value })} /><input type="text" class="styled-input" placeholder="Zona / colonia" value=${me.zone} onChange=${e => setMe({ ...me, zone: e.target.value })} /><input type="text" class="styled-input w-full" placeholder="Dirección (opcional)" value=${me.address} onChange=${e => setMe({ ...me, address: e.target.value })} /></div><div class="grid2 mt-2"><input type="text" class="styled-input" placeholder="Ofreces: inyección, bombas, frenos" value=${me.offers} onChange=${e => setMe({ ...me, offers: e.target.value })} /><input type="text" class="styled-input" placeholder="Buscas: refacciones, servicios…" value=${me.needs} onChange=${e => setMe({ ...me, needs: e.target.value })} /></div><div class="f-row mt-2 flex-wrap"><button type="button" class="tool-add-btn" onClick=${save} disabled=${!me.name.trim() || !me.city.trim()}>Guardar perfil</button><button type="button" class="tool-add-btn" onClick=${useGps} disabled=${locBusy}>${locBusy ? '…' : 'Usar ubicación GPS'}</button>${me.lat && me.lng && html`<span class="muted text-xs">lat ${me.lat}, lng ${me.lng}</span>`}
+  return html`<${MicroShell} title="Conectar Cliente ↔ Mecánico" icon="MapPin" onBack=${onBack}><div class="alert blue mb-3"><span>Completa tu perfil con tu ubicación y lo que ofreces/buscas. Te mostramos perfiles compatibles por cercanía y similitud.</span></div><div class="conn-me panel p-3 mb-3"><h3 class="text-sm st-accent mb-2">Tu perfil</h3><div class="conn-form grid2">${[['name','Nombre / taller *'],['city','Ciudad *'],['phone','Teléfono'],['email','Correo'],['zone','Zona / colonia'],['address','Dirección']].map(([k,p]) => html`<input type="text" class="styled-input" placeholder=${p} value=${me[k]} onChange=${e => setMe({ ...me, [k]: e.target.value })} />`)}<select class="styled-input" value=${me.role} onChange=${e => setMe({ ...me, role: e.target.value })}><option value="mecanico">Mecánico</option><option value="cliente">Cliente</option><option value="tienda">Refaccionaria</option></select></div><div class="grid2 mt-2"><input type="text" class="styled-input" placeholder="Ofreces: inyección, bombas, frenos" value=${me.offers} onChange=${e => setMe({ ...me, offers: e.target.value })} /><input type="text" class="styled-input" placeholder="Buscas: refacciones, servicios…" value=${me.needs} onChange=${e => setMe({ ...me, needs: e.target.value })} /></div><div class="f-row mt-2 flex-wrap"><button type="button" class="tool-add-btn" onClick=${save} disabled=${!me.name.trim() || !me.city.trim()}>Guardar perfil</button><button type="button" class="tool-add-btn" onClick=${useGps} disabled=${locBusy}>${locBusy ? '…' : 'Usar ubicación GPS'}</button>${me.lat && me.lng && html`<span class="muted text-xs">lat ${me.lat}, lng ${me.lng}</span>`}
     </div>
     ${locMsg && html`<div class="muted mt-1 text-xs">${locMsg}</div>`}
     ${saved && html`<div class="alert blue mt-2"><span>Perfil guardado. Estos son tus contactos sugeridos:</span></div>`}
@@ -562,30 +608,15 @@
   };
   const convertToOrder = async (d) => {
    try {
-    const full = await apiFetch('/api/documents/' + d.id);
-    const ord = await apiFetch('/api/orders', { method: 'POST', body: JSON.stringify({ client_id: full.client_id || null, title: 'Orden desde Presupuesto ' + (full.number || '#' + d.id), descr: 'Generado desde presupuesto #' + d.id, type: 'reparacion', status: 'Recibido' }) });
-    if (full.items?.length) {
-     for (const it of full.items) {
-      await apiFetch('/api/orders/' + ord.id + '/items', { method: 'POST', body: JSON.stringify({ item_id: it.item_id || null, descr: it.descr, qty: it.qty, unit_price: it.unit_price || 0 }) });
-     }
-    }
-    await apiFetch('/api/documents/' + d.id + '/status', { method: 'PUT', body: JSON.stringify({ status: 'aprobado' }) });
-    api.load(); alert('Orden #ORD-' + ord.id + ' creada con éxito.');
+    const res = await apiFetch(`/api/documents/${d.id}/convert-to-order`, { method: 'POST' });
+    api.load(); alert('Orden #' + (res.order_id || res.id) + ' creada con éxito.');
    } catch (err) { alert(err.message); }
   };
   const setStatus = async (id, st) => {
    try { await apiFetch(`/api/documents/${id}/status`, { method: 'PUT', body: JSON.stringify({ status: st }) }); api.load(); } catch (e) { alert(e.message); }
   };
   const del = async (id) => {
-   const ok = await confirmDialog({
-    title: 'Eliminar documento',
-    message: '¿Estás seguro de que deseas eliminar este documento presupuestario/factura?',
-    confirmText: 'Eliminar documento',
-    cancelText: 'Cancelar',
-    danger: true,
-    icon: 'Trash2'
-   });
-   if (!ok) return;
+   if (!(await askDel('Eliminar documento', '¿Eliminar documento?'))) return;
    try { await apiFetch(`/api/documents/${id}`, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
   };
   const exportCsv = async () => {
@@ -649,15 +680,12 @@
    </div>
   </${MicroShell}>`;
  };
- /* ================================================================
-  36. Perfil del taller
-  Nombre, WhatsApp del negocio y estado del correo. El teléfono se
-  guarda aquí y no en cada presupuesto: es el remitente, no el
-  destinatario.
-  ================================================================ */
- const SC = { padding: '10px 12px', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '8px', marginBottom: '8px' };
+  const SC = { padding: '10px 12px', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '8px', marginBottom: '8px' };
  const SB = { display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
  const SF = { display: 'flex', gap: '6px', alignItems: 'center' };
+ const SA = { color: 'var(--text-alt)', fontSize: '9.5px', display: 'block' };
+ const SK = { display: 'block', padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border-hi)', borderRadius: '8px' };
+ const SM = { fontSize: '10px', color: 'var(--text-alt)' };
  const RC = ['#64748b', '#cd7f32', '#94a3b8', '#eab308', '#06b6d4', '#f59e0b'];
  const DN = ['', 'Impulsor', 'Colaborador', 'Destacado', 'Experto', 'Socio Fundador'];
  const DI = ['', 'Award', 'ShieldCheck', 'Sparkles', 'TrendingUp', 'Crown'];
@@ -812,12 +840,10 @@
     </div>
     <h3 class="mic-sub mt-0">Datos del taller</h3>
     <div class="quote-params">
-     <label><span class="mic-lbl">Nombre del taller</span><input type="text" name="taller" autocomplete="organization" class="styled-input" placeholder="Taller…" value=${f.name} onChange=${e => setF({ ...f, name: e.target.value })} /></label>
-     <label><span class="mic-lbl">WhatsApp del taller</span><input type="tel" name="telefono" autocomplete="tel" inputmode="tel" class="styled-input" placeholder="+58 412 1234567" value=${f.phone} onChange=${e => setF({ ...f, phone: e.target.value })} /><span class="trim-hint">Con código de país</span></label>
+     ${[['name','Nombre del taller','Taller…'],['phone','WhatsApp del taller','+58…','tel']].map(([k,l,p,t='text']) => html`<label><span class="mic-lbl">${l}</span><input type=${t} class="styled-input" placeholder=${p} value=${f[k]} onChange=${e => setF({ ...f, [k]: e.target.value })} /></label>`)}
     </div>
     <div class="quote-params mt-2">
-     <label><span class="mic-lbl">Titular o responsable</span><input type="text" class="styled-input" placeholder="Nombre completo" value=${f.owner_name} onChange=${e => setF({ ...f, owner_name: e.target.value })} /></label>
-     <label><span class="mic-lbl">Especialidad</span><input type="text" class="styled-input" placeholder="Mecánica, Inyección…" value=${f.business_type} onChange=${e => setF({ ...f, business_type: e.target.value })} /></label>
+     ${[['owner_name','Titular','Nombre completo'],['business_type','Especialidad','Mecánica…']].map(([k,l,p]) => html`<label><span class="mic-lbl">${l}</span><input type="text" class="styled-input" placeholder=${p} value=${f[k]} onChange=${e => setF({ ...f, [k]: e.target.value })} /></label>`)}
     </div>
     <label style=${{ display: 'block', marginTop: '10px' }}><span class="mic-lbl">Dirección física del taller</span><input type="text" class="styled-input" placeholder="Calle, sector, local o galpón…" value=${f.address} onChange=${e => setF({ ...f, address: e.target.value })} /></label>
     ${f.phone && !telValido(f.phone) && html`<div class="alert mt-3"><span>Número no válido (ej. +584121234567).</span></div>`}
@@ -874,7 +900,7 @@
     <div class="f-col">
      ${donations.map(d => {
       const st = d.status === 'approved' ? { t: 'Aprobado', ic: 'Check', c: '#10b981', b: '#dcfce7' } : d.status === 'pending' ? { t: 'En revisión', ic: 'Clock', c: '#b45309', b: '#fef3c7' } : { t: 'Rechazado', ic: 'Close', c: '#b91c1c', b: '#fee2e2' };
-      return html`<div key=${d.id} style=${{ ...SC, marginBottom: 0, padding: '10px 12px' }}><div style=${SB}><div style=${SF}><span style=${{ fontWeight: 700, fontSize: '12px' }}>Aporte #${d.id}</span><span style=${{ ...SF, padding: '1px 6px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, background: st.b, color: st.c }}><${CatIc} n=${st.ic} s=${10} /> ${st.t}</span></div><span style=${{ fontSize: '10px', color: 'var(--text-alt)' }}>${new Date(d.created_at).toLocaleDateString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div><div style=${{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '6px', fontSize: '11px', marginTop: '6px' }}><div><span style=${{ color: 'var(--text-alt)', fontSize: '9.5px', display: 'block' }}>Monto</span><strong style=${{ color: 'var(--accent)' }}>$${Number(d.amount_usd || 0).toFixed(2)} USD</strong></div><div><span style=${{ color: 'var(--text-alt)', fontSize: '9.5px', display: 'block' }}>Método</span><span style=${{ textTransform: 'uppercase', fontWeight: 600 }}>${d.method || '—'}</span></div><div><span style=${{ color: 'var(--text-alt)', fontSize: '9.5px', display: 'block' }}>Ref</span><code style=${{ fontSize: '10px' }}>${d.tx_id || '—'}</code></div></div>${(d.reviewed_at || d.reviewed_by) && html`<div style=${{ marginTop: '6px', paddingTop: '4px', borderTop: '1px solid var(--border)', fontSize: '10px', color: 'var(--text-alt)' }}>Auditado: ${new Date(d.reviewed_at).toLocaleDateString('es')} por ${d.reviewed_by || 'Admin'}</div>`}
+      return html`<div key=${d.id} style=${SC}><div style=${SB}><div style=${SF}><span style=${{ fontWeight: 700, fontSize: '12px' }}>Aporte #${d.id}</span><span style=${{ ...SF, padding: '1px 6px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, background: st.b, color: st.c }}><${CatIc} n=${st.ic} s=${10} /> ${st.t}</span></div><span style=${{ fontSize: '10px', color: 'var(--text-alt)' }}>${new Date(d.created_at).toLocaleDateString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div><div style=${{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '6px', fontSize: '11px', marginTop: '6px' }}><div><span style=${{ color: 'var(--text-alt)', fontSize: '9.5px', display: 'block' }}>Monto</span><strong style=${{ color: 'var(--accent)' }}>$${Number(d.amount_usd || 0).toFixed(2)} USD</strong></div><div><span style=${{ color: 'var(--text-alt)', fontSize: '9.5px', display: 'block' }}>Método</span><span style=${{ textTransform: 'uppercase', fontWeight: 600 }}>${d.method || '—'}</span></div><div><span style=${{ color: 'var(--text-alt)', fontSize: '9.5px', display: 'block' }}>Ref</span><code style=${{ fontSize: '10px' }}>${d.tx_id || '—'}</code></div></div>${(d.reviewed_at || d.reviewed_by) && html`<div style=${{ marginTop: '6px', paddingTop: '4px', borderTop: '1px solid var(--border)', fontSize: '10px', color: 'var(--text-alt)' }}>Auditado: ${new Date(d.reviewed_at).toLocaleDateString('es')} por ${d.reviewed_by || 'Admin'}</div>`}
       </div>`;
      })}
     </div></div>`}
@@ -889,7 +915,7 @@
      ${me.created_at && html`<label><span class="mic-lbl">Cuenta creada</span><span style=${{ display: 'block', padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border-hi)', borderRadius: '8px' }}>${new Date(me.created_at).toLocaleDateString()}</span></label>`}
     </div>
     ${me.auth_provider === 'google' ? html`<div class="alert blue mt-3"><span>Inicio con Google activo (sin contraseña local).</span></div>` : html`
-     <h3 class="mic-sub">Seguridad y contraseña</h3><div class="quote-params"><label><span class="mic-lbl">Contraseña actual</span><input type="password" class="styled-input" autocomplete="current-password" value=${pass.current} onChange=${e => setPass({ ...pass, current: e.target.value })} /></label><label><span class="mic-lbl">Nueva contraseña</span><input type="password" class="styled-input" autocomplete="new-password" placeholder="Mínimo 10 car." value=${pass.next} onChange=${e => setPass({ ...pass, next: e.target.value })} /></label><label><span class="mic-lbl">Repetir contraseña</span><input type="password" class="styled-input" autocomplete="new-password" value=${pass.confirm} onChange=${e => setPass({ ...pass, confirm: e.target.value })} /></label></div><div class="insp-actions mt-3"><button type="button" class="tool-add-btn" onClick=${cambiarPass} disabled=${passEstado === 'enviando' || !pass.current || !pass.next || !pass.confirm}>${passEstado === 'enviando' ? 'Cambiando…' : 'Cambiar contraseña'}</button></div>`}
+     <h3 class="mic-sub">Seguridad y contraseña</h3><div class="quote-params">${[['current','Contraseña actual','current-password'],['next','Nueva contraseña','new-password','Mínimo 10 car.'],['confirm','Repetir contraseña','new-password']].map(([k,l,a,p]) => html`<label><span class="mic-lbl">${l}</span><input type="password" class="styled-input" autocomplete=${a} placeholder=${p||''} value=${pass[k]} onChange=${e => setPass({ ...pass, [k]: e.target.value })} /></label>`)}</div><div class="insp-actions mt-3"><button type="button" class="tool-add-btn" onClick=${cambiarPass} disabled=${passEstado === 'enviando' || !pass.current || !pass.next || !pass.confirm}>${passEstado === 'enviando' ? 'Cambiando…' : 'Cambiar contraseña'}</button></div>`}
     ${passMsg && html`<div class=${'alert' + (passEstado === 'ok' ? ' blue' : '')} class="mt-3"><span>${passMsg}</span></div>`}
     ${onLogout && html`<div class="insp-actions" style=${{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}><button type="button" class="home-cta-ghost" style=${{ color: 'var(--danger, #c0392b)', borderColor: 'currentColor', width: '100%', justifyContent: 'center' }} onClick=${async () => {
       const ok = await confirmDialog({
@@ -906,26 +932,18 @@
    </div>`}
   </${MicroShell}>`;
  };
- /* ================================================================
-  37. Perfil público de un taller (lo que ve quien recibe el enlace)
-  ================================================================ */
- const PublicProfileApp = ({ onBack, slug }) => {
+  const PublicProfileApp = ({ onBack, slug }) => {
   const ruta = slug || (location.pathname.match(/^\/taller\/([^/]+)/) || [])[1] || '';
   const [p, setP] = useState(null);
   const [err, setErr] = useState('');
   const [f, setF] = useState({ author: '', rating: 0, comment: '' });
   const [envio, setEnvio] = useState('');
-  // Identificador de dispositivo: solo sirve para que el servidor limite una
-  // reseña por perfil. No se comparte ni identifica a nadie. Se usa el
-  // generador único de app.js para no pisar la misma clave con otro formato.
-  const deviceId = (window.FT_APP && window.FT_APP.getDeviceId) ? window.FT_APP.getDeviceId() : (() => {
+    const deviceId = (window.FT_APP && window.FT_APP.getDeviceId) ? window.FT_APP.getDeviceId() : (() => {
    let d = localStorage.getItem('ft_device_id');
    if (!d) { d = uid() + uid(); localStorage.setItem('ft_device_id', d); }
    return d;
   })();
-  /* `?t=` obliga a saltarse la caché de 60 s del endpoint: sin esto, quien
-   acababa de publicar su reseña recargaba y no la veía aparecer. */
-  const cargar = (fresco) => fetch(`/api/workshops/${encodeURIComponent(ruta)}${fresco ? '?t=' + Date.now() : ''}`)
+    const cargar = (fresco) => fetch(`/api/workshops/${encodeURIComponent(ruta)}${fresco ? '?t=' + Date.now() : ''}`)
    .then(r => r.ok ? r.json() : r.json().then(b => Promise.reject(new Error(b.error || 'No se pudo cargar'))))
    .then(setP).catch(e => setErr(e.message));
   useEffect(() => { if (ruta) cargar(); else setErr('Falta el identificador del taller'); }, [ruta]);
@@ -992,9 +1010,7 @@
     </div>`}
   </${MicroShell}>`;
  };
- /* Object.assign, no asignación: microapps.js ya creó el objeto con las otras
-  27 micro apps y machacarlo aquí las dejaría fuera del dashboard. */
- window.FT_MICRO = Object.assign(window.FT_MICRO || {}, {
+  window.FT_MICRO = Object.assign(window.FT_MICRO || {}, {
   OrdersApp, InventoryApp, ClientsApp, NotesApp, CashApp, ForumApp, ConnectApp,
   DocumentsApp, MarketApp, ProfileApp, PublicProfileApp, WorkshopAvatar, UserAvatar,
  });

@@ -11,6 +11,7 @@ const {
   toInt, psiToBar, str, num, esc, csvEscape, leerCookie, extraerToken,
   slugify, vehicleSlug, vehicleIdFromSlug, haceSlug, recortarMeta,
   NIVELES_DONACION, calcularNivelDonador, calcularProgresoDonador,
+  calcularRentabilidad, convertirMoneda,
 } = require('../../lib/pure');
 
 describe('toInt — saneo de enteros externos', () => {
@@ -380,3 +381,26 @@ describe('Rangos de donador — lógica pura de niveles y progreso', () => {
     assert.equal(pMax.beneficiosProximos.length, 0);
   });
 });
+
+describe('calcularRentabilidad y convertirMoneda', () => {
+  it('calcula margen y porcentaje de rentabilidad correctamente', () => {
+    const r1 = calcularRentabilidad(20, 35);
+    assert.equal(r1.margen, 15);
+    assert.equal(r1.margenPct, 75);
+
+    const r2 = calcularRentabilidad(0, 50);
+    assert.equal(r2.margen, 50);
+    assert.equal(r2.margenPct, 100);
+
+    const r3 = calcularRentabilidad(40, 40);
+    assert.equal(r3.margen, 0);
+    assert.equal(r3.margenPct, 0);
+  });
+
+  it('convertirMoneda convierte con dos decimales', () => {
+    assert.equal(convertirMoneda(10, 65.5), 655);
+    assert.equal(convertirMoneda(15.25, 2), 30.5);
+    assert.equal(convertirMoneda(0, 65), 0);
+  });
+});
+

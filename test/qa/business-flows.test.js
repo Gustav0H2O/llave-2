@@ -928,6 +928,8 @@ describe('2.21 — un :id inválido responde 404 sin tocar la base', () => {
     ['PUT', '/api/documents/abc/status'], ['DELETE', '/api/documents/abc'],
     ['DELETE', '/api/notes/abc'], ['DELETE', '/api/cash/abc'],
     ['POST', '/api/workshop/notifications/abc/read'],
+    ['PUT', '/api/suppliers/abc'], ['DELETE', '/api/suppliers/abc'],
+    ['POST', '/api/documents/abc/convert-to-order'],
   ];
 
   it('todas las rutas de negocio con :id devuelven 404 con un id no numérico', async () => {
@@ -976,3 +978,186 @@ describe('2.28 — las fechas de los documentos salen en ISO-8601 con zona', () 
     assert.match(String(detalle.created_at), ISO, `el detalle trae "${detalle.created_at}"`);
   });
 });
+
+describe('2.29 — Cartera de proveedores y repuesteras (/api/suppliers)', () => {
+  let ctx, t, otro, supId;
+
+  before(async () => {
+    ctx = await levantarServidor();
+    t = crearCliente(ctx.base);
+    await t.registrar('TallerProveedores');
+    otro = crearCliente(ctx.base);
+    await otro.registrar('TallerVecino');
+  });
+  after(() => ctx.cerrar());
+
+  it('1. requiere nombre obligatorio', async () => {
+    const r = await t.post('/api/suppliers', { name: '   ', rif: 'J-000' });
+    assert.equal(r.status, 400);
+    assert.match(r.body.error, /requerido/i);
+  });
+
+  it('2. registra un proveedor exitosamente', async () => {
+    const r = await t.post('/api/suppliers', {
+      name: 'Distribuidora Bombas Caracas',
+      rif: 'J-12345678-0',
+      phone: '+584121234567',
+      email: 'ventas@bombasccs.com',
+      specialty: 'Bombas eléctricas y filtros',
+      contact_person: 'Carlos Gómez',
+      notes: 'Crédito a 15 días'
+    });
+    assert.equal(r.status, 201);
+    assert.ok(r.body.id > 0);
+    supId = r.body.id;
+  });
+
+  it('3. lista los proveedores del taller y respeta el aislamiento multi-inquilino', async () => {
+    const r = await t.get('/api/suppliers');
+    assert.equal(r.status, 200);
+    assert.ok(Array.isArray(r.body));
+    const encontrado = r.body.find(s => s.id === supId);
+    assert.ok(encontrado, 'El proveedor creado debe aparecer en la lista');
+    assert.equal(encontrado.specialty, 'Bombas eléctricas y filtros');
+
+    // El taller vecino no debe ver los proveedores de este taller
+    const rOtro = await otro.get('/api/suppliers');
+    assert.equal(rOtro.status, 200);
+    assert.equal(rOtro.body.find(s => s.id === supId), undefined, 'Falla de aislamiento: el vecino vio el proveedor ajeno');
+  });
+
+  it('4. actualiza los datos del proveedor', async () => {
+    const r = await t.put(`/api/suppliers/${supId}`, {
+      name: 'Distribuidora Bombas Caracas C.A.',
+      rif: 'J-12345678-0',
+      phone: '+584149876543',
+      specialty: 'Bombas, Módulos y Flotantes'
+    });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.ok, true);
+
+    const lista = (await t.get('/api/suppliers')).body;
+    const actualizado = lista.find(s => s.id === supId);
+    assert.equal(actualizado.name, 'Distribuidora Bombas Caracas C.A.');
+    assert.equal(actualizado.phone, '+584149876543');
+  });
+
+  it('5. otro taller no puede modificar ni borrar el proveedor ajeno', async () => {
+    const rPut = await otro.put(`/api/suppliers/${supId}`, { name: 'Hack' });
+    assert.equal(rPut.status, 404);
+
+    const rDel = await otro.del(`/api/suppliers/${supId}`);
+    assert.equal(rDel.status, 404);
+  });
+
+  it('6. elimina el proveedor', async () => {
+    const r = await t.del(`/api/suppliers/${supId}`);
+    assert.equal(r.status, 200);
+    assert.equal(r.body.ok, true);
+
+    const rGet = await t.get('/api/suppliers');
+    assert.equal(rGet.body.find(s => s.id === supId), undefined);
+
+    const rDelOtraVez = await t.del(`/api/suppliers/${supId}`);
+    assert.equal(rDelOtraVez.status, 404);
+  });
+});
+
+describe('2.30 — Conversión atómica de presupuesto a orden (/api/documents/:id/convert-to-order)', () => {
+  let ctx, t, clienteId, docId, invId;
+
+  before(async () => {
+    ctx = await levantarServidor();
+    t = crearCliente(ctx.base);
+    await t.registrar('TallerConversion');
+
+    const cli = await t.post('/api/clients', { name: 'Carlos Automotriz', phone: '+584125555555' });
+    clienteId = cli.body.id;
+
+    const inv = await t.post('/api/inventory', { name: 'Pila Universal 3.8 Bar', qty: 15, unit_price: 45, cost_price: 25 });
+    invId = inv.body.id;
+
+    const doc = await t.post('/api/documents', {
+      kind: 'presupuesto',
+      client_id: clienteId,
+      notes: 'Presupuesto inicial para cambio de pila',
+      items: [
+        { item_id: invId, descr: 'Pila Universal 3.8 Bar', qty: 1, unit_price: 45 },
+        { descr: 'Mano de obra cambio de bomba', qty: 1, unit_price: 30 }
+      ]
+    });
+    docId = doc.body.id;
+  });
+  after(() => ctx.cerrar());
+
+  it('1. rechaza convertir un documento inexistente', async () => {
+    const r = await t.post('/api/documents/999999/convert-to-order', {});
+    assert.equal(r.status, 404);
+  });
+
+  it('2. convierte atómicamente el presupuesto en orden de trabajo', async () => {
+    const r = await t.post(`/api/documents/${docId}/convert-to-order`, {});
+    assert.equal(r.status, 201);
+    assert.ok(r.body.ok);
+    const orderId = r.body.order_id;
+    assert.ok(orderId > 0, 'Debe devolver el id de la orden creada');
+
+    // Verificar orden creada
+    const rOrd = await t.get(`/api/orders/${orderId}`);
+    assert.equal(rOrd.status, 200);
+    assert.equal(rOrd.body.client_id, clienteId);
+    assert.equal(rOrd.body.status, 'Recibido');
+    assert.equal((rOrd.body.items || []).length, 2, 'Debe haber copiado las dos partidas');
+
+    // El stock del inventario debió descontarse por la partida de inventario
+    const rInv = await t.get('/api/inventory');
+    const pieza = rInv.body.find(i => i.id === invId);
+    assert.equal(pieza.qty, 14, 'El stock debió bajar de 15 a 14 al crear la orden');
+
+    // El presupuesto debe quedar en estado aprobado
+    const rDoc = await t.get(`/api/documents/${docId}`);
+    assert.equal(rDoc.body.status, 'aprobado', 'El presupuesto debió pasar a aprobado');
+  });
+});
+
+describe('2.31 — Restitución de stock al cancelar orden', () => {
+  let ctx, t, piezaId, ordenId;
+
+  before(async () => {
+    ctx = await levantarServidor();
+    t = crearCliente(ctx.base);
+    await t.registrar('TallerRestitucion');
+
+    const inv = await t.post('/api/inventory', { name: 'Regulador de Presión 3.0 Bar', qty: 10, unit_price: 35, cost_price: 18 });
+    piezaId = inv.body.id;
+
+    const ord = await t.post('/api/orders', { title: 'Diagnóstico de Presión en Riel', type: 'reparacion' });
+    ordenId = ord.body.id;
+
+    // Agregar repuesto a la orden (descuenta 2 unidades)
+    await t.post(`/api/orders/${ordenId}/items`, { item_id: piezaId, descr: 'Regulador 3.0 Bar', qty: 2, unit_price: 35 });
+  });
+  after(() => ctx.cerrar());
+
+  it('1. descuenta el stock al asignar a la orden', async () => {
+    const rInv = await t.get('/api/inventory');
+    const p = rInv.body.find(x => x.id === piezaId);
+    assert.equal(p.qty, 8, 'El stock debió bajar de 10 a 8');
+  });
+
+  it('2. restituye automáticamente el stock al cambiar estado a Cancelado', async () => {
+    const rStatus = await t.post(`/api/orders/${ordenId}/status`, { status: 'Cancelado' });
+    assert.equal(rStatus.status, 200);
+
+    const rInv = await t.get('/api/inventory');
+    const p = rInv.body.find(x => x.id === piezaId);
+    assert.equal(p.qty, 10, 'El stock debió restituirse a 10 tras la cancelación');
+
+    // Verificar que quedó registrado un movimiento de restitución
+    const rMoves = await t.get('/api/inventory/moves');
+    const moveCancel = rMoves.body.find(m => m.item_id === piezaId && (m.note || '').toLowerCase().includes('cancelaci'));
+    assert.ok(moveCancel, 'Debe registrar movimiento de inventario por la cancelación');
+    assert.equal(moveCancel.delta, 2);
+  });
+});
+

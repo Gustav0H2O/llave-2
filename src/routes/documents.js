@@ -159,6 +159,52 @@ function montarDocuments(app, deps) {
     res.set('Cache-Control', 'no-store').json({ ...docConFechas(doc), items, client, workshop: ws }); /* 2.28 */
   });
 
+  app.post('/api/documents/:id/convert-to-order', requireWorkshop, async (req, res) => {
+    const id = idDe(req);
+    if (id === null) return res.status(404).json({ error: 'No encontrado' });
+    const doc = await db.get('SELECT * FROM documents WHERE id=? AND workshop_id=?', [id, req.workshopId]);
+    if (!doc) return res.status(404).json({ error: 'No encontrado' });
+    if (doc.kind !== 'presupuesto') return res.status(400).json({ error: 'Solo se pueden convertir presupuestos a órdenes' });
+    const items = await db.all('SELECT * FROM document_items WHERE document_id=? AND workshop_id=?', [id, req.workshopId]);
+    let orderId;
+    try {
+      await enTransaccion(async () => {
+        orderId = await db.insertReturningId(
+          `INSERT INTO work_orders (workshop_id, client_id, vehicle_id, type, title, descr, status)
+           VALUES (?, ?, ?, 'reparacion', ?, ?, 'Recibido')`,
+          [req.workshopId, doc.client_id || null, null, `Orden desde Presupuesto ${doc.number || '#' + id}`,
+           `Generada automáticamente desde presupuesto ${doc.number || '#' + id}`]
+        );
+        let total = 0;
+        for (const it of items) {
+          const line_total = +(it.qty * it.unit_price).toFixed(2);
+          total += line_total;
+          await db.run(
+            `INSERT INTO work_order_items (workshop_id, order_id, item_id, descr, qty, unit_price, line_total)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [req.workshopId, orderId, it.item_id || null, it.descr, it.qty, it.unit_price, line_total]
+          );
+          if (it.item_id) {
+            const pieza = await db.get('SELECT qty FROM inventory_items WHERE id=? AND workshop_id=?', [it.item_id, req.workshopId]);
+            if (pieza) {
+              await db.run('UPDATE inventory_items SET qty=? WHERE id=? AND workshop_id=?', [Math.max(0, pieza.qty - it.qty), it.item_id, req.workshopId]);
+              await db.run(
+                `INSERT INTO inventory_moves (workshop_id, item_id, delta, kind, order_id, note)
+                 VALUES (?, ?, ?, 'orden', ?, ?)`,
+                [req.workshopId, it.item_id, -it.qty, orderId, `Consumo en orden #${orderId} (Presupuesto ${doc.number})`]
+              );
+            }
+          }
+        }
+        await db.run('UPDATE work_orders SET total=? WHERE id=? AND workshop_id=?', [+total.toFixed(2), orderId, req.workshopId]);
+        await db.run('UPDATE documents SET status=?, order_id=? WHERE id=? AND workshop_id=?', ['aprobado', orderId, id, req.workshopId]);
+      });
+      res.status(201).json({ ok: true, order_id: orderId, number: doc.number });
+    } catch (e) {
+      res.status(400).json({ error: errorAccionable(e, 'No se pudo convertir a orden') });
+    }
+  });
+
   app.put('/api/documents/:id/status', requireWorkshop, async (req, res) => {
     const id = idDe(req); /* 2.21 */
     if (id === null) return res.status(404).json({ error: 'No encontrado' });
@@ -189,39 +235,51 @@ function montarDocuments(app, deps) {
     if (!doc) return res.status(404).json({ error: 'No encontrado' });
     const items = await db.all('SELECT * FROM document_items WHERE document_id=? AND workshop_id=?', [id, req.workshopId]);
     const client = doc.client_id ? await db.get('SELECT * FROM clients WHERE id=? AND workshop_id=?', [doc.client_id, req.workshopId]) : null;
-    const ws = await db.get('SELECT name FROM workshops WHERE id=?', req.workshopId);
+    const ws = await db.get('SELECT name, phone, address, doc_id FROM workshops WHERE id=?', req.workshopId);
+    const rate = Number(req.query.rate) || Number(doc.exchange_rate) || 1.0;
     const kindLabel = doc.kind === 'entrega' ? 'NOTA DE ENTREGA' : 'PRESUPUESTO';
-    const escv = esc; // definición única en lib/pure.js
-    const rowsHtml = items.map((i, idx) => `<tr>
-      <td>${idx + 1}</td><td>${escv(i.descr)}</td><td>${escv(i.qty)}</td>
-      <td>$${Number(i.unit_price || 0).toFixed(2)}</td><td>$${Number(i.line_total || 0).toFixed(2)}</td>
-    </tr>`).join('');
+    const escv = esc;
+    const rowsHtml = items.map((i, idx) => {
+      const uPrice = Number(i.unit_price || 0);
+      const lTotal = Number(i.line_total || 0);
+      const dualU = rate > 1 ? `<br><small style="color:#666">${(uPrice * rate).toLocaleString('es', { minimumFractionDigits: 2 })}</small>` : '';
+      const dualT = rate > 1 ? `<br><small style="color:#666">${(lTotal * rate).toLocaleString('es', { minimumFractionDigits: 2 })}</small>` : '';
+      return `<tr>
+        <td>${idx + 1}</td><td>${escv(i.descr)}</td><td>${escv(i.qty)}</td>
+        <td>$${uPrice.toFixed(2)}${dualU}</td><td>$${lTotal.toFixed(2)}${dualT}</td>
+      </tr>`;
+    }).join('');
+    const totalVal = Number(doc.total || 0);
+    const totalBsHtml = rate > 1 ? `<div style="font-size:14px;color:#555;margin-top:4px">Equivalente: <strong>${(totalVal * rate).toLocaleString('es', { minimumFractionDigits: 2 })} (Tasa: ${rate.toFixed(2)})</strong></div>` : '';
     const html = `<!doctype html><html lang="es"><head><meta charset="utf-8">
       <title>${kindLabel} ${escv(doc.number)}</title>
       <style>
         * { box-sizing: border-box; } body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 32px; }
         .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #3F5132; padding-bottom: 14px; margin-bottom: 20px; }
-        .head h1 { font-size: 22px; margin: 0; letter-spacing: 2px; } .head .num { font-size: 26px; font-weight: 800; }
-        .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; font-size: 13px; }
+        .head h1 { font-size: 22px; margin: 0; letter-spacing: 1px; } .head .num { font-size: 24px; font-weight: 800; text-align: right; }
+        .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; font-size: 13px; }
         .meta b { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 2px; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th { background: #0F1113; color: #fff; text-align: left; padding: 8px; }
         td { padding: 8px; border-bottom: 1px solid #ddd; }
         .tot { text-align: right; margin-top: 16px; font-size: 18px; font-weight: 800; }
         .foot { margin-top: 40px; display: flex; justify-content: space-between; font-size: 11px; color: #555; }
-        @media print { body { margin: 12px; } }
+        .no-print { margin-bottom: 16px; display: flex; justify-content: flex-end; }
+        .btn-print { background: #3F5132; color: #fff; border: 0; padding: 8px 16px; border-radius: 6px; font-weight: 700; cursor: pointer; }
+        @media print { body { margin: 12px; } .no-print { display: none; } }
       </style></head><body>
+        <div class="no-print"><button type="button" class="btn-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button></div>
         <div class="head">
-          <div><h1>${escv(ws?.name || 'Taller')}</h1><div style="font-size:11px;color:#666">llave</div></div>
+          <div><h1>${escv(ws?.name || 'Taller')}</h1><div style="font-size:11px;color:#666">${ws?.doc_id ? 'ID: ' + escv(ws.doc_id) + ' · ' : ''}${ws?.address ? escv(ws.address) + ' · ' : ''}llave</div></div>
           <div class="num">${kindLabel}<br>${escv(doc.number)}</div>
         </div>
         <div class="meta">
-          <div><b>Cliente</b>${escv(client?.name || '—')}<br>${escv(client?.phone || '')}</div>
+          <div><b>Cliente</b>${escv(client?.name || '—')}<br>${client?.doc_id ? 'Doc: ' + escv(client.doc_id) + '<br>' : ''}${escv(client?.phone || '')}</div>
           <div><b>Fecha</b>${fechaISO(doc.created_at) ? new Date(fechaISO(doc.created_at)).toLocaleString('es') : ''}<br><b>Estado</b>${escv(doc.status)}</div>
         </div>
         <table><thead><tr><th>#</th><th>Descripción</th><th>Cant.</th><th>P. Unit.</th><th>Total</th></tr></thead>
         <tbody>${rowsHtml}</tbody></table>
-        <div class="tot">Total: $${Number(doc.total || 0).toFixed(2)}</div>
+        <div class="tot">Total: $${totalVal.toFixed(2)}${totalBsHtml}</div>
         <div class="foot"><span>Generado por llave</span><span>${escv(doc.number)} · ${new Date().toLocaleString('es')}</span></div>
       </body></html>`;
     res.send(html);

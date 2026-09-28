@@ -22,6 +22,7 @@ const { montarNotes } = require('./src/routes/notes');
 const { montarCash } = require('./src/routes/cash');
 const { montarOrders } = require('./src/routes/orders');
 const { montarDocuments } = require('./src/routes/documents');
+const { montarSuppliers } = require('./src/routes/suppliers');
 const { montarCatalog } = require('./src/routes/catalog');
 const { montarBackup } = require('./src/routes/backup');
 const { montarConnect } = require('./src/routes/connect');
@@ -371,6 +372,9 @@ async function createApp(dbOverride, statsOverride) {
 
   /* Clientes + vehículos — movido a src/routes/clients.js (4.8) */
   montarClients(app, { db, requireWorkshop, idDe, str, toInt, errorAccionable });
+
+  /* Proveedores y repuesteras */
+  montarSuppliers(app, { db, requireWorkshop, idDe, str, errorAccionable });
 
   /* Órdenes de trabajo — movido a src/routes/orders.js (4.8).
      ORDER_TYPES/ORDER_STATUS viven ahí; el respaldo (src/routes/backup.js) los

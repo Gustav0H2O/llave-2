@@ -33,8 +33,8 @@ function montarCash(app, deps) {
     if (!concept || !enRango(amount, 0.01, TOPE_QTY)) {
       return res.status(400).json({ error: 'Concepto y monto válido requeridos (0.01 a 1000000)' });
     }
-    const CASH_METHODS = ['efectivo_usd', 'efectivo_bs', 'pago_movil', 'zelle'];
-    const method = CASH_METHODS.includes(b.method) ? b.method : 'efectivo_usd';
+    const CASH_METHODS = ['cash', 'card', 'transfer', 'other', 'efectivo_usd', 'efectivo_bs', 'pago_movil', 'zelle'];
+    const method = CASH_METHODS.includes(b.method) ? b.method : 'cash';
     const id = await db.insertReturningId('INSERT INTO cash_moves (workshop_id, concept, amount, type, method) VALUES (?, ?, ?, ?, ?)',
       [req.workshopId, concept, amount, type, method]);
     res.status(201).json({ id });

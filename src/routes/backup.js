@@ -30,7 +30,7 @@ function montarBackup(app, deps) {
   /* ---- Respaldo del taller (export/import JSON) ---- */
   app.get('/api/backup', requireWorkshop, async (req, res) => {
     const ws = req.workshopId;
-    const [inventory, moves, clients, vehicles, orders, orderItems, orderPhotos, documents, docItems, diagnostics, notes, cash] = await Promise.all([
+    const [inventory, moves, clients, vehicles, orders, orderItems, orderPhotos, documents, docItems, diagnostics, notes, cash, suppliers] = await Promise.all([
       db.all('SELECT * FROM inventory_items WHERE workshop_id=?', ws),
       db.all('SELECT * FROM inventory_moves WHERE workshop_id=?', ws),
       db.all('SELECT * FROM clients WHERE workshop_id=?', ws),
@@ -43,9 +43,10 @@ function montarBackup(app, deps) {
       db.all('SELECT * FROM diagnostics WHERE workshop_id=?', ws),
       db.all('SELECT * FROM workshop_notes WHERE workshop_id=?', ws),
       db.all('SELECT * FROM cash_moves WHERE workshop_id=?', ws),
+      db.all('SELECT * FROM suppliers WHERE workshop_id=?', ws),
     ]);
     res.set('Cache-Control', 'no-store').json({ exported_at: new Date().toISOString(), data: {
-      inventory, moves, clients, vehicles, orders, orderItems, orderPhotos, documents, docItems, diagnostics, notes, cash
+      inventory, moves, clients, vehicles, orders, orderItems, orderPhotos, documents, docItems, diagnostics, notes, cash, suppliers
     } });
   });
 
@@ -67,6 +68,7 @@ function montarBackup(app, deps) {
       'work_order_photos', 'work_order_items', 'work_orders',
       'client_vehicles', 'clients',
       'inventory_moves', 'inventory_items',
+      'suppliers',
       'diagnostics', 'workshop_notes', 'cash_moves',
     ];
 
@@ -78,18 +80,19 @@ function montarBackup(app, deps) {
        que no se entiende es como acabar con un `kind` inventado en el kardex.
        Un respaldo legítimo, exportado por esta misma app, entra sin cambios. */
     const CAMPOS = {
-      inventory_items: [['name', 'str', 120], ['sku', 'str', 60], ['category', 'str', 60], ['qty', 'num'], ['min_qty', 'num'], ['unit_price', 'num'], ['notes', 'str', 500]],
-      inventory_moves: [['item_id', 'num'], ['delta', 'num'], ['kind', 'enum', ['entrada', 'salida', 'ajuste', 'orden'], 'ajuste'], ['order_id', 'num'], ['note', 'str', 300]],
-      clients: [['name', 'str', 120], ['phone', 'str', 40], ['email', 'str', 120], ['address', 'str', 300], ['city', 'str', 120], ['notes', 'str', 500]],
+      inventory_items: [['name', 'str', 120], ['sku', 'str', 60], ['category', 'str', 60], ['qty', 'num'], ['min_qty', 'num'], ['unit_price', 'num'], ['cost_price', 'num'], ['notes', 'str', 500]],
+      inventory_moves: [['item_id', 'num'], ['delta', 'num'], ['kind', 'enum', ['entrada', 'salida', 'ajuste', 'orden', 'compra', 'garantia'], 'ajuste'], ['order_id', 'num'], ['note', 'str', 300]],
+      clients: [['name', 'str', 120], ['doc_id', 'str', 40], ['phone', 'str', 40], ['email', 'str', 120], ['address', 'str', 300], ['city', 'str', 120], ['notes', 'str', 500]],
       client_vehicles: [['client_id', 'num'], ['brand', 'str', 60], ['model', 'str', 80], ['year', 'int', 1900, 2100], ['plate', 'str', 20], ['vin', 'str', 30], ['notes', 'str', 300]],
       work_orders: [['client_id', 'num'], ['vehicle_id', 'num'], ['type', 'enum', ORDER_TYPES, 'reparacion'], ['title', 'str', 200], ['descr', 'str', 2000], ['status', 'enum', ORDER_STATUS, 'Pendiente'], ['total', 'num'], ['closed_at', 'str', 40]],
       work_order_items: [['order_id', 'num'], ['item_id', 'num'], ['descr', 'str', 200], ['qty', 'num'], ['unit_price', 'num'], ['line_total', 'num']],
       work_order_photos: [['order_id', 'num'], ['photo', 'foto', 350000], ['caption', 'str', 200]],
-      documents: [['kind', 'enum', DOC_KINDS, 'entrega'], ['number', 'str', 40], ['client_id', 'num'], ['order_id', 'num'], ['status', 'enum', DOC_STATUS, 'emitido'], ['total', 'num']],
+      documents: [['kind', 'enum', DOC_KINDS, 'entrega'], ['number', 'str', 40], ['client_id', 'num'], ['order_id', 'num'], ['status', 'enum', DOC_STATUS, 'emitido'], ['total', 'num'], ['exchange_rate', 'num']],
       document_items: [['document_id', 'num'], ['item_id', 'num'], ['descr', 'str', 200], ['qty', 'num'], ['unit_price', 'num'], ['line_total', 'num']],
       diagnostics: [['vehicle_id', 'num'], ['brand', 'str', 60], ['model', 'str', 80], ['year', 'int', 1900, 2100], ['measured_psi', 'num'], ['spec_min', 'num'], ['spec_max', 'num'], ['verdict', 'str', 20], ['reasons', 'str', 4000], ['notes', 'str', 500]],
       workshop_notes: [['text', 'str', 1000], ['vehicle_ref', 'str', 80]],
-      cash_moves: [['concept', 'str', 200], ['amount', 'num'], ['type', 'enum', ['ingreso', 'egreso'], 'ingreso'], ['method', 'enum', ['efectivo_usd', 'efectivo_bs', 'pago_movil', 'zelle'], 'efectivo_usd']],
+      cash_moves: [['concept', 'str', 200], ['amount', 'num'], ['type', 'enum', ['ingreso', 'egreso'], 'ingreso'], ['method', 'enum', ['cash', 'card', 'transfer', 'other', 'efectivo_usd', 'efectivo_bs', 'pago_movil', 'zelle'], 'cash']],
+      suppliers: [['name', 'str', 120], ['rif', 'str', 40], ['phone', 'str', 40], ['email', 'str', 120], ['address', 'str', 300], ['specialty', 'str', 80], ['contact_person', 'str', 120], ['notes', 'str', 500]],
     };
     const sanear = (tabla, row) => {
       const limpio = {};
@@ -108,7 +111,7 @@ function montarBackup(app, deps) {
 
     /* Cada sección presente tiene que ser una lista; si no, es un 400 con nombre
        y apellido en vez de un error de driver a mitad de la restauración. */
-    const SECCIONES = ['inventory', 'moves', 'clients', 'vehicles', 'orders', 'orderItems', 'orderPhotos', 'documents', 'docItems', 'diagnostics', 'notes', 'cash'];
+    const SECCIONES = ['inventory', 'moves', 'clients', 'vehicles', 'orders', 'orderItems', 'orderPhotos', 'documents', 'docItems', 'diagnostics', 'notes', 'cash', 'suppliers'];
     for (const clave of SECCIONES) {
       if (data[clave] !== undefined && data[clave] !== null && !Array.isArray(data[clave])) {
         return res.status(400).json({ error: `Respaldo inválido: "${clave}" debería ser una lista` });
@@ -152,6 +155,7 @@ function montarBackup(app, deps) {
         for (const r of lista('diagnostics')) await ins('diagnostics', fila('diagnostics', r));
         for (const r of lista('notes')) await ins('workshop_notes', fila('workshop_notes', r));
         for (const r of lista('cash')) await ins('cash_moves', fila('cash_moves', r));
+        for (const r of lista('suppliers')) await ins('suppliers', fila('suppliers', r));
       });
     } catch (e) {
       return res.status(400).json({ error: errorAccionable(e, 'No se pudo restaurar el respaldo (¿archivo dañado?)') }); /* 2.23 */

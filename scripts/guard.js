@@ -196,7 +196,7 @@ const REGLAS = [
     revisar() {
       const TABLAS = ['inventory_items', 'inventory_moves', 'clients', 'client_vehicles',
         'work_orders', 'work_order_items', 'work_order_photos', 'documents', 'document_items',
-        'diagnostics', 'workshop_notes', 'cash_moves'];
+        'diagnostics', 'workshop_notes', 'cash_moves', 'suppliers'];
       const out = [];
       for (const archivo of SERVIDOR) {
         const lineas = leer(archivo).split('\n');
@@ -224,7 +224,7 @@ const REGLAS = [
     porque: 'Una ruta de datos del taller sin requireWorkshop queda abierta a cualquiera con la URL.',
     revisar() {
       const PREFIJOS_PRIVADOS = ['/api/inventory', '/api/clients', '/api/orders', '/api/documents',
-        '/api/notes', '/api/cash', '/api/diagnostics', '/api/backup'];
+        '/api/notes', '/api/cash', '/api/diagnostics', '/api/backup', '/api/suppliers'];
       const out = [];
       const src = leer('server-pg.js');
       for (const m of src.matchAll(/app\.(get|post|put|patch|delete)\(\s*(['"`])([^'"`]+)\2([^)]*)/g)) {

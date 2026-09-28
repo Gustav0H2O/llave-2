@@ -78,7 +78,7 @@ describe('Coherencia entre los dos esquemas SQL', () => {
   it('las tablas por taller llevan workshop_id — sin esa columna no hay aislamiento posible', () => {
     const POR_TALLER = ['inventory_items', 'inventory_moves', 'clients', 'client_vehicles',
       'work_orders', 'work_order_items', 'work_order_photos', 'documents', 'document_items',
-      'diagnostics', 'workshop_notes', 'cash_moves'];
+      'diagnostics', 'workshop_notes', 'cash_moves', 'suppliers'];
     for (const t of POR_TALLER) {
       const def = SCHEMA.match(new RegExp(`CREATE TABLE (?:IF NOT EXISTS )?${t}\\s*\\(([\\s\\S]*?)\\n\\s*\\);`, 'i'));
       assert.ok(def, `la tabla ${t} no existe en schema.sql`);

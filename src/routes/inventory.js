@@ -31,19 +31,20 @@ function montarInventory(app, deps) {
     /* 2.14 (V-A2/B41): qty y min_qty 0..1e6, unit_price 0..1e8. */
     const qty = num(b.qty) ?? 0;
     const min_qty = num(b.min_qty) ?? 0;
-    const unit_price = num(b.unit_price) ?? 0;
+    const unit_price = num(b.unit_price) ?? 0;
+    const cost_price = num(b.cost_price) ?? 0;
     if (!enRango(qty, 0, TOPE_QTY) || !enRango(min_qty, 0, TOPE_QTY)) {
       return res.status(400).json({ error: FUERA_CANTIDAD });
     }
-    if (!enRango(unit_price, 0, TOPE_PRECIO)) {
+    if (!enRango(unit_price, 0, TOPE_PRECIO) || !enRango(cost_price, 0, TOPE_PRECIO)) {
       return res.status(400).json({ error: FUERA_PRECIO });
     }
     try {
       const id = await db.insertReturningId(`INSERT INTO inventory_items
-        (workshop_id, name, sku, category, qty, min_qty, unit_price, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        (workshop_id, name, sku, category, qty, min_qty, unit_price, cost_price, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [req.workshopId, name, str(b.sku, 60) || null, str(b.category, 60) || null,
-         qty, min_qty, unit_price, str(b.notes, 500) || null]);
+         qty, min_qty, unit_price, cost_price, str(b.notes, 500) || null]);
       res.status(201).json({ id });
     } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo guardar la pieza') }); } /* 2.23 */
   });
@@ -58,19 +59,20 @@ function montarInventory(app, deps) {
        mueve con /moves, que deja historial— pero si viene con un valor absurdo se
        rechaza en vez de ignorarlo en silencio. */
     const min_qty = num(b.min_qty) ?? 0;
-    const unit_price = num(b.unit_price) ?? 0;
+    const unit_price = num(b.unit_price) ?? 0;
+    const cost_price = num(b.cost_price) ?? 0;
     const qtyRecibida = b.qty === undefined ? null : (num(b.qty) ?? 0);
     if (!enRango(min_qty, 0, TOPE_QTY) || (qtyRecibida !== null && !enRango(qtyRecibida, 0, TOPE_QTY))) {
       return res.status(400).json({ error: FUERA_CANTIDAD });
     }
-    if (!enRango(unit_price, 0, TOPE_PRECIO)) {
+    if (!enRango(unit_price, 0, TOPE_PRECIO) || !enRango(cost_price, 0, TOPE_PRECIO)) {
       return res.status(400).json({ error: FUERA_PRECIO });
     }
     try {
-      const info = await db.run(`UPDATE inventory_items SET name=?, sku=?, category=?, min_qty=?, unit_price=?, notes=?
+      const info = await db.run(`UPDATE inventory_items SET name=?, sku=?, category=?, min_qty=?, unit_price=?, cost_price=?, notes=?
         WHERE id=? AND workshop_id=?`,
         [name, str(b.sku, 60) || null, str(b.category, 60) || null,
-         min_qty, unit_price, str(b.notes, 500) || null, id, req.workshopId]);
+         min_qty, unit_price, cost_price, str(b.notes, 500) || null, id, req.workshopId]);
       if (!info.changes) return res.status(404).json({ error: 'No encontrado' });
       res.json({ ok: true });
     } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo actualizar la pieza') }); } /* 2.23 */
@@ -92,7 +94,8 @@ function montarInventory(app, deps) {
     if (id === null) return res.status(404).json({ error: 'No encontrado' });
     const b = req.body || {};
     const delta = num(b.delta);
-    const kind = ['entrada', 'salida', 'ajuste'].includes(b.kind) ? b.kind : 'ajuste';
+    const KINDS = ['compra', 'orden', 'garantia', 'ajuste', 'entrada', 'salida'];
+    const kind = KINDS.includes(b.kind) ? b.kind : 'ajuste';
     if (delta === null) return res.status(400).json({ error: 'Delta requerido' });
     /* 2.14: el delta va de -1e6 a +1e6 y su SIGNO tiene que cuadrar con el tipo
        de movimiento. Un "entrada" con delta negativo (o al revés) descuadra el
@@ -100,10 +103,10 @@ function montarInventory(app, deps) {
     if (!enRango(delta, -TOPE_QTY, TOPE_QTY)) {
       return res.status(400).json({ error: `Delta fuera de rango (-${TOPE_QTY} a ${TOPE_QTY})` });
     }
-    if (kind === 'entrada' && delta <= 0) {
+    if ((kind === 'entrada' || kind === 'compra') && delta <= 0) {
       return res.status(400).json({ error: 'Una entrada necesita un delta positivo' });
     }
-    if (kind === 'salida' && delta >= 0) {
+    if ((kind === 'salida' || kind === 'orden') && delta >= 0) {
       return res.status(400).json({ error: 'Una salida necesita un delta negativo' });
     }
     const item = await db.get('SELECT qty FROM inventory_items WHERE id=? AND workshop_id=?', [id, req.workshopId]);
@@ -129,12 +132,12 @@ function montarInventory(app, deps) {
   });
 
   app.get('/api/inventory/export', requireWorkshop, async (req, res) => {
-    const rows = await db.all('SELECT name, sku, category, qty, min_qty, unit_price, notes FROM inventory_items WHERE workshop_id = ? ORDER BY name', req.workshopId);
+    const rows = await db.all('SELECT name, sku, category, qty, min_qty, unit_price, cost_price, notes FROM inventory_items WHERE workshop_id = ? ORDER BY name', req.workshopId);
     if (req.query.format === 'csv') {
-      const head = ['Nombre', 'SKU', 'Categoría', 'Cantidad', 'Mínimo', 'Precio', 'Notas'];
+      const head = ['Nombre', 'SKU', 'Categoría', 'Cantidad', 'Mínimo', 'Precio', 'Costo', 'Notas'];
       /* 4.6: csvEscape real (no el esc de HTML): dobla comillas y encierra el
          campo con coma/comilla/salto. */
-      const csv = [head.map(csvEscape).join(','), ...rows.map(r => [r.name, r.sku, r.category, r.qty, r.min_qty, r.unit_price, r.notes].map(csvEscape).join(','))].join('\n');
+      const csv = [head.map(csvEscape).join(','), ...rows.map(r => [r.name, r.sku, r.category, r.qty, r.min_qty, r.unit_price, r.cost_price, r.notes].map(csvEscape).join(','))].join('\n');
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', 'attachment; filename="inventario.csv"');
       return res.send(csv);

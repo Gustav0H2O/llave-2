@@ -35,9 +35,9 @@ function montarClients(app, deps) {
     const name = str(b.name, 120);
     if (!name) return res.status(400).json({ error: 'Nombre requerido' });
     try {
-      const id = await db.insertReturningId(`INSERT INTO clients (workshop_id, name, phone, email, address, city, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [req.workshopId, name, str(b.phone, 40) || null, str(b.email, 120) || null,
+      const id = await db.insertReturningId(`INSERT INTO clients (workshop_id, name, doc_id, phone, email, address, city, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.workshopId, name, str(b.doc_id, 40) || null, str(b.phone, 40) || null, str(b.email, 120) || null,
          str(b.address, 300) || null, str(b.city, 120) || null, str(b.notes, 500) || null]);
       res.status(201).json({ id });
     } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo guardar el cliente') }); } /* 2.23 */
@@ -50,9 +50,9 @@ function montarClients(app, deps) {
     const name = str(b.name, 120);
     if (!name) return res.status(400).json({ error: 'Nombre requerido' });
     try {
-      const info = await db.run(`UPDATE clients SET name=?, phone=?, email=?, address=?, city=?, notes=?
+      const info = await db.run(`UPDATE clients SET name=?, doc_id=?, phone=?, email=?, address=?, city=?, notes=?
         WHERE id=? AND workshop_id=?`,
-        [name, str(b.phone, 40) || null, str(b.email, 120) || null, str(b.address, 300) || null,
+        [name, str(b.doc_id, 40) || null, str(b.phone, 40) || null, str(b.email, 120) || null, str(b.address, 300) || null,
          str(b.city, 120) || null, str(b.notes, 500) || null, id, req.workshopId]);
       if (!info.changes) return res.status(404).json({ error: 'No encontrado' });
       res.json({ ok: true });

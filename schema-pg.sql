@@ -156,6 +156,7 @@ CREATE TABLE IF NOT EXISTS inventory_items (
   qty         REAL NOT NULL DEFAULT 0,
   min_qty     REAL NOT NULL DEFAULT 0,
   unit_price  REAL NOT NULL DEFAULT 0,
+  cost_price  REAL NOT NULL DEFAULT 0,
   notes       TEXT,
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -177,6 +178,7 @@ CREATE TABLE IF NOT EXISTS clients (
   id          SERIAL PRIMARY KEY,
   workshop_id INTEGER NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
   name        TEXT NOT NULL,
+  doc_id      TEXT,
   phone       TEXT,
   email       TEXT,
   address     TEXT,
@@ -245,6 +247,7 @@ CREATE TABLE IF NOT EXISTS documents (
   order_id    INTEGER REFERENCES work_orders(id) ON DELETE SET NULL,
   status      TEXT NOT NULL DEFAULT 'borrador',
   total       REAL NOT NULL DEFAULT 0,
+  exchange_rate REAL DEFAULT 1.0,
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_docs_ws ON documents(workshop_id);
@@ -260,6 +263,21 @@ CREATE TABLE IF NOT EXISTS document_items (
   line_total  REAL NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_di_doc ON document_items(document_id);
+
+CREATE TABLE IF NOT EXISTS suppliers (
+  id          SERIAL PRIMARY KEY,
+  workshop_id INTEGER NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  rif         TEXT,
+  phone       TEXT,
+  email       TEXT,
+  address     TEXT,
+  specialty   TEXT,
+  contact_person TEXT,
+  notes       TEXT,
+  created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_suppliers_ws ON suppliers(workshop_id);
 
 CREATE TABLE IF NOT EXISTS connect_profiles (
   id          SERIAL PRIMARY KEY,

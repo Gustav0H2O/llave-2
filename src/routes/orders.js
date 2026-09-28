@@ -43,6 +43,14 @@ function montarOrders(app, deps) {
     const where = ['o.workshop_id = ?']; const args = [req.workshopId];
     if (req.query.status && ORDER_STATUS.includes(req.query.status)) { where.push('o.status = ?'); args.push(req.query.status); }
     if (req.query.type && ORDER_TYPES.includes(req.query.type)) { where.push('o.type = ?'); args.push(req.query.type); }
+    if (req.query.client_id) {
+      const cid = toInt(req.query.client_id, 1, 1e9);
+      if (cid) { where.push('o.client_id = ?'); args.push(cid); }
+    }
+    if (req.query.vehicle_id) {
+      const vid = toInt(req.query.vehicle_id, 1, 1e9);
+      if (vid) { where.push('o.vehicle_id = ?'); args.push(vid); }
+    }
     const rows = await db.all(`SELECT o.*, c.name AS client_name, cv.model AS vehicle_model, cv.plate
       FROM work_orders o
       LEFT JOIN clients c ON c.id = o.client_id
@@ -236,19 +244,32 @@ function montarOrders(app, deps) {
     try {
       const order = await db.get('SELECT * FROM work_orders WHERE id=? AND workshop_id=?', [oid, req.workshopId]);
       if (!order) return res.status(404).json({ error: 'No encontrado' });
-      await db.run(`UPDATE work_orders SET status=?, closed_at=COALESCE(?, closed_at) WHERE id=? AND workshop_id=?`,
-        [status, closed_at, oid, req.workshopId]);
-      if (status === 'Entregado' && (req.body?.register_cash || req.body?.auto_cash || req.body?.payment_method)) {
-        const amt = Number(order.total) || 0;
-        if (amt > 0) {
-          const method = ['efectivo_usd', 'efectivo_bs', 'pago_movil', 'zelle'].includes(req.body?.method || req.body?.payment_method)
-            ? (req.body?.method || req.body?.payment_method) : 'efectivo_usd';
-          await db.insertReturningId(
-            'INSERT INTO cash_moves (workshop_id, concept, amount, type, method) VALUES (?, ?, ?, ?, ?)',
-            [req.workshopId, `Cobro orden #${oid}${order.title ? ' - ' + order.title : ''}`, amt, 'ingreso', method]
-          );
+      await enTransaccion(async () => {
+        await db.run(`UPDATE work_orders SET status=?, closed_at=COALESCE(?, closed_at) WHERE id=? AND workshop_id=?`,
+          [status, closed_at, oid, req.workshopId]);
+
+        if (status === 'Cancelado' && order.status !== 'Cancelado' && order.status !== 'Entregado') {
+          const items = await db.all('SELECT * FROM work_order_items WHERE order_id=? AND workshop_id=? AND item_id IS NOT NULL', [oid, req.workshopId]);
+          for (const it of items) {
+            await db.run('UPDATE inventory_items SET qty = qty + ? WHERE id=? AND workshop_id=?', [it.qty, it.item_id, req.workshopId]);
+            await db.run(`INSERT INTO inventory_moves (workshop_id, item_id, delta, kind, order_id, note)
+              VALUES (?, ?, ?, 'ajuste', ?, ?)`, [req.workshopId, it.item_id, it.qty, oid, `Restitución por cancelación de orden #${oid}`]);
+          }
         }
-      }
+
+        if (status === 'Entregado' && (req.body?.register_cash || req.body?.auto_cash || req.body?.payment_method || req.body?.method)) {
+          const amt = Number(order.total) || 0;
+          if (amt > 0) {
+            const validMethods = ['cash', 'card', 'transfer', 'other', 'efectivo_usd', 'efectivo_bs', 'pago_movil', 'zelle'];
+            const rawMethod = req.body?.method || req.body?.payment_method;
+            const method = validMethods.includes(rawMethod) ? rawMethod : 'cash';
+            await db.insertReturningId(
+              'INSERT INTO cash_moves (workshop_id, concept, amount, type, method) VALUES (?, ?, ?, ?, ?)',
+              [req.workshopId, `Cobro orden #${oid}${order.title ? ' - ' + order.title : ''}`, amt, 'ingreso', method]
+            );
+          }
+        }
+      });
       res.json({ ok: true });
     } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo cambiar el estado') }); } /* 2.23 */
   });
