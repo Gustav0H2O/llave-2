@@ -14,8 +14,11 @@
    estaba el bloque, para no cambiar el orden de registro de las rutas. Recibe
    por `deps` exactamente lo que necesita. Ver src/routes/README.md.
    ========================================================================= */
+const { crearAlertaStock } = require('../services/stock');
+
 function montarInventory(app, deps) {
-  const { db, requireWorkshop, idDe, str, num, enRango, TOPE_QTY, TOPE_PRECIO, FUERA_CANTIDAD, FUERA_PRECIO, errorAccionable, enTransaccion, csvEscape } = deps;
+  const { db, requireWorkshop, idDe, str, num, toInt, enRango, TOPE_QTY, TOPE_PRECIO, FUERA_CANTIDAD, FUERA_PRECIO, errorAccionable, enTransaccion, csvEscape } = deps;
+  const evaluarAlertaStock = crearAlertaStock(db);
 
   /* ---- Inventario ---- */
   app.get('/api/inventory', requireWorkshop, async (req, res) => {
@@ -24,6 +27,17 @@ function montarInventory(app, deps) {
     res.set('Cache-Control', 'no-store').json(rows);
   });
 
+  /* Piezas por debajo (o en) el mínimo: lo que hay que reponer HOY. Es una
+     consulta derivada, no una tabla de alertas que se pueda desincronizar:
+     cualquier cambio de existencia o de mínimo la refresca sola. */
+  app.get('/api/inventory/alerts', requireWorkshop, async (req, res) => {
+    const rows = await db.all(`SELECT id, name, sku, qty, min_qty, unit_price, low_stock_alerted
+      FROM inventory_items
+      WHERE workshop_id = ? AND min_qty > 0 AND qty <= min_qty
+      ORDER BY (qty - min_qty) ASC, name LIMIT 500`, req.workshopId);
+    res.set('Cache-Control', 'no-store').json(rows);
+  });
+
   app.post('/api/inventory', requireWorkshop, async (req, res) => {
     const b = req.body || {};
     const name = str(b.name, 120);
@@ -45,7 +59,12 @@ function montarInventory(app, deps) {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [req.workshopId, name, str(b.sku, 60) || null, str(b.category, 60) || null,
          qty, min_qty, unit_price, cost_price, str(b.notes, 500) || null]);
-      res.status(201).json({ id });
+      res.status(201).json({ id });
+
+      /* Una pieza que nace ya en el mínimo avisa una vez (y solo una). */
+
+      await evaluarAlertaStock(id, req.workshopId);
+
     } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo guardar la pieza') }); } /* 2.23 */
   });
 
@@ -74,6 +93,8 @@ function montarInventory(app, deps) {
         [name, str(b.sku, 60) || null, str(b.category, 60) || null,
          min_qty, unit_price, cost_price, str(b.notes, 500) || null, id, req.workshopId]);
       if (!info.changes) return res.status(404).json({ error: 'No encontrado' });
+      /* Cambiar el mínimo puede encender la alerta: se reevalúa. */
+      await evaluarAlertaStock(id, req.workshopId);
       res.json({ ok: true });
     } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo actualizar la pieza') }); } /* 2.23 */
   });
@@ -109,14 +130,21 @@ function montarInventory(app, deps) {
     if ((kind === 'salida' || kind === 'orden') && delta >= 0) {
       return res.status(400).json({ error: 'Una salida necesita un delta negativo' });
     }
+    /* La compra puede venir de la cartera de proveedores: si viene, tiene que
+       ser de ESTE taller (mismo aislamiento que cualquier otro dato). */
+    const supplier_id = toInt(b.supplier_id, 1, 1e9);
+    if (supplier_id && !(await db.get('SELECT id FROM suppliers WHERE id=? AND workshop_id=?', [supplier_id, req.workshopId]))) {
+      return res.status(400).json({ error: 'Proveedor no válido' });
+    }
     const item = await db.get('SELECT qty FROM inventory_items WHERE id=? AND workshop_id=?', [id, req.workshopId]);
     if (!item) return res.status(404).json({ error: 'No encontrado' });
     const newQty = Math.max(0, item.qty + delta);
     try {
       await enTransaccion(async () => {
         await db.run(`UPDATE inventory_items SET qty=? WHERE id=? AND workshop_id=?`, [newQty, id, req.workshopId]);
-        await db.run(`INSERT INTO inventory_moves (workshop_id, item_id, delta, kind, note) VALUES (?,?,?,?,?)`,
-          [req.workshopId, id, delta, kind, str(b.note, 300) || null]);
+        await db.run(`INSERT INTO inventory_moves (workshop_id, item_id, delta, kind, supplier_id, note) VALUES (?,?,?,?,?,?)`,
+          [req.workshopId, id, delta, kind, supplier_id, str(b.note, 300) || null]);
+        await evaluarAlertaStock(id, req.workshopId);
       });
     } catch (e) {
       return res.status(400).json({ error: errorAccionable(e, 'No se pudo registrar el movimiento') }); /* 2.23 */

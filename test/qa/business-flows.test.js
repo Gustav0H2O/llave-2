@@ -247,14 +247,23 @@ describe('Flujo completo: cliente → vehículo → orden → documento', () => 
   });
 
   it('30. borra una partida de la orden', async () => {
-    const alta = await t.post(`/api/orders/${ids.orden}/items`, { descr: 'Partida a borrar', qty: 1, unit_price: 100 });
-    const detalle = await t.get(`/api/orders/${ids.orden}`);
+    /* La orden del flujo ya está ENTREGADA: sus partidas no se tocan (409).
+       Se comprueba la regla y el borrado se hace sobre una orden abierta, que
+       es donde tiene sentido. */
+    assert.equal((await t.post(`/api/orders/${ids.orden}/items`, { descr: 'Partida a borrar', qty: 1, unit_price: 100 })).status, 409,
+      'una orden entregada no admite partidas nuevas');
+
+    const abierta = await t.post('/api/orders', { title: 'Orden para borrar partida' });
+    assert.equal(abierta.status, 201);
+    const oid = abierta.body.id;
+    const alta = await t.post(`/api/orders/${oid}/items`, { descr: 'Partida a borrar', qty: 1, unit_price: 100 });
+    const detalle = await t.get(`/api/orders/${oid}`);
     const partidas = detalle.body.items || detalle.body.order_items || [];
     const partida = partidas.find(p => p.descr === 'Partida a borrar') || { id: alta.body?.id };
     assert.ok(partida.id, 'no se pudo localizar la partida recién creada');
 
-    assert.equal((await t.del(`/api/orders/${ids.orden}/items/${partida.id}`)).status, 200);
-    assert.equal((await t.del(`/api/orders/${ids.orden}/items/${partida.id}`)).status, 404,
+    assert.equal((await t.del(`/api/orders/${oid}/items/${partida.id}`)).status, 200);
+    assert.equal((await t.del(`/api/orders/${oid}/items/${partida.id}`)).status, 404,
       'borrar dos veces la misma partida debe dar 404');
   });
 
@@ -641,11 +650,19 @@ describe('2.15 — existencia y devolución de stock en órdenes', () => {
   });
 
   it('NO devuelve stock si la orden ya está Entregado', async () => {
-    assert.equal((await t.post(`/api/orders/${orden}/status`, { status: 'Entregado' })).status, 200);
+    /* Regla nueva (operación del taller): una orden ENTREGADA está cerrada —
+       el inventario ya descontó y el documento se emitió. Sus partidas no se
+       tocan (409); si hay que corregir algo se reabre primero desde el estado.
+       Antes se podía borrar la partida y el stock no volvía: el kardex quedaba
+       mintiendo sobre una pieza que sí salió del taller. */
     const alta = await t.post(`/api/orders/${orden}/items`, { descr: 'Pila', qty: 2, unit_price: 800, item_id: pieza });
-    assert.equal(alta.status, 201);
+    assert.equal(alta.status, 201, 'la partida entra mientras la orden sigue abierta');
     assert.equal(await stock(), 3);
-    assert.equal((await t.del(`/api/orders/${orden}/items/${alta.body.id}`)).status, 200);
+    assert.equal((await t.post(`/api/orders/${orden}/status`, { status: 'Entregado' })).status, 200);
+    const borrar = await t.del(`/api/orders/${orden}/items/${alta.body.id}`);
+    assert.equal(borrar.status, 409, 'una orden entregada no acepta cambios en sus partidas');
+    const agregar = await t.post(`/api/orders/${orden}/items`, { descr: 'Pila', qty: 1, unit_price: 800, item_id: pieza });
+    assert.equal(agregar.status, 409, 'tampoco acepta partidas nuevas');
     assert.equal(await stock(), 3, 'en una orden entregada la pieza ya salió del taller: no vuelve al inventario');
   });
 
@@ -917,7 +934,7 @@ describe('2.21 — un :id inválido responde 404 sin tocar la base', () => {
   after(() => ctx.cerrar());
 
   const RUTAS_CON_ID = [
-    ['GET', '/api/orders/abc'], ['PUT', '/api/orders/abc'], ['DELETE', '/api/orders/abc'],
+    ['GET', '/api/orders/abc'], ['GET', '/api/orders/abc/print'], ['PUT', '/api/orders/abc'], ['DELETE', '/api/orders/abc'],
     ['POST', '/api/orders/abc/items'], ['DELETE', '/api/orders/abc/items/abc'],
     ['DELETE', '/api/orders/abc/photos/abc'], ['POST', '/api/orders/abc/status'],
     ['PUT', '/api/inventory/abc'], ['DELETE', '/api/inventory/abc'], ['POST', '/api/inventory/abc/moves'],
@@ -1160,4 +1177,263 @@ describe('2.31 — Restitución de stock al cancelar orden', () => {
     assert.equal(moveCancel.delta, 2);
   });
 });
+
+describe('Mejoras automotrices: Inspección de recepción, mano de obra (labor) y datos técnicos de vehículos', () => {
+  let ctx, t, clienteId, vehiculoId, piezaId, ordenId;
+
+  before(async () => {
+    ctx = await levantarServidor();
+    t = crearCliente(ctx.base);
+    await t.registrar('TallerInspeccionLabor');
+
+    // 1. Crear cliente y vehículo con datos técnicos (vin, mileage)
+    const cli = await t.post('/api/clients', { name: 'Automotriz del Este', phone: '+584141234567' });
+    clienteId = cli.body.id;
+
+    const veh = await t.post(`/api/clients/${clienteId}/vehicles`, {
+      brand: 'Toyota',
+      model: 'Corolla 1.8',
+      year: 2018,
+      plate: 'AB123CD',
+      vin: '2T1BR32E01C123456',
+      mileage: 125000,
+      notes: 'Sin detalles de latonería'
+    });
+    vehiculoId = veh.body.id;
+
+    // 2. Crear repuesto en inventario
+    const inv = await t.post('/api/inventory', {
+      name: 'Filtro de Gasolina en Línea',
+      sku: 'FILT-GAS-01',
+      qty: 20,
+      unit_price: 25,
+      cost_price: 12
+    });
+    piezaId = inv.body.id;
+  });
+  after(() => ctx.cerrar());
+
+  it('1. el vehículo guarda y expone vin y mileage', async () => {
+    const rVehs = await t.get(`/api/clients/${clienteId}/vehicles`);
+    assert.equal(rVehs.status, 200);
+    const auto = rVehs.body.find(v => v.id === vehiculoId);
+    assert.ok(auto, 'El vehículo debe existir en la lista');
+    assert.equal(auto.vin, '2T1BR32E01C123456');
+    assert.equal(auto.mileage, 125000);
+
+    // También debe estar en la lista global de clientes con vehículos adjuntos
+    const rClients = await t.get('/api/clients');
+    const c = rClients.body.find(x => x.id === clienteId);
+    const vAdj = (c.vehicles || []).find(x => x.id === vehiculoId);
+    assert.ok(vAdj);
+    assert.equal(vAdj.vin, '2T1BR32E01C123456');
+    assert.equal(vAdj.mileage, 125000);
+  });
+
+  it('2. crea una orden de trabajo con datos de inspección y actualiza el odómetro del vehículo', async () => {
+    const r = await t.post('/api/orders', {
+      client_id: clienteId,
+      vehicle_id: vehiculoId,
+      title: 'Mantenimiento Mayor 130k',
+      descr: 'Cambio de filtro y limpieza de inyectores',
+      service_type: 'preventivo',
+      fuel_level: '3/4',
+      odometer: 130250,
+      reception_notes: 'Rayón leve en puerta trasera derecha. Rueda de repuesto y gato presentes.',
+      assigned_mechanic: 'Carlos Méndez'
+    });
+    assert.equal(r.status, 201);
+    ordenId = r.body.id;
+    assert.ok(ordenId > 0);
+
+    // Verificar en GET /api/orders/:id
+    const rOrd = await t.get(`/api/orders/${ordenId}`);
+    assert.equal(rOrd.status, 200);
+    assert.equal(rOrd.body.service_type, 'preventivo');
+    assert.equal(rOrd.body.fuel_level, '3/4');
+    assert.equal(rOrd.body.odometer, 130250);
+    assert.equal(rOrd.body.reception_notes, 'Rayón leve en puerta trasera derecha. Rueda de repuesto y gato presentes.');
+    assert.equal(rOrd.body.assigned_mechanic, 'Carlos Méndez');
+
+    // Verificar que client_vehicles.mileage se actualizó al nuevo odómetro
+    const rVehs = await t.get(`/api/clients/${clienteId}/vehicles`);
+    const auto = rVehs.body.find(v => v.id === vehiculoId);
+    assert.equal(auto.mileage, 130250, 'El odómetro registrado en la orden debe actualizar el kilometraje del auto');
+  });
+
+  it('3. actualiza los datos de inspección en PUT /api/orders/:id', async () => {
+    const rPut = await t.put(`/api/orders/${ordenId}`, {
+      client_id: clienteId,
+      vehicle_id: vehiculoId,
+      title: 'Mantenimiento Mayor 130k - Actualizado',
+      service_type: 'correctivo',
+      fuel_level: '1/2',
+      odometer: 130300,
+      reception_notes: 'Se detecta fuga en manguera de retorno',
+      assigned_mechanic: 'Andrés Silva'
+    });
+    assert.equal(rPut.status, 200);
+
+    const rOrd = await t.get(`/api/orders/${ordenId}`);
+    assert.equal(rOrd.body.service_type, 'correctivo');
+    assert.equal(rOrd.body.fuel_level, '1/2');
+    assert.equal(rOrd.body.odometer, 130300);
+    assert.equal(rOrd.body.reception_notes, 'Se detecta fuga en manguera de retorno');
+    assert.equal(rOrd.body.assigned_mechanic, 'Andrés Silva');
+
+    const rVehs = await t.get(`/api/clients/${clienteId}/vehicles`);
+    const auto = rVehs.body.find(v => v.id === vehiculoId);
+    assert.equal(auto.mileage, 130300);
+  });
+
+  it('4. filtra órdenes por service_type en GET /api/orders', async () => {
+    const rPrev = await t.get('/api/orders?service_type=preventivo');
+    assert.equal(rPrev.status, 200);
+    assert.equal(rPrev.body.some(o => o.id === ordenId), false);
+
+    const rCorr = await t.get('/api/orders?service_type=correctivo');
+    assert.equal(rCorr.status, 200);
+    assert.equal(rCorr.body.some(o => o.id === ordenId), true);
+  });
+
+  it('5. partidas item_type === "labor" suman al total pero NO descuentan inventario', async () => {
+    // Stock inicial de inventario
+    const rInvBefore = await t.get('/api/inventory');
+    const piezaBefore = rInvBefore.body.find(p => p.id === piezaId);
+    assert.equal(piezaBefore.qty, 20);
+
+    // Agregar mano de obra técnica
+    const rLabor = await t.post(`/api/orders/${ordenId}/items`, {
+      descr: 'Mano de obra diagnóstico y sustitución',
+      qty: 2,
+      unit_price: 40,
+      item_type: 'labor'
+    });
+    assert.equal(rLabor.status, 201);
+    const laborId = rLabor.body.id;
+
+    // Verificar detalle de la orden: total incrementó en 80 (2 * 40)
+    const rOrd = await t.get(`/api/orders/${ordenId}`);
+    assert.equal(rOrd.body.total, 80);
+    const itemLabor = (rOrd.body.items || []).find(i => i.id === laborId);
+    assert.ok(itemLabor);
+    assert.equal(itemLabor.item_type, 'labor');
+    assert.equal(itemLabor.qty, 2);
+    assert.equal(itemLabor.unit_price, 40);
+
+    // El inventario NO debe haberse tocado
+    const rInvAfter = await t.get('/api/inventory');
+    const piezaAfter = rInvAfter.body.find(p => p.id === piezaId);
+    assert.equal(piezaAfter.qty, 20, 'Labor no debe descontar inventario');
+
+    // Tampoco debe haberse creado movimiento de inventario
+    const rMoves = await t.get('/api/inventory/moves');
+    const moveLabor = rMoves.body.find(m => m.order_id === ordenId);
+    assert.equal(moveLabor, undefined, 'No debe haber movimientos de inventario por labor');
+
+    // Borrar la partida de mano de obra tampoco debe alterar inventario
+    const rDel = await t.del(`/api/orders/${ordenId}/items/${laborId}`);
+    assert.equal(rDel.status, 200);
+
+    const rInvDel = await t.get('/api/inventory');
+    assert.equal(rInvDel.body.find(p => p.id === piezaId).qty, 20);
+    const rOrdDel = await t.get(`/api/orders/${ordenId}`);
+    assert.equal(rOrdDel.body.total, 0);
+  });
+
+  it('6. partidas item_type === "part" descuentan inventario y registran movimientos', async () => {
+    // Agregar repuesto
+    const rPart = await t.post(`/api/orders/${ordenId}/items`, {
+      item_id: piezaId,
+      descr: 'Filtro de Gasolina en Línea',
+      qty: 3,
+      unit_price: 25,
+      item_type: 'part'
+    });
+    assert.equal(rPart.status, 201);
+
+    // Agregar también mano de obra en la misma orden
+    const rLabor = await t.post(`/api/orders/${ordenId}/items`, {
+      descr: 'Instalación de filtro',
+      qty: 1,
+      unit_price: 15,
+      item_type: 'labor'
+    });
+    assert.equal(rLabor.status, 201);
+
+    // Verificar orden
+    const rOrd = await t.get(`/api/orders/${ordenId}`);
+    assert.equal(rOrd.body.total, 90, 'Total debe ser 3*25 + 1*15 = 90');
+    assert.equal((rOrd.body.items || []).length, 2);
+
+    // Verificar stock: 20 - 3 = 17
+    const rInv = await t.get('/api/inventory');
+    assert.equal(rInv.body.find(p => p.id === piezaId).qty, 17);
+
+    // Al cancelar la orden, solo se restituye la partida 'part'
+    const rCancel = await t.post(`/api/orders/${ordenId}/status`, { status: 'Cancelado' });
+    assert.equal(rCancel.status, 200);
+
+    const rInvCancelled = await t.get('/api/inventory');
+    assert.equal(rInvCancelled.body.find(p => p.id === piezaId).qty, 20, 'Stock de la pieza restituido a 20');
+  });
+
+  it('7. exportación e importación de respaldo conserva y valida todos los nuevos campos', async () => {
+    const backupRes = await t.get('/api/backup');
+    assert.equal(backupRes.status, 200);
+    const data = backupRes.body.data;
+
+    // Verificar que la exportación incluye los campos
+    const exportAuto = (data.vehicles || []).find(v => v.id === vehiculoId);
+    assert.ok(exportAuto);
+    assert.equal(exportAuto.vin, '2T1BR32E01C123456');
+    assert.equal(exportAuto.mileage, 130300);
+
+    const exportOrd = (data.orders || []).find(o => o.id === ordenId);
+    assert.ok(exportOrd);
+    assert.equal(exportOrd.odometer, 130300);
+    assert.equal(exportOrd.fuel_level, '1/2');
+    assert.equal(exportOrd.service_type, 'correctivo');
+    assert.equal(exportOrd.assigned_mechanic, 'Andrés Silva');
+
+    const exportItems = data.orderItems || [];
+    assert.ok(exportItems.some(i => i.item_type === 'labor'));
+    assert.ok(exportItems.some(i => i.item_type === 'part'));
+
+    // Restaurar el respaldo mediante POST /api/backup/import
+    const rImport = await t.post('/api/backup/import', { data });
+    assert.equal(rImport.status, 200);
+
+    // Comprobar datos restaurados
+    const rClients = await t.get('/api/clients');
+    const autoRest = rClients.body.flatMap(c => c.vehicles || []).find(v => v.plate === 'AB123CD');
+    assert.ok(autoRest);
+    assert.equal(autoRest.vin, '2T1BR32E01C123456');
+    assert.equal(autoRest.mileage, 130300);
+
+    const rOrders = await t.get('/api/orders');
+    const ordRest = rOrders.body.find(o => o.title === 'Mantenimiento Mayor 130k - Actualizado');
+    assert.ok(ordRest);
+    assert.equal(ordRest.odometer, 130300);
+    assert.equal(ordRest.fuel_level, '1/2');
+    assert.equal(ordRest.service_type, 'correctivo');
+    assert.equal(ordRest.assigned_mechanic, 'Andrés Silva');
+
+    const rOrdDet = await t.get(`/api/orders/${ordRest.id}`);
+    assert.ok(rOrdDet.body.items.some(i => i.item_type === 'labor'));
+    assert.ok(rOrdDet.body.items.some(i => i.item_type === 'part'));
+  });
+
+  it('8. la vista imprimible de la orden sale en HTML con hoja de recepción e inspección', async () => {
+    const rPrint = await t.get(`/api/orders/${ordenId}/print`);
+    assert.equal(rPrint.status, 200);
+    const html = String(rPrint.body);
+    assert.match(html, /ORDEN DE TRABAJO/);
+    assert.match(html, /Corolla 1.8/);
+    assert.match(html, /AB123CD/);
+    assert.match(html, /130[.\s]?300/);
+  });
+});
+
+
 

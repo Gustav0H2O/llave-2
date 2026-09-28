@@ -23,20 +23,20 @@
    nextDocNumber (2.16) y docConFechas (2.28) solo los usa este dominio, así que
    viajan con él. fechaISO, csvEscape y esc los recibe por `deps`.
    ========================================================================= */
-const DOC_KINDS = ['entrega', 'presupuesto'];
+const DOC_KINDS = ['entrega', 'presupuesto', 'recepcion'];
 const DOC_STATUS = ['borrador', 'emitido', 'aprobado', 'rechazado', 'entregado'];
 
 function montarDocuments(app, deps) {
   const { db, requireWorkshop, idDe, str, num, toInt, TOPE_QTY, TOPE_PRECIO, errorAccionable, enTransaccion, csvEscape, fechaISO, esc } = deps;
 
-  /* ---- Documentos: notas de entrega y presupuestos ---- */
+  /* ---- Documentos: notas de entrega, presupuestos y recepción ---- */
 
   /* 2.16 (B44): el consecutivo se saca del MAX(número) ya emitido por el taller,
      no de COUNT(*)+1. Con COUNT(*)+1, borrar el último documento repetía su
      número: el documento siguiente nacía con un folio que ya estaba impreso y
-     entregado. El formato (NE-0001 / P-0001) no cambia. */
+     entregado. El formato (NE-0001 / P-0001 / REC-0001) no cambia. */
   const nextDocNumber = async (ws, kind) => {
-    const prefix = kind === 'entrega' ? 'NE' : 'P';
+    const prefix = kind === 'entrega' ? 'NE' : (kind === 'recepcion' ? 'REC' : 'P');
     const filas = await db.all('SELECT number FROM documents WHERE workshop_id=? AND kind=?', [ws, kind]);
     let maximo = 0;
     for (const f of filas) {
@@ -94,6 +94,16 @@ function montarDocuments(app, deps) {
       return res.status(400).json({ error: 'Orden no válida' });
     }
     const number = await nextDocNumber(req.workshopId, kind);
+    /* Foto del cliente y del vehículo AL EMITIR: si mañana corrigen un
+       teléfono o el carro cambia de dueño, el documento sigue diciendo lo
+       que decía el día que se entregó. La ficha viva no se toca. */
+    const cliRow = client_id ? await db.get('SELECT * FROM clients WHERE id=? AND workshop_id=?', [client_id, req.workshopId]) : null;
+    const ordRow = order_id ? await db.get('SELECT * FROM work_orders WHERE id=? AND workshop_id=?', [order_id, req.workshopId]) : null;
+    const vehRow = ordRow?.vehicle_id
+      ? await db.get('SELECT * FROM client_vehicles WHERE id=? AND workshop_id=?', [ordRow.vehicle_id, req.workshopId])
+      : (client_id ? await db.get('SELECT * FROM client_vehicles WHERE client_id=? AND workshop_id=? ORDER BY id DESC LIMIT 1', [client_id, req.workshopId]) : null);
+    const client_snapshot = cliRow ? JSON.stringify({ name: cliRow.name, doc_id: cliRow.doc_id, phone: cliRow.phone, email: cliRow.email, address: cliRow.address }) : null;
+    const vehicle_snapshot = vehRow ? JSON.stringify({ brand: vehRow.brand, model: vehRow.model, year: vehRow.year, plate: vehRow.plate, vin: vehRow.vin, mileage: vehRow.mileage }) : null;
     /* 2.14/2.17: cada partida se normaliza UNA vez (mismos topes que la partida
        de una orden) y de ahí salen el renglón del documento y el descuento. */
     const partidas = items.map((it) => ({
@@ -124,8 +134,8 @@ function montarDocuments(app, deps) {
     let did;
     try {
       await enTransaccion(async () => {
-        did = await db.insertReturningId(`INSERT INTO documents (workshop_id, kind, number, client_id, order_id, status) VALUES (?, ?, ?, ?, ?, ?)`,
-          [req.workshopId, kind, number, client_id, order_id, 'emitido']);
+        did = await db.insertReturningId(`INSERT INTO documents (workshop_id, kind, number, client_id, order_id, status, client_snapshot, vehicle_snapshot) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [req.workshopId, kind, number, client_id, order_id, 'emitido', client_snapshot, vehicle_snapshot]);
         for (const p of partidas) {
           const line_total = +(p.qty * p.unit_price).toFixed(2);
           total += line_total;
@@ -179,10 +189,11 @@ function montarDocuments(app, deps) {
         for (const it of items) {
           const line_total = +(it.qty * it.unit_price).toFixed(2);
           total += line_total;
+          const item_type = it.item_id ? 'part' : 'labor';
           await db.run(
-            `INSERT INTO work_order_items (workshop_id, order_id, item_id, descr, qty, unit_price, line_total)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [req.workshopId, orderId, it.item_id || null, it.descr, it.qty, it.unit_price, line_total]
+            `INSERT INTO work_order_items (workshop_id, order_id, item_id, item_type, descr, qty, unit_price, line_total)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [req.workshopId, orderId, it.item_id || null, item_type, it.descr, it.qty, it.unit_price, line_total]
           );
           if (it.item_id) {
             const pieza = await db.get('SELECT qty FROM inventory_items WHERE id=? AND workshop_id=?', [it.item_id, req.workshopId]);
@@ -227,17 +238,28 @@ function montarDocuments(app, deps) {
     } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo borrar el documento') }); } /* 2.23 */
   });
 
-  // Vista imprimible de documento (nota de entrega / presupuesto)
+  // Vista imprimible de documento (nota de entrega / presupuesto / recepción)
   app.get('/api/documents/:id/print', requireWorkshop, async (req, res) => {
     const id = idDe(req); /* 2.21 */
     if (id === null) return res.status(404).json({ error: 'No encontrado' });
     const doc = await db.get('SELECT * FROM documents WHERE id=? AND workshop_id=?', [id, req.workshopId]);
     if (!doc) return res.status(404).json({ error: 'No encontrado' });
     const items = await db.all('SELECT * FROM document_items WHERE document_id=? AND workshop_id=?', [id, req.workshopId]);
-    const client = doc.client_id ? await db.get('SELECT * FROM clients WHERE id=? AND workshop_id=?', [doc.client_id, req.workshopId]) : null;
+    /* Al imprimir se usa la foto congelada del documento: el papel de la
+       entrega no debe cambiar porque hoy el cliente tenga otro teléfono. */
+    let clientSnap = null;
+    try { clientSnap = doc.client_snapshot ? JSON.parse(doc.client_snapshot) : null; } catch { clientSnap = null; }
+    const client = clientSnap || (doc.client_id ? await db.get('SELECT * FROM clients WHERE id=? AND workshop_id=?', [doc.client_id, req.workshopId]) : null);
+    const order = doc.order_id ? await db.get('SELECT * FROM work_orders WHERE id=? AND workshop_id=?', [doc.order_id, req.workshopId]) : null;
+    const vehicleLive = (order?.vehicle_id)
+      ? await db.get('SELECT * FROM client_vehicles WHERE id=? AND workshop_id=?', [order.vehicle_id, req.workshopId])
+      : (doc.client_id ? await db.get('SELECT * FROM client_vehicles WHERE client_id=? AND workshop_id=? ORDER BY id DESC LIMIT 1', [doc.client_id, req.workshopId]) : null);
+    let vehicleSnap = null;
+    try { vehicleSnap = doc.vehicle_snapshot ? JSON.parse(doc.vehicle_snapshot) : null; } catch { vehicleSnap = null; }
+    const vehicle = vehicleSnap || vehicleLive;
     const ws = await db.get('SELECT name, phone, address, doc_id FROM workshops WHERE id=?', req.workshopId);
     const rate = Number(req.query.rate) || Number(doc.exchange_rate) || 1.0;
-    const kindLabel = doc.kind === 'entrega' ? 'NOTA DE ENTREGA' : 'PRESUPUESTO';
+    const kindLabel = doc.kind === 'entrega' ? 'NOTA DE ENTREGA' : (doc.kind === 'recepcion' ? 'DOCUMENTO DE RECEPCIÓN / ORDEN' : 'PRESUPUESTO');
     const escv = esc;
     const rowsHtml = items.map((i, idx) => {
       const uPrice = Number(i.unit_price || 0);
@@ -257,13 +279,14 @@ function montarDocuments(app, deps) {
         * { box-sizing: border-box; } body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 32px; }
         .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #3F5132; padding-bottom: 14px; margin-bottom: 20px; }
         .head h1 { font-size: 22px; margin: 0; letter-spacing: 1px; } .head .num { font-size: 24px; font-weight: 800; text-align: right; }
-        .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; font-size: 13px; }
+        .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 18px; font-size: 13px; }
         .meta b { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 2px; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th { background: #0F1113; color: #fff; text-align: left; padding: 8px; }
         td { padding: 8px; border-bottom: 1px solid #ddd; }
         .tot { text-align: right; margin-top: 16px; font-size: 18px; font-weight: 800; }
-        .foot { margin-top: 40px; display: flex; justify-content: space-between; font-size: 11px; color: #555; }
+        .firmas { margin-top: 36px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; text-align: center; font-size: 11px; color: #555; }
+        .foot { margin-top: 36px; display: flex; justify-content: space-between; font-size: 11px; color: #555; }
         .no-print { margin-bottom: 16px; display: flex; justify-content: flex-end; }
         .btn-print { background: #3F5132; color: #fff; border: 0; padding: 8px 16px; border-radius: 6px; font-weight: 700; cursor: pointer; }
         @media print { body { margin: 12px; } .no-print { display: none; } }
@@ -275,11 +298,18 @@ function montarDocuments(app, deps) {
         </div>
         <div class="meta">
           <div><b>Cliente</b>${escv(client?.name || '—')}<br>${client?.doc_id ? 'Doc: ' + escv(client.doc_id) + '<br>' : ''}${escv(client?.phone || '')}</div>
-          <div><b>Fecha</b>${fechaISO(doc.created_at) ? new Date(fechaISO(doc.created_at)).toLocaleString('es') : ''}<br><b>Estado</b>${escv(doc.status)}</div>
+          <div><b>Vehículo</b>${escv([vehicle?.brand, vehicle?.model, vehicle?.year].filter(Boolean).join(' ') || '—')}<br>${vehicle?.plate ? 'Placa: ' + escv(vehicle.plate) + '<br>' : ''}${vehicle?.vin ? 'VIN: ' + escv(vehicle.vin) : ''}</div>
+          <div><b>Odómetro</b>${order?.odometer != null ? escv(order.odometer.toLocaleString('es')) + ' km' : (vehicle?.mileage != null ? escv(vehicle.mileage.toLocaleString('es')) + ' km' : '—')}<br><b>Combustible</b>${escv(order?.fuel_level || '—')}</div>
+          <div><b>Fecha</b>${fechaISO(doc.created_at) ? new Date(fechaISO(doc.created_at)).toLocaleString('es') : ''}<br><b>Estado</b>${escv(doc.status)}${order?.service_type ? '<br><b>Servicio:</b> ' + escv(order.service_type) : ''}</div>
         </div>
+        ${order?.reception_notes ? `<div style="background:#f4f5f0;border-left:4px solid #3F5132;padding:8px 12px;margin-bottom:18px;font-size:12px;"><b>Notas de Recepción / Falla:</b> ${escv(order.reception_notes)}</div>` : ''}
         <table><thead><tr><th>#</th><th>Descripción</th><th>Cant.</th><th>P. Unit.</th><th>Total</th></tr></thead>
         <tbody>${rowsHtml}</tbody></table>
         <div class="tot">Total: $${totalVal.toFixed(2)}${totalBsHtml}</div>
+        <div class="firmas">
+          <div style="border-top:1px solid #999;padding-top:8px;">Firma del Responsable del Taller</div>
+          <div style="border-top:1px solid #999;padding-top:8px;">Firma de Conformidad del Cliente</div>
+        </div>
         <div class="foot"><span>Generado por llave</span><span>${escv(doc.number)} · ${new Date().toLocaleString('es')}</span></div>
       </body></html>`;
     res.send(html);

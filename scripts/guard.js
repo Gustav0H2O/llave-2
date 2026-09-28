@@ -196,7 +196,8 @@ const REGLAS = [
     revisar() {
       const TABLAS = ['inventory_items', 'inventory_moves', 'clients', 'client_vehicles',
         'work_orders', 'work_order_items', 'work_order_photos', 'documents', 'document_items',
-        'diagnostics', 'workshop_notes', 'cash_moves', 'suppliers'];
+        'diagnostics', 'workshop_notes', 'cash_moves', 'suppliers', 'mechanics',
+        'appointments', 'inspections', 'inspection_items', 'cash_closings'];
       const out = [];
       for (const archivo of SERVIDOR) {
         const lineas = leer(archivo).split('\n');

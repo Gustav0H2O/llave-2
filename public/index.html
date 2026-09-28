@@ -216,26 +216,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  /* ================================================================
-     Sistema visual "llave"
-     ----------------------------------------------------------------
-     Marca: llave · taller mecánico → marca digital premium.
-     Verde #3F5132 como acento estratégico (no saturado), blanco
-     cálido #F8F7F3 como lienzo editorial, negro carbón #111311
-     como tinta, gris metálico #9A9B91 como metadatos.
-
-     Roles semánticos (no intercambiables, en un taller el color
-     es la primera lectura):
-       verde  (--accent) = marca, acción, dato confirmado
-       ámbar (--amber)   = incertidumbre, advertencia, trabajo extra
-       rojo  (--danger)  = falla real: corto, circuito abierto, error
-
-     El tema se resuelve con [data-theme] en <html>; el script del
-     <head> estampa el atributo antes del primer pintado para evitar
-     destello. El default editorial es light sobre #F8F7F3; el dark
-     mode (#111311) se activa con [data-theme="dark"] o cuando el
-     sistema lo pide y el usuario no ha elegido otra cosa.
-     ================================================================ */
+  /* Sistema visual llave — Acento verde #3F5132, lienzos #F8F7F3/#111311, semántica de taller */
   :root {
     /* ---- Acento de marca ---- */
     --accent: #3F5132;
@@ -3045,6 +3026,15 @@
   .order-status-badge.st-listo{background:rgba(16,185,129,.12);color:#059669;border:1px solid rgba(16,185,129,.3)}
   .order-status-badge.st-entregado{background:rgba(229,57,53,.12);color:#dc2626;border:1px solid rgba(229,57,53,.3)}
   .order-status-badge.st-cancelado{background:rgba(100,116,139,.12);color:#64748b;border:1px solid rgba(100,116,139,.3)}
+  .part-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:var(--r-sm);font:700 10.5px var(--font);white-space:nowrap}
+  .part-badge.repuesto{background:rgba(2,132,199,.15);color:#0284c7;border:1px solid rgba(2,132,199,.3)}
+  .part-badge.mano-obra{background:rgba(245,158,11,.15);color:#d97706;border:1px solid rgba(245,158,11,.3)}
+  .fuel-chip{cursor:pointer;padding:6px 12px;min-height:36px;border-radius:var(--r-full);font:700 11.5px var(--font);background:var(--panel2);border:1px solid var(--border);color:var(--text-alt);touch-action:manipulation;transition:all .15s}
+  @media(pointer:coarse){.fuel-chip{min-height:44px;padding:8px 14px;font-size:12.5px}}
+  .fuel-chip:hover{border-color:var(--accent);color:var(--text)}
+  .fuel-chip.active{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 0 8px rgba(16,185,129,.4)}
+  .rec-card{background:var(--panel2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:8px}
+  .rec-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--r-sm);font:600 11px var(--font);background:var(--sunken);border:1px solid var(--border);color:var(--text)}
   .order-photos-section{margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
   .order-photos-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
   .order-photos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
@@ -3142,17 +3132,7 @@
   .market-desc { font: 500 12.5px var(--font); color: var(--text-alt); margin-top: 8px; line-height: 1.5; }
   .market-foot { display: flex; justify-content: space-between; padding: 10px 16px; border-top: 1px solid var(--border); }
 
-  /* ==================================================================
-     MÓVIL Y APLICACIÓN INSTALADA (PWA)
-     ------------------------------------------------------------------
-     Reescribe decisiones de arriba para el celular, que es donde se usa
-     la aplicación. Tres reglas se repiten aquí y van explicadas una vez:
-     se corta por `pointer: coarse` y no por ancho (una tablet se toca con
-     el mismo dedo); 16 px es el mínimo de un `input` porque por debajo iOS
-     hace zoom al enfocar y deja el campo fuera de vista; y
-     `env(safe-area-inset-*)` es obligatorio instalada, o el último botón
-     de cada lista queda bajo la raya de inicio de Android.
-     ================================================================== */
+  /* MÓVIL Y APLICACIÓN INSTALADA (PWA): pointer coarse, safe-area y 16px min inputs */
 
   /* ── 0. Base táctil ─────────────────────────────────────────────── */
   /* text-size-adjust: sin él Android reescala la tipografía al girar y la
@@ -3711,6 +3691,7 @@
 <script src="/datos.js?v=4"></script>
 <script src="/microapps.js?v=14"></script>
 <script src="/microapps-taller.js?v=7"></script>
+<script src="/microapps-taller-2.js?v=1"></script>
 <script src="/app.js?v=13"></script>
 </body>
 </html>

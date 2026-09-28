@@ -149,6 +149,7 @@ CREATE TABLE IF NOT EXISTS client_vehicles (
   year        INTEGER,
   plate       TEXT,
   vin         TEXT,
+  mileage     INTEGER,
   notes       TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cv_ws ON client_vehicles(workshop_id, client_id);
@@ -162,6 +163,11 @@ CREATE TABLE IF NOT EXISTS work_orders (
   descr       TEXT,
   status      TEXT NOT NULL DEFAULT 'Pendiente',
   total       REAL NOT NULL DEFAULT 0,
+  odometer    INTEGER,
+  fuel_level  TEXT,
+  reception_notes TEXT,
+  service_type TEXT,
+  assigned_mechanic TEXT,
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
   closed_at   DATETIME
 );
@@ -171,6 +177,7 @@ CREATE TABLE IF NOT EXISTS work_order_items (
   workshop_id INTEGER NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
   order_id    INTEGER NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
   item_id     INTEGER REFERENCES inventory_items(id) ON DELETE SET NULL,
+  item_type   TEXT NOT NULL DEFAULT 'part',
   descr       TEXT NOT NULL,
   qty         REAL NOT NULL DEFAULT 1,
   unit_price  REAL NOT NULL DEFAULT 0,

@@ -8,6 +8,8 @@ module.exports = {
     require('./003-estado-escalado'),
     require('./004-cash-method'),
     require('./005-taller-mejoras-admin'),
+    require('./006-taller-inspeccion-labor'),
+    require('./007-taller-agenda-operacion'),
   ],
   stats: [
     require('./stats-001-esquema'),

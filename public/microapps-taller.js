@@ -13,12 +13,15 @@
   const [orders, api] = useApi('/api/orders');
   const [clients, clientsApi] = useApi('/api/clients');
   const [inventory, invApi] = useApi('/api/inventory');
+  const [mechanics] = useApi('/api/mechanics');
+  const [editItem, setEditItem] = useState(null);
   const [openId, setOpenId] = useState(null);
   const [details, setDetails] = useState({});
   const [lightbox, setLightbox] = useState(null);
   const [show, setShow] = useState(false);
-  const [f, setF] = useState({ client_id: '', vehicle_id: '', type: 'reparacion', title: '', descr: '' });
-  const [newItem, setNewItem] = useState({ item_id: '', descr: '', qty: '1', unit_price: '' });
+  const [recOpen, setRecOpen] = useState(false);
+  const [f, setF] = useState({ client_id: '', vehicle_id: '', type: 'reparacion', service_type: 'correctivo', title: '', descr: '', odometer: '', fuel_level: '1/2', assigned_mechanic: '', mechanic_id: '', reception_notes: '', damage: '', cabin: '' });
+  const [newItem, setNewItem] = useState({ item_id: '', item_type: 'part', descr: '', qty: '1', unit_price: '' });
   const loadDetail = async (oid) => {
    try { const d = await apiFetch('/api/orders/' + oid); setDetails(p => ({ ...p, [oid]: d })); } catch (e) {}
   };
@@ -26,12 +29,30 @@
    const next = openId === oid ? null : oid; setOpenId(next);
    if (next && !details[next]) loadDetail(next);
   };
+  const parseRec = (t = '') => {
+   const r = t.match(/\[Recepción:\s*([^\]]+)\]/);
+   const d = t.match(/\[Daños:\s*([^\]]+)\]/);
+   const c = t.match(/\[Cabina:\s*([^\]]+)\]/);
+   const s = t.replace(/\[(Recepción|Daños|Cabina):[^\]]+\]\n?/g, '').trim();
+   return { rec: r ? r[1] : null, damage: d ? d[1] : null, cabin: c ? c[1] : null, descr: s };
+  };
   const save = async () => {
    if (!f.title.trim()) return;
+   const recP = [];
+   if (f.service_type) recP.push(`Mant: ${f.service_type === 'preventivo' ? '🛡️ Preventivo' : '🛠️ Correctivo'}`);
+   if (f.odometer) recP.push(`Km: ${Number(f.odometer).toLocaleString()}`);
+   if (f.fuel_level) recP.push(`Gas: ${f.fuel_level}`);
+   if (f.assigned_mechanic?.trim()) recP.push(`Mecánico: ${f.assigned_mechanic.trim()}`);
+   let fullDescr = '';
+   if (recP.length) fullDescr += `[Recepción: ${recP.join(' · ')}]\n`;
+   if (f.damage?.trim()) fullDescr += `[Daños: ${f.damage.trim()}]\n`;
+   if (f.cabin?.trim()) fullDescr += `[Cabina: ${f.cabin.trim()}]\n`;
+   if (f.reception_notes?.trim()) fullDescr += `[Notas: ${f.reception_notes.trim()}]\n`;
+   if (f.descr?.trim()) fullDescr += f.descr.trim();
    try {
-    await apiFetch('/api/orders', { method: 'POST', body: JSON.stringify(f) });
-    setF({ client_id: '', vehicle_id: '', type: 'reparacion', title: '', descr: '' });
-    setShow(false); api.load(); clientsApi.load();
+    await apiFetch('/api/orders', { method: 'POST', body: JSON.stringify({ ...f, type: f.service_type === 'preventivo' ? 'servicio' : (f.type || 'reparacion'), descr: fullDescr }) });
+    setF({ client_id: '', vehicle_id: '', type: 'reparacion', service_type: 'correctivo', title: '', descr: '', odometer: '', fuel_level: '1/2', assigned_mechanic: '', mechanic_id: '', reception_notes: '', damage: '', cabin: '' });
+    setRecOpen(false); setShow(false); api.load(); clientsApi.load();
    } catch (e) { alert(e.message); }
   };
   const setStatus = async (id, st) => {
@@ -51,14 +72,29 @@
   const addItem = async (oid) => {
    if (!newItem.descr.trim() || !newItem.qty) return;
    const inv = inventory.find(i => i.id === Number(newItem.item_id));
+   const isLabor = newItem.item_type === 'labor';
+   const prefix = isLabor ? '🔧 ' : '📦 ';
+   const descr = newItem.descr.startsWith('🔧') || newItem.descr.startsWith('📦') ? newItem.descr : prefix + newItem.descr.trim();
    try {
-    await apiFetch('/api/orders/' + oid + '/items', { method: 'POST', body: JSON.stringify({ ...newItem, unit_price: newItem.unit_price || inv?.unit_price || 0 }) });
-    setNewItem({ item_id: '', descr: '', qty: '1', unit_price: '' }); api.load(); invApi.load(); loadDetail(oid);
+    await apiFetch('/api/orders/' + oid + '/items', {
+     method: 'POST',
+     body: JSON.stringify({ item_id: isLabor ? null : (newItem.item_id || null), descr, qty: newItem.qty, unit_price: newItem.unit_price || (!isLabor ? inv?.unit_price : 0) || 0 })
+    });
+    setNewItem({ item_id: '', item_type: 'part', descr: '', qty: '1', unit_price: '' }); api.load(); if (!isLabor) invApi.load(); loadDetail(oid);
    } catch (e) { alert(e.message); }
   };
   const delItem = async (oid, iid) => {
    if (!(await askDel('Eliminar partida', '¿Quitar partida? El stock se devolverá.'))) return;
    try { await apiFetch('/api/orders/' + oid + '/items/' + iid, { method: 'DELETE' }); api.load(); invApi.load(); loadDetail(oid); } catch (e) { alert(e.message); }
+  };
+  /* Editar una partida en su sitio: antes había que borrarla y volver a
+     crearla, lo que perdía la referencia del repuesto y recontaba el stock. */
+  const saveItem = async (oid) => {
+   if (!editItem) return;
+   try {
+    await apiFetch('/api/orders/' + oid + '/items/' + editItem.iid, { method: 'PUT', body: JSON.stringify({ qty: editItem.qty, unit_price: editItem.unit_price }) });
+    setEditItem(null); api.load(); invApi.load(); loadDetail(oid);
+   } catch (e) { alert(e.message); }
   };
   const uploadPhoto = (oid, tag) => (e) => {
    const fl = e.target.files?.[0]; if (!fl || !fl.type.startsWith('image/')) return;
@@ -95,19 +131,55 @@
   };
   const counts = orders.reduce((a, o) => { a[o.status] = (a[o.status] || 0) + 1; return a; }, {});
   const curVehs = clients.find(c => c.id === Number(f.client_id))?.vehicles || [];
+  const onSelectVeh = (vid) => {
+   setF({ ...f, vehicle_id: vid });
+   const selV = curVehs.find(v => v.id === Number(vid));
+   if (selV?.notes && !f.odometer) {
+    const mKm = selV.notes.match(/\d[\d.,]*/);
+    if (mKm) setF(p => ({ ...p, vehicle_id: vid, odometer: mKm[0].replace(/[^\d]/g, '') }));
+   }
+  };
   return html`<${MicroShell} title="Órdenes de Trabajo" icon="ClipboardCheck" onBack=${onBack}><div class="order-stats"><span>Recibidas: <strong>${(counts['Recibido'] || 0) + (counts['Pendiente'] || 0)}</strong></span><span class="st-amber">Diagnóstico: <strong>${counts['En diagnóstico'] || 0}</strong></span><span class="st-accent">Listas: <strong>${counts['Listo'] || 0}</strong></span></div>${api.err && html`<div class="alert"><span>${api.err}</span></div>`}
    <button type="button" class="tool-add-btn taller-touch-btn mb-3 mt-2" onClick=${() => setShow(!show)}>${show ? 'Cancelar' : '+ Nueva orden de trabajo'}</button>
    ${show && html`<div class="panel p-3 mb-3"><div class="grid2"><select class="styled-input" value=${f.client_id} onChange=${e => setF({ ...f, client_id: e.target.value, vehicle_id: '' })}><option value="">Seleccionar cliente…</option>${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
      </select>
-     <select class="styled-input" value=${f.type} onChange=${e => setF({ ...f, type: e.target.value })}>
-      ${ORDER_TYPES.map(([v, l]) => html`<option key=${v} value=${v}>${l}</option>`)}
+     <select class="styled-input" value=${f.vehicle_id} onChange=${e => onSelectVeh(e.target.value)} disabled=${!f.client_id}>
+      <option value="">${f.client_id ? 'Vehículo (opcional)…' : 'Primero elija cliente'}</option>
+      ${curVehs.map(v => html`<option key=${v.id} value=${v.id}>${[v.brand, v.model].filter(Boolean).join(' ')} ${v.plate ? '· ' + v.plate : ''} ${v.vin ? '· ' + v.vin.slice(-6) : ''}</option>`)}
      </select>
     </div>
-    ${f.client_id && html`<div class="mt-2"><select class="styled-input" value=${f.vehicle_id} onChange=${e => setF({ ...f, vehicle_id: e.target.value })}><option value="">Vehículo (opcional)…</option>${curVehs.map(v => html`<option key=${v.id} value=${v.id}>${v.brand || ''} ${v.model || ''} ${v.plate ? '· ' + v.plate : ''}</option>`)}
-    </select></div>`}
-    <input type="text" class="styled-input mt-2" placeholder="Trabajo / Motivo (ej. Cambio de bomba)" value=${f.title} onChange=${e => setF({ ...f, title: e.target.value })} />
-    <textarea class="styled-input mt-2" rows="2" placeholder="Fallas reportadas…" value=${f.descr} onChange=${e => setF({ ...f, descr: e.target.value })}></textarea>
-    <button type="button" class="tool-add-btn taller-touch-btn mt-2 w-full" onClick=${save} disabled=${!f.title.trim()}>Guardar orden</button></div>`}
+    <div class="mt-2 p-2 rounded bg-panel2 border">
+     <div class="f-between flex-wrap gap-2">
+      <strong class="text-xs font-bold text-accent f-row"><${CatIc} n="ClipboardCheck" s=${13} /> Ficha de Recepción e Inspección</strong>
+      <div class="unit-switcher">
+       <button type="button" class=${'unit-switcher-btn' + (f.service_type === 'correctivo' ? ' active' : '')} onClick=${() => setF({ ...f, service_type: 'correctivo', type: 'reparacion' })}>🛠️ Correctivo</button>
+       <button type="button" class=${'unit-switcher-btn' + (f.service_type === 'preventivo' ? ' active' : '')} onClick=${() => setF({ ...f, service_type: 'preventivo', type: 'servicio' })}>🛡️ Preventivo</button>
+      </div>
+     </div>
+     <div class="f-row gap-2 my-2 flex-wrap">
+      <span class="text-xs font-bold muted">Combustible:</span>
+      ${['1/4', '1/2', '3/4', 'Lleno'].map(lvl => html`<button type="button" key=${lvl} class=${'fuel-chip' + (f.fuel_level === lvl ? ' active' : '')} onClick=${() => setF({ ...f, fuel_level: f.fuel_level === lvl ? '' : lvl })}>⛽ ${lvl}</button>`)}
+     </div>
+     <div class="grid2 mt-1 f-row">
+      <input type="number" class="styled-input" placeholder="Odómetro / Km entrada" value=${f.odometer} onChange=${e => setF({ ...f, odometer: e.target.value })} />
+      ${mechanics.length ? html`<select class="styled-input" value=${f.mechanic_id || ''} onChange=${e => { const m = mechanics.find(x => x.id === Number(e.target.value)); setF({ ...f, mechanic_id: e.target.value, assigned_mechanic: m ? m.name : '' }); }} aria-label="Mecánico asignado">
+       <option value="">Mecánico…</option>
+       ${mechanics.filter(m => m.active).map(m => html`<option key=${m.id} value=${m.id}>${m.name} (${m.open_orders || 0} abiertas)</option>`)}
+      </select>` : html`<input type="text" class="styled-input" placeholder="Mecánico asignado…" value=${f.assigned_mechanic} onChange=${e => setF({ ...f, assigned_mechanic: e.target.value })} />`}
+     </div>
+     <div class="mt-2">
+      <button type="button" class="link-btn text-xs" onClick=${() => setRecOpen(!recOpen)}>
+       ${recOpen ? '▲ Ocultar notas de cabina y daños previos' : '▼ Notas de recepción: daños previos y objetos en cabina'}
+      </button>
+      ${recOpen && html`<div class="f-col mt-2">
+       <input type="text" class="styled-input" placeholder="Daños previos de carrocería (rayones, golpes)…" value=${f.damage || ''} onChange=${e => setF({ ...f, damage: e.target.value })} />
+       <input type="text" class="styled-input" placeholder="Objetos dejados en cabina (herramientas, pertenencias)…" value=${f.cabin || ''} onChange=${e => setF({ ...f, cabin: e.target.value })} />
+      </div>`}
+     </div>
+    </div>
+    <input type="text" class="styled-input mt-2" placeholder="Trabajo / Motivo (ej. Cambio de bomba de gasolina)" value=${f.title} onChange=${e => setF({ ...f, title: e.target.value })} />
+    <textarea class="styled-input mt-2" rows="2" placeholder="Fallas reportadas por el cliente…" value=${f.descr} onChange=${e => setF({ ...f, descr: e.target.value })}></textarea>
+    <button type="button" class="tool-add-btn taller-touch-btn mt-2 w-full" onClick=${save} disabled=${!f.title.trim()}>Guardar orden de trabajo</button></div>`}
    <div class="order-list">
     ${orders.map(o => {
      const od = details[o.id] || o;
@@ -115,7 +187,8 @@
      const isOpen = openId === o.id;
      const stCls = (o.status || 'recibido').toLowerCase().replace(/\s+/g, '-');
      const isFinished = o.status === 'Listo' || o.status === 'Entregado';
-     return html`<div class="order-card" key=${o.id}><div class="order-card-header"><div><button type="button" class="order-card-title link-btn" onClick=${() => toggleOpen(o.id)}>${o.title}</button><div class="order-card-subtitle">${[o.client_name, o.vehicle_model, o.type].filter(Boolean).join(' · ')}</div></div><div class="text-right"><span class=${'order-status-badge st-' + stCls}>${o.status}</span><div style=${{ fontWeight: 800, fontSize: '13px', color: 'var(--accent)', marginTop: '2px' }}>${Number(od.total != null ? od.total : (o.total || 0)).toFixed(2)}</div></div></div><div class="order-stepper-wrap"><div class="order-stepper">${WORKFLOW_STEPS.map((s, idx) => {
+     const rData = parseRec(o.descr);
+     return html`<div class="order-card" key=${o.id}><div class="order-card-header"><div><button type="button" class="order-card-title link-btn" onClick=${() => toggleOpen(o.id)}>${o.title}</button><div class="order-card-subtitle">${[o.client_name, o.vehicle_model, o.type, rData.rec].filter(Boolean).join(' · ')}</div></div><div class="text-right"><span class=${'order-status-badge st-' + stCls}>${o.status}</span><div style=${{ fontWeight: 800, fontSize: '13px', color: 'var(--accent)', marginTop: '2px' }}>${Number(od.total != null ? od.total : (o.total || 0)).toFixed(2)}</div></div></div><div class="order-stepper-wrap"><div class="order-stepper">${WORKFLOW_STEPS.map((s, idx) => {
       const done = curIdx > idx || (isFinished && curIdx >= idx);
       const active = curIdx === idx && !isFinished;
       return html`<button type="button" key=${s} class=${'stepper-step ' + (done ? 'completed' : active ? 'active' : '')} onClick=${() => setStatus(o.id, s)} title=${'Cambiar a: ' + s}>
@@ -123,7 +196,16 @@
       <span class="stepper-label">${s}</span></button>`;
       })}
       </div></div>
-      ${isOpen && html`<div class="order-detail-panel">${o.descr && html`<p class="order-desc mb-2 text-sm muted">${o.descr}</p>`}
+      ${isOpen && html`<div class="order-detail-panel">
+      ${(rData.rec || rData.damage || rData.cabin) && html`<div class="rec-card">
+       <div class="f-between flex-wrap gap-2 mb-1">
+        <strong class="text-xs f-row text-accent"><${CatIc} n="ClipboardCheck" s=${14} /> Ficha de Recepción e Inspección</strong>
+        ${rData.rec && html`<div class="f-row gap-1 flex-wrap">${rData.rec.split(' · ').map((p, idx) => html`<span key=${idx} class="rec-chip">${p}</span>`)}</div>`}
+       </div>
+       ${rData.damage && html`<div class="mt-1 text-xs st-amber">⚠️ <strong>Daños previos:</strong> ${rData.damage}</div>`}
+       ${rData.cabin && html`<div class="mt-1 text-xs muted">📦 <strong>Cabina:</strong> ${rData.cabin}</div>`}
+      </div>`}
+      ${rData.descr && html`<p class="order-desc mb-2 text-sm muted">${rData.descr}</p>`}
       <div class="order-photos-section">
       <div class="order-photos-head">
       <strong class="text-sm f-row"><${CatIc} n="Camera" s=${14} /> Evidencias Fotográficas (${(od.photos || []).length}/6)</strong>
@@ -146,20 +228,54 @@
       ${!(od.photos && od.photos.length) ? html`<div class="muted text-xs p-1">Sin fotos adjuntas. Registra el estado antes y después.</div>` : ''}
       </div></div>
       <div class="mt-3 pt-2 border-t">
-      <strong class="text-sm f-row"><${CatIc} n="Wrench" s=${14} /> Partidas y Repuestos Consumidos</strong>
+      <div class="f-between mb-2">
+       <strong class="text-sm f-row"><${CatIc} n="Wrench" s=${14} /> Partidas y Desglose</strong>
+       <div class="unit-switcher">
+        <button type="button" class=${'unit-switcher-btn' + (newItem.item_type !== 'labor' ? ' active' : '')} onClick=${() => setNewItem({ item_id: '', item_type: 'part', descr: '', qty: '1', unit_price: '' })}>📦 Repuesto</button>
+        <button type="button" class=${'unit-switcher-btn' + (newItem.item_type === 'labor' ? ' active' : '')} onClick=${() => setNewItem({ item_id: '', item_type: 'labor', descr: '', qty: '1', unit_price: '' })}>🔧 Mano de Obra</button>
+       </div>
+      </div>
       <div class="f-col my-2">
-      ${(od.items || []).map(i => html`<div key=${i.id} class="f-between p-2 rounded text-sm bg-panel2"><span>${i.descr} × ${i.qty}</span><span class="tabular font-bold">$${Number(i.line_total).toFixed(2)} <button type="button" class="link-btn ml-2" onClick=${() => delItem(o.id, i.id)}>✕</button></span></div>`)}
+      ${(od.items || []).map(i => {
+       const isPart = (i.item_type ? i.item_type === 'part' : (!!i.item_id || (i.descr || '').startsWith('📦')));
+       const cleanName = (i.descr || '').replace(/^[📦🔧]\s*/, '');
+       return html`<div key=${i.id} class="f-between p-2 rounded text-sm bg-panel2 mb-1">
+        ${editItem && editItem.iid === i.id ? html`<div class="f-row gap-2 w-full">
+         <input type="number" class="styled-input" style=${{ width: '70px' }} value=${editItem.qty} onChange=${e => setEditItem({ ...editItem, qty: e.target.value })} aria-label="Cantidad" />
+         <input type="number" class="styled-input" style=${{ width: '90px' }} value=${editItem.unit_price} onChange=${e => setEditItem({ ...editItem, unit_price: e.target.value })} aria-label="Precio unitario" />
+         <span class="muted text-xs">${cleanName}</span>
+         <button type="button" class="link-btn" onClick=${() => saveItem(o.id)}>guardar</button>
+         <button type="button" class="link-btn" onClick=${() => setEditItem(null)}>cancelar</button>
+        </div>` : html`<div class="f-row gap-2">
+         <span class=${'part-badge ' + (isPart ? 'repuesto' : 'mano-obra')}>${isPart ? '📦 Repuesto' : '🔧 Mano de Obra'}</span>
+         <span>${cleanName} <span class="muted text-xs">× ${i.qty} · $${Number(i.unit_price).toFixed(2)}</span></span>
+        </div>
+        <span class="tabular font-bold">$${Number(i.line_total).toFixed(2)} <button type="button" class="link-btn ml-2" onClick=${() => setEditItem({ oid: o.id, iid: i.id, qty: i.qty, unit_price: i.unit_price })}>editar</button> <button type="button" class="link-btn ml-2" onClick=${() => delItem(o.id, i.id)}>✕</button></span>`}
+       </div>`;
+      })}
       ${!(od.items && od.items.length) ? html`<div class="muted text-xs">Sin partidas añadidas a la orden.</div>` : ''}
       </div>
-      <div class="grid2 mt-2 f-row">
-      <select class="styled-input" value=${newItem.item_id} onChange=${e => { const inv = inventory.find(x => x.id === Number(e.target.value)); setNewItem({ ...newItem, item_id: e.target.value, descr: inv?.name || '', unit_price: inv?.unit_price || '' }); }}>
-      <option value="">Pieza del inventario…</option>${inventory.map(i => html`<option key=${i.id} value=${i.id}>${i.name} (stock ${i.qty})</option>`)}
-      </select>
-      <input type="number" class="styled-input" placeholder="Cant." value=${newItem.qty} onChange=${e => setNewItem({ ...newItem, qty: e.target.value })} />
-      </div>
-      <input type="text" class="styled-input mt-1" placeholder="Descripción de partida / repuesto" value=${newItem.descr} onChange=${e => setNewItem({ ...newItem, descr: e.target.value })} />
-      <button type="button" class="tool-add-btn taller-touch-btn mt-2 w-full" onClick=${() => addItem(o.id)} disabled=${!newItem.descr.trim()}>+ Agregar partida</button></div>
-      <div class="f-row mt-3 flex-wrap">
+      ${newItem.item_type !== 'labor' ? html`
+       <div class="grid2 mt-2 f-row">
+        <select class="styled-input" value=${newItem.item_id} onChange=${e => { const inv = inventory.find(x => x.id === Number(e.target.value)); setNewItem({ ...newItem, item_id: e.target.value, descr: inv?.name || '', unit_price: inv?.unit_price || '' }); }}>
+         <option value="">Pieza del almacén…</option>${inventory.map(i => html`<option key=${i.id} value=${i.id}>${i.name} (stock ${i.qty}) — $${Number(i.unit_price).toFixed(2)}</option>`)}
+        </select>
+        <input type="number" class="styled-input" placeholder="Cant." value=${newItem.qty} onChange=${e => setNewItem({ ...newItem, qty: e.target.value })} />
+       </div>
+       <input type="text" class="styled-input mt-1" placeholder="Descripción de la pieza…" value=${newItem.descr} onChange=${e => setNewItem({ ...newItem, descr: e.target.value })} />
+      ` : html`
+       <div class="grid2 mt-2 f-row">
+        <input type="text" class="styled-input" placeholder="Servicio técnico (Mano de obra, Diagnóstico, Calibración)…" value=${newItem.descr} onChange=${e => setNewItem({ ...newItem, descr: e.target.value })} />
+        <div class="f-row">
+         <input type="number" class="styled-input" placeholder="Horas" value=${newItem.qty} onChange=${e => setNewItem({ ...newItem, qty: e.target.value })} style=${{ width: '45%' }} />
+         <input type="number" class="styled-input" placeholder="Tarifa $" value=${newItem.unit_price} onChange=${e => setNewItem({ ...newItem, unit_price: e.target.value })} style=${{ width: '55%' }} />
+        </div>
+       </div>
+      `}
+      <button type="button" class="tool-add-btn taller-touch-btn mt-2 w-full" onClick=${() => addItem(o.id)} disabled=${!newItem.descr.trim()}>+ Agregar ${newItem.item_type === 'labor' ? 'mano de obra' : 'partida'}</button></div>
+      <div class="f-row mt-3 flex-wrap gap-2">
+      <button type="button" class="home-cta-ghost taller-touch-btn" onClick=${() => window.open('/api/orders/' + o.id + '/print', '_blank')}>🖨 Imprimir Orden</button>
+      <button type="button" class="home-cta-ghost taller-touch-btn" onClick=${() => makeDoc(o.id, 'recepcion')}>📋 Hoja Recepción</button>
       <button type="button" class="home-cta-ghost taller-touch-btn" onClick=${() => makeDoc(o.id, 'entrega')}>📦 Nota de entrega</button>
       <button type="button" class="home-cta-ghost taller-touch-btn" onClick=${() => makeDoc(o.id, 'presupuesto')}>🧾 Presupuesto</button></div></div>`}
       <div class="order-foot-bar">
@@ -176,7 +292,7 @@
    ${lightbox && html`<div class="photo-lightbox-backdrop" onClick=${() => setLightbox(null)}><div class="photo-lightbox-modal" onClick=${e => e.stopPropagation()}><div class="photo-lightbox-top"><strong class="text-sm f-row"><${CatIc} n="Camera" s=${14} /> ${lightbox.caption || 'Evidencia fotográfica'}</strong><button type="button" class="link-btn text-white p-1 text-lg" onClick=${() => setLightbox(null)}>✕</button></div><div class="photo-lightbox-img-wrap"><img src=${lightbox.photo} alt="Evidencia" class="photo-lightbox-img" /></div><div class="photo-lightbox-info f-between"><span>${lightbox.caption} · <span class="muted">${new Date(lightbox.created_at).toLocaleDateString('es')}</span></span><button type="button" class="link-btn st-danger" onClick=${() => delPhoto(lightbox.oid, lightbox.id)}>Eliminar foto</button></div></div></div>`}
   </${MicroShell}>`;
  };
-  const InventoryApp = ({ onBack }) => {
+  const InventoryApp = ({ onBack, onOpen }) => {
   const [items, api] = useApi('/api/inventory');
   const [moves, movesApi] = useApi('/api/inventory/moves');
   const [f, setF] = useState({ name: '', sku: '', category: '', qty: '', min: '', price: '', cost: '', notes: '' });
@@ -228,7 +344,7 @@
    }
    return true;
   });
-  return html`<${MicroShell} title="Inventario / Stock" icon="Box" onBack=${onBack}><div class="f-between mb-2"><div class="tabs-bar f-row"><button type="button" class=${'filter-chip ' + (filterTab === 'all' ? 'active' : '')} onClick=${() => setFilterTab('all')}>Todos (${items.length})</button><button type="button" class=${'filter-chip ' + (filterTab === 'low' ? 'active' : '')} onClick=${() => setFilterTab('low')}>Bajo stock (${lowCount})</button><button type="button" class=${'filter-chip ' + (filterTab === 'out' ? 'active' : '')} onClick=${() => setFilterTab('out')}>Agotados (${outCount})</button></div><button type="button" class="link-btn" onClick=${exportCsv}>⬇ CSV</button></div><input type="text" class="styled-input mb-3" placeholder="🔍 Buscar pieza, código o categoría…" value=${search} onChange=${e => setSearch(e.target.value)} />${lowCount > 0 && filterTab === 'all' && html`<div class="alert mb-3"><strong class="st-amber">${lowCount} pieza(s) con stock crítico bajo el mínimo.</strong></div>`}
+  return html`<${MicroShell} title="Inventario / Stock" icon="Box" onBack=${onBack}><div class="f-between mb-2"><div class="tabs-bar f-row"><button type="button" class=${'filter-chip ' + (filterTab === 'all' ? 'active' : '')} onClick=${() => setFilterTab('all')}>Todos (${items.length})</button><button type="button" class=${'filter-chip ' + (filterTab === 'low' ? 'active' : '')} onClick=${() => setFilterTab('low')}>Bajo stock (${lowCount})</button><button type="button" class=${'filter-chip ' + (filterTab === 'out' ? 'active' : '')} onClick=${() => setFilterTab('out')}>Agotados (${outCount})</button></div><button type="button" class="link-btn" onClick=${exportCsv}>⬇ CSV</button>${onOpen && html`<button type="button" class="link-btn ml-2" onClick=${() => onOpen('alerts')}>🔔 Alertas</button>`}</div><input type="text" class="styled-input mb-3" placeholder="🔍 Buscar pieza, código o categoría…" value=${search} onChange=${e => setSearch(e.target.value)} />${lowCount > 0 && filterTab === 'all' && html`<div class="alert mb-3"><strong class="st-amber">${lowCount} pieza(s) con stock crítico bajo el mínimo.</strong></div>`}
    <div class="inv-form panel p-3 mb-3">
     <div class="grid2">
      ${[['name','Nombre pieza (ej. Pila)'],['sku','SKU / Código']].map(([k,p]) => html`<input type="text" class="styled-input" placeholder=${p} value=${f[k]} onChange=${e => setF({ ...f, [k]: e.target.value })} />`)}
@@ -279,7 +395,7 @@
    </details>`}
   </${MicroShell}>`;
  };
-  const ClientsApp = ({ onBack }) => {
+  const ClientsApp = ({ onBack, onOpen }) => {
   const [tab, setTab] = useState('clients');
   const [clients, api] = useApi('/api/clients');
   const [suppliers, supApi] = useApi('/api/suppliers');
@@ -290,9 +406,10 @@
   const [openId, setOpenId] = useState(null);
   const [vehicles, setVehicles] = useState({});
   const [clientOrders, setClientOrders] = useState({});
-  const [vf, setVf] = useState({ brand: '', model: '', year: '', plate: '' });
+  const [vf, setVf] = useState({ brand: '', model: '', year: '', plate: '', vin: '', notes: '' });
   const reset = () => { setF({ name: '', doc_id: '', phone: '', email: '', address: '', city: '', notes: '' }); setEditing(null); };
   const resetSup = () => { setSf({ name: '', rif: '', phone: '', email: '', specialty: '', contact_person: '', notes: '' }); setEditingSup(null); };
+  const resetVeh = () => setVf({ brand: '', model: '', year: '', plate: '', vin: '', notes: '' });
   const save = async () => {
    if (!f.name.trim()) return;
    try {
@@ -337,7 +454,7 @@
    if (!vf.brand.trim() && !vf.model.trim()) return;
    try {
     await apiFetch(`/api/clients/${cid}/vehicles`, { method: 'POST', body: JSON.stringify(vf) });
-    setVf({ brand: '', model: '', year: '', plate: '' });
+    resetVeh();
     const rows = await apiFetch(`/api/clients/${cid}/vehicles`);
     setVehicles(v => ({ ...v, [cid]: rows }));
    } catch (e) { alert(e.message); }
@@ -373,14 +490,23 @@
       <div class="muted text-xs">${[c.phone, c.city, c.email].filter(Boolean).join(' · ')}</div>
       ${openId === c.id && html`<div class="mt-2 pt-2 border-t w-full">
        <strong class="muted text-xs">Vehículos (${(vehicles[c.id] || []).length})</strong>
-       ${(vehicles[c.id] || []).map(v => html`<div key=${v.id} class="order-item-line f-between text-sm my-1">
-        <span>${[v.brand, v.model, v.year, v.plate].filter(Boolean).join(' · ')}</span>
-        <button type="button" class="link-btn" onClick=${() => delVehicle(c.id, v.id)}>✕</button></div>`)}
+       ${(vehicles[c.id] || []).map(v => html`<div key=${v.id} class="order-item-line f-between text-sm my-1 p-2 bg-panel2 rounded">
+        <div>
+         <strong>${[v.brand, v.model, v.year].filter(Boolean).join(' ')}</strong>
+         ${v.plate && html`<span class="order-veh-plate ml-2">${v.plate}</span>`}
+         <div class="muted text-xs mt-1 f-row gap-2 flex-wrap">
+          ${v.vin && html`<span class="rec-chip font-mono">VIN: ${v.vin}</span>`}
+          ${v.notes && html`<span class="rec-chip">📟 ${v.notes}</span>`}
+         </div>
+        </div>
+        <button type="button" class="link-btn" onClick=${() => { window.FT_VEHICULO_CLIENTE = c.id; window.FT_VEHICULO_ID = v.id; if (onOpen) onOpen('expediente'); }}>expediente</button> <button type="button" class="link-btn st-danger" onClick=${() => delVehicle(c.id, v.id)}>✕</button></div>`)}
        <div class="grid2 mt-2 f-row">
-        <input type="text" class="styled-input" placeholder="Marca" value=${vf.brand} onChange=${e => setVf({ ...vf, brand: e.target.value })} />
-        <input type="text" class="styled-input" placeholder="Modelo" value=${vf.model} onChange=${e => setVf({ ...vf, model: e.target.value })} />
+        <input type="text" class="styled-input" placeholder="Marca (ej. Toyota)" value=${vf.brand} onChange=${e => setVf({ ...vf, brand: e.target.value })} />
+        <input type="text" class="styled-input" placeholder="Modelo (ej. Corolla)" value=${vf.model} onChange=${e => setVf({ ...vf, model: e.target.value })} />
         <input type="number" class="styled-input" placeholder="Año" value=${vf.year} onChange=${e => setVf({ ...vf, year: e.target.value })} />
-        <input type="text" class="styled-input" placeholder="Placa" value=${vf.plate} onChange=${e => setVf({ ...vf, plate: e.target.value })} />
+        <input type="text" class="styled-input" placeholder="Placa (ej. ABC12D)" value=${vf.plate} onChange=${e => setVf({ ...vf, plate: e.target.value.toUpperCase() })} />
+        <input type="text" class="styled-input" placeholder="VIN / Chasis (opcional)" maxLength="17" value=${vf.vin || ''} onChange=${e => setVf({ ...vf, vin: e.target.value.toUpperCase() })} />
+        <input type="text" class="styled-input" placeholder="Km actual (opcional)" value=${vf.notes || ''} onChange=${e => setVf({ ...vf, notes: e.target.value })} />
        </div>
        <button type="button" class="tool-add-btn mt-2" onClick=${() => addVehicle(c.id)} disabled=${!vf.brand.trim() && !vf.model.trim()}>+ Vehículo</button>
        <div class="mt-3 pt-2 border-t">
@@ -415,52 +541,13 @@
     </div>`}
   </${MicroShell}>`;
   };
-  const NotesApp = ({ onBack }) => {
-  const [notes, api] = useApi('/api/notes');
-  const [t, setT] = useState('');
-  const [veh, setVeh] = useState('');
-  const [jobs, setJobs] = useState(() => { try { return JSON.parse(localStorage.getItem('ft_jobs') || '{}'); } catch (e) { return {}; } });
-  const saveJobs = (n) => { setJobs(n); localStorage.setItem('ft_jobs', JSON.stringify(n)); };
-  const [jVeh, setJVeh] = useState('');
-  const [jText, setJText] = useState('');
-  const addJob = () => {
-   const job = jText.trim();
-   if (!job) return;
-   const k = jVeh.trim() || 'General';
-   saveJobs({ ...jobs, [k]: [...(jobs[k] || []), { t: job, ts: Date.now() }] });
-   setJText('');
-  };
-  const rmJob = (k, i) => saveJobs({ ...jobs, [k]: (jobs[k] || []).filter((_, j) => j !== i) });
-  const hayJobs = Object.values(jobs).some(a => a && a.length);
-  const add = async () => {
-   if (!t.trim()) return;
-   try { await apiFetch('/api/notes', { method: 'POST', body: JSON.stringify({ text: t.trim(), vehicle_ref: veh.trim() }) }); setT(''); setVeh(''); api.load(); } catch (e) { alert(e.message); }
-  };
-  const del = async (id) => {
-   try { await apiFetch(`/api/notes/${id}`, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
-  };
-  return html`<${MicroShell} title="Notas del Mecánico" icon="BookOpen" onBack=${onBack}><div class="note-form"><input type="text" class="styled-input" placeholder="Vehículo (opcional)" value=${veh} onChange=${e => setVeh(e.target.value)} class="w-56" /><input type="text" class="styled-input" placeholder="Nota rápida…" value=${t} onChange=${e => setT(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter') add(); }} /><button type="button" class="tool-add-btn" onClick=${add} disabled=${!t.trim()}>Guardar</button></div><div class="note-list">${notes.map(n => html`<div class="note-item" key=${n.id}><div class="note-veh">${n.vehicle_ref || 'General'} <button type="button" class="link-btn" onClick=${() => del(n.id)}>✕</button></div><p>${n.text}</p><span class="muted">${new Date(n.created_at).toLocaleString('es')}</span></div>`)}
-    ${notes.length === 0 && !api.loading && html`<div class="empty">Sin notas.</div>`}
-   </div>
-   <h3 class="mic-sub mt-4">Registro de trabajos (en este dispositivo)</h3>
-   <div class="note-form">
-    <input type="text" class="styled-input" placeholder="Vehículo (opcional)" value=${jVeh} onChange=${e => setJVeh(e.target.value)} class="w-56" />
-    <input type="text" class="styled-input" placeholder="Trabajo hecho…" value=${jText} onChange=${e => setJText(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter') addJob(); }} />
-    <button type="button" class="tool-add-btn" onClick=${addJob} disabled=${!jText.trim()}>Registrar</button></div>
-   <div class="note-list">
-    ${Object.entries(jobs).map(([k, arr]) => arr && arr.length ? html`<div class="note-item" key=${k}><div class="note-veh">${k}</div>${arr.map((j, i) => html`<p key=${i}>${j.t} <button type="button" class="link-btn" onClick=${() => rmJob(k, i)} aria-label="Borrar trabajo">✕</button> <span class="muted">${new Date(j.ts).toLocaleDateString('es')}</span></p>`)}
-    </div>` : null)}
-    ${!hayJobs && html`<div class="empty">Sin trabajos registrados.</div>`}
-   </div>
-  </${MicroShell}>`;
- };
   const CASH_METHODS = [
   { id: 'cash', label: 'Efectivo', icon: 'DollarSign', cls: 'm-usd', prefix: '$' },
   { id: 'card', label: 'Tarjeta', icon: 'CreditCard', cls: 'm-pm', prefix: '$' },
   { id: 'transfer', label: 'Transferencia', icon: 'Building2', cls: 'm-zelle', prefix: '$' },
   { id: 'other', label: 'Otro', icon: 'Wallet', cls: 'm-bs', prefix: '$' }
  ];
- const CashApp = ({ onBack }) => {
+ const CashApp = ({ onBack, onOpen }) => {
   const [moves, api] = useApi('/api/cash');
   const [f, setF] = useState({ concept: '', amount: '', type: 'ingreso', method: 'cash' });
   const getMethod = (m) => {
@@ -487,7 +574,7 @@
    acc[met] = (acc[met] || 0) + d;
    return acc;
   }, {});
-  return html`<${MicroShell} title="Cierre de Caja" icon="Calculator" onBack=${onBack}><div class="cash-totals"><div class="cash-today"><span>HOY (NETO)</span><strong>$${today.toFixed(2)}</strong></div><div class="cash-all"><span>TOTAL ACUMULADO</span><strong>$${total.toFixed(2)}</strong></div></div><div class="cash-method-grid">${CASH_METHODS.map(m => html`<div class=${'cash-method-card ' + m.cls} key=${m.id}>
+  return html`<${MicroShell} title="Cierre de Caja" icon="Calculator" onBack=${onBack}><div class="cash-totals"><div class="cash-today"><span>HOY (NETO)</span><strong>$${today.toFixed(2)}</strong></div><div class="cash-all"><span>TOTAL ACUMULADO</span><strong>$${total.toFixed(2)}</strong></div>${onOpen && html`<div class="cash-all"><button type="button" class="link-btn" onClick=${() => onOpen('closings')}>📋 Cortes de caja</button></div>`}</div><div class="cash-method-grid">${CASH_METHODS.map(m => html`<div class=${'cash-method-card ' + m.cls} key=${m.id}>
      <div class="cash-method-lbl"><${CatIc} n=${m.icon} s=${13} /> ${m.label}</div>
      <div class="cash-method-val">${m.prefix}${Number(methodTotals[m.id] || 0).toFixed(2)}</div></div>`)}
    </div>
@@ -510,81 +597,6 @@
     })}
     ${moves.length === 0 && !api.loading && html`<div class="empty">Sin movimientos registrados.</div>`}
    </div>
-  </${MicroShell}>`;
- };
-  const ForumApp = ({ onBack }) => {
-  const [threads, setThreads] = useStore('ft_forum', []);
-  const [t, setT] = useState('');
-  const [author, setAuthorState] = useState(() => localStorage.getItem('ft_forum_author') || 'Anónimo');
-  const setAuthor = (v) => { setAuthorState(v); try { localStorage.setItem('ft_forum_author', v); } catch (e) {} };
-  const [openId, setOpenId] = useState(null);
-  const [reply, setReply] = useState('');
-  const addThread = () => { if (!t.trim()) return; setThreads(p => [{ id: uid(), t: t.trim(), a: author, ts: Date.now(), posts: [] }, ...p]); setT(''); };
-  const addReply = (id) => { if (!reply.trim()) return; setThreads(p => p.map(th => th.id === id ? { ...th, posts: [...th.posts, { a: author, t: reply.trim(), ts: Date.now() }] } : th)); setReply(''); };
-  return html`<${MicroShell} title="Foro Técnico" icon="MessagesSquare" onBack=${onBack}><input type="text" class="styled-input" placeholder="Tu nombre" value=${author} onChange=${e => setAuthor(e.target.value)} class="w-48 mb-2" /><div class="forum-new"><input type="text" class="styled-input" placeholder="¿Cómo cambio el módulo de un Jetta?" value=${t} onChange=${e => setT(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter') addThread(); }} /><button type="button" class="tool-add-btn" onClick=${addThread} disabled=${!t.trim()}>Publicar</button></div><div class="forum-list">${threads.map(th => html`<div class="forum-thread" key=${th.id}>
-     <button type="button" class="forum-thread-head" onClick=${() => setOpenId(openId === th.id ? null : th.id)}>
-      <strong>${th.t}</strong>
-      <span class="muted">${th.a} · ${new Date(th.ts).toLocaleDateString('es')} · ${th.posts.length} respuestas</span></button>
-     ${openId === th.id && html`<div class="forum-posts">${th.posts.map((p, i) => html`<div class="forum-post" key=${i}><strong>${p.a}</strong><p>${p.t}</p><span class="muted">${new Date(p.ts).toLocaleString('es')}</span></div>`)}
-      <div class="forum-reply"><input type="text" class="styled-input" placeholder="Responder…" value=${reply} onChange=${e => setReply(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter') addReply(th.id); }} /><button type="button" class="tool-add-btn" onClick=${() => addReply(th.id)} disabled=${!reply.trim()}>Responder</button></div></div>`}
-    </div>`)}
-    ${threads.length === 0 && html`<div class="empty">Sin temas. ¡Crea el primero!</div>`}
-   </div>
-  </${MicroShell}>`;
- };
-  const ConnectApp = ({ onBack }) => {
-  const [me, setMe] = useState({ name: '', role: 'mecanico', email: '', phone: '', city: '', zone: '', address: '', lat: '', lng: '', offers: '', needs: '' });
-  const [saved, setSaved] = useState(false);
-  const [matches, setMatches] = useState([]);
-  const [matched, setMatched] = useState(false);
-  const [locBusy, setLocBusy] = useState(false);
-  const [locMsg, setLocMsg] = useState('');
-  useEffect(() => { apiFetch('/api/connect/profiles').catch(() => {}); }, []);
-  const save = async () => {
-   if (!me.name.trim() || !me.city.trim()) { alert('Nombre y ciudad son obligatorios'); return; }
-   try {
-    await apiFetch('/api/connect/profiles', { method: 'POST', body: JSON.stringify(me) });
-    setSaved(true);
-    await doMatch();
-   } catch (e) { alert(e.message); }
-  };
-  const doMatch = async () => {
-   try {
-    const qs = new URLSearchParams({ city: me.city, zone: me.zone || '', offers: me.offers || '', needs: me.needs || '' });
-    if (me.lat) qs.set('lat', me.lat);
-    if (me.lng) qs.set('lng', me.lng);
-    const res = await apiFetch('/api/connect/match?' + qs.toString());
-    setMatches(res); setMatched(true);
-   } catch (e) { alert(e.message); }
-  };
-  const useGps = () => {
-   if (!navigator.geolocation) { setLocMsg('Tu navegador no soporta GPS'); return; }
-   setLocBusy(true); setLocMsg('Obteniendo ubicación…');
-   navigator.geolocation.getCurrentPosition(async (pos) => {
-    try {
-     const { latitude: lat, longitude: lng } = pos.coords;
-     await apiFetch('/api/connect/locate', { method: 'POST', body: JSON.stringify({ lat, lng }) });
-     setMe(m => ({ ...m, lat: String(lat), lng: String(lng) }));
-     setLocMsg('Ubicación GPS capturada');
-    } catch (e) { setLocMsg(e.message); }
-    setLocBusy(false);
-   }, (err) => { setLocBusy(false); setLocMsg('No se pudo obtener el GPS (' + err.message + ')'); }, { timeout: 10000 });
-  };
-  const roleLabel = (r) => r === 'mecanico' ? 'Mecánico' : r === 'tienda' ? 'Refaccionaria' : 'Cliente';
-  return html`<${MicroShell} title="Conectar Cliente ↔ Mecánico" icon="MapPin" onBack=${onBack}><div class="alert blue mb-3"><span>Completa tu perfil con tu ubicación y lo que ofreces/buscas. Te mostramos perfiles compatibles por cercanía y similitud.</span></div><div class="conn-me panel p-3 mb-3"><h3 class="text-sm st-accent mb-2">Tu perfil</h3><div class="conn-form grid2">${[['name','Nombre / taller *'],['city','Ciudad *'],['phone','Teléfono'],['email','Correo'],['zone','Zona / colonia'],['address','Dirección']].map(([k,p]) => html`<input type="text" class="styled-input" placeholder=${p} value=${me[k]} onChange=${e => setMe({ ...me, [k]: e.target.value })} />`)}<select class="styled-input" value=${me.role} onChange=${e => setMe({ ...me, role: e.target.value })}><option value="mecanico">Mecánico</option><option value="cliente">Cliente</option><option value="tienda">Refaccionaria</option></select></div><div class="grid2 mt-2"><input type="text" class="styled-input" placeholder="Ofreces: inyección, bombas, frenos" value=${me.offers} onChange=${e => setMe({ ...me, offers: e.target.value })} /><input type="text" class="styled-input" placeholder="Buscas: refacciones, servicios…" value=${me.needs} onChange=${e => setMe({ ...me, needs: e.target.value })} /></div><div class="f-row mt-2 flex-wrap"><button type="button" class="tool-add-btn" onClick=${save} disabled=${!me.name.trim() || !me.city.trim()}>Guardar perfil</button><button type="button" class="tool-add-btn" onClick=${useGps} disabled=${locBusy}>${locBusy ? '…' : 'Usar ubicación GPS'}</button>${me.lat && me.lng && html`<span class="muted text-xs">lat ${me.lat}, lng ${me.lng}</span>`}
-    </div>
-    ${locMsg && html`<div class="muted mt-1 text-xs">${locMsg}</div>`}
-    ${saved && html`<div class="alert blue mt-2"><span>Perfil guardado. Estos son tus contactos sugeridos:</span></div>`}
-   </div>
-   ${matched && html`<div class="conn-near"><h3 class="conn-title">Contactos sugeridos (cercanos + compatibles)</h3>${matches.filter(p => p.email !== me.email).map(p => html`<div class="conn-item" key=${p.id}>
-     <strong>${p.name}</strong>
-     <span class="muted">${roleLabel(p.role)} · ${p.city}${p.zone ? ', ' + p.zone : ''}${p.distance_km != null ? ' · a ' + p.distance_km + ' km' : ''}</span>
-     ${p.match_score > 0 && html`<span class="match-badge">★ ${p.match_score} coincidencias</span>`}
-     <span class="muted text-xs">${p.offers ? 'Ofrece: ' + p.offers : ''}${p.needs ? ' · Busca: ' + p.needs : ''}</span>
-     ${p.phone && html`<a class="link-btn" href=${'tel:' + p.phone}>Llamar</a>`}
-    </div>`)}
-    ${matches.length === 0 && html`<div class="empty p-4">Aún no hay perfiles compatibles en tu zona. Comparte la app para conectar.</div>`}
-   </div>`}
   </${MicroShell}>`;
  };
   const DocumentsApp = ({ onBack }) => {
@@ -626,7 +638,7 @@
    <div class="f-row mb-3">
     <button type="button" class="tool-add-btn" onClick=${() => setShow(!show)}>${show ? 'Cancelar' : '+ Nuevo documento'}</button>
     <button type="button" class="link-btn" onClick=${exportCsv}>⬇ Exportar CSV</button></div>
-   ${show && html`<div class="panel p-3 mb-3"><div class="grid2"><select class="styled-input" value=${f.kind} onChange=${e => setF({ ...f, kind: e.target.value })}><option value="entrega">📦 Nota de entrega</option><option value="presupuesto">🧾 Presupuesto</option></select><select class="styled-input" value=${f.client_id} onChange=${e => setF({ ...f, client_id: e.target.value })}><option value="">Cliente (opcional)…</option>${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
+   ${show && html`<div class="panel p-3 mb-3"><div class="grid2"><select class="styled-input" value=${f.kind} onChange=${e => setF({ ...f, kind: e.target.value })}><option value="entrega">📦 Nota de entrega</option><option value="presupuesto">🧾 Presupuesto</option><option value="recepcion">📋 Recepción</option></select><select class="styled-input" value=${f.client_id} onChange=${e => setF({ ...f, client_id: e.target.value })}><option value="">Cliente (opcional)…</option>${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
      </select>
     </div>
     <div class="mt-2 f-col">
@@ -653,30 +665,6 @@
       ${d.kind === 'presupuesto' && html`<button type="button" class="link-btn" onClick=${() => convertToOrder(d)}>🛠 Crear orden</button>`}<button type="button" class="link-btn" onClick=${() => window.open('/api/documents/' + d.id + '/print', '_blank')}>🖨 Imprimir</button>
       <button type="button" class="link-btn" onClick=${() => del(d.id)}>eliminar</button></div></div>`)}
     ${docs.length === 0 && !api.loading && html`<div class="empty">Sin documentos. Crea una nota de entrega o presupuesto.</div>`}
-   </div>
-  </${MicroShell}>`;
- };
-  const MarketApp = ({ onBack }) => {
-  const [listings, setListings] = useStore('ft_market', []);
-  const [show, setShow] = useState(false);
-  const [f, setF] = useState({ title: '', price: '', km: '', year: '', desc: '' });
-  const save = () => { if (!f.title.trim()) return; setListings(p => [{ id: uid(), title: f.title.trim(), price: f.price || '', km: f.km || '', year: f.year || '', desc: f.desc.trim(), ts: Date.now() }, ...p]); setF({ title: '', price: '', km: '', year: '', desc: '' }); setShow(false); };
-  const del = (id) => setListings(p => p.filter(l => l.id !== id));
-  const share = (l) => { const msg = `${l.title} — $${l.price} · ${l.year} · ${l.km} km. Visto en llave Market`; if (navigator.share) navigator.share({ title: l.title, text: msg }).catch(() => {}); else { navigator.clipboard.writeText(msg).then(() => toast('Enlace copiado')); } };
-  return html`<${MicroShell} title="Mercado de Autos" icon="Car" onBack=${onBack}><button type="button" class="tool-add-btn mb-3" onClick=${() => setShow(!show)}>${show ? 'Cancelar' : '+ Publicar vehículo'}</button>${show && html`<div class="panel p-3 mb-3">
-    <div class="grid2"><input type="text" class="styled-input" placeholder="Título: Jetta 2008 1.6" value=${f.title} onChange=${e => setF({ ...f, title: e.target.value })} />
-    <input type="number" class="styled-input" placeholder="Precio $" value=${f.price} onChange=${e => setF({ ...f, price: e.target.value })} /></div>
-    <div class="grid2 mt-2"><input type="number" class="styled-input" placeholder="Km" value=${f.km} onChange=${e => setF({ ...f, km: e.target.value })} />
-    <input type="number" class="styled-input" placeholder="Año" value=${f.year} onChange=${e => setF({ ...f, year: e.target.value })} /></div>
-    <textarea class="styled-input mt-2" rows="3" placeholder="Descripción" value=${f.desc} onChange=${e => setF({ ...f, desc: e.target.value })}></textarea>
-    <button type="button" class="tool-add-btn mt-2" onClick=${save} disabled=${!f.title.trim()}>Publicar</button></div>`}
-   <div class="market-grid">
-    ${listings.map(l => html`<div class="market-card" key=${l.id}><div class="market-body"><h3>${l.title}</h3><div class="market-price">$${l.price}</div><div class="muted">${[l.year, l.km ? l.km + ' km' : ''].filter(Boolean).join(' · ')}</div>${l.desc && html`<p class="market-desc">${l.desc}</p>`}
-     </div>
-     <div class="market-foot">
-      <button type="button" class="link-btn" onClick=${() => share(l)}>Compartir</button>
-      <button type="button" class="link-btn" onClick=${() => del(l.id)}>quitar</button></div></div>`)}
-    ${listings.length === 0 && html`<div class="empty">Sin publicaciones. ¡Publica tu primer vehículo!</div>`}
    </div>
   </${MicroShell}>`;
  };
@@ -1011,8 +999,8 @@
   </${MicroShell}>`;
  };
   window.FT_MICRO = Object.assign(window.FT_MICRO || {}, {
-  OrdersApp, InventoryApp, ClientsApp, NotesApp, CashApp, ForumApp, ConnectApp,
-  DocumentsApp, MarketApp, ProfileApp, PublicProfileApp, WorkshopAvatar, UserAvatar,
+  OrdersApp, InventoryApp, ClientsApp, CashApp,
+  DocumentsApp, ProfileApp, PublicProfileApp, WorkshopAvatar, UserAvatar,
  });
  window.WorkshopAvatar = WorkshopAvatar;
  window.UserAvatar = UserAvatar;

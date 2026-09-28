@@ -17,10 +17,13 @@ const { montarIdentificador } = require('./src/services/identificador');
    dependencias que el bloque usaba. El contrato de la API no cambia. */
 const { montarInventory } = require('./src/routes/inventory');
 const { montarClients } = require('./src/routes/clients');
+const { montarMechanics } = require('./src/routes/mechanics');
+const { montarAppointments } = require('./src/routes/appointments');
 const { montarDiagnostics } = require('./src/routes/diagnostics');
 const { montarNotes } = require('./src/routes/notes');
 const { montarCash } = require('./src/routes/cash');
 const { montarOrders } = require('./src/routes/orders');
+const { montarInspections } = require('./src/routes/inspections');
 const { montarDocuments } = require('./src/routes/documents');
 const { montarSuppliers } = require('./src/routes/suppliers');
 const { montarCatalog } = require('./src/routes/catalog');
@@ -368,7 +371,7 @@ async function createApp(dbOverride, statsOverride) {
   montarWorkshops(app, { db, str, visitSalt });
 
   /* Inventario — movido a src/routes/inventory.js (4.8) */
-  montarInventory(app, { db, requireWorkshop, idDe, str, num, enRango, TOPE_QTY, TOPE_PRECIO, FUERA_CANTIDAD, FUERA_PRECIO, errorAccionable, enTransaccion, csvEscape });
+  montarInventory(app, { db, requireWorkshop, idDe, str, num, toInt, enRango, TOPE_QTY, TOPE_PRECIO, FUERA_CANTIDAD, FUERA_PRECIO, errorAccionable, enTransaccion, csvEscape });
 
   /* Clientes + vehículos — movido a src/routes/clients.js (4.8) */
   montarClients(app, { db, requireWorkshop, idDe, str, toInt, errorAccionable });
@@ -376,10 +379,18 @@ async function createApp(dbOverride, statsOverride) {
   /* Proveedores y repuesteras */
   montarSuppliers(app, { db, requireWorkshop, idDe, str, errorAccionable });
 
+  /* Personal del taller y agenda de citas (agenda/inspecciones) */
+  montarMechanics(app, { db, requireWorkshop, idDe, str, errorAccionable });
+  montarAppointments(app, { db, requireWorkshop, idDe, str, toInt, errorAccionable });
+
   /* Órdenes de trabajo — movido a src/routes/orders.js (4.8).
      ORDER_TYPES/ORDER_STATUS viven ahí; el respaldo (src/routes/backup.js) los
      importa como listas blancas de las columnas type/status de work_orders. */
-  montarOrders(app, { db, requireWorkshop, idDe, str, num, toInt, enRango, TOPE_QTY, TOPE_PRECIO, errorAccionable, enTransaccion, esDataUrlImagenPermitida });
+  montarOrders(app, { db, requireWorkshop, idDe, str, num, toInt, enRango, TOPE_QTY, TOPE_PRECIO, errorAccionable, enTransaccion, esDataUrlImagenPermitida, esc });
+
+  /* Inspecciones de entrada/salida — después de montarOrders porque dependen
+     de las órdenes (y orders.js lee su plantilla para bloquear la entrega). */
+  montarInspections(app, { db, requireWorkshop, idDe, str, toInt, errorAccionable, enTransaccion });
 
   /* Documentos (notas de entrega y presupuestos) — movido a src/routes/documents.js (4.8).
      DOC_KINDS/DOC_STATUS viven ahí; el respaldo (src/routes/backup.js) los importa
@@ -399,7 +410,7 @@ async function createApp(dbOverride, statsOverride) {
   montarNotes(app, { db, requireWorkshop, idDe, str });
 
   /* Caja — movido a src/routes/cash.js (4.8) */
-  montarCash(app, { db, requireWorkshop, idDe, str, num, enRango, TOPE_QTY });
+  montarCash(app, { db, requireWorkshop, idDe, str, num, enRango, TOPE_QTY, errorAccionable, fechaISO });
 
   /* Donaciones públicas & rango de donador — movido a src/routes/donations.js (4.8) */
   montarDonations(app, { db, str, num, toInt, esc, normEmail, BASE_URL, PROD, enviarAvisoDonacion, notificarTaller, webhookUrl: process.env.DONATION_WEBHOOK_URL });

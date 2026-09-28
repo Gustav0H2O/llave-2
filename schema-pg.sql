@@ -157,6 +157,7 @@ CREATE TABLE IF NOT EXISTS inventory_items (
   min_qty     REAL NOT NULL DEFAULT 0,
   unit_price  REAL NOT NULL DEFAULT 0,
   cost_price  REAL NOT NULL DEFAULT 0,
+  low_stock_alerted INTEGER NOT NULL DEFAULT 0,
   notes       TEXT,
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -169,6 +170,7 @@ CREATE TABLE IF NOT EXISTS inventory_moves (
   delta       REAL NOT NULL,
   kind        TEXT NOT NULL,
   order_id    INTEGER,
+  supplier_id INTEGER,
   note        TEXT,
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -197,9 +199,21 @@ CREATE TABLE IF NOT EXISTS client_vehicles (
   year        INTEGER,
   plate       TEXT,
   vin         TEXT,
+  mileage     INTEGER,
   notes       TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cv_ws ON client_vehicles(workshop_id, client_id);
+
+CREATE TABLE IF NOT EXISTS mechanics (
+  id          SERIAL PRIMARY KEY,
+  workshop_id INTEGER NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  phone       TEXT,
+  role        TEXT NOT NULL DEFAULT 'mecanico',
+  active      INTEGER NOT NULL DEFAULT 1,
+  created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_mech_ws ON mechanics(workshop_id);
 
 CREATE TABLE IF NOT EXISTS work_orders (
   id          SERIAL PRIMARY KEY,
@@ -211,6 +225,12 @@ CREATE TABLE IF NOT EXISTS work_orders (
   descr       TEXT,
   status      TEXT NOT NULL DEFAULT 'Pendiente',
   total       REAL NOT NULL DEFAULT 0,
+  odometer    INTEGER,
+  fuel_level  TEXT,
+  reception_notes TEXT,
+  service_type TEXT,
+  assigned_mechanic TEXT,
+  mechanic_id  INTEGER REFERENCES mechanics(id) ON DELETE SET NULL,
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   closed_at   TIMESTAMP
 );
@@ -221,6 +241,7 @@ CREATE TABLE IF NOT EXISTS work_order_items (
   workshop_id INTEGER NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
   order_id    INTEGER NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
   item_id     INTEGER REFERENCES inventory_items(id) ON DELETE SET NULL,
+  item_type   TEXT NOT NULL DEFAULT 'part',
   descr       TEXT NOT NULL,
   qty         REAL NOT NULL DEFAULT 1,
   unit_price  REAL NOT NULL DEFAULT 0,
@@ -248,6 +269,8 @@ CREATE TABLE IF NOT EXISTS documents (
   status      TEXT NOT NULL DEFAULT 'borrador',
   total       REAL NOT NULL DEFAULT 0,
   exchange_rate REAL DEFAULT 1.0,
+  client_snapshot TEXT,
+  vehicle_snapshot TEXT,
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_docs_ws ON documents(workshop_id);
@@ -364,4 +387,60 @@ CREATE TABLE IF NOT EXISTS workshop_notifications (
   created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_wn_ws ON workshop_notifications(workshop_id);
+
+CREATE TABLE IF NOT EXISTS appointments (
+  id          SERIAL PRIMARY KEY,
+  workshop_id INTEGER NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
+  client_id   INTEGER REFERENCES clients(id) ON DELETE SET NULL,
+  vehicle_id  INTEGER REFERENCES client_vehicles(id) ON DELETE SET NULL,
+  fecha       TEXT NOT NULL,
+  hora        TEXT,
+  client_name TEXT,
+  vehicle_ref TEXT,
+  servicio    TEXT,
+  status      TEXT NOT NULL DEFAULT 'pendiente',
+  notes       TEXT,
+  created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_appt_ws ON appointments(workshop_id, fecha);
+
+CREATE TABLE IF NOT EXISTS inspections (
+  id           SERIAL PRIMARY KEY,
+  workshop_id  INTEGER NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
+  order_id     INTEGER NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
+  tipo         TEXT NOT NULL,
+  status       TEXT NOT NULL DEFAULT 'incompleta',
+  notes        TEXT,
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_insp_unq ON inspections(workshop_id, order_id, tipo);
+
+CREATE TABLE IF NOT EXISTS inspection_items (
+  id            SERIAL PRIMARY KEY,
+  workshop_id   INTEGER NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
+  inspection_id INTEGER NOT NULL REFERENCES inspections(id) ON DELETE CASCADE,
+  seccion       TEXT NOT NULL,
+  punto         TEXT NOT NULL,
+  estado        TEXT NOT NULL DEFAULT 'pendiente',
+  notes         TEXT,
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_insp_items ON inspection_items(inspection_id);
+
+CREATE TABLE IF NOT EXISTS cash_closings (
+  id          SERIAL PRIMARY KEY,
+  workshop_id INTEGER NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
+  fecha       TEXT NOT NULL,
+  ingresos    REAL NOT NULL DEFAULT 0,
+  egresos     REAL NOT NULL DEFAULT 0,
+  saldo       REAL NOT NULL DEFAULT 0,
+  por_metodo  TEXT,
+  movimientos INTEGER NOT NULL DEFAULT 0,
+  conteo      REAL,
+  diferencia  REAL,
+  notes       TEXT,
+  created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_cash_close_ws ON cash_closings(workshop_id, fecha);
 

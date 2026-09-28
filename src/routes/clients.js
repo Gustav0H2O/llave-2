@@ -24,7 +24,7 @@ function montarClients(app, deps) {
     // Adjuntar vehículos de cada cliente para el selector de órdenes
     const out = [];
     for (const c of rows) {
-      const vehicles = await db.all('SELECT id, brand, model, year, plate FROM client_vehicles WHERE client_id = ? AND workshop_id = ?', [c.id, req.workshopId]);
+      const vehicles = await db.all('SELECT id, brand, model, year, plate, vin, mileage FROM client_vehicles WHERE client_id = ? AND workshop_id = ?', [c.id, req.workshopId]);
       out.push({ ...c, vehicles });
     }
     res.set('Cache-Control', 'no-store').json(out);
@@ -83,10 +83,10 @@ function montarClients(app, deps) {
     const owner = await db.get('SELECT id FROM clients WHERE id=? AND workshop_id=?', [cid, req.workshopId]);
     if (!owner) return res.status(404).json({ error: 'Cliente no encontrado' });
     try {
-      const vid = await db.insertReturningId(`INSERT INTO client_vehicles (workshop_id, client_id, brand, model, year, plate, vin, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      const vid = await db.insertReturningId(`INSERT INTO client_vehicles (workshop_id, client_id, brand, model, year, plate, vin, mileage, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [req.workshopId, cid, str(b.brand, 60) || null, str(b.model, 80) || null,
-         toInt(b.year, 1900, 2100), str(b.plate, 20).toUpperCase() || null, str(b.vin, 30) || null, str(b.notes, 300) || null]);
+         toInt(b.year, 1900, 2100), str(b.plate, 20).toUpperCase() || null, str(b.vin, 30) || null, toInt(b.mileage, 0, 2_000_000), str(b.notes, 300) || null]);
       res.status(201).json({ id: vid });
     } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo guardar el vehículo') }); } /* 2.23 */
   });
@@ -99,6 +99,51 @@ function montarClients(app, deps) {
       if (!info.changes) return res.status(404).json({ error: 'No encontrado' });
       res.json({ ok: true });
     } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo borrar el vehículo') }); } /* 2.23 */
+  });
+
+  /* Editar un vehículo ya cargado: antes había que borrarlo y volver a
+     crearlo, lo que lo desligaba de su historial de órdenes. La validación
+     es la misma del alta. */
+  app.put('/api/clients/:id/vehicles/:vid', requireWorkshop, async (req, res) => {
+    const cid = idDe(req); /* 2.21 */
+    const vid = idDe(req, 'vid'); /* 2.21 */
+    if (cid === null || vid === null) return res.status(404).json({ error: 'No encontrado' });
+    const b = req.body || {};
+    try {
+      const actual = await db.get('SELECT id FROM client_vehicles WHERE id=? AND client_id=? AND workshop_id=?', [vid, cid, req.workshopId]);
+      if (!actual) return res.status(404).json({ error: 'No encontrado' });
+      const info = await db.run(`UPDATE client_vehicles SET brand=?, model=?, year=?, plate=?, vin=?, mileage=?, notes=?
+        WHERE id=? AND client_id=? AND workshop_id=?`,
+        [str(b.brand, 60) || null, str(b.model, 80) || null, toInt(b.year, 1900, 2100),
+         str(b.plate, 20).toUpperCase() || null, str(b.vin, 30) || null, toInt(b.mileage, 0, 2_000_000),
+         str(b.notes, 300) || null, vid, cid, req.workshopId]);
+      if (!info.changes) return res.status(404).json({ error: 'No encontrado' });
+      res.json({ ok: true });
+    } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo actualizar el vehículo') }); } /* 2.23 */
+  });
+
+  /* Expediente del vehículo: todo lo que el taller le hizo, en una sola
+     consulta. Es lo que se mira cuando el cliente pregunta "¿qué le
+     cambiaron la última vez?". */
+  app.get('/api/clients/vehicles/:vid/history', requireWorkshop, async (req, res) => {
+    const vid = idDe(req, 'vid'); /* 2.21 */
+    if (vid === null) return res.status(404).json({ error: 'No encontrado' });
+    const vehicle = await db.get('SELECT * FROM client_vehicles WHERE id=? AND workshop_id=?', [vid, req.workshopId]);
+    if (!vehicle) return res.status(404).json({ error: 'No encontrado' });
+    const client = vehicle.client_id
+      ? await db.get('SELECT id, name, phone, email FROM clients WHERE id=? AND workshop_id=?', [vehicle.client_id, req.workshopId])
+      : null;
+    const orders = await db.all(`SELECT id, title, descr, status, type, service_type, total, odometer, fuel_level, created_at, closed_at
+      FROM work_orders WHERE workshop_id=? AND vehicle_id=? ORDER BY id DESC LIMIT 200`, [req.workshopId, vid]);
+    const documents = await db.all(`SELECT d.id, d.kind, d.number, d.status, d.total, d.created_at
+      FROM documents d JOIN work_orders o ON o.id = d.order_id
+      WHERE d.workshop_id=? AND o.vehicle_id=? ORDER BY d.id DESC LIMIT 200`, [req.workshopId, vid]);
+    const total = await db.get(`SELECT COUNT(*) AS ordenes, COALESCE(SUM(total), 0) AS facturado FROM work_orders
+      WHERE workshop_id=? AND vehicle_id=? AND status='Entregado'`, [req.workshopId, vid]);
+    res.set('Cache-Control', 'no-store').json({
+      vehicle, client, orders, documents,
+      resumen: { ordenes: Number(total?.ordenes) || 0, facturado: +(Number(total?.facturado) || 0).toFixed(2) },
+    });
   });
 
 }

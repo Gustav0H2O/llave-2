@@ -6,7 +6,7 @@
     "El campo \"status\" es solo una pista informativa del status principal."
   ],
   "version": 1,
-  "total": 103,
+  "total": 127,
   "rutas": [
     {
       "metodo": "GET",
@@ -244,6 +244,42 @@
     },
     {
       "metodo": "GET",
+      "ruta": "/api/appointments",
+      "archivo": "src/routes/appointments.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/appointments",
+      "archivo": "src/routes/appointments.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "DELETE",
+      "ruta": "/api/appointments/:id",
+      "archivo": "src/routes/appointments.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "PUT",
+      "ruta": "/api/appointments/:id",
+      "archivo": "src/routes/appointments.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
       "ruta": "/api/auth/google",
       "archivo": "src/routes/auth.js",
       "requireWorkshop": false,
@@ -388,6 +424,24 @@
     },
     {
       "metodo": "GET",
+      "ruta": "/api/cash/closings",
+      "archivo": "src/routes/cash.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/cash/closings",
+      "archivo": "src/routes/cash.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
       "ruta": "/api/catalog/export",
       "archivo": "src/routes/diagnostics.js",
       "requireWorkshop": false,
@@ -459,8 +513,26 @@
       "status": "401 (sin sesión)"
     },
     {
+      "metodo": "PUT",
+      "ruta": "/api/clients/:id/vehicles/:vid",
+      "archivo": "src/routes/clients.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
       "metodo": "DELETE",
       "ruta": "/api/clients/vehicles/:vid",
+      "archivo": "src/routes/clients.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/clients/vehicles/:vid/history",
       "archivo": "src/routes/clients.js",
       "requireWorkshop": true,
       "requireAdmin": false,
@@ -558,6 +630,15 @@
       "status": "401 (sin sesión)"
     },
     {
+      "metodo": "POST",
+      "ruta": "/api/documents/:id/convert-to-order",
+      "archivo": "src/routes/documents.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
       "metodo": "GET",
       "ruta": "/api/documents/:id/print",
       "archivo": "src/routes/documents.js",
@@ -601,6 +682,42 @@
       "requireAdmin": false,
       "limitada": false,
       "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/inspections",
+      "archivo": "src/routes/inspections.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/inspections",
+      "archivo": "src/routes/inspections.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "PUT",
+      "ruta": "/api/inspections/:id",
+      "archivo": "src/routes/inspections.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "PUT",
+      "ruta": "/api/inspections/:id/items/:iid",
+      "archivo": "src/routes/inspections.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
     },
     {
       "metodo": "GET",
@@ -649,6 +766,15 @@
     },
     {
       "metodo": "GET",
+      "ruta": "/api/inventory/alerts",
+      "archivo": "src/routes/inventory.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
       "ruta": "/api/inventory/export",
       "archivo": "src/routes/inventory.js",
       "requireWorkshop": true,
@@ -660,6 +786,42 @@
       "metodo": "GET",
       "ruta": "/api/inventory/moves",
       "archivo": "src/routes/inventory.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/mechanics",
+      "archivo": "src/routes/mechanics.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/mechanics",
+      "archivo": "src/routes/mechanics.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "DELETE",
+      "ruta": "/api/mechanics/:id",
+      "archivo": "src/routes/mechanics.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "PUT",
+      "ruta": "/api/mechanics/:id",
+      "archivo": "src/routes/mechanics.js",
       "requireWorkshop": true,
       "requireAdmin": false,
       "limitada": false,
@@ -783,6 +945,15 @@
       "status": "401 (sin sesión)"
     },
     {
+      "metodo": "PUT",
+      "ruta": "/api/orders/:id/items/:iid",
+      "archivo": "src/routes/orders.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
       "metodo": "POST",
       "ruta": "/api/orders/:id/photos",
       "archivo": "src/routes/orders.js",
@@ -794,6 +965,15 @@
     {
       "metodo": "DELETE",
       "ruta": "/api/orders/:id/photos/:pid",
+      "archivo": "src/routes/orders.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/orders/:id/print",
       "archivo": "src/routes/orders.js",
       "requireWorkshop": true,
       "requireAdmin": false,
@@ -826,6 +1006,42 @@
       "requireAdmin": false,
       "limitada": false,
       "status": "200"
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/suppliers",
+      "archivo": "src/routes/suppliers.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "POST",
+      "ruta": "/api/suppliers",
+      "archivo": "src/routes/suppliers.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "DELETE",
+      "ruta": "/api/suppliers/:id",
+      "archivo": "src/routes/suppliers.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "PUT",
+      "ruta": "/api/suppliers/:id",
+      "archivo": "src/routes/suppliers.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
     },
     {
       "metodo": "GET",
