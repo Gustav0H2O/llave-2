@@ -879,14 +879,6 @@ function ChatBot({ vehicleId, user }) {
             ${loading && html`
               <div class="chat-msg bot">
                 <div class="chat-avatar"><${LogoMark} className="chat-avatar-mark" /></div>
-                ${/* aria-live: la auditoría señaló que el «está pensando» era
-                      solo visual — un lector de pantalla no se enteraba de que
-                      hubo respuesta en camino. El comentario va DENTRO de una
-                      expresión (con comilla vacía) a propósito: htm no entiende
-                      el comentario suelto entre llaves y lo pintaba como TEXTO,
-                      y ese texto era un elemento flexible más de la fila que
-                      empujaba la burbuja de carga a la derecha: ese era el salto
-                      real que se veía mientras el asistente respondía. */''}
                 <div class="chat-bubble thinking" role="status" aria-live="polite">
                   <span class="dot-pulse" aria-hidden="true"></span>
                   <span class="sr-only">Consultando al asistente…</span>
@@ -1038,39 +1030,46 @@ function OnboardingModal({ user, onComplete, onLogout }) {
 }
 
 /* ---------- Acceso / alta del taller ---------- */
-/* DOS puertas separadas —«Iniciar sesión» y «Crear cuenta»— y las dos SOLO con
-   Google: la pantalla no tiene ningún campo de texto (ni correo, ni contraseña,
-   ni identidad). Lo que decide qué hace el callback es el `mode` del enlace:
-   `register` se niega a entrar en una cuenta que ya existe y `login` se niega a
-   crear una nueva, así que cada pestaña lleva a SU botón. Los datos de identidad
-   (nombre, teléfono, documento, ciudad, dirección) los sigue pidiendo
-   OnboardingModal al volver de Google. */
-function LoginScreen({ onBack, notice, tabInicial }) {
+function LoginScreen({ onBack, notice, tabInicial, onLoginSuccess }) {
   const [msg, setMsg] = useState('');
   const [mode, setMode] = useState(tabInicial || 'login');
   const [activeNotice, setActiveNotice] = useState(notice || '');
+  const [locEmail, setLocEmail] = useState('');
+  const [locPass, setLocPass] = useState('');
+  const [locName, setLocName] = useState('');
+  const [locBusy, setLocBusy] = useState(false);
 
-  useEffect(() => {
-    setActiveNotice(notice || '');
-  }, [notice]);
+  useEffect(() => { setActiveNotice(notice || ''); }, [notice]);
+  useEffect(() => { if (tabInicial) setMode(tabInicial); }, [tabInicial]);
 
-  /* El aviso de vuelta dice en qué puerta se equivocó el usuario, así que la
-     pantalla abre directamente en la otra (ver el efecto del `?login=` en App). */
-  useEffect(() => {
-    if (tabInicial) setMode(tabInicial);
-  }, [tabInicial]);
-
-  /* Cambiar de pestaña descarta el aviso de la vuelta anterior: era de la OTRA
-     puerta y aquí solo confundiría sobre qué botón pulsar. */
   const cambiarModo = (m) => { setMode(m); setMsg(''); setActiveNotice(''); };
   const esAlta = mode === 'register';
+  const esDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || (activeNotice && activeNotice.includes('no está configurado'));
+
+  const submitLocal = async (e) => {
+    e.preventDefault();
+    if (!locEmail.trim() || !locPass) return;
+    setLocBusy(true); setMsg('');
+    try {
+      const endpoint = esAlta ? '/api/auth/register' : '/api/auth/login';
+      const body = esAlta ? { email: locEmail.trim(), password: locPass, name: locName.trim() || 'Mi Taller' } : { email: locEmail.trim(), password: locPass };
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Error al autenticar');
+      if (onLoginSuccess) onLoginSuccess(); else location.reload();
+    } catch (err) { setMsg(err.message); } finally { setLocBusy(false); }
+  };
+
   return html`
     <div class="login-screen">
       <aside class="login-art" aria-hidden="true">
         <div class="login-art-bg"></div>
         <div class="login-art-content">
-          ${/* Sin clase de tema: este panel es oscuro siempre, así que su
-                logotipo es siempre el crema. */''}
           <img class="login-art-logo logo-img" src="/brand/logo-llave-light.svg" alt="llave" />
           <h2 class="login-art-title">Tu taller,<br/>en una sola llave.</h2>
           <p class="login-art-text">Inventario, clientes, órdenes, notas y caja en un solo lugar. Empieza gratis, sin tarjeta.</p>
@@ -1087,14 +1086,9 @@ function LoginScreen({ onBack, notice, tabInicial }) {
           <${Icon} name="ArrowLeft" size=${16} /> Volver al inicio
         </a>
         <div class="login-form-inner">
-          ${/* Esta mitad sí sigue al tema (background: var(--bg)), así que
-                necesita las dos variantes, no una. */''}
           <img class="login-form-logo logo-img logo-img--light" src="/brand/logo-llave.svg" alt="llave" />
           <img class="login-form-logo logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" />
 
-          ${/* Las dos puertas, separadas. Cada pestaña cambia el titular, la
-                explicación y el `mode` del enlace a Google; ninguna pinta un
-                formulario. */''}
           <div class="login-tabs" role="tablist">
             <button type="button" role="tab" aria-selected=${!esAlta} class=${'login-tab' + (esAlta ? '' : ' is-active')} onClick=${() => cambiarModo('login')}>Iniciar sesión</button>
             <button type="button" role="tab" aria-selected=${esAlta} class=${'login-tab' + (esAlta ? ' is-active' : '')} onClick=${() => cambiarModo('register')}>Crear cuenta</button>
@@ -1118,7 +1112,30 @@ function LoginScreen({ onBack, notice, tabInicial }) {
             ${esAlta ? 'Crear cuenta con Google' : 'Iniciar sesión con Google'}
           </a>
 
-          ${msg && html`<div class="login-msg login-msg--warn"><span>${msg}</span></div>`}
+          ${esDev && html`
+            <form onSubmit=${submitLocal} style=${{ marginTop: '14px', padding: '12px', background: 'var(--panel2)', borderRadius: 'var(--r)', border: '1px dashed var(--accent)' }}>
+              <div style=${{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', marginBottom: '8px' }}>
+                Acceso local (desarrollo sin Google OAuth)
+              </div>
+              ${esAlta && html`<label class="login-field" style=${{ marginBottom: '6px' }}>
+                <span>Nombre del taller</span>
+                <input type="text" class="styled-input" value=${locName} onChange=${e => setLocName(e.target.value)} placeholder="Taller Mecánico" />
+              </label>`}
+              <label class="login-field" style=${{ marginBottom: '6px' }}>
+                <span>Correo</span>
+                <input type="email" class="styled-input" required value=${locEmail} onChange=${e => setLocEmail(e.target.value)} placeholder="taller@ejemplo.com" />
+              </label>
+              <label class="login-field" style=${{ marginBottom: '8px' }}>
+                <span>Contraseña (mín. 10 car.)</span>
+                <input type="password" class="styled-input" required minlength="10" value=${locPass} onChange=${e => setLocPass(e.target.value)} placeholder="••••••••••" />
+              </label>
+              <button type="submit" class="tool-add-btn" style=${{ width: '100%' }} disabled=${locBusy}>
+                ${locBusy ? 'Verificando…' : (esAlta ? 'Crear cuenta local' : 'Entrar localmente')}
+              </button>
+            </form>
+          `}
+
+          ${msg && html`<div class="login-msg login-msg--warn" style=${{ marginTop: '10px' }}><span>${msg}</span></div>`}
 
           <p class="login-footer-note">
             Los datos de tu cuenta (inventario, clientes, órdenes, notas, caja) se guardan en la nube cifrada y se pueden exportar como respaldo cuando quieras.
@@ -1460,19 +1477,7 @@ function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  /* ══════════════════════════════════════════════════════════════════════
-     APERTURA DE MICRO APPS Y BOTÓN ATRÁS
-     ----------------------------------------------------------------------
-     Cada herramienta abierta deja una entrada en el historial (?app=id).
-     Sin esto, instalada en Android, el gesto de volver —el más usado del
-     sistema— CERRABA LA APLICACIÓN desde cualquiera de las 38 herramientas,
-     porque para el navegador nunca se había navegado a ningún sitio. Además
-     una consulta deja de ser irrepetible: el enlace de "Buscador DTC" se
-     puede mandar por WhatsApp y se recupera al recargar.
-
-     Se usa ?app= en la raíz y no /app/id porque el servidor no tiene ruta
-     comodín: /app/dtc daría 404 al recargar o al abrirlo desde el historial.
-     ══════════════════════════════════════════════════════════════════════ */
+  /* Apertura de micro apps (?app=id) y soporte para botón atrás */
   const rutaEscribir = (cambios, modo = 'push') => {
     const p = new URLSearchParams(location.search);
     for (const [k, v] of Object.entries(cambios)) { if (v) p.set(k, v); else p.delete(k); }
@@ -1482,9 +1487,6 @@ function App() {
     if (url === location.pathname + location.search) return;
     history[modo === 'push' ? 'pushState' : 'replaceState']({ ft: 1 }, '', url);
   };
-  /* Lo usa la Home de microapps.js para que cambiar de categoría también
-     cuente como un paso atrás. Tres niveles, como una app nativa:
-     inicio → categoría → herramienta. */
   window.FT_RUTA = {
     leer: () => {
       const p = new URLSearchParams(location.search);
@@ -1493,15 +1495,6 @@ function App() {
     escribir: rutaEscribir,
   };
 
-  /* El catálogo es la VISTA POR DEFECTO, no una herramienta con enlace propio.
-     Antes abrirlo dejaba `?app=search` en la barra de direcciones y recargar
-     volvía al catálogo en vez de al inicio. Por eso no se escribe `app` y se
-     limpia si estaba: la URL queda en "/" y el enlace que se comparte no
-     arrastra una vista. Se deja una entrada de historial con la MISMA dirección
-     para que el gesto de atrás de Android vuelva al inicio. El acceso directo
-     del manifest (?app=search) sigue abriendo el catálogo una vez; a partir de
-     ahí la URL queda limpia. Los demás ids ('dtc', 'diag'…) sí se enrutan:
-     su enlace se manda por WhatsApp y se recupera al recargar. */
   const abrirCatalogo = (silencioso) => {
     const limpia = location.pathname.startsWith('/vehiculo') ? '/' : location.pathname;
     const qs = new URLSearchParams(location.search);
@@ -1515,22 +1508,9 @@ function App() {
   // Manejador de apertura de micro app desde el dashboard
   const openMicro = (id, opciones = {}) => {
     const FT = window.FT_MICRO || {};
-    /* 'search' es el único caso especial: no es un componente de FT_MICRO sino
-       la vista del catálogo, que vive en este archivo. Los ids 'diag', 'calc',
-       'aid' y 'glossary' caen al registro de `apps` (abajo), que monta las
-       micro apps reales. */
     if (id === 'search') return abrirCatalogo(!!opciones.silencioso);
-    // micro apps del dashboard (componentes propios); las de negocio requieren sesión
     const apps = { dtc: 'DtcApp', torque: 'TorqueApp', spark: 'SparkApp', cross: 'CrossApp', convert: 'ConverterApp', vin: 'VinApp', pressure: 'PressureApp', regulator: 'RegulatorApp', orders: 'OrdersApp', inventory: 'InventoryApp', clients: 'ClientsApp', notes: 'NotesApp', cash: 'CashApp', forum: 'ForumApp', connect: 'ConnectApp', quickdiag: 'QuickDiagApp', documents: 'DocumentsApp', market: 'MarketApp', timing: 'TimingApp', fuses: 'FusesApp', tires: 'TireApp', inspection: 'InspectionApp', quote: 'QuoteApp', appointments: 'AppointmentsApp', maintenance: 'MaintenanceApp', trim: 'TrimApp', compression: 'CompressionApp', pinout: 'PinoutApp', labor: 'LaborApp', nostart: 'NoStartApp', battery: 'BatteryApp', profile: 'ProfileApp', perfilPublico: 'PublicProfileApp', guides: 'GuidesApp', diag: 'SymptomDiagApp', calc: 'CalcApp', aid: 'AidApp', glossary: 'GlossaryApp' };
-    /* Solo lo que guarda datos del negocio en la nube. Todo lo demás —incluidas
-       inspección, cotizador, agenda y mantenimiento, que persisten en el propio
-       navegador— entra sin cuenta. `pressure` está aquí porque su historial vive
-       en /api/diagnostics, que exige sesión. */
     const protectedIds = ['orders', 'inventory', 'clients', 'notes', 'cash', 'documents', 'pressure', 'profile'];
-    // Las apps de negocio sí exigen cuenta: en vez de tragarse el clic (el candado
-    // del Home explicaba el porqué pero el botón no hacía nada), lleva al login.
-    // No se recuerda cuál era: el acceso es con Google y el callback devuelve la
-    // página entera, así que al volver no hay estado que retomar.
     if (protectedIds.includes(id) && !user) { setShowLogin(true); return; }
     if (apps[id] && FT[apps[id]]) {
       if (!opciones.silencioso) rutaEscribir({ app: id });
@@ -1624,7 +1604,7 @@ function App() {
          `loginTab` es la pestaña («Iniciar sesión» o «Crear cuenta») con la que
          abre: la fija el aviso de vuelta cuando el botón pulsado no era el de
          esa puerta. */
-      if (showLogin) return html`<${LoginScreen} onBack=${() => setShowLogin(false)} notice=${verifyMsg} tabInicial=${loginTab} />`;
+      if (showLogin) return html`<${LoginScreen} onBack=${() => setShowLogin(false)} notice=${verifyMsg} tabInicial=${loginTab} onLoginSuccess=${() => { refreshUser(); setShowLogin(false); }} />`;
       return html`
         ${verifyMsg && html`<div class="toast-stack"><div class="toast" role="status">${verifyMsg}</div></div>`}
         <${FT.Home} onOpen=${openMicro} user=${user} onLogout=${logout} onLogin=${() => setShowLogin(true)} onUserChange=${refreshUser} />

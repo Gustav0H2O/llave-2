@@ -89,7 +89,7 @@ function montarBackup(app, deps) {
       document_items: [['document_id', 'num'], ['item_id', 'num'], ['descr', 'str', 200], ['qty', 'num'], ['unit_price', 'num'], ['line_total', 'num']],
       diagnostics: [['vehicle_id', 'num'], ['brand', 'str', 60], ['model', 'str', 80], ['year', 'int', 1900, 2100], ['measured_psi', 'num'], ['spec_min', 'num'], ['spec_max', 'num'], ['verdict', 'str', 20], ['reasons', 'str', 4000], ['notes', 'str', 500]],
       workshop_notes: [['text', 'str', 1000], ['vehicle_ref', 'str', 80]],
-      cash_moves: [['concept', 'str', 200], ['amount', 'num'], ['type', 'enum', ['ingreso', 'egreso'], 'ingreso']],
+      cash_moves: [['concept', 'str', 200], ['amount', 'num'], ['type', 'enum', ['ingreso', 'egreso'], 'ingreso'], ['method', 'enum', ['efectivo_usd', 'efectivo_bs', 'pago_movil', 'zelle'], 'efectivo_usd']],
     };
     const sanear = (tabla, row) => {
       const limpio = {};

@@ -21,7 +21,7 @@
    discrepando y el import aceptaría un estado que la API ya no conoce.
    ========================================================================= */
 const ORDER_TYPES = ['reparacion', 'servicio', 'garantia', 'promocion', 'otro'];
-const ORDER_STATUS = ['Pendiente', 'En proceso', 'Listo', 'Entregado', 'Cancelado'];
+const ORDER_STATUS = ['Recibido', 'En diagnóstico', 'Esperando repuesto', 'En proceso', 'Listo', 'Entregado', 'Cancelado', 'Pendiente'];
 
 function montarOrders(app, deps) {
   const { db, requireWorkshop, idDe, str, num, toInt, enRango, TOPE_QTY, TOPE_PRECIO, errorAccionable, enTransaccion, esDataUrlImagenPermitida } = deps;
@@ -117,7 +117,7 @@ function montarOrders(app, deps) {
     const order = await db.get('SELECT * FROM work_orders WHERE id=? AND workshop_id=?', [id, req.workshopId]);
     if (!order) return res.status(404).json({ error: 'No encontrado' });
     const items = await db.all('SELECT * FROM work_order_items WHERE order_id=? AND workshop_id=?', [id, req.workshopId]);
-    const photos = await db.all('SELECT id, caption, created_at FROM work_order_photos WHERE order_id=? AND workshop_id=?', [id, req.workshopId]);
+    const photos = await db.all('SELECT id, photo, caption, created_at FROM work_order_photos WHERE order_id=? AND workshop_id=?', [id, req.workshopId]);
     res.set('Cache-Control', 'no-store').json({ ...order, items, photos });
   });
 
@@ -234,9 +234,21 @@ function montarOrders(app, deps) {
     if (!status) return res.status(400).json({ error: 'Estado inválido' });
     const closed_at = status === 'Entregado' ? new Date().toISOString() : null;
     try {
-      const info = await db.run(`UPDATE work_orders SET status=?, closed_at=COALESCE(?, closed_at) WHERE id=? AND workshop_id=?`,
+      const order = await db.get('SELECT * FROM work_orders WHERE id=? AND workshop_id=?', [oid, req.workshopId]);
+      if (!order) return res.status(404).json({ error: 'No encontrado' });
+      await db.run(`UPDATE work_orders SET status=?, closed_at=COALESCE(?, closed_at) WHERE id=? AND workshop_id=?`,
         [status, closed_at, oid, req.workshopId]);
-      if (!info.changes) return res.status(404).json({ error: 'No encontrado' });
+      if (status === 'Entregado' && (req.body?.register_cash || req.body?.auto_cash || req.body?.payment_method)) {
+        const amt = Number(order.total) || 0;
+        if (amt > 0) {
+          const method = ['efectivo_usd', 'efectivo_bs', 'pago_movil', 'zelle'].includes(req.body?.method || req.body?.payment_method)
+            ? (req.body?.method || req.body?.payment_method) : 'efectivo_usd';
+          await db.insertReturningId(
+            'INSERT INTO cash_moves (workshop_id, concept, amount, type, method) VALUES (?, ?, ?, ?, ?)',
+            [req.workshopId, `Cobro orden #${oid}${order.title ? ' - ' + order.title : ''}`, amt, 'ingreso', method]
+          );
+        }
+      }
       res.json({ ok: true });
     } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo cambiar el estado') }); } /* 2.23 */
   });

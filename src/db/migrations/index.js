@@ -6,6 +6,7 @@ module.exports = {
     require('./001-esquema-base'),
     require('./002-columnas-negocio'),
     require('./003-estado-escalado'),
+    require('./004-cash-method'),
   ],
   stats: [
     require('./stats-001-esquema'),

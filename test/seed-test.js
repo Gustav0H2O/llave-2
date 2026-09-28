@@ -253,6 +253,7 @@ CREATE TABLE IF NOT EXISTS cash_moves (
   concept     TEXT NOT NULL,
   amount      REAL NOT NULL,
   type        TEXT NOT NULL,
+  method      TEXT DEFAULT 'efectivo_usd',
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_cash_ws ON cash_moves(workshop_id);
