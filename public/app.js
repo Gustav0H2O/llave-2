@@ -1799,10 +1799,22 @@ if ('serviceWorker' in navigator) {
   });
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then((reg) => { reg.update().catch(() => {}); })
+      .then((reg) => {
+        reg.update().catch(() => {});
+        /* Y cada 15 min: una pestaña que se queda abierta no vuelve a cargar la
+           página sola, y sin esto se perdía el despliegue hasta recargar. */
+        setInterval(() => { reg.update().catch(() => {}); }, 15 * 60 * 1000);
+      })
       .catch(() => {});
   });
 }
+
+/* Volver atrás o reentrar puede restaurar la página desde la bfcache del
+   navegador: el DOM queda viejo y la petición ni pasa por el worker. Si la
+   página se restaura así, se recarga una vez para que coja el código nuevo. */
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) location.reload();
+});
 
 /* Al salir se vacía el caché de CÓDIGO —el HTML, el JS y los datos de la app—,
    pero NO las librerías ni las imágenes, y NADA de localStorage: tus datos,

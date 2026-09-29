@@ -56,8 +56,12 @@
         movía con él) y el marco solo reserva alto si AdSense lo marca «filled».
     v26: migración completa a Tabler Icons (/vendor/tabler-icons.js).
     v27: el pie del catálogo deja una sola línea de contacto: el aviso de reportar
-        bugs se había quedado repetido junto al de desarrollo similar. */
-const CACHE = 'llave-v27';
+        bugs se había quedado repetido junto al de desarrollo similar.
+    v28: se suben las versiones de los assets del frontend (microapps.js,
+        microapps-taller.js, microapps-taller-2.js, app.js y taller.css) para
+        que el despliegue estrene URL nueva y ningún navegador se quede con la
+        copia anterior en la caché HTTP. */
+const CACHE = 'llave-v28';
 const SHELL = [
   '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js', '/microapps-taller-2.js', '/taller.css',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',
