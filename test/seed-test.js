@@ -336,7 +336,7 @@ function seedTestDb(db) {
   db.prepare(`INSERT INTO vehicles (id, brand_id, model, year_from, year_to, engine, body_type, injection_type_id, rail_pressure_psi_min, rail_pressure_psi_max, notes, data_verified)
     VALUES (4, 3, 'Sedán (Vocho)', 1993, 2003, '1.6L B4', 'sedan', 1, 32, 38, 'Bomba externa', 1)`).run();
   db.prepare(`INSERT INTO vehicles (id, brand_id, model, year_from, year_to, engine, body_type, injection_type_id, rail_pressure_psi_min, rail_pressure_psi_max, notes, data_verified)
-    VALUES (5, 2, 'Suburban Vortec', 1996, 1999, '5.7L V8 Vortec', 'suv', 3, 60, 66, '⚠ ESTIMADO — Vortec crítico, verificar contra manual', 0)`).run();
+    VALUES (5, 2, 'Suburban Vortec', 1996, 1999, '5.7L V8 Vortec', 'suv', 3, 60, 66, 'ESTIMADO — Vortec crítico, verificar contra manual', 0)`).run();
   db.prepare(`INSERT INTO vehicles (id, brand_id, model, year_from, year_to, engine, body_type, injection_type_id, rail_pressure_psi_min, rail_pressure_psi_max, notes, data_verified)
     VALUES (6, 3, 'Jetta TSI', 2016, 2021, '1.4L TSI', 'sedan', 4, 58, 87, 'GDI baja', 0)`).run();
 

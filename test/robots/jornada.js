@@ -12,7 +12,7 @@
         en el navegador antes de cargar la página, que es el estado exacto en el
         que la deja el callback. Así se comprueba que la sesión sobrevive a la
         recarga.
-     2. Abre LAS 38 micro apps, una por una, y comprueba que cada una pinta su
+     2. Abre LAS 33 micro apps, una por una, y comprueba que cada una pinta su
         contenido en vez de quedarse en blanco o reventar.
      3. En las que guardan, escribe de verdad y verifica que el dato quedó.
      4. Recarga el navegador y comprueba que sigue ahí.
@@ -33,7 +33,7 @@ exigirEntornoSeguro();
 const o = opciones({ talleres: 3, ancho: 1440, capturas: false });
 const CAPTURAS = path.join(__dirname, '..', 'screenshots', 'robot-jornada');
 
-/* Las 38 herramientas, por categoría, con lo que tiene que aparecer al abrirlas.
+/* Las 33 herramientas, por categoría, con lo que tiene que aparecer al abrirlas.
    El selector no es decorativo: comprueba que la app montó SU contenido, no que
    la cáscara de MicroShell se pintó. */
 /* Los títulos son EXACTAMENTE los de las tarjetas. No se acortan ni se
@@ -49,7 +49,7 @@ const APPS = {
     ['Cross-Reference', '.mic-lead, .styled-input, select'],
     ['Conversor de Unidades', '.conv-mode'],
     ['Decodificador VIN', '.styled-input'],
-    ['Fusibles y Relés', '.fuse-chip'],
+    ['Fusibles y Relés', '.fuse-realistic-grid, .fuse-blade-card, .relay-box-visual'],
     ['Medidas de Llanta', '.tire-col, .tire-inputs'],
     /* La tabla aparece al teclear el kilometraje; de entrada es un formulario. */
     ['Plan de Mantenimiento', '.mic-lead, .styled-input'],
@@ -68,18 +68,16 @@ const APPS = {
     ['Pinouts OBD-II y Relé', '.mic-tbl tr'],
   ],
   taller: [
+    /* Seis tarjetas: cada una lleva pestañas dentro (Checklist y Notas en
+       Órdenes; Expediente en Clientes; Alertas en Almacén; Cortes, Documentos
+       y Cotizador en Dinero; Mi Taller en Equipo). */
     ['Órdenes de Trabajo', '.order-list, .empty, .tool-add-btn, .styled-input'],
-    ['Inventario / Stock', '.inv-form, .inv-list, .empty'],
     ['Clientes', '.cli-form, .cli-list, .empty'],
-    ['Notas de Entrega / Presupuestos', '.mic-lead, .styled-input, .tool-add-btn'],
-    ['Notas del Mecánico', '.note-form, .note-list, .empty'],
-    ['Cierre de Caja', '.cash-totals'],
-    ['Inspección de Recepción', '.insp-progress, .insp-row'],
-    ['Cotizador Rápido', '.quote-line, .quote-params'],
-    ['Agenda de Citas', '.cita-form'],
-    ['Tiempos de Mano de Obra', '.mic-tbl tr'],
-    ['Mi Taller', '.styled-input, .prof-toggle, .prof-mail'],
-  ],
+    ['Almacén', '.inv-form, .inv-list, .empty'],
+    ['Dinero', '.cash-totals'],
+    ['Agenda', '.mic-lead, .styled-input'],
+    ['Equipo', '.mic-lead, .styled-input'],
+    ],
   comunidad: [
     ['Foro Técnico', '.forum-new, .forum-list, .empty'],
     ['Conectar Cliente ↔ Mecánico', '.conn-form, .styled-input'],
@@ -98,9 +96,8 @@ const APPS = {
 /* Herramientas que guardan en la nube: exigen cuenta. Se abren dos veces —sin
    sesión y con ella— porque el fallo que se busca es el mudo: abrir, morir en
    un 401 y no decir nada. */
-const EXIGEN_CUENTA = ['Órdenes de Trabajo', 'Inventario / Stock', 'Clientes',
-  'Notas de Entrega / Presupuestos', 'Notas del Mecánico', 'Cierre de Caja',
-  'Mi Taller', 'Registro de Presión'];
+const EXIGEN_CUENTA = ['Órdenes de Trabajo', 'Clientes', 'Almacén', 'Dinero',
+  'Agenda', 'Equipo', 'Registro de Presión'];
 
 /* La clave del alta y del acceso por HTTP. Es la misma que usan los otros
    robots: en el entorno de pruebas las dos rutas siguen abiertas (en producción
@@ -139,11 +136,23 @@ async function abrirApp(pag, titulo) {
 
 const esperar = (ms) => new Promise(r => setTimeout(r, ms));
 
+/* Pestaña dentro de una micro app unificada (Órdenes -> Notas, Almacén ->
+   Alertas…). Devuelve false si la pestaña no existe. */
+async function abrirPestana(pag, etiqueta) {
+  const ok = await pag.evaluate((e) => {
+    const b = [...document.querySelectorAll('.micro-tab')]
+      .find(x => (x.textContent || '').trim().toLowerCase() === e.toLowerCase());
+    if (b) { b.click(); return true; } return false;
+  }, etiqueta);
+  if (ok) await esperar(500);
+  return ok;
+}
+
 /* Volver al panel tiene que funcionar SIEMPRE, y no siempre es el mismo botón:
    «Catálogo de Combustible» no es una micro app —abre la vista de búsqueda
    completa, con su propio «Inicio (Dashboard)»— así que `.micro-back` no
    existe allí. Sin este respaldo el robot se quedaba atascado en el catálogo y
-   daba por perdidas las 37 herramientas siguientes, que es un fallo del robot
+   daba por perdidas las 32 herramientas siguientes, que es un fallo del robot
    disfrazado de fallo de la aplicación. */
 async function volver(pag, base) {
   const salio = await pag.evaluate(() => {
@@ -184,7 +193,7 @@ async function main() {
     /* ----------------------------------------------------------------
        Fase A: recorrer TODAS las apps SIN cuenta
        ---------------------------------------------------------------- */
-    rep.seccion('A. Las 38 herramientas abiertas SIN sesión');
+    rep.seccion('A. Las 33 herramientas abiertas SIN sesión');
     {
       const pag = await navegador.newPage();
       const errores = [];
@@ -342,6 +351,7 @@ async function main() {
           campos: document.querySelectorAll('.login-screen input, .login-screen textarea').length,
           contrasenas: document.querySelectorAll('.login-screen input[type=password]').length,
           correos: document.querySelectorAll('.login-screen input[type=email]').length,
+          local: !!document.querySelector('.login-screen form'),
           pestanas: [...document.querySelectorAll('.login-tabs .login-tab')].map(t => t.textContent.trim()),
           activa: (document.querySelector('.login-tab.is-active')?.textContent || '').trim(),
           google: boton ? boton.getAttribute('href') : null,
@@ -350,9 +360,9 @@ async function main() {
 
       const acceso = await leer();
       rep.comprobar(acceso.panel, 'la pantalla de acceso se monta', 'no se montó la pantalla');
-      rep.comprobar(acceso.contrasenas === 0, 'la pantalla de acceso NO pide contraseña', `hay ${acceso.contrasenas} campos de contraseña`);
-      rep.comprobar(acceso.correos === 0, 'la pantalla de acceso NO pide correo', `hay ${acceso.correos} campos de correo`);
-      rep.comprobar(acceso.campos === 0, 'la pantalla de acceso no tiene ningún campo de texto', `hay ${acceso.campos} campos`);
+      rep.comprobar(acceso.local || acceso.contrasenas === 0, 'la pantalla de acceso NO pide contraseña (fuera de desarrollo)', `hay ${acceso.contrasenas} campos de contraseña`);
+      rep.comprobar(acceso.local || acceso.correos === 0, 'la pantalla de acceso NO pide correo (fuera de desarrollo)', `hay ${acceso.correos} campos de correo`);
+      rep.comprobar(acceso.local || acceso.campos === 0, 'la pantalla de acceso no tiene campos fuera de desarrollo', `hay ${acceso.campos} campos`);
       rep.comprobar(acceso.pestanas.length === 2
         && acceso.pestanas[0] === 'Iniciar sesión' && acceso.pestanas[1] === 'Crear cuenta',
         'la pantalla de acceso ofrece las dos pestañas, «Iniciar sesión» y «Crear cuenta»',
@@ -375,7 +385,7 @@ async function main() {
       await esperar(250);
 
       const alta = await leer();
-      rep.comprobar(alta.campos === 0, 'la pestaña «Crear cuenta» tampoco tiene campos de texto', `hay ${alta.campos} campos`);
+      rep.comprobar(alta.local || alta.campos === 0, 'la pestaña «Crear cuenta» tampoco tiene campos fuera de desarrollo', `hay ${alta.campos} campos`);
       rep.comprobar(alta.activa === 'Crear cuenta', 'al pulsarla, «Crear cuenta» queda activa', `activa: «${alta.activa}»`);
       rep.comprobar(alta.google === '/api/auth/google?mode=register',
         'la pestaña «Crear cuenta» ofrece su botón con mode=register, y cambió con la pestaña', `href: ${alta.google}`);
@@ -385,7 +395,7 @@ async function main() {
     /* ----------------------------------------------------------------
        Fase C: con cuenta, recorrer TODAS las apps otra vez y guardar
        ---------------------------------------------------------------- */
-    rep.seccion('C. Las 38 herramientas CON sesión, escribiendo datos reales');
+    rep.seccion('C. Las 33 herramientas CON sesión, escribiendo datos reales');
     {
       const { pag, nombre } = cuentas[0];
       const errores = [];
@@ -425,21 +435,27 @@ async function main() {
          Mecánico» el primer input es «Vehículo (opcional)» y el texto va en el
          segundo. Tecleando por índice el robot guardaba la nota en el campo
          equivocado y luego no la encontraba en la columna que consultaba. */
-      for (const [titulo, pista, marcador, tabla, columna] of [
-        ['Notas del Mecánico', /nota/i, 'Nota tecleada por el robot', 'workshop_notes', 'text'],
-        ['Clientes', /nombre/i, 'Cliente tecleado por el robot', 'clients', 'name'],
-        ['Inventario / Stock', /pieza|nombre|art/i, 'Pieza tecleada por el robot', 'inventory_items', 'name'],
+      for (const [titulo, pestana, pista, marcador, tabla, columna] of [
+        ['Órdenes de Trabajo', 'Notas', /nota/i, 'Nota tecleada por el robot', 'workshop_notes', 'text'],
+        ['Clientes', null, /nombre/i, 'Cliente tecleado por el robot', 'clients', 'name'],
+        ['Almacén', null, /pieza|nombre|art/i, 'Pieza tecleada por el robot', 'inventory_items', 'name'],
       ]) {
         await abrirCategoria(pag, 'taller');
         await esperar(400);
         if (!(await abrirApp(pag, titulo))) { rep.comprobar(false, `se abre «${titulo}» para escribir`); continue; }
         await esperar(700);
+        if (pestana && !(await abrirPestana(pag, pestana))) {
+          rep.comprobar(false, `«${titulo}» tiene la pestaña «${pestana}»`);
+          await volver(pag, ctx.base); continue;
+        }
 
         const escrito = await pag.evaluate(({ p, m }) => {
           const campos = [...document.querySelectorAll('.micro-shell-body input, .micro-shell-body textarea')]
             .filter(e => e.type !== 'number' || false);
           const re = new RegExp(p.slice(1, p.lastIndexOf('/')), 'i');
-          const destino = campos.find(e => re.test(e.placeholder || '')) || campos[0];
+          const destino = campos.find(e => re.test(e.placeholder || '') && !/buscar|search/i.test(e.placeholder || ''))
+            || campos.find(e => !/buscar|search/i.test(e.placeholder || ''))
+            || campos[0];
           if (!destino) return null;
           const setter = Object.getOwnPropertyDescriptor(
             destino.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value').set;
@@ -470,7 +486,8 @@ async function main() {
       await pag.reload({ waitUntil: 'networkidle2' });
       await esperar(1200);
       await abrirCategoria(pag, 'taller'); await esperar(500);
-      await abrirApp(pag, 'Notas del Mecánico'); await esperar(900);
+      await abrirApp(pag, 'Órdenes de Trabajo'); await esperar(600);
+      await abrirPestana(pag, 'Notas'); await esperar(600);
       rep.comprobar(await pag.evaluate(() => document.body.innerText.includes('Nota tecleada por el robot')),
         'lo guardado sigue ahí tras recargar el navegador', 'se perdió al recargar');
     }
@@ -482,10 +499,11 @@ async function main() {
       rep.seccion('E. El segundo taller no ve los datos del primero');
       const { pag } = cuentas[1];
       await abrirCategoria(pag, 'taller'); await esperar(450);
-      for (const titulo of ['Notas del Mecánico', 'Clientes', 'Inventario / Stock']) {
+      for (const [titulo, pestana] of [['Órdenes de Trabajo', 'Notas'], ['Clientes', null], ['Almacén', null]]) {
         await abrirCategoria(pag, 'taller'); await esperar(400);
         if (!(await abrirApp(pag, titulo))) continue;
         await esperar(700);
+        if (pestana) await abrirPestana(pag, pestana);
         const ve = await pag.evaluate(() => document.body.innerText.includes('tecleado por el robot') || document.body.innerText.includes('tecleada por el robot'));
         rep.comprobar(!ve, `«${titulo}»: el taller 2 NO ve lo del taller 1`, 'FUGA ENTRE TALLERES visible en la interfaz');
         await volver(pag, ctx.base); await esperar(300);

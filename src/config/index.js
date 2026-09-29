@@ -88,7 +88,7 @@ function construirConfig(entorno = process.env) {
    al importar el módulo: así una prueba o una herramienta que solo lee la
    configuración no se cae por una variable que solo importa en el despliegue,
    y el error sale por el mismo camino que cualquier otro fallo de arranque
-   ("❌ Error fatal al arrancar el servidor"), que es donde el operador lo busca. */
+   ("× Error fatal al arrancar el servidor"), que es donde el operador lo busca. */
 function validarConfig(cfg) {
   if (cfg.PROD && !cfg.VISIT_SALT_FIJA) {
     throw new Error(

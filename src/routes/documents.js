@@ -291,7 +291,7 @@ function montarDocuments(app, deps) {
         .btn-print { background: #3F5132; color: #fff; border: 0; padding: 8px 16px; border-radius: 6px; font-weight: 700; cursor: pointer; }
         @media print { body { margin: 12px; } .no-print { display: none; } }
       </style></head><body>
-        <div class="no-print"><button type="button" class="btn-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button></div>
+        <div class="no-print"><button type="button" class="btn-print" onclick="window.print()">Imprimir / Guardar PDF</button></div>
         <div class="head">
           <div><h1>${escv(ws?.name || 'Taller')}</h1><div style="font-size:11px;color:#666">${ws?.doc_id ? 'ID: ' + escv(ws.doc_id) + ' · ' : ''}${ws?.address ? escv(ws.address) + ' · ' : ''}llave</div></div>
           <div class="num">${kindLabel}<br>${escv(doc.number)}</div>

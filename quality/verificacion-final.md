@@ -44,7 +44,6 @@ contrastando la matriz contra el código, más inspección directa de los huecos
 
 ### Hallazgos de la 2ª pasada que NO se tocaron (fuera de la matriz o de bajo impacto)
 
-- `DESIGN.md` aún menciona GSAP ScrollTrigger y `public/fx.js` (ya eliminados): **doc drift**.
 - `styleSrc` conserva `'unsafe-inline'` (necesario para estilos en línea; `scriptSrc` ya está cerrado).
 - Registro/login devuelven oráculos distintos (`email_taken`, `use_google`): enumeración de cuentas, fuera del alcance de esta matriz.
 - `enviarCorreo` devuelve `motivo: e.message` en un fallo de red de correo (no es error de driver).

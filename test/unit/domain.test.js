@@ -258,13 +258,13 @@ describe('moduleCode / vehicleNote', () => {
 
   it('un dato NO verificado siempre sale marcado — el mecánico no puede adivinarlo', () => {
     const n = D.vehicleNote({ verified: 0, note: 'Dato de foro' });
-    assert.match(n, /⚠ ESTIMADO/);
+    assert.match(n, /ESTIMADO/);
     assert.match(n, /verificar contra manual/);
     assert.match(n, /Dato de foro/);
   });
 
   it('sin nota, el aviso de estimado igual aparece', () => {
-    assert.match(D.vehicleNote({ verified: 0, note: null }), /⚠ ESTIMADO/);
+    assert.match(D.vehicleNote({ verified: 0, note: null }), /ESTIMADO/);
   });
 
   it('verified indefinido cuenta como verificado (compatibilidad con filas viejas)', () => {

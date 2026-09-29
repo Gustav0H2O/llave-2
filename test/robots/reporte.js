@@ -26,7 +26,7 @@ const ROBOTS = [
   ['fuzz', 'Entradas hostiles contra toda la API'],
   ['carga', 'Volumen, escalado, listados y concurrencia'],
   ['recorrido', 'Todas las páginas del sitio, SEO, enlaces y 404'],
-  ['jornada', 'Alta por formulario y las 38 herramientas, con navegador'],
+  ['jornada', 'Alta por formulario y las 33 herramientas, con navegador'],
   ['interfaz', 'Contraste, desbordes y objetivos táctiles en 2 temas × 3 anchos'],
 ];
 

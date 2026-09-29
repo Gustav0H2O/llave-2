@@ -738,7 +738,7 @@ $('notice_test_btn').addEventListener('click', async () => {
       msg.textContent = '✓ ¡Aviso de prueba enviado con éxito al Webhook!';
       msg.className = 'msg ok';
     } else {
-      msg.textContent = '⚠️ El servidor respondió con estado: ' + (d.result?.status || d.result?.error || 'Falló');
+      msg.textContent = 'El servidor respondió con estado: ' + (d.result?.status || d.result?.error || 'Falló');
       msg.className = 'msg err';
     }
   } catch (e) {

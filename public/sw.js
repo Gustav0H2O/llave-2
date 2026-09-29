@@ -59,7 +59,7 @@
         bugs se había quedado repetido junto al de desarrollo similar. */
 const CACHE = 'llave-v27';
 const SHELL = [
-  '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js', '/microapps-taller-2.js',
+  '/', '/app.js', '/three3d.js', '/datos.js', '/microapps.js', '/microapps-taller.js', '/microapps-taller-2.js', '/taller.css',
   '/media/error-401.webp', '/media/error-403.webp', '/media/error-404.webp',
   '/media/error-500.webp', '/media/error-503.webp',
   '/media/qr-binance.jpeg', '/media/qr-zinli.jpeg',

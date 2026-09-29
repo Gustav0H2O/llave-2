@@ -22,7 +22,7 @@ const ROBOTS = [
   { id: 'fuzz',        archivo: 'fuzz.js',        que: 'entradas hostiles contra toda la API' },
   { id: 'carga',       archivo: 'carga.js',       que: 'volumen, escalado y concurrencia' },
   { id: 'recorrido',   archivo: 'recorrido.js',   que: 'todas las páginas del sitio, SEO, enlaces y 404' },
-  { id: 'jornada',     archivo: 'jornada.js',     que: 'alta por formulario y las 38 herramientas' },
+  { id: 'jornada',     archivo: 'jornada.js',     que: 'alta por formulario y las 33 herramientas' },
   { id: 'interfaz',    archivo: 'interfaz.js',    que: 'navegador real, contraste y objetivos táctiles' },
   { id: 'persistencia', archivo: 'persistencia.js', que: 'supervivencia de cuentas y datos ante reinicios y migraciones' },
 ];

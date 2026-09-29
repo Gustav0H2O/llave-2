@@ -1,0 +1,51 @@
+/* ============================================================================
+   taller.css — la capa visual de la sección taller (pestañas y acciones).
+
+   Vive aparte de index.html a propósito: el CSS del sitio está contra su tope
+   de presupuesto y la sección taller es la que sigue creciendo. Aquí solo
+   entra lo que es del taller: la barra de pestañas de una micro app y los
+   botones de acción. Nada de .link-btn global: ese vive en index.html porque
+   lo usa todo el sitio.
+   ========================================================================= */
+
+/* Barra de pestañas dentro de una micro app (un armazón, varias vistas). */
+.micro-tabs {
+  display: flex; gap: 6px; overflow-x: auto; padding-bottom: 10px;
+  border-bottom: 1px solid var(--border); margin-bottom: 14px;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.micro-tabs::-webkit-scrollbar { display: none; }
+.micro-tab {
+  flex: 0 0 auto; min-height: 40px; padding: 8px 14px;
+  border: 1px solid var(--border); border-radius: var(--r-full, 999px);
+  background: var(--panel2, var(--panel)); color: var(--muted);
+  font: 600 13px var(--font); cursor: pointer; white-space: nowrap;
+  transition: background .14s, color .14s, border-color .14s;
+}
+.micro-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.micro-tab:active { transform: translateY(1px); }
+
+/* Una micro app anidada no repite el armazón: solo su cuerpo. */
+.micro-shell-nested { padding: 0; }
+
+/* Botones de acción de la sección taller (reemplazan a los enlaces de texto). */
+.accion-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px; padding: 10px 14px; border: 1px solid var(--border);
+  border-radius: var(--r, 8px); background: var(--panel2, var(--panel));
+  color: var(--ink); font: 600 13px var(--font); cursor: pointer;
+  transition: background .14s, border-color .14s;
+}
+.accion-btn.principal { background: var(--accent); border-color: var(--accent); color: #fff; }
+.accion-btn.peligro { color: var(--danger, #b91c1c); }
+.accion-btn:disabled { opacity: .5; cursor: not-allowed; }
+.accion-btn:active { transform: translateY(1px); }
+.fila-acciones { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* Tarjetas de la operación diaria (agenda, mecánicos, alertas, cortes). */
+.op-card {
+  border: 1px solid var(--border); border-radius: var(--r, 8px);
+  background: var(--panel2, var(--panel)); padding: 12px; margin-bottom: 8px;
+}
+.op-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.op-card-meta { color: var(--muted); font-size: 12px; }

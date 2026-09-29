@@ -22,7 +22,7 @@
  const { useState, useEffect } = React;
  const U = window.FT_MICRO_UTIL;
  if (!U) { console.error('microapps-taller-2.js: falta window.FT_MICRO_UTIL'); return; }
- const { html, uid, MicroShell, useStore, apiFetch, useApi, confirmDialog } = U;
+ const { html, ls, uid, MicroShell, useStore, apiFetch, useApi, confirmDialog } = U;
 
  /* ==================================================================
     Foro Técnico (mudado de microapps-taller.js)
@@ -147,6 +147,29 @@
   const [clients] = useApi('/api/clients');
   const [f, setF] = useState({ fecha: hoyISO(), hora: '09:00', client_id: '', servicio: '', notes: '' });
   const [err, setErr] = useState('');
+  /* Un viaje de ida: las citas que quedaron guardadas en ESTE navegador (la
+     agenda vieja) suben a la base la primera vez que se abre esta pantalla, y
+     la clave local se borra para no migrarlas dos veces. */
+  useEffect(() => {
+   const viejas = ls.get('ft_appointments', []);
+   if (!Array.isArray(viejas) || !viejas.length) return;
+   (async () => {
+    for (const c of viejas) {
+     const cuando = String(c.when || '');
+     if (!cuando) continue;
+     try {
+      await apiFetch('/api/appointments', { method: 'POST', body: JSON.stringify({
+       fecha: cuando.slice(0, 10), hora: cuando.slice(11, 16),
+       client_name: c.client || '', vehicle_ref: c.veh || '', servicio: c.job || '',
+       status: c.done ? 'atendida' : 'pendiente',
+      }) });
+     } catch (e) { /* una cita mala no puede frenar el resto */ }
+    }
+    try { localStorage.removeItem('ft_appointments'); } catch (e) {}
+    api.load();
+   })();
+   /* eslint-disable-next-line */
+  }, []);
   const crear = async () => {
    setErr('');
    if (!f.fecha) { setErr('Ponle fecha a la cita'); return; }
@@ -215,7 +238,7 @@
  const ESTADOS = [['pendiente', '—'], ['bueno', 'Bien'], ['regular', 'Reg'], ['malo', 'Mal'], ['no_aplica', 'N/A']];
  const COLOR_EST = { pendiente: 'var(--muted, #6b7280)', bueno: 'var(--ok, #15803d)', regular: 'var(--warn, #b45309)', malo: 'var(--bad, #b91c1c)', no_aplica: 'var(--muted, #6b7280)' };
 
- const InspApiApp = ({ onBack }) => {
+ const InspApiApp = ({ onBack, nested }) => {
   const [orders] = useApi('/api/orders');
   const [orderId, setOrderId] = useState('');
   const [insp, setInsp] = useState([]);
@@ -237,7 +260,7 @@
   };
   const setNotasLocal = (id, v) => setInsp(p => p.map(i => i.id === id ? { ...i, notes: v } : i));
   const orden = orders.find(o => o.id === Number(orderId));
-  return html`<${MicroShell} title="Checklist de la Orden" icon="ClipboardCheck" onBack=${onBack}>
+  return html`<${MicroShell} title="Checklist de la Orden" icon="ClipboardCheck" onBack=${onBack} nested=${nested}>
    <p class="mic-lead">La revisión de entrada y el control de calidad de salida, punto por punto. Toca cada renglón para marcarlo. Sin salida completa, la orden no se entrega.</p>
    <div class="panel p-3 mb-3">
     <select class="styled-input" value=${orderId} onChange=${e => setOrderId(e.target.value)} aria-label="Orden">
@@ -276,6 +299,10 @@
  const MECH_ROLES = [['mecanico', 'Mecánico'], ['ayudante', 'Ayudante'], ['administrador', 'Administrador']];
 
  const MechanicsApp = ({ onBack }) => {
+  /* Pestañas: una sola tarjeta en la sección taller. */
+  const [tab, setTab] = useState('principal');
+  const TABS = [{ id: 'principal', label: 'Mecánicos' }, { id: 'taller', label: 'Mi Taller' }];
+  const HIJOS = { taller: (window.FT_MICRO || {}).ProfileApp };
   const [lista, api] = useApi('/api/mechanics');
   const [f, setF] = useState({ id: null, name: '', phone: '', role: 'mecanico', active: true });
   const [err, setErr] = useState('');
@@ -295,7 +322,7 @@
    if (!ok) return;
    try { await apiFetch('/api/mechanics/' + m.id, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
   };
-  return html`<${MicroShell} title="Mecánicos" icon="Wrench" onBack=${onBack}>
+  return html`<${MicroShell} title="Mecánicos" icon="Wrench" onBack=${onBack} tabs=${TABS} tab=${tab} onTab=${setTab}>${tab === 'principal' ? html`
    <p class="mic-lead">La plantilla del taller y cuántas órdenes abiertas trae cada uno. Al asignar en la orden se elige de aquí, ya no se escribe el nombre a mano.</p>
    <div class="panel p-3 mb-3">
     <div class="grid2">
@@ -323,13 +350,13 @@
      <button type="button" class="link-btn" onClick=${() => borrar(m)}>borrar</button>
     </div>
    </div>`)}
-  </${MicroShell}>`;
+  ` : (HIJOS[tab] ? html`<${HIJOS[tab]} nested=${true} onBack=${onBack} />` : null)}</${MicroShell}>`;
  };
 
  /* ==================================================================
     Alertas de existencia: lo que hay que reponer, calculado en el servidor.
     ================================================================== */
- const AlertsApp = ({ onBack, onOpen }) => {
+ const AlertsApp = ({ onBack, onOpen, nested }) => {
   const [alertas, api] = useApi('/api/inventory/alerts');
   const [cuanto, setCuanto] = useState({});
   const [err, setErr] = useState('');
@@ -342,7 +369,7 @@
     api.load();
    } catch (e) { setErr(e.message); }
   };
-  return html`<${MicroShell} title="Alertas de Existencia" icon="Box" onBack=${onBack}>
+  return html`<${MicroShell} title="Alertas de Existencia" icon="Box" onBack=${onBack} nested=${nested}>
    <p class="mic-lead">Piezas en el mínimo o por debajo. La alerta se emite una sola vez por episodio y se rearma al reponer.</p>
    ${err && html`<div class="alert mb-2"><span>${err}</span></div>`}
    ${alertas.length === 0 ? html`<div class="empty">Todo por encima del mínimo. Nada que reponer.</div>` : alertas.map(a => html`<div class="panel p-3 mb-2" key=${a.id}>
@@ -363,7 +390,7 @@
  /* ==================================================================
     Cortes de caja: el arqueo del día, congelado en la base.
     ================================================================== */
- const ClosingsApp = ({ onBack }) => {
+ const ClosingsApp = ({ onBack, nested }) => {
   const [lista, api] = useApi('/api/cash/closings');
   const [conteo, setConteo] = useState('');
   const [notes, setNotes] = useState('');
@@ -378,7 +405,7 @@
   };
   const money = (n) => '$' + (Number(n) || 0).toFixed(2);
   const detalle = (c) => Object.entries(c.por_metodo || {}).map(([m, v]) => `${m}: +${money(v.ingresos)} / -${money(v.egresos)}`).join(' · ') || 'sin movimientos';
-  return html`<${MicroShell} title="Cortes de Caja" icon="Calculator" onBack=${onBack}>
+  return html`<${MicroShell} title="Cortes de Caja" icon="Calculator" onBack=${onBack} nested=${nested}>
    <p class="mic-lead">Cuenta el efectivo del día y ciérralo. El corte queda guardado con sus totales por método: lo de ayer no cambia aunque después se corrija un movimiento.</p>
    <div class="panel p-3 mb-3">
     <div class="grid2">
@@ -403,7 +430,7 @@
  /* ==================================================================
     Expediente del vehículo: todo lo que se le hizo, y sus datos editables.
     ================================================================== */
- const VehicleHistoryApp = ({ onBack }) => {
+ const VehicleHistoryApp = ({ onBack, nested }) => {
   const [clients, cApi] = useApi('/api/clients');
   const [clientId, setClientId] = useState(() => (window.FT_VEHICULO_CLIENTE || ''));
   const [vehicleId, setVehicleId] = useState(() => (window.FT_VEHICULO_ID || ''));
@@ -428,7 +455,7 @@
    } catch (e) { setErr(e.message); }
   };
   const money = (n) => '$' + (Number(n) || 0).toFixed(2);
-  return html`<${MicroShell} title="Expediente del Vehículo" icon="Car" onBack=${onBack}>
+  return html`<${MicroShell} title="Expediente del Vehículo" icon="Car" onBack=${onBack} nested=${nested}>
    <p class="mic-lead">Cliente → vehículo → todo lo que se le hizo: órdenes, documentos y total facturado. Es lo que se mira cuando preguntan «¿qué le cambiaron la última vez?».</p>
    <div class="panel p-3 mb-3">
     <div class="grid2">
@@ -487,7 +514,7 @@
     registro de trabajos por vehículo, que no caben en el archivo anterior
     sin romper su presupuesto.
     ================================================================== */
-  const NotesApp = ({ onBack }) => {
+  const NotesApp = ({ onBack, nested }) => {
   const [notes, api] = useApi('/api/notes');
   const [t, setT] = useState('');
   const [veh, setVeh] = useState('');
@@ -511,7 +538,7 @@
   const del = async (id) => {
    try { await apiFetch(`/api/notes/${id}`, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
   };
-  return html`<${MicroShell} title="Notas del Mecánico" icon="BookOpen" onBack=${onBack}><div class="note-form"><input type="text" class="styled-input" placeholder="Vehículo (opcional)" value=${veh} onChange=${e => setVeh(e.target.value)} class="w-56" /><input type="text" class="styled-input" placeholder="Nota rápida…" value=${t} onChange=${e => setT(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter') add(); }} /><button type="button" class="tool-add-btn" onClick=${add} disabled=${!t.trim()}>Guardar</button></div><div class="note-list">${notes.map(n => html`<div class="note-item" key=${n.id}><div class="note-veh">${n.vehicle_ref || 'General'} <button type="button" class="link-btn" onClick=${() => del(n.id)}>✕</button></div><p>${n.text}</p><span class="muted">${new Date(n.created_at).toLocaleString('es')}</span></div>`)}
+  return html`<${MicroShell} title="Notas del Mecánico" icon="BookOpen" onBack=${onBack} nested=${nested}><div class="note-form"><input type="text" class="styled-input" placeholder="Vehículo (opcional)" value=${veh} onChange=${e => setVeh(e.target.value)} class="w-56" /><input type="text" class="styled-input" placeholder="Nota rápida…" value=${t} onChange=${e => setT(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter') add(); }} /><button type="button" class="tool-add-btn" onClick=${add} disabled=${!t.trim()}>Guardar</button></div><div class="note-list">${notes.map(n => html`<div class="note-item" key=${n.id}><div class="note-veh">${n.vehicle_ref || 'General'} <button type="button" class="link-btn" onClick=${() => del(n.id)}>×</button></div><p>${n.text}</p><span class="muted">${new Date(n.created_at).toLocaleString('es')}</span></div>`)}
     ${notes.length === 0 && !api.loading && html`<div class="empty">Sin notas.</div>`}
    </div>
    <h3 class="mic-sub mt-4">Registro de trabajos (en este dispositivo)</h3>
@@ -520,7 +547,7 @@
     <input type="text" class="styled-input" placeholder="Trabajo hecho…" value=${jText} onChange=${e => setJText(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter') addJob(); }} />
     <button type="button" class="tool-add-btn" onClick=${addJob} disabled=${!jText.trim()}>Registrar</button></div>
    <div class="note-list">
-    ${Object.entries(jobs).map(([k, arr]) => arr && arr.length ? html`<div class="note-item" key=${k}><div class="note-veh">${k}</div>${arr.map((j, i) => html`<p key=${i}>${j.t} <button type="button" class="link-btn" onClick=${() => rmJob(k, i)} aria-label="Borrar trabajo">✕</button> <span class="muted">${new Date(j.ts).toLocaleDateString('es')}</span></p>`)}
+    ${Object.entries(jobs).map(([k, arr]) => arr && arr.length ? html`<div class="note-item" key=${k}><div class="note-veh">${k}</div>${arr.map((j, i) => html`<p key=${i}>${j.t} <button type="button" class="link-btn" onClick=${() => rmJob(k, i)} aria-label="Borrar trabajo">×</button> <span class="muted">${new Date(j.ts).toLocaleDateString('es')}</span></p>`)}
     </div>` : null)}
     ${!hayJobs && html`<div class="empty">Sin trabajos registrados.</div>`}
    </div>
@@ -535,13 +562,7 @@
  /* Tarjetas nuevas del inicio: se empujan en la MISMA lista que declara
     microapps.js (window.FT_MICRO_CATALOGO es una referencia a su APPS), así que
     no hay una segunda fuente de verdad ni hace falta tocar ese archivo. */
- const NUEVAS = [
-  { id: 'agenda', t: 'Agenda (servidor)', d: 'Citas guardadas en la base del taller', i: 'Calendar', g: 'taller', need: true, k: 'agenda cita citas calendario turno servidor recepcion' },
-  { id: 'inspapi', t: 'Checklist de la Orden', d: 'Entrada y salida punto por punto', i: 'ClipboardCheck', g: 'taller', need: true, k: 'checklist inspeccion entrada salida control calidad revision orden puntos' },
-  { id: 'mechanics', t: 'Mecánicos', d: 'Plantilla del taller y su carga', i: 'Wrench', g: 'taller', need: true, k: 'mecanico mecanicos personal plantilla ayudante asignar carga' },
-  { id: 'alerts', t: 'Alertas de Existencia', d: 'Lo que hay que reponer hoy', i: 'Box', g: 'taller', need: true, k: 'alerta alertas existencia minimo reponer stock bajo' },
-  { id: 'closings', t: 'Cortes de Caja', d: 'Arqueo del día, congelado', i: 'Calculator', g: 'taller', need: true, k: 'corte cortes caja arqueo cierre efectivo contado diferencia turno' },
-  { id: 'expediente', t: 'Expediente del Vehículo', d: 'Historial completo por vehículo', i: 'Car', g: 'taller', need: true, k: 'expediente historial vehiculo carro ordenes facturado cliente editar' },
- ];
- if (Array.isArray(window.FT_MICRO_CATALOGO)) window.FT_MICRO_CATALOGO.push(...NUEVAS);
+ /* Las tarjetas del taller viven en microapps.js (una sola lista). Aquí ya no
+    se empuja ninguna: la sección taller se redujo a seis tarjetas y las demás
+    funciones son pestañas dentro de ellas. */
 })();

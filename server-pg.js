@@ -448,7 +448,7 @@ if (require.main === module) {
 
       process.on('SIGTERM', () => { server.close(() => { process.exit(0); }); });
     } catch (err) {
-      console.error('❌ Error fatal al arrancar el servidor:', err);
+      console.error('× Error fatal al arrancar el servidor:', err);
       process.exit(1);
     }
   })();

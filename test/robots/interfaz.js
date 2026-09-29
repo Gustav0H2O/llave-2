@@ -6,7 +6,7 @@
    solo detecta mirando: contraste real (componiendo transparencias capa por
    capa), desbordes, scrolls anidados y objetivos táctiles.
 
-   Cubre las cinco categorías del menú y las 38 micro apps, en los DOS temas y
+   Cubre las cinco categorías del menú y las 33 micro apps, en los DOS temas y
    en tres anchos. Cada combinación es una pantalla que nadie revisa a mano
    cada vez que toca el CSS.
 

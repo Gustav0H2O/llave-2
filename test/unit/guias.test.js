@@ -16,7 +16,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { GUIDES } = require('../../lib/guias');
 
-/* El orden es editorial: va del síntoma a la pila puesta (DESIGN.md §0c), así
+/* El orden es editorial: va del síntoma a la pila puesta, así
    que se declara tal cual en vez de ordenarlo. Un guía nueva obliga a decidir
    dónde entra. */
 const SLUGS = [

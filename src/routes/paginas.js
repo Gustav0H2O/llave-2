@@ -246,7 +246,7 @@ function montarPaginas(app, deps) {
     }));
   });
 
-  /* La ruta de diagnóstico (DESIGN.md §0c) se arma en lib/ruta.js: es una
+  /* La ruta de diagnóstico se arma en lib/ruta.js: es una
      función pura de (guías) → HTML, se prueba sin levantar servidor, y deja
      el monolito con el margen de líneas que le quedaba. */
   const guideBody = (g) => paginaGuia(g, GUIDES, BRAND_LOCKUP);

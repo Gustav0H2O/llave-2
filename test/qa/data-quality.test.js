@@ -190,14 +190,14 @@ describe('Calidad de datos — pilas asignadas', () => {
 describe('Calidad de datos — cobertura y honestidad del catálogo', () => {
   it('los datos NO verificados salen marcados sin excepción', () => {
     for (const r of SEMBRADO.filter(x => x.verified === 0)) {
-      assert.match(r.nota || '', /⚠ ESTIMADO/,
+      assert.match(r.nota || '', /ESTIMADO/,
         `${etiqueta(r)}: es un dato estimado y no lleva el aviso. Un mecánico no puede distinguirlo de un dato de manual.`);
     }
   });
 
   it('los datos verificados NUNCA llevan el aviso de estimado', () => {
     for (const r of SEMBRADO.filter(x => x.verified === 1)) {
-      assert.equal(/⚠ ESTIMADO/.test(r.nota || ''), false, `${etiqueta(r)}: marcado como verificado pero avisa "ESTIMADO"`);
+      assert.equal(/ESTIMADO/.test(r.nota || ''), false, `${etiqueta(r)}: marcado como verificado pero avisa "ESTIMADO"`);
     }
   });
 

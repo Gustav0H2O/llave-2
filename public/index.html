@@ -620,8 +620,13 @@
   .result-count b { color: var(--accent); }
   .legend-est { cursor: help; }
   .link-btn {
-    background: none; border: none; padding: 0; margin: 0; font: inherit; color: var(--accent);
-    text-decoration: underline; cursor: pointer; touch-action: manipulation;
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    min-height: 40px; padding: 8px 12px; margin: 0; border: 1px solid var(--border);
+    border-radius: var(--r-sm, 6px); background: var(--panel2, var(--panel));
+    color: var(--accent); font: 600 12.5px var(--font); text-decoration: none;
+    touch-action: manipulation;
+    cursor: pointer;
+  
   }
   .legend-est .r-est { margin-left: 0; margin-right: 2px; }
   .result-row { display: flex; align-items: stretch; gap: 8px; }
@@ -752,7 +757,7 @@
   /* ---------- paneles ---------- */
   /* Sin box-shadow: `clip-path` recorta todo lo que sale de la caja, así que la
      sombra que había aquí no se pintaba en ningún navegador — era peso muerto
-     que además contradecía la regla escrita en DESIGN.md. Cuando un elemento
+     que además contradecía la regla de estilo del proyecto. Cuando un elemento
      biselado necesita sombra de verdad, se usa `filter: drop-shadow()`, que se
      aplica DESPUÉS del recorte y sí sigue la silueta (ver .privacy-notice). */
   .panel {
@@ -3533,7 +3538,7 @@
        etiqueta se partía en dos líneas y descuadraba los campos entre sí.
        Los de tarifas son números cortos y sí caben pareados. */
     .quote-params--ancho { grid-template-columns: 1fr; }
-    /* La línea de presupuesto envolvía dejando la ✕ sola en una fila. En dos
+    /* La línea de presupuesto envolvía dejando la × sola en una fila. En dos
        filas explícitas —qué es arriba, cuánto y borrar abajo— cada control
        cae donde se espera y el subtotal queda junto a su línea. */
     .quote-line {
@@ -3635,6 +3640,7 @@
   }
 
 </style>
+<link rel="stylesheet" href="/taller.css?v=1">
 
 </head>
 <body>

@@ -131,7 +131,7 @@ async function resumenCatalogo(db, cache = { valor: null }) {
   } catch (e) {
     /* Igual que hacía el volcado antiguo: sin catálogo el chat sigue, pero se
        deja dicho en el log por qué el asistente responde más genericamente. */
-    console.error('❌ Chat: no se pudo resumir el catálogo (¿base vacía o sin inicializar?):', e?.message || e);
+    console.error('× Chat: no se pudo resumir el catálogo (¿base vacía o sin inicializar?):', e?.message || e);
     return 'El resumen del catálogo no está disponible en este arranque.';
   }
   return cache.valor;

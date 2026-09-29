@@ -10,6 +10,10 @@
  const WORKFLOW_STEPS = ORDER_STATUS.slice(0, 5);
  const stepIdxOf = (st) => st === 'Pendiente' ? 0 : st === 'En proceso' ? 2 : Math.max(0, WORKFLOW_STEPS.indexOf(st));
  const OrdersApp = ({ onBack }) => {
+  /* Pestañas: una sola tarjeta en la sección taller. */
+  const [tab, setTab] = useState('principal');
+  const TABS = [{ id: 'principal', label: 'Trabajos' }, { id: 'checklist', label: 'Checklist' }, { id: 'mano_obra', label: 'Mano de obra' }, { id: 'notas', label: 'Notas' }];
+  const HIJOS = { checklist: (window.FT_MICRO || {}).InspApiApp, mano_obra: (window.FT_MICRO || {}).LaborApp, notas: (window.FT_MICRO || {}).NotesApp };
   const [orders, api] = useApi('/api/orders');
   const [clients, clientsApi] = useApi('/api/clients');
   const [inventory, invApi] = useApi('/api/inventory');
@@ -39,7 +43,7 @@
   const save = async () => {
    if (!f.title.trim()) return;
    const recP = [];
-   if (f.service_type) recP.push(`Mant: ${f.service_type === 'preventivo' ? '🛡️ Preventivo' : '🛠️ Correctivo'}`);
+   if (f.service_type) recP.push(`Mant: ${f.service_type === 'preventivo' ? 'Preventivo' : 'Correctivo'}`);
    if (f.odometer) recP.push(`Km: ${Number(f.odometer).toLocaleString()}`);
    if (f.fuel_level) recP.push(`Gas: ${f.fuel_level}`);
    if (f.assigned_mechanic?.trim()) recP.push(`Mecánico: ${f.assigned_mechanic.trim()}`);
@@ -73,8 +77,8 @@
    if (!newItem.descr.trim() || !newItem.qty) return;
    const inv = inventory.find(i => i.id === Number(newItem.item_id));
    const isLabor = newItem.item_type === 'labor';
-   const prefix = isLabor ? '🔧 ' : '📦 ';
-   const descr = newItem.descr.startsWith('🔧') || newItem.descr.startsWith('📦') ? newItem.descr : prefix + newItem.descr.trim();
+   const prefix = '';
+   const descr = newItem.descr.trim();
    try {
     await apiFetch('/api/orders/' + oid + '/items', {
      method: 'POST',
@@ -139,7 +143,7 @@
     if (mKm) setF(p => ({ ...p, vehicle_id: vid, odometer: mKm[0].replace(/[^\d]/g, '') }));
    }
   };
-  return html`<${MicroShell} title="Órdenes de Trabajo" icon="ClipboardCheck" onBack=${onBack}><div class="order-stats"><span>Recibidas: <strong>${(counts['Recibido'] || 0) + (counts['Pendiente'] || 0)}</strong></span><span class="st-amber">Diagnóstico: <strong>${counts['En diagnóstico'] || 0}</strong></span><span class="st-accent">Listas: <strong>${counts['Listo'] || 0}</strong></span></div>${api.err && html`<div class="alert"><span>${api.err}</span></div>`}
+  return html`<${MicroShell} title="Órdenes de Trabajo" icon="ClipboardCheck" onBack=${onBack} tabs=${TABS} tab=${tab} onTab=${setTab}>${tab === 'principal' ? html`<div class="order-stats"><span>Recibidas: <strong>${(counts['Recibido'] || 0) + (counts['Pendiente'] || 0)}</strong></span><span class="st-amber">Diagnóstico: <strong>${counts['En diagnóstico'] || 0}</strong></span><span class="st-accent">Listas: <strong>${counts['Listo'] || 0}</strong></span></div>${api.err && html`<div class="alert"><span>${api.err}</span></div>`}
    <button type="button" class="tool-add-btn taller-touch-btn mb-3 mt-2" onClick=${() => setShow(!show)}>${show ? 'Cancelar' : '+ Nueva orden de trabajo'}</button>
    ${show && html`<div class="panel p-3 mb-3"><div class="grid2"><select class="styled-input" value=${f.client_id} onChange=${e => setF({ ...f, client_id: e.target.value, vehicle_id: '' })}><option value="">Seleccionar cliente…</option>${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
      </select>
@@ -152,8 +156,8 @@
      <div class="f-between flex-wrap gap-2">
       <strong class="text-xs font-bold text-accent f-row"><${CatIc} n="ClipboardCheck" s=${13} /> Ficha de Recepción e Inspección</strong>
       <div class="unit-switcher">
-       <button type="button" class=${'unit-switcher-btn' + (f.service_type === 'correctivo' ? ' active' : '')} onClick=${() => setF({ ...f, service_type: 'correctivo', type: 'reparacion' })}>🛠️ Correctivo</button>
-       <button type="button" class=${'unit-switcher-btn' + (f.service_type === 'preventivo' ? ' active' : '')} onClick=${() => setF({ ...f, service_type: 'preventivo', type: 'servicio' })}>🛡️ Preventivo</button>
+       <button type="button" class=${'unit-switcher-btn' + (f.service_type === 'correctivo' ? ' active' : '')} onClick=${() => setF({ ...f, service_type: 'correctivo', type: 'reparacion' })}>Correctivo</button>
+       <button type="button" class=${'unit-switcher-btn' + (f.service_type === 'preventivo' ? ' active' : '')} onClick=${() => setF({ ...f, service_type: 'preventivo', type: 'servicio' })}>Preventivo</button>
       </div>
      </div>
      <div class="f-row gap-2 my-2 flex-wrap">
@@ -202,8 +206,8 @@
         <strong class="text-xs f-row text-accent"><${CatIc} n="ClipboardCheck" s=${14} /> Ficha de Recepción e Inspección</strong>
         ${rData.rec && html`<div class="f-row gap-1 flex-wrap">${rData.rec.split(' · ').map((p, idx) => html`<span key=${idx} class="rec-chip">${p}</span>`)}</div>`}
        </div>
-       ${rData.damage && html`<div class="mt-1 text-xs st-amber">⚠️ <strong>Daños previos:</strong> ${rData.damage}</div>`}
-       ${rData.cabin && html`<div class="mt-1 text-xs muted">📦 <strong>Cabina:</strong> ${rData.cabin}</div>`}
+       ${rData.damage && html`<div class="mt-1 text-xs st-amber"><strong>Daños previos:</strong> ${rData.damage}</div>`}
+       ${rData.cabin && html`<div class="mt-1 text-xs muted"><strong>Cabina:</strong> ${rData.cabin}</div>`}
       </div>`}
       ${rData.descr && html`<p class="order-desc mb-2 text-sm muted">${rData.descr}</p>`}
       <div class="order-photos-section">
@@ -223,7 +227,7 @@
       ${(od.photos || []).map(p => {
       const isAntes = (p.caption || '').toLowerCase().includes('antes');
       const isDesp = (p.caption || '').toLowerCase().includes('despu');
-      return html`<div class="photo-thumb-card" key=${p.id} onClick=${() => setLightbox({ ...p, oid: o.id })}><img src=${p.photo} alt="Evidencia" class="photo-thumb-img" /><span class=${'photo-thumb-badge ' + (isAntes ? 'antes' : isDesp ? 'despues' : 'dano')}>${isAntes ? 'Antes' : isDesp ? 'Después' : 'Pieza'}</span><button type="button" class="photo-del-btn" title="Eliminar foto" onClick=${(e) => { e.stopPropagation(); delPhoto(o.id, p.id); }}>✕</button></div>`;
+      return html`<div class="photo-thumb-card" key=${p.id} onClick=${() => setLightbox({ ...p, oid: o.id })}><img src=${p.photo} alt="Evidencia" class="photo-thumb-img" /><span class=${'photo-thumb-badge ' + (isAntes ? 'antes' : isDesp ? 'despues' : 'dano')}>${isAntes ? 'Antes' : isDesp ? 'Después' : 'Pieza'}</span><button type="button" class="photo-del-btn" title="Eliminar foto" onClick=${(e) => { e.stopPropagation(); delPhoto(o.id, p.id); }}>×</button></div>`;
       })}
       ${!(od.photos && od.photos.length) ? html`<div class="muted text-xs p-1">Sin fotos adjuntas. Registra el estado antes y después.</div>` : ''}
       </div></div>
@@ -231,14 +235,14 @@
       <div class="f-between mb-2">
        <strong class="text-sm f-row"><${CatIc} n="Wrench" s=${14} /> Partidas y Desglose</strong>
        <div class="unit-switcher">
-        <button type="button" class=${'unit-switcher-btn' + (newItem.item_type !== 'labor' ? ' active' : '')} onClick=${() => setNewItem({ item_id: '', item_type: 'part', descr: '', qty: '1', unit_price: '' })}>📦 Repuesto</button>
-        <button type="button" class=${'unit-switcher-btn' + (newItem.item_type === 'labor' ? ' active' : '')} onClick=${() => setNewItem({ item_id: '', item_type: 'labor', descr: '', qty: '1', unit_price: '' })}>🔧 Mano de Obra</button>
+        <button type="button" class=${'unit-switcher-btn' + (newItem.item_type !== 'labor' ? ' active' : '')} onClick=${() => setNewItem({ item_id: '', item_type: 'part', descr: '', qty: '1', unit_price: '' })}>Repuesto</button>
+        <button type="button" class=${'unit-switcher-btn' + (newItem.item_type === 'labor' ? ' active' : '')} onClick=${() => setNewItem({ item_id: '', item_type: 'labor', descr: '', qty: '1', unit_price: '' })}>Mano de Obra</button>
        </div>
       </div>
       <div class="f-col my-2">
       ${(od.items || []).map(i => {
-       const isPart = (i.item_type ? i.item_type === 'part' : (!!i.item_id || (i.descr || '').startsWith('📦')));
-       const cleanName = (i.descr || '').replace(/^[📦🔧]\s*/, '');
+       const isPart = i.item_type ? i.item_type === 'part' : !!i.item_id;
+       const cleanName = (i.descr || '').replace(/^[\u{1F4E6}\u{1F527}]\s*/u, '');
        return html`<div key=${i.id} class="f-between p-2 rounded text-sm bg-panel2 mb-1">
         ${editItem && editItem.iid === i.id ? html`<div class="f-row gap-2 w-full">
          <input type="number" class="styled-input" style=${{ width: '70px' }} value=${editItem.qty} onChange=${e => setEditItem({ ...editItem, qty: e.target.value })} aria-label="Cantidad" />
@@ -247,10 +251,10 @@
          <button type="button" class="link-btn" onClick=${() => saveItem(o.id)}>guardar</button>
          <button type="button" class="link-btn" onClick=${() => setEditItem(null)}>cancelar</button>
         </div>` : html`<div class="f-row gap-2">
-         <span class=${'part-badge ' + (isPart ? 'repuesto' : 'mano-obra')}>${isPart ? '📦 Repuesto' : '🔧 Mano de Obra'}</span>
+         <span class=${'part-badge ' + (isPart ? 'repuesto' : 'mano-obra')}>${isPart ? 'Repuesto' : 'Mano de Obra'}</span>
          <span>${cleanName} <span class="muted text-xs">× ${i.qty} · $${Number(i.unit_price).toFixed(2)}</span></span>
         </div>
-        <span class="tabular font-bold">$${Number(i.line_total).toFixed(2)} <button type="button" class="link-btn ml-2" onClick=${() => setEditItem({ oid: o.id, iid: i.id, qty: i.qty, unit_price: i.unit_price })}>editar</button> <button type="button" class="link-btn ml-2" onClick=${() => delItem(o.id, i.id)}>✕</button></span>`}
+        <span class="tabular font-bold">$${Number(i.line_total).toFixed(2)} <button type="button" class="link-btn ml-2" onClick=${() => setEditItem({ oid: o.id, iid: i.id, qty: i.qty, unit_price: i.unit_price })}>editar</button> <button type="button" class="link-btn ml-2" onClick=${() => delItem(o.id, i.id)}>×</button></span>`}
        </div>`;
       })}
       ${!(od.items && od.items.length) ? html`<div class="muted text-xs">Sin partidas añadidas a la orden.</div>` : ''}
@@ -274,10 +278,10 @@
       `}
       <button type="button" class="tool-add-btn taller-touch-btn mt-2 w-full" onClick=${() => addItem(o.id)} disabled=${!newItem.descr.trim()}>+ Agregar ${newItem.item_type === 'labor' ? 'mano de obra' : 'partida'}</button></div>
       <div class="f-row mt-3 flex-wrap gap-2">
-      <button type="button" class="home-cta-ghost taller-touch-btn" onClick=${() => window.open('/api/orders/' + o.id + '/print', '_blank')}>🖨 Imprimir Orden</button>
-      <button type="button" class="home-cta-ghost taller-touch-btn" onClick=${() => makeDoc(o.id, 'recepcion')}>📋 Hoja Recepción</button>
-      <button type="button" class="home-cta-ghost taller-touch-btn" onClick=${() => makeDoc(o.id, 'entrega')}>📦 Nota de entrega</button>
-      <button type="button" class="home-cta-ghost taller-touch-btn" onClick=${() => makeDoc(o.id, 'presupuesto')}>🧾 Presupuesto</button></div></div>`}
+      <button type="button" class="home-cta-ghost taller-touch-btn" onClick=${() => window.open('/api/orders/' + o.id + '/print', '_blank')}>Imprimir Orden</button>
+      <button type="button" class="home-cta-ghost taller-touch-btn" onClick=${() => makeDoc(o.id, 'recepcion')}>Hoja Recepción</button>
+      <button type="button" class="home-cta-ghost taller-touch-btn" onClick=${() => makeDoc(o.id, 'entrega')}>Nota de entrega</button>
+      <button type="button" class="home-cta-ghost taller-touch-btn" onClick=${() => makeDoc(o.id, 'presupuesto')}>Presupuesto</button></div></div>`}
       <div class="order-foot-bar">
       <select class="order-status-select" value=${o.status} onChange=${e => setStatus(o.id, e.target.value)}>
       ${ORDER_STATUS.map(s => html`<option key=${s} value=${s}>${s}</option>`)}
@@ -289,10 +293,14 @@
     })}
     ${orders.length === 0 && !api.loading && html`<div class="empty">Sin órdenes de trabajo registradas.</div>`}
    </div>
-   ${lightbox && html`<div class="photo-lightbox-backdrop" onClick=${() => setLightbox(null)}><div class="photo-lightbox-modal" onClick=${e => e.stopPropagation()}><div class="photo-lightbox-top"><strong class="text-sm f-row"><${CatIc} n="Camera" s=${14} /> ${lightbox.caption || 'Evidencia fotográfica'}</strong><button type="button" class="link-btn text-white p-1 text-lg" onClick=${() => setLightbox(null)}>✕</button></div><div class="photo-lightbox-img-wrap"><img src=${lightbox.photo} alt="Evidencia" class="photo-lightbox-img" /></div><div class="photo-lightbox-info f-between"><span>${lightbox.caption} · <span class="muted">${new Date(lightbox.created_at).toLocaleDateString('es')}</span></span><button type="button" class="link-btn st-danger" onClick=${() => delPhoto(lightbox.oid, lightbox.id)}>Eliminar foto</button></div></div></div>`}
-  </${MicroShell}>`;
+   ${lightbox && html`<div class="photo-lightbox-backdrop" onClick=${() => setLightbox(null)}><div class="photo-lightbox-modal" onClick=${e => e.stopPropagation()}><div class="photo-lightbox-top"><strong class="text-sm f-row"><${CatIc} n="Camera" s=${14} /> ${lightbox.caption || 'Evidencia fotográfica'}</strong><button type="button" class="link-btn text-white p-1 text-lg" onClick=${() => setLightbox(null)}>×</button></div><div class="photo-lightbox-img-wrap"><img src=${lightbox.photo} alt="Evidencia" class="photo-lightbox-img" /></div><div class="photo-lightbox-info f-between"><span>${lightbox.caption} · <span class="muted">${new Date(lightbox.created_at).toLocaleDateString('es')}</span></span><button type="button" class="link-btn st-danger" onClick=${() => delPhoto(lightbox.oid, lightbox.id)}>Eliminar foto</button></div></div></div>`}
+  ` : (HIJOS[tab] ? html`<${HIJOS[tab]} nested=${true} onBack=${onBack} />` : null)}</${MicroShell}>`;
  };
   const InventoryApp = ({ onBack, onOpen }) => {
+  /* Pestañas: una sola tarjeta en la sección taller. */
+  const [tab, setTab] = useState('principal');
+  const TABS = [{ id: 'principal', label: 'Inventario' }, { id: 'alertas', label: 'Alertas' }];
+  const HIJOS = { alertas: (window.FT_MICRO || {}).AlertsApp };
   const [items, api] = useApi('/api/inventory');
   const [moves, movesApi] = useApi('/api/inventory/moves');
   const [f, setF] = useState({ name: '', sku: '', category: '', qty: '', min: '', price: '', cost: '', notes: '' });
@@ -344,7 +352,7 @@
    }
    return true;
   });
-  return html`<${MicroShell} title="Inventario / Stock" icon="Box" onBack=${onBack}><div class="f-between mb-2"><div class="tabs-bar f-row"><button type="button" class=${'filter-chip ' + (filterTab === 'all' ? 'active' : '')} onClick=${() => setFilterTab('all')}>Todos (${items.length})</button><button type="button" class=${'filter-chip ' + (filterTab === 'low' ? 'active' : '')} onClick=${() => setFilterTab('low')}>Bajo stock (${lowCount})</button><button type="button" class=${'filter-chip ' + (filterTab === 'out' ? 'active' : '')} onClick=${() => setFilterTab('out')}>Agotados (${outCount})</button></div><button type="button" class="link-btn" onClick=${exportCsv}>⬇ CSV</button>${onOpen && html`<button type="button" class="link-btn ml-2" onClick=${() => onOpen('alerts')}>🔔 Alertas</button>`}</div><input type="text" class="styled-input mb-3" placeholder="🔍 Buscar pieza, código o categoría…" value=${search} onChange=${e => setSearch(e.target.value)} />${lowCount > 0 && filterTab === 'all' && html`<div class="alert mb-3"><strong class="st-amber">${lowCount} pieza(s) con stock crítico bajo el mínimo.</strong></div>`}
+  return html`<${MicroShell} title="Inventario / Stock" icon="Box" onBack=${onBack} tabs=${TABS} tab=${tab} onTab=${setTab}>${tab === 'principal' ? html`<div class="f-between mb-2"><div class="tabs-bar f-row"><button type="button" class=${'filter-chip ' + (filterTab === 'all' ? 'active' : '')} onClick=${() => setFilterTab('all')}>Todos (${items.length})</button><button type="button" class=${'filter-chip ' + (filterTab === 'low' ? 'active' : '')} onClick=${() => setFilterTab('low')}>Bajo stock (${lowCount})</button><button type="button" class=${'filter-chip ' + (filterTab === 'out' ? 'active' : '')} onClick=${() => setFilterTab('out')}>Agotados (${outCount})</button></div><button type="button" class="link-btn" onClick=${exportCsv}>⬇ CSV</button></div><input type="text" class="styled-input mb-3" placeholder="Buscar pieza, código o categoría…" value=${search} onChange=${e => setSearch(e.target.value)} />${lowCount > 0 && filterTab === 'all' && html`<div class="alert mb-3"><strong class="st-amber">${lowCount} pieza(s) con stock crítico bajo el mínimo.</strong></div>`}
    <div class="inv-form panel p-3 mb-3">
     <div class="grid2">
      ${[['name','Nombre pieza (ej. Pila)'],['sku','SKU / Código']].map(([k,p]) => html`<input type="text" class="styled-input" placeholder=${p} value=${f[k]} onChange=${e => setF({ ...f, [k]: e.target.value })} />`)}
@@ -381,7 +389,7 @@
       <div class="f-col gap-1">
       <button type="button" class="link-btn" onClick=${() => edit(i)}>editar</button>
       <button type="button" class="link-btn" onClick=${() => { setMoveFor(i.id); setMove({ delta: '', kind: 'entrada', note: '' }); }}>ajuste</button>
-      <button type="button" class="link-btn st-danger" onClick=${() => del(i.id)}>✕</button></div></div>
+      <button type="button" class="link-btn st-danger" onClick=${() => del(i.id)}>×</button></div></div>
      </div>`;
     })}
     ${filtered.length === 0 && !api.loading && html`<div class="empty">No se encontraron piezas en inventario.</div>`}
@@ -393,9 +401,13 @@
       <span class="pres-ts">${new Date(m.created_at).toLocaleString('es')}${m.note ? ' · ' + m.note : ''}</span></div>`)}
     </div>
    </details>`}
-  </${MicroShell}>`;
+  ` : (HIJOS[tab] ? html`<${HIJOS[tab]} nested=${true} onBack=${onBack} />` : null)}</${MicroShell}>`;
  };
   const ClientsApp = ({ onBack, onOpen }) => {
+  /* Pestañas: una sola tarjeta en la sección taller. */
+  const [vista, setVista] = useState('principal');
+  const TABS = [{ id: 'principal', label: 'Clientes' }, { id: 'expediente', label: 'Expediente' }];
+  const HIJOS = { expediente: (window.FT_MICRO || {}).VehicleHistoryApp };
   const [tab, setTab] = useState('clients');
   const [clients, api] = useApi('/api/clients');
   const [suppliers, supApi] = useApi('/api/suppliers');
@@ -465,10 +477,10 @@
     setVehicles(v => ({ ...v, [cid]: (v[cid] || []).filter(x => x.id !== vid) }));
    } catch (e) { alert(e.message); }
   };
-  return html`<${MicroShell} title="Cartera: Clientes y Proveedores" icon="Car" onBack=${onBack}>
+  return html`<${MicroShell} title="Cartera: Clientes y Proveedores" icon="Car" onBack=${onBack} tabs=${TABS} tab=${vista} onTab=${setVista}>${vista === 'principal' ? html`
    <div class="tabs-bar f-row mb-3">
-    <button type="button" class=${'filter-chip ' + (tab === 'clients' ? 'active' : '')} onClick=${() => setTab('clients')}>👥 Clientes (${clients.length})</button>
-    <button type="button" class=${'filter-chip ' + (tab === 'suppliers' ? 'active' : '')} onClick=${() => setTab('suppliers')}>🏭 Proveedores (${suppliers.length})</button>
+    <button type="button" class=${'filter-chip ' + (tab === 'clients' ? 'active' : '')} onClick=${() => setTab('clients')}>Clientes (${clients.length})</button>
+    <button type="button" class=${'filter-chip ' + (tab === 'suppliers' ? 'active' : '')} onClick=${() => setTab('suppliers')}>Proveedores (${suppliers.length})</button>
    </div>
    ${tab === 'clients' ? html`
     <div class="cli-form grid2">
@@ -484,7 +496,7 @@
        <div class="f-row gap-2">
         ${telValido(c.phone) && html`<button type="button" class="cli-wa" onClick=${() => enviarWhatsApp(c.phone, `Hola ${c.name}, le escribimos del taller.`)}>WhatsApp</button>`}
         <button type="button" class="link-btn" onClick=${() => edit(c)}>editar</button>
-        <button type="button" class="link-btn st-danger" onClick=${() => del(c.id)}>✕</button>
+        <button type="button" class="link-btn st-danger" onClick=${() => del(c.id)}>×</button>
        </div>
       </div>
       <div class="muted text-xs">${[c.phone, c.city, c.email].filter(Boolean).join(' · ')}</div>
@@ -496,10 +508,10 @@
          ${v.plate && html`<span class="order-veh-plate ml-2">${v.plate}</span>`}
          <div class="muted text-xs mt-1 f-row gap-2 flex-wrap">
           ${v.vin && html`<span class="rec-chip font-mono">VIN: ${v.vin}</span>`}
-          ${v.notes && html`<span class="rec-chip">📟 ${v.notes}</span>`}
+          ${v.notes && html`<span class="rec-chip">${v.notes}</span>`}
          </div>
         </div>
-        <button type="button" class="link-btn" onClick=${() => { window.FT_VEHICULO_CLIENTE = c.id; window.FT_VEHICULO_ID = v.id; if (onOpen) onOpen('expediente'); }}>expediente</button> <button type="button" class="link-btn st-danger" onClick=${() => delVehicle(c.id, v.id)}>✕</button></div>`)}
+        <button type="button" class="link-btn" onClick=${() => { window.FT_VEHICULO_CLIENTE = c.id; window.FT_VEHICULO_ID = v.id; if (onOpen) onOpen('expediente'); }}>expediente</button> <button type="button" class="link-btn st-danger" onClick=${() => delVehicle(c.id, v.id)}>×</button></div>`)}
        <div class="grid2 mt-2 f-row">
         <input type="text" class="styled-input" placeholder="Marca (ej. Toyota)" value=${vf.brand} onChange=${e => setVf({ ...vf, brand: e.target.value })} />
         <input type="text" class="styled-input" placeholder="Modelo (ej. Corolla)" value=${vf.model} onChange=${e => setVf({ ...vf, model: e.target.value })} />
@@ -532,14 +544,14 @@
        <div class="f-row gap-2">
         ${telValido(s.phone) && html`<button type="button" class="cli-wa" onClick=${() => enviarWhatsApp(s.phone, `Hola ${s.contact_person || s.name}, le consultamos por repuestos.`)}>WhatsApp</button>`}
         <button type="button" class="link-btn" onClick=${() => editSup(s)}>editar</button>
-        <button type="button" class="link-btn st-danger" onClick=${() => delSup(s.id)}>✕</button>
+        <button type="button" class="link-btn st-danger" onClick=${() => delSup(s.id)}>×</button>
        </div>
       </div>
       <div class="muted text-xs">${[s.rif, s.phone, s.contact_person ? 'Contacto: ' + s.contact_person : '', s.notes].filter(Boolean).join(' · ')}</div>
      </div>`)}
      ${suppliers.length === 0 && !supApi.loading && html`<div class="empty">Sin proveedores registrados. Agrega tus repuesteras de confianza.</div>`}
     </div>`}
-  </${MicroShell}>`;
+  ` : (HIJOS[vista] ? html`<${HIJOS[vista]} nested=${true} onBack=${onBack} />` : null)}</${MicroShell}>`;
   };
   const CASH_METHODS = [
   { id: 'cash', label: 'Efectivo', icon: 'DollarSign', cls: 'm-usd', prefix: '$' },
@@ -548,6 +560,10 @@
   { id: 'other', label: 'Otro', icon: 'Wallet', cls: 'm-bs', prefix: '$' }
  ];
  const CashApp = ({ onBack, onOpen }) => {
+  /* Pestañas: una sola tarjeta en la sección taller. */
+  const [tab, setTab] = useState('principal');
+  const TABS = [{ id: 'principal', label: 'Caja' }, { id: 'cortes', label: 'Cortes' }, { id: 'documentos', label: 'Documentos' }, { id: 'cotizador', label: 'Cotizador' }];
+  const HIJOS = { cortes: (window.FT_MICRO || {}).ClosingsApp, documentos: (window.FT_MICRO || {}).DocumentsApp, cotizador: (window.FT_MICRO || {}).QuoteApp };
   const [moves, api] = useApi('/api/cash');
   const [f, setF] = useState({ concept: '', amount: '', type: 'ingreso', method: 'cash' });
   const getMethod = (m) => {
@@ -574,7 +590,7 @@
    acc[met] = (acc[met] || 0) + d;
    return acc;
   }, {});
-  return html`<${MicroShell} title="Cierre de Caja" icon="Calculator" onBack=${onBack}><div class="cash-totals"><div class="cash-today"><span>HOY (NETO)</span><strong>$${today.toFixed(2)}</strong></div><div class="cash-all"><span>TOTAL ACUMULADO</span><strong>$${total.toFixed(2)}</strong></div>${onOpen && html`<div class="cash-all"><button type="button" class="link-btn" onClick=${() => onOpen('closings')}>📋 Cortes de caja</button></div>`}</div><div class="cash-method-grid">${CASH_METHODS.map(m => html`<div class=${'cash-method-card ' + m.cls} key=${m.id}>
+  return html`<${MicroShell} title="Cierre de Caja" icon="Calculator" onBack=${onBack} tabs=${TABS} tab=${tab} onTab=${setTab}>${tab === 'principal' ? html`<div class="cash-totals"><div class="cash-today"><span>HOY (NETO)</span><strong>$${today.toFixed(2)}</strong></div><div class="cash-all"><span>TOTAL ACUMULADO</span><strong>$${total.toFixed(2)}</strong></div></div><div class="cash-method-grid">${CASH_METHODS.map(m => html`<div class=${'cash-method-card ' + m.cls} key=${m.id}>
      <div class="cash-method-lbl"><${CatIc} n=${m.icon} s=${13} /> ${m.label}</div>
      <div class="cash-method-val">${m.prefix}${Number(methodTotals[m.id] || 0).toFixed(2)}</div></div>`)}
    </div>
@@ -593,13 +609,13 @@
      const met = getMethod(m);
      const foundM = CASH_METHODS.find(x => x.id === met) || CASH_METHODS[0];
      const txt = cleanConcept(m.concept);
-     return html`<div class="cash-item" key=${m.id}><span class=${'cash-type ' + m.type}>${m.type === 'ingreso' ? '+' : '−'}</span><span class=${'cash-method-chip ' + foundM.cls}>${foundM.label}</span><span class="cash-concept">${txt} <span class="muted text-xs ml-1">${new Date(m.created_at).toLocaleDateString('es')}</span></span><span class=${'cash-amount ' + m.type}>$${Number(m.amount).toFixed(2)}</span><button type="button" class="link-btn" onClick=${() => del(m.id)}>✕</button></div>`;
+     return html`<div class="cash-item" key=${m.id}><span class=${'cash-type ' + m.type}>${m.type === 'ingreso' ? '+' : '−'}</span><span class=${'cash-method-chip ' + foundM.cls}>${foundM.label}</span><span class="cash-concept">${txt} <span class="muted text-xs ml-1">${new Date(m.created_at).toLocaleDateString('es')}</span></span><span class=${'cash-amount ' + m.type}>$${Number(m.amount).toFixed(2)}</span><button type="button" class="link-btn" onClick=${() => del(m.id)}>×</button></div>`;
     })}
     ${moves.length === 0 && !api.loading && html`<div class="empty">Sin movimientos registrados.</div>`}
    </div>
-  </${MicroShell}>`;
+  ` : (HIJOS[tab] ? html`<${HIJOS[tab]} nested=${true} onBack=${onBack} />` : null)}</${MicroShell}>`;
  };
-  const DocumentsApp = ({ onBack }) => {
+  const DocumentsApp = ({ onBack, nested }) => {
   const [docs, api] = useApi('/api/documents');
   const [clients, clientsApi] = useApi('/api/clients');
   const [inventory, invApi] = useApi('/api/inventory');
@@ -634,11 +650,11 @@
   const exportCsv = async () => {
    try { const csv = await apiFetch('/api/documents/export?format=csv'); downloadBlob('documentos.csv', csv); } catch (e) { alert(e.message); }
   };
-  return html`<${MicroShell} title="Notas de Entrega y Presupuestos" icon="FileText" onBack=${onBack}>${api.err && html`<div class="alert"><span>${api.err}</span></div>`}
+  return html`<${MicroShell} title="Notas de Entrega y Presupuestos" icon="FileText" onBack=${onBack} nested=${nested}>${api.err && html`<div class="alert"><span>${api.err}</span></div>`}
    <div class="f-row mb-3">
     <button type="button" class="tool-add-btn" onClick=${() => setShow(!show)}>${show ? 'Cancelar' : '+ Nuevo documento'}</button>
     <button type="button" class="link-btn" onClick=${exportCsv}>⬇ Exportar CSV</button></div>
-   ${show && html`<div class="panel p-3 mb-3"><div class="grid2"><select class="styled-input" value=${f.kind} onChange=${e => setF({ ...f, kind: e.target.value })}><option value="entrega">📦 Nota de entrega</option><option value="presupuesto">🧾 Presupuesto</option><option value="recepcion">📋 Recepción</option></select><select class="styled-input" value=${f.client_id} onChange=${e => setF({ ...f, client_id: e.target.value })}><option value="">Cliente (opcional)…</option>${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
+   ${show && html`<div class="panel p-3 mb-3"><div class="grid2"><select class="styled-input" value=${f.kind} onChange=${e => setF({ ...f, kind: e.target.value })}><option value="entrega">Nota de entrega</option><option value="presupuesto">Presupuesto</option><option value="recepcion">Recepción</option></select><select class="styled-input" value=${f.client_id} onChange=${e => setF({ ...f, client_id: e.target.value })}><option value="">Cliente (opcional)…</option>${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
      </select>
     </div>
     <div class="mt-2 f-col">
@@ -649,20 +665,20 @@
       <div class="f-row">
       <input type="number" class="styled-input w-16" placeholder="Cant." value=${it.qty} onChange=${e => setItem(i, 'qty', e.target.value)} />
       <input type="number" class="styled-input w-24" placeholder="Precio" value=${it.unit_price} onChange=${e => setItem(i, 'unit_price', e.target.value)} />
-      <button type="button" class="link-btn" onClick=${() => rmItem(i)}>✕</button></div></div>`)}
+      <button type="button" class="link-btn" onClick=${() => rmItem(i)}>×</button></div></div>`)}
     </div>
     <div class="f-row mt-2">
      <button type="button" class="link-btn" onClick=${addItem}>+ Agregar item</button>
      <button type="button" class="tool-add-btn" onClick=${create} disabled=${!f.items.some(i => i.descr.trim())}>Crear y abrir</button></div></div>`}
    <div class="doc-list f-col">
-    ${docs.map(d => html`<div class="order-item" key=${d.id}><div class="order-head"><strong>${d.kind === 'entrega' ? '📦' : '🧾'} ${d.number}</strong>${d.client_name && html`<span class="muted">· ${d.client_name}</span>`}
+    ${docs.map(d => html`<div class="order-item" key=${d.id}><div class="order-head"><strong>${d.kind === 'entrega' ? '' : ''} ${d.number}</strong>${d.client_name && html`<span class="muted">· ${d.client_name}</span>`}
       <span class="order-date">${new Date(d.created_at).toLocaleDateString('es')}</span></div>
      <div class="order-desc">${d.status} · Total $${Number(d.total || 0).toFixed(2)}</div>
      <div class="order-foot">
       <select class="order-status" value=${d.status} onChange=${e => setStatus(d.id, e.target.value)}>
       <option>borrador</option><option>emitido</option><option>aprobado</option><option>rechazado</option><option>entregado</option>
       </select>
-      ${d.kind === 'presupuesto' && html`<button type="button" class="link-btn" onClick=${() => convertToOrder(d)}>🛠 Crear orden</button>`}<button type="button" class="link-btn" onClick=${() => window.open('/api/documents/' + d.id + '/print', '_blank')}>🖨 Imprimir</button>
+      ${d.kind === 'presupuesto' && html`<button type="button" class="link-btn" onClick=${() => convertToOrder(d)}>Crear orden</button>`}<button type="button" class="link-btn" onClick=${() => window.open('/api/documents/' + d.id + '/print', '_blank')}>Imprimir</button>
       <button type="button" class="link-btn" onClick=${() => del(d.id)}>eliminar</button></div></div>`)}
     ${docs.length === 0 && !api.loading && html`<div class="empty">Sin documentos. Crea una nota de entrega o presupuesto.</div>`}
    </div>
@@ -691,7 +707,7 @@
   </div>`;
  };
  const UserAvatar = WorkshopAvatar;
- const ProfileApp = ({ onBack, onLogout, onUserChange }) => {
+ const ProfileApp = ({ onBack, onLogout, onUserChange, nested }) => {
   const [subTab, setSubTab] = useState('taller');
   const [me, setMe] = useState(null);
   const [f, setF] = useState({ name: '', owner_name: '', phone: '', bio: '', city: '', address: '', business_type: '', services: '', is_public: false, avatar_url: '' });
@@ -783,7 +799,7 @@
     setTimeout(() => { setPassEstado(''); setPassMsg(''); }, 3000);
    } catch (e) { setPassEstado('error'); setPassMsg(e.message); }
   };
-  if (estado === 'cargando') return html`<${MicroShell} title="Mi Taller" icon="Store" onBack=${onBack}><div class="skel"><div class="skel-line"></div><div class="skel-line"></div></div></${MicroShell}>`;
+  if (estado === 'cargando') return html`<${MicroShell} title="Mi Taller" icon="Store" onBack=${onBack} nested=${nested}><div class="skel"><div class="skel-line"></div><div class="skel-line"></div></div></${MicroShell}>`;
   const noLeidas = notifs.filter(n => !n.is_read).length;
   const prog = me?.donor_progress || { puntos: me?.total_donated || 0, nivel: me?.donor_level || 0, nombre: 'Sin Rango', badge: 'Mecánico', porcentaje: 0, metaProximo: 1, faltaParaProximo: 1, beneficiosDesbloqueados: [], beneficiosProximos: [] };
   const TABS = [

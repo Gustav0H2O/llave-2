@@ -47,7 +47,16 @@
      una micro app y un icono suelto de 34px no se lee como botón — menos aún con
      guantes y a pulso en el celular. Usa CatIc, que degrada a un hueco del mismo
      tamaño si el icono falta, en vez de colapsar el botón. */
-  const MicroShell = ({ title, icon, onBack, children }) => html`
+  /* Pestañas dentro de una micro app del taller: un solo armazón, menos
+     pantallas sueltas. `nested` es para una app que vive como pestaña de otra:
+     devuelve solo el cuerpo, sin cabecera ni botón Volver. */
+  const microTabBar = (tabs, tab, onTab) => !tabs || !tabs.length ? '' : html`
+    <div class="micro-tabs" role="tablist">
+      ${tabs.map(x => html`<button type="button" role="tab" key=${x.id} class=${'micro-tab' + (x.id === tab ? ' active' : '')} aria-selected=${x.id === tab} onClick=${() => onTab(x.id)}>${x.label}</button>`)}
+    </div>`;
+
+  const MicroShell = ({ title, icon, onBack, tabs, tab, onTab, children, nested }) => nested ? html`
+    <div class="micro-shell-body micro-shell-nested">${microTabBar(tabs, tab, onTab)}${children}</div>` : html`
     <div class="micro-shell panel">
       <div class="micro-shell-head">
         <button type="button" class="micro-back" onClick=${onBack}>
@@ -56,6 +65,7 @@
         <span class="micro-shell-ic"><${CatIc} n=${icon} s=${18} /></span>
         <h2>${title}</h2>
       </div>
+      ${microTabBar(tabs, tab, onTab)}
       <div class="micro-shell-body">${children}</div>
     </div>`;
 
@@ -136,18 +146,21 @@
     { id: 'compression', t: 'Prueba de Compresión', d: 'Diferencia entre cilindros y veredicto', i: 'Gauge', g: 'diag', k: 'compresion cilindro cilindros manometro motor desgaste anillos' },
     { id: 'pinout', t: 'Pinouts OBD-II y Relé', d: 'Dónde clavar la punta del multímetro', i: 'Sensor', g: 'diag', k: 'pinout pines conector obd dlc rele multimetro punta diagrama' },
     // Taller (requiere cuenta)
-    { id: 'orders', t: 'Órdenes de Trabajo', d: 'Servicios, garantías y promociones', i: 'ClipboardCheck', g: 'taller', need: true, k: 'orden ordenes trabajo servicio garantia promocion reparacion ot' },
-    { id: 'inventory', t: 'Inventario / Stock', d: 'Control con alertas de mínimo', i: 'Box', g: 'taller', need: true, k: 'inventario stock existencia almacen repuesto minimo alerta' },
-    { id: 'clients', t: 'Clientes', d: 'Expedientes y vehículos', i: 'Car', g: 'taller', need: true, k: 'cliente clientes expediente cartera contacto telefono' },
-    { id: 'documents', t: 'Notas de Entrega / Presupuestos', d: 'Genera e imprime documentos', i: 'FileText', g: 'taller', need: true, k: 'nota entrega presupuesto cotizacion documento factura imprimir pdf' },
-    { id: 'notes', t: 'Notas del Mecánico', d: 'Notas rápidas por vehículo', i: 'BookOpen', g: 'taller', need: true, k: 'nota notas apunte recordatorio mecanico libreta' },
-    { id: 'cash', t: 'Cierre de Caja', d: 'Ingresos y egresos del día', i: 'Calculator', g: 'taller', need: true, k: 'caja cierre ingreso egreso dinero efectivo corte dia' },
-    // Estas tres guardan en el navegador, no en la nube: sirven sin cuenta.
-    { id: 'inspection', t: 'Inspección de Recepción', d: 'Checklist multipunto al recibir', i: 'ClipboardCheck', g: 'taller', k: 'inspeccion recepcion checklist multipunto revision entrada' },
-    { id: 'quote', t: 'Cotizador Rápido', d: 'Mano de obra + refacciones + IVA', i: 'Calculator', g: 'taller', k: 'cotizar cotizacion presupuesto mano obra refaccion iva precio' },
-    { id: 'appointments', t: 'Agenda de Citas', d: 'Quién viene, cuándo y a qué', i: 'Calendar', g: 'taller', k: 'cita citas agenda calendario turno reserva' },
-    { id: 'labor', t: 'Tiempos de Mano de Obra', d: 'Horas de referencia para cotizar', i: 'History', g: 'taller', k: 'tiempo tiempos mano obra horas baremo cobrar' },
-    { id: 'profile', t: 'Mi Taller', d: 'Nombre, WhatsApp y correo verificado', i: 'Store', g: 'taller', need: true, k: 'taller perfil negocio whatsapp correo cuenta datos' },
+    { id: 'orders', t: 'Órdenes de Trabajo', d: 'Órdenes, checklist y mano de obra', i: 'ClipboardCheck', g: 'taller', need: true, k: 'orden ordenes trabajo servicio garantia promocion checklist inspeccion revision mano obra tiempos' },
+    { id: 'clients', t: 'Clientes', d: 'Clientes, proveedores y expediente del vehículo', i: 'Car', g: 'taller', need: true, k: 'cliente clientes cartera contacto telefono proveedor repuestera expediente historial vehiculo' },
+    { id: 'inventory', t: 'Almacén', d: 'Inventario y alertas de existencia', i: 'Box', g: 'taller', need: true, k: 'inventario almacen stock existencia repuesto minimo alerta reponer falta' },
+    { id: 'cash', t: 'Dinero', d: 'Caja, cortes, documentos y cotizador', i: 'Calculator', g: 'taller', need: true, k: 'caja dinero cierre corte arqueo efectivo ingreso egreso documento nota entrega presupuesto cotizador cotizar' },
+    { id: 'agenda', t: 'Agenda', d: 'Citas del taller en la base', i: 'Calendar', g: 'taller', need: true, k: 'agenda cita citas calendario turno reserva recordatorio' },
+    { id: 'mechanics', t: 'Equipo', d: 'Mecánicos, su carga de trabajo y el taller', i: 'Wrench', g: 'taller', need: true, k: 'mecanico mecanicos equipo personal plantilla ayudante carga perfil mi taller' },
+    // Pestañas de las seis anteriores: siguen existiendo para enlaces directos
+    // (?app=documents), pero no se pintan como tarjeta suelta.
+    { id: 'documents', t: 'Notas de Entrega / Presupuestos', d: 'Genera e imprime documentos', i: 'FileText', g: 'taller', need: true, oculta: true, k: 'nota entrega presupuesto cotizacion documento imprimir pdf' },
+    { id: 'notes', t: 'Notas del Mecánico', d: 'Notas rápidas por vehículo', i: 'BookOpen', g: 'taller', need: true, oculta: true, k: 'nota notas apunte recordatorio libreta' },
+    { id: 'inspection', t: 'Inspección de Recepción', d: 'Checklist multipunto al recibir', i: 'ClipboardCheck', g: 'taller', oculta: true, k: 'inspeccion recepcion checklist multipunto revision' },
+    { id: 'quote', t: 'Cotizador Rápido', d: 'Mano de obra + refacciones + IVA', i: 'Calculator', g: 'taller', oculta: true, k: 'cotizar cotizacion presupuesto mano obra refaccion iva' },
+    { id: 'appointments', t: 'Agenda de Citas (vieja)', d: 'Se mudó a Agenda', i: 'Calendar', g: 'taller', oculta: true, k: 'cita citas agenda calendario turno' },
+    { id: 'labor', t: 'Tiempos de Mano de Obra', d: 'Horas de referencia para cotizar', i: 'History', g: 'taller', oculta: true, k: 'tiempo tiempos mano obra horas baremo' },
+    { id: 'profile', t: 'Mi Taller', d: 'Nombre, WhatsApp y correo verificado', i: 'Store', g: 'taller', need: true, oculta: true, k: 'taller perfil negocio whatsapp correo cuenta' },
     // Comunidad y mercado
     { id: 'forum', t: 'Foro Técnico', d: 'Preguntas y respuestas', i: 'MessagesSquare', g: 'comunidad', k: 'foro pregunta respuesta comunidad duda ayuda' },
     { id: 'connect', t: 'Conectar Cliente ↔ Mecánico', d: 'Asistencia cerca de tu zona', i: 'MapPin', g: 'comunidad', k: 'conectar cerca zona ubicacion mecanico cliente asistencia' },
@@ -611,8 +624,8 @@
 
     const sinTildes = (t) => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const term = sinTildes(q).trim();
-    const filtered = !term ? APPS : APPS.filter(a => sinTildes(a.t + ' ' + a.d + ' ' + (a.k || '')).includes(term));
-    const appsOf = (g) => APPS.filter(a => a.g === g);
+    const filtered = !term ? APPS.filter(a => !a.oculta) : APPS.filter(a => !a.oculta && sinTildes(a.t + ' ' + a.d + ' ' + (a.k || '')).includes(term));
+    const appsOf = (g) => APPS.filter(a => a.g === g && !a.oculta);
 
     const recientes = (ls.get('ft_recientes', []) || [])
       .map(id => APPS.find(a => a.id === id)).filter(Boolean).slice(0, 4);
@@ -1891,7 +1904,7 @@
 
     const compartirComparacion = () => {
       if (!p || !p2) return;
-      const txt = encodeURIComponent(`*Comparativa de Pilas de Gasolina*\n🔹 *${p.code} (${p.manufacturer})*: ${p.max_psi_direct} PSI · ${p.flow_lph_free || '—'} LPH · ${p.pump_style}\n🔹 *${p2.code} (${p2.manufacturer})*: ${p2.max_psi_direct} PSI · ${p2.flow_lph_free || '—'} LPH · ${p2.pump_style}\n_Vía Llave - Consulta Técnica_`);
+      const txt = encodeURIComponent(`*Comparativa de Pilas de Gasolina*\n*${p.code} (${p.manufacturer})*: ${p.max_psi_direct} PSI · ${p.flow_lph_free || '—'} LPH · ${p.pump_style}\n*${p2.code} (${p2.manufacturer})*: ${p2.max_psi_direct} PSI · ${p2.flow_lph_free || '—'} LPH · ${p2.pump_style}\n_Vía Llave - Consulta Técnica_`);
       window.open('https://wa.me/?text=' + txt, '_blank');
     };
 
@@ -2507,7 +2520,7 @@
         <button type="button" class="tool-add-btn" onClick=${run} disabled=${!sel || !psi}>Diagnosticar</button>
       </div>
       ${verdict && html`<div class="reg-verdict ${verdict.vd === 'OK' ? 'ok' : 'bad'}" style=${{ marginTop: '16px' }}>
-        <strong>${verdict.vd === 'OK' ? '✅ SISTEMA EN BUEN ESTADO' : verdict.vd === 'LOW' ? '⚠️ PRESIÓN BAJA (MAL)' : verdict.vd === 'HIGH' ? '⚠️ PRESIÓN ALTA (MAL)' : 'ℹ️ SIN ESPECIFICACIÓN'}</strong>
+        <strong>${verdict.vd === 'OK' ? '✓ SISTEMA EN BUEN ESTADO' : verdict.vd === 'LOW' ? 'PRESIÓN BAJA (MAL)' : verdict.vd === 'HIGH' ? 'PRESIÓN ALTA (MAL)' : 'ℹSIN ESPECIFICACIÓN'}</strong>
         <div class="reg-answers">
           ${verdict.reasons.map((r, i) => html`<div class="reg-a" key=${i}>• ${r}</div>`)}
         </div>
@@ -2665,7 +2678,7 @@
             <span class="muted" style=${{ display: 'block', fontSize: '11px' }}>Toca un pin para ver su función técnica</span>
           </div>
           <button type="button" class="tool-add-btn" onClick=${() => setRelayOn(!relayOn)}>
-            ${relayOn ? '⚡ Bobina Energizada (ON)' : '⭕ En Reposo (OFF)'}
+            ${relayOn ? 'Bobina Energizada (ON)' : 'En Reposo (OFF)'}
           </button>
         </div>
 
@@ -2683,7 +2696,7 @@
             <b>30</b><span>BATT (+)</span>
           </button>
           <button type="button" class=${'relay-pin-btn' + (relayPinSel === '87' ? ' active' : '')} style=${{ gridArea: 'p87', opacity: relayOn ? '1' : '0.4', background: relayOn ? 'var(--accent-fill)' : '' }} onClick=${() => setRelayPinSel('87')}>
-            <b>87</b><span>N.O. ${relayOn ? '(Cerrado ⚡)' : '(Abierto)'}</span>
+            <b>87</b><span>N.O. ${relayOn ? '(Cerrado )' : '(Abierto)'}</span>
           </button>
         </div>
 
@@ -2694,7 +2707,7 @@
               <p style=${{ margin: '4px 0 0', color: 'var(--text-alt)' }}>${PINS.find(p => p.id === relayPinSel)?.desc}</p>
             </div>`
             : html`<div>
-              <strong>Estado actual:</strong> ${relayOn ? 'Corriente fluye de Pin 30 hacia Pin 87 (Bomba activa ⚡)' : 'Sin excitación en bobina. Pin 30 conectado a 87a (Reposo)'}.
+              <strong>Estado actual:</strong> ${relayOn ? 'Corriente fluye de Pin 30 hacia Pin 87 (Bomba activa )' : 'Sin excitación en bobina. Pin 30 conectado a 87a (Reposo)'}.
             </div>`}
         </div>
       </div>
@@ -2709,7 +2722,7 @@
         <input id="fuse-q" name="circuito" type="search" class="styled-input" placeholder="Filtrar circuito: bomba, ECU, luces…"
                value=${q} onChange=${e => setQ(e.target.value)} style=${{ flex: '1 1 240px' }} />
         ${amperajeSel && html`<button type="button" class="copy-pill-btn" onClick=${() => setAmperajeSel('')}>
-          Filtrando por ${amperajeSel}A ✕
+          Filtrando por ${amperajeSel}A ×
         </button>`}
       </div>
 
@@ -3008,7 +3021,7 @@
   /* ================================================================
      27. Cotizador de mano de obra y refacciones
      ================================================================ */
-  const QuoteApp = ({ onBack }) => {
+  const QuoteApp = ({ onBack, nested }) => {
     const [q, setQ] = useState(() => ls.get('ft_quote', {
       rate: '250', iva: '16', disc: '0',
       cliente: '', tel: '', veh: '',
@@ -3067,7 +3080,7 @@
     }, () => {});
     const hayLineas = subtotal > 0;
 
-    return html`<${MicroShell} title="Cotizador Rápido" icon="Calculator" onBack=${onBack}>
+    return html`<${MicroShell} title="Cotizador Rápido" icon="Calculator" onBack=${onBack} nested=${nested}>
       <p class="mic-lead">Arma el presupuesto antes de dar el precio y mándalo por WhatsApp al cliente. Se guarda en este navegador.</p>
 
       <h3 class="mic-sub">Cliente</h3>
@@ -3089,7 +3102,7 @@
         <input type="text" class="styled-input" placeholder="Trabajo: cambio de pila…" aria-label=${'Descripción del trabajo ' + (i + 1)} value=${l.d} onChange=${e => setLine('labor', i, 'd', e.target.value)} />
         <input type="number" min="0" step="0.25" class="styled-input quote-narrow" placeholder="Horas" aria-label=${'Horas del trabajo ' + (i + 1)} value=${l.h} onChange=${e => setLine('labor', i, 'h', e.target.value)} />
         <span class="quote-sub">$${money(num(l.h) * num(q.rate))}</span>
-        <button type="button" class="quote-del" onClick=${() => delLine('labor', i)} aria-label="Quitar línea" disabled=${q.labor.length === 1}>✕</button>
+        <button type="button" class="quote-del" onClick=${() => delLine('labor', i)} aria-label="Quitar línea" disabled=${q.labor.length === 1}>×</button>
       </div>`)}
       <button type="button" class="home-cta-ghost quote-add" onClick=${() => addLine('labor', { d: '', h: '' })}>+ Agregar trabajo</button>
 
@@ -3099,7 +3112,7 @@
         <input type="number" min="0" class="styled-input quote-narrow" placeholder="Cant." aria-label=${'Cantidad de la refacción ' + (i + 1)} value=${p.q} onChange=${e => setLine('parts', i, 'q', e.target.value)} />
         <input type="number" min="0" step="0.01" class="styled-input quote-narrow" placeholder="Precio" aria-label=${'Precio unitario de la refacción ' + (i + 1)} value=${p.p} onChange=${e => setLine('parts', i, 'p', e.target.value)} />
         <span class="quote-sub">$${money(num(p.q) * num(p.p))}</span>
-        <button type="button" class="quote-del" onClick=${() => delLine('parts', i)} aria-label="Quitar línea" disabled=${q.parts.length === 1}>✕</button>
+        <button type="button" class="quote-del" onClick=${() => delLine('parts', i)} aria-label="Quitar línea" disabled=${q.parts.length === 1}>×</button>
       </div>`)}
       <button type="button" class="home-cta-ghost quote-add" onClick=${() => addLine('parts', { d: '', q: '1', p: '' })}>+ Agregar refacción</button>
 
@@ -3241,9 +3254,9 @@
 
     const compartirWa = () => {
       if (!actual) return;
-      const vencidos = filas.filter(f => f.estado === 'bad').map(f => `❌ ${f.nombre} (Vencido hace ${Math.abs(f.faltan)} km)`).join('\n');
-      const proximos = filas.filter(f => f.estado === 'warn').map(f => `⚠️ ${f.nombre} (Faltan ${f.faltan} km)`).join('\n');
-      const alDia = filas.filter(f => f.estado === 'ok').slice(0, 4).map(f => `✅ ${f.nombre} (Próximo: ${f.proximo} km)`).join('\n');
+      const vencidos = filas.filter(f => f.estado === 'bad').map(f => `× ${f.nombre} (Vencido hace ${Math.abs(f.faltan)} km)`).join('\n');
+      const proximos = filas.filter(f => f.estado === 'warn').map(f => `${f.nombre} (Faltan ${f.faltan} km)`).join('\n');
+      const alDia = filas.filter(f => f.estado === 'ok').slice(0, 4).map(f => `✓ ${f.nombre} (Próximo: ${f.proximo} km)`).join('\n');
       const txt = encodeURIComponent(`*PLAN DE MANTENIMIENTO - ${actual.toLocaleString('es-MX')} KM*\n_Perfil: ${perfil.toUpperCase()}_\n\n${vencidos ? '*SERVICIOS VENCIDOS:*\n' + vencidos + '\n\n' : ''}${proximos ? '*PRÓXIMOS SERVICIOS:*\n' + proximos + '\n\n' : ''}${alDia ? '*AL DÍA:*\n' + alDia + '\n\n' : ''}_Generado en Llave Taller_`);
       window.open('https://wa.me/?text=' + txt, '_blank');
     };
@@ -3531,7 +3544,7 @@
      el cotizador escribiendo en la misma clave de almacenamiento.
      ================================================================ */
 
-  const LaborApp = ({ onBack }) => {
+  const LaborApp = ({ onBack, nested }) => {
     const [q, setQ] = useState('');
     const [agregado, setAgregado] = useState('');
     const t = q.trim().toLowerCase();
@@ -3546,7 +3559,7 @@
       setAgregado(nombre);
       setTimeout(() => setAgregado(''), 2200);
     };
-    return html`<${MicroShell} title="Tiempos de Mano de Obra" icon="History" onBack=${onBack}>
+    return html`<${MicroShell} title="Tiempos de Mano de Obra" icon="History" onBack=${onBack} nested=${nested}>
       <p class="mic-lead">Rango de horas de referencia para cotizar. El botón manda el trabajo al cotizador con el promedio del rango ya puesto.</p>
       <label class="sr-only" htmlFor="labor-q">Filtrar trabajo</label>
       <input id="labor-q" name="trabajo" type="search" class="styled-input" placeholder="Trabajo o sistema: bomba, clutch…" value=${q} onChange=${e => setQ(e.target.value)} style=${{ maxWidth: '340px', marginBottom: '14px' }} />
