@@ -9,6 +9,33 @@
    ========================================================================= */
 
 /* ---------------------------------------------------------------------------
+   Piezas del perfil del taller.
+
+   Estas venían como constantes de estilo en línea dentro de microapps-taller.js
+   (`SC`, `SB`, `SF`… repartidas por spread en una docena de sitios). Un objeto
+   de estilo en línea gana siempre a la hoja de estilos, así que el perfil no se
+   podía tematizar desde CSS y en tema oscuro arrastraba valores escritos a
+   mano. Traerlas aquí deja el marcado más corto y el color en su sitio.
+   --------------------------------------------------------------------------- */
+.pf-card {
+  padding: 10px 12px; background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--r-sm, 8px); margin-bottom: 8px;
+}
+.pf-card-lg { padding: 14px; margin-bottom: 16px; }
+.pf-row { display: flex; justify-content: space-between; align-items: center; }
+.pf-grp { display: flex; gap: 6px; align-items: center; }
+.pf-lbl { color: var(--text-alt); font-size: 9.5px; display: block; }
+.pf-key {
+  display: block; padding: 10px 12px; background: var(--card);
+  border: 1px solid var(--border-hi); border-radius: var(--r-sm, 8px);
+}
+.pf-meta { font-size: 10px; color: var(--text-alt); }
+.pf-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+  border-radius: var(--r-full, 999px); font: 700 11.5px var(--font); color: var(--accent);
+}
+
+/* ---------------------------------------------------------------------------
    Botón «ver más» de las listas largas (useVerMas en microapps.js).
    Discreto a propósito: es una salida para listas que no caben, no una acción
    principal, así que no compite con los botones de la tarjeta.
@@ -62,29 +89,22 @@
 .st-danger { color: var(--danger); }
 .st-ok { color: var(--accent); }
 
-/* Utilidades de disposición y espaciado */
+/* Utilidades de disposición y espaciado.
+   Ojo: .f-row, .f-col, .f-between, .grid2, .w-full y los .mt-*/.mb-* ya viven en
+   index.html (el sitio entero los usa), así que aquí NO se repiten: duplicarlas
+   solo engordaba esta hoja y abría la puerta a que las dos copias se separaran. */
 .flex { display: flex; }
-.f-col { display: flex; flex-direction: column; }
-.f-row { display: flex; flex-direction: row; align-items: center; gap: 8px; }
-.f-between { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .flex-wrap { flex-wrap: wrap; }
 .flex-2 { flex: 2 1 0; }
 .items-center { align-items: center; }
 .gap-1 { gap: 4px; }
 .gap-2 { gap: 8px; }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .p-1 { padding: 4px; }
 .p-2 { padding: 8px; }
 .p-3 { padding: 12px; }
-.mt-1 { margin-top: 4px; }
-.mt-2 { margin-top: 8px; }
-.mt-3 { margin-top: 12px; }
 .mt-4 { margin-top: 16px; }
-.mb-2 { margin-bottom: 8px; }
-.mb-3 { margin-bottom: 12px; }
 .my-1 { margin-top: 4px; margin-bottom: 4px; }
 .my-2 { margin-top: 8px; margin-bottom: 8px; }
-.ml-1 { margin-left: 4px; }
 .ml-2 { margin-left: 8px; }
 .bg-panel2 { background: var(--panel2, var(--panel)); }
 .rounded { border-radius: var(--r); }
