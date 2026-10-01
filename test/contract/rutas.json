@@ -6,7 +6,7 @@
     "El campo \"status\" es solo una pista informativa del status principal."
   ],
   "version": 1,
-  "total": 127,
+  "total": 128,
   "rutas": [
     {
       "metodo": "GET",
@@ -874,6 +874,15 @@
     },
     {
       "metodo": "DELETE",
+      "ruta": "/api/notes/:id",
+      "archivo": "src/routes/notes.js",
+      "requireWorkshop": true,
+      "requireAdmin": false,
+      "limitada": false,
+      "status": "401 (sin sesión)"
+    },
+    {
+      "metodo": "PUT",
       "ruta": "/api/notes/:id",
       "archivo": "src/routes/notes.js",
       "requireWorkshop": true,

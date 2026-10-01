@@ -617,73 +617,303 @@
  };
   const DocumentsApp = ({ onBack, nested }) => {
   const [docs, api] = useApi('/api/documents');
-  const [clients, clientsApi] = useApi('/api/clients');
+  const [clients] = useApi('/api/clients');
   const [inventory, invApi] = useApi('/api/inventory');
+  const [q, setQ] = useState('');
+  const [filtro, setFiltro] = useState('todos');
   const [show, setShow] = useState(false);
   const [f, setF] = useState({ kind: 'entrega', client_id: '', items: [{ item_id: '', descr: '', qty: '1', unit_price: '' }] });
+
+  /* Cada renglón de la lista responde "¿cuánto me deben?" antes que nada:
+     dinero, tipo y estado se leen antes que cualquier otra cosa. */
+  const money = (n) => Number(n || 0).toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const money0 = (n) => Number(n || 0).toLocaleString('es', { maximumFractionDigits: 0 });
+  const ESTADOS = {
+    borrador: ['mute', 'Borrador'], emitido: ['ok', 'Emitido'], aprobado: ['info', 'Aprobado'],
+    rechazado: ['bad', 'Rechazado'], entregado: ['ok', 'Entregado'],
+  };
+  const TIPOS = {
+    entrega: ['', 'Entrega'], presupuesto: ['warn', 'Presupuesto'], recepcion: ['info', 'Recepción'],
+  };
+  const PENDIENTES = ['emitido', 'aprobado'];
+  const VIGENCIA_DIAS = 15;
+
+  const restantes = (d) => {
+    const fin = new Date(d.created_at);
+    fin.setHours(23, 59, 59, 999);
+    fin.setDate(fin.getDate() + VIGENCIA_DIAS);
+    return Math.ceil((fin - Date.now()) / 86400000);
+  };
+
+  /* La píldora derecha: un presupuesto viviente muestra su vencimiento (es lo que
+     duele) y el resto, su estado. */
+  const pildora = (d) => {
+    if (d.kind === 'presupuesto' && PENDIENTES.includes(d.status)) {
+      const r = restantes(d);
+      if (r < 0) return html`<span class="tw-pill bad">Vencido</span>`;
+      if (r === 0) return html`<span class="tw-pill warn">Vence hoy</span>`;
+      if (r <= 3) return html`<span class="tw-pill warn">Vence en ${r} ${r === 1 ? 'día' : 'días'}</span>`;
+    }
+    const [cls, txt] = ESTADOS[d.status] || ['mute', d.status];
+    return html`<span class="tw-pill ${cls}">${txt}</span>`;
+  };
+
+  /* Las cotizaciones del Cotizador son documentos (kind 'cotizacion') y llegan
+     en la misma lista, pero no se cobran ni se entregan: viven en su propia app
+     con su propio historial, así que aquí se dejan fuera y no ensucian las
+     cifras de caja. */
+  const propios = docs.filter(d => d.kind !== 'cotizacion');
+  const porCobrar = propios.filter(d => PENDIENTES.includes(d.status)).reduce((s, d) => s + Number(d.total || 0), 0);
+  const presupuestos = propios.filter(d => d.kind === 'presupuesto' && PENDIENTES.includes(d.status)).length;
+  const mes = new Date().getMonth();
+  const anio = new Date().getFullYear();
+  const entregasMes = propios.filter(d => {
+    if (d.kind !== 'entrega') return false;
+    const t = new Date(d.created_at);
+    return t.getMonth() === mes && t.getFullYear() === anio;
+  }).length;
+
+  const buscado = q.trim().toLowerCase();
+  const lista = propios.filter((d) => {
+    if (filtro !== 'todos' && d.kind !== filtro) return false;
+    if (!buscado) return true;
+    return `${d.number} ${d.client_name || ''}`.toLowerCase().includes(buscado);
+  });
+
   const setItem = (i, k, v) => setF({ ...f, items: f.items.map((it, idx) => idx === i ? { ...it, [k]: v } : it) });
   const addItem = () => setF({ ...f, items: [...f.items, { item_id: '', descr: '', qty: '1', unit_price: '' }] });
   const rmItem = (i) => setF({ ...f, items: f.items.filter((_, idx) => idx !== i) });
-  const pickInv = (i, id) => { const inv = inventory.find(x => x.id === Number(id)); setF(p => ({ ...p, items: p.items.map((it, idx) => idx === i ? { ...it, item_id: id || '', descr: inv?.name || it.descr, unit_price: inv?.unit_price ?? it.unit_price } : it) })); };
+  const pickInv = (i, id) => {
+    const inv = inventory.find(x => x.id === Number(id));
+    setF(p => ({ ...p, items: p.items.map((it, idx) => idx === i ? { ...it, item_id: id || '', descr: inv?.name || it.descr, unit_price: inv?.unit_price ?? it.unit_price } : it) }));
+  };
+  const subtotal = f.items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.unit_price) || 0), 0);
+
+  const cerrarForm = () => {
+    setShow(false);
+    setF({ kind: 'entrega', client_id: '', items: [{ item_id: '', descr: '', qty: '1', unit_price: '' }] });
+  };
+
   const create = async () => {
-   const items = f.items.filter(i => i.descr.trim() && Number(i.qty) > 0).map(i => ({ item_id: i.item_id ? Number(i.item_id) : null, descr: i.descr.trim(), qty: Number(i.qty), unit_price: Number(i.unit_price) || 0 }));
-   if (!items.length) { alert('Agrega al menos un item'); return; }
-   try {
-    const res = await apiFetch('/api/documents', { method: 'POST', body: JSON.stringify({ kind: f.kind, client_id: f.client_id || null, items }) });
-    setShow(false); setF({ kind: 'entrega', client_id: '', items: [{ item_id: '', descr: '', qty: '1', unit_price: '' }] }); api.load(); invApi.load();
-    window.open('/api/documents/' + res.id + '/print', '_blank');
-   } catch (e) { alert(e.message); }
+    const items = f.items.filter(i => i.descr.trim() && Number(i.qty) > 0)
+      .map(i => ({ item_id: i.item_id ? Number(i.item_id) : null, descr: i.descr.trim(), qty: Number(i.qty), unit_price: Number(i.unit_price) || 0 }));
+    if (!items.length) { alert('Agrega al menos un item'); return; }
+    try {
+      const res = await apiFetch('/api/documents', { method: 'POST', body: JSON.stringify({ kind: f.kind, client_id: f.client_id || null, items }) });
+      cerrarForm();
+      api.load(); invApi.load();
+      window.open('/api/documents/' + res.id + '/print', '_blank');
+    } catch (e) { alert(e.message); }
   };
+
+  /* Duplicar: no hay endpoint, se arma con el que ya existe — se lee el detalle
+     con sus partidas y se vuelve a emitir con el mismo cliente y tipo. */
+  const duplicar = async (d) => {
+    try {
+      const det = await apiFetch('/api/documents/' + d.id);
+      const items = (det.items || []).map(i => ({ item_id: i.item_id || null, descr: i.descr, qty: i.qty, unit_price: i.unit_price }));
+      if (!items.length) { alert('Este documento no tiene partidas para duplicar.'); return; }
+      await apiFetch('/api/documents', { method: 'POST', body: JSON.stringify({ kind: d.kind, client_id: d.client_id || null, items }) });
+      api.load(); invApi.load();
+      alert('Duplicado. Se creó un documento nuevo con las mismas partidas.');
+    } catch (e) { alert(e.message); }
+  };
+
   const convertToOrder = async (d) => {
-   try {
-    const res = await apiFetch(`/api/documents/${d.id}/convert-to-order`, { method: 'POST' });
-    api.load(); alert('Orden #' + (res.order_id || res.id) + ' creada con éxito.');
-   } catch (err) { alert(err.message); }
+    try {
+      const res = await apiFetch(`/api/documents/${d.id}/convert-to-order`, { method: 'POST' });
+      api.load();
+      alert('Orden #' + (res.order_id || res.id) + ' creada con éxito.');
+    } catch (err) { alert(err.message); }
   };
+
   const setStatus = async (id, st) => {
-   try { await apiFetch(`/api/documents/${id}/status`, { method: 'PUT', body: JSON.stringify({ status: st }) }); api.load(); } catch (e) { alert(e.message); }
+    try { await apiFetch(`/api/documents/${id}/status`, { method: 'PUT', body: JSON.stringify({ status: st }) }); api.load(); }
+    catch (e) { alert(e.message); }
   };
-  const del = async (id) => {
-   if (!(await askDel('Eliminar documento', '¿Eliminar documento?'))) return;
-   try { await apiFetch(`/api/documents/${id}`, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
+
+  const del = async (d) => {
+    if (!(await askDel('Eliminar documento', `¿Eliminar ${d.number}? Esta acción no se puede deshacer.`))) return;
+    try { await apiFetch(`/api/documents/${d.id}`, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
   };
+
   const exportCsv = async () => {
-   try { const csv = await apiFetch('/api/documents/export?format=csv'); downloadBlob('documentos.csv', csv); } catch (e) { alert(e.message); }
+    try { const csv = await apiFetch('/api/documents/export?format=csv'); downloadBlob('documentos.csv', csv); }
+    catch (e) { alert(e.message); }
   };
-  return html`<${MicroShell} title="Notas de Entrega y Presupuestos" icon="FileText" onBack=${onBack} nested=${nested}>${api.err && html`<div class="alert"><span>${api.err}</span></div>`}
-   <div class="f-row mb-3">
-    <button type="button" class="tool-add-btn" onClick=${() => setShow(!show)}>${show ? 'Cancelar' : '+ Nuevo documento'}</button>
-    <button type="button" class="link-btn" onClick=${exportCsv}>⬇ Exportar CSV</button></div>
-   ${show && html`<div class="panel p-3 mb-3"><div class="grid2"><select class="styled-input" value=${f.kind} onChange=${e => setF({ ...f, kind: e.target.value })}><option value="entrega">Nota de entrega</option><option value="presupuesto">Presupuesto</option><option value="recepcion">Recepción</option></select><select class="styled-input" value=${f.client_id} onChange=${e => setF({ ...f, client_id: e.target.value })}><option value="">Cliente (opcional)…</option>${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
-     </select>
-    </div>
-    <div class="mt-2 f-col">
-     ${f.items.map((it, i) => html`<div key=${i} class="grid2 f-row"><div class="f-row"><select class="styled-input w-40" value=${it.item_id || ''} onChange=${e => pickInv(i, e.target.value)}><option value="">Inventario…</option>${inventory.map(x => html`<option key=${x.id} value=${x.id}>${x.name}</option>`)}
-      </select>
-      <input type="text" class="styled-input" placeholder="Descripción" value=${it.descr} onChange=${e => setItem(i, 'descr', e.target.value)} />
+
+  const imprimir = (d) => window.open('/api/documents/' + d.id + '/print', '_blank');
+
+  /* WhatsApp con el dato del cliente: la lista ya trae client_id y el bloque de
+     clientes trae el teléfono. Sin número, wa.me abre el selector de contactos
+     en vez de fallar, que es mejor que dejar al mecánico adivinando. */
+  const waDoc = (d) => {
+    const c = clients.find(x => x.id === d.client_id);
+    const rot = d.kind === 'entrega' ? 'Nota de entrega' : (d.kind === 'presupuesto' ? 'Presupuesto' : 'Recepción');
+    const txt = `Hola ${c?.name || ''}, te comparto tu ${rot} ${d.number} por $${money(d.total)}.`;
+    enviarWhatsApp(c?.phone || '', txt);
+  };
+
+  /* Acciones por tarjeta: cada estado ofrece lo que se puede hacer AHÍ, no una
+     lista fija de botones que a veces no corresponden. */
+  const acciones = (d) => {
+    const wa = ['WhatsApp', '', 'BrandWhatsapp', () => waDoc(d)];
+    const imp = ['Imprimir', '', 'Printer', () => imprimir(d)];
+    const dup = ['Duplicar', '', 'Copy', () => duplicar(d)];
+    const eli = ['Eliminar', '', 'Trash2', () => del(d)];
+    const a = [];
+    if (d.status === 'borrador') {
+      a.push(['Emitir', 'primary', 'Send', () => setStatus(d.id, 'emitido')], imp, eli);
+    } else if (d.status === 'rechazado') {
+      a.push(dup, eli);
+    } else if (d.kind === 'presupuesto' && PENDIENTES.includes(d.status)) {
+      a.push(['Crear orden', 'primary', 'ArrowRight', () => convertToOrder(d)], wa, imp, dup);
+    } else if (d.kind === 'entrega' && PENDIENTES.includes(d.status)) {
+      a.push(['Cobrar', 'primary', 'Check', () => setStatus(d.id, 'entregado')], wa, imp, dup);
+    } else {
+      a.push(wa, imp, dup);
+      if (d.status === 'entregado') a.push(eli);
+    }
+    return a.slice(0, 4);
+  };
+
+  const filtros = [['todos', 'Todos'], ['entrega', 'Entregas'], ['presupuesto', 'Presupuestos'], ['recepcion', 'Recepciones']];
+
+  return html`<${MicroShell} title="Documentos" icon="FileText" sub="Notas de entrega y presupuestos" nested=${nested}
+      onBack=${onBack} action=${html`<button type="button" class="tw-head-act" onClick=${exportCsv}>Exportar</button>`}>
+    ${api.err && html`<div class="alert"><span>${api.err}</span></div>`}
+    <div class="tw-shell-has-fab">
+      <div class="tw-stats">
+        <div class="tw-stat">
+          <span class="tw-stat-l">Por cobrar</span>
+          <span class="tw-stat-v ok">$${money0(porCobrar)}</span>
+        </div>
+        <div class="tw-stat">
+          <span class="tw-stat-l">Presupuestos</span>
+          <span class="tw-stat-v warn">${presupuestos}</span>
+        </div>
+        <div class="tw-stat">
+          <span class="tw-stat-l">Entregas mes</span>
+          <span class="tw-stat-v">${entregasMes}</span>
+        </div>
       </div>
-      <div class="f-row">
-      <input type="number" class="styled-input w-16" placeholder="Cant." value=${it.qty} onChange=${e => setItem(i, 'qty', e.target.value)} />
-      <input type="number" class="styled-input w-24" placeholder="Precio" value=${it.unit_price} onChange=${e => setItem(i, 'unit_price', e.target.value)} />
-      <button type="button" class="link-btn" onClick=${() => rmItem(i)}>×</button></div></div>`)}
+
+      <div class="tw-search">
+        <${CatIc} n="Search" s=${16} />
+        <input type="search" placeholder="Buscar por cliente, folio…" value=${q}
+          aria-label="Buscar documentos" onChange=${e => setQ(e.target.value)} />
+      </div>
+
+      <div class="tw-chips" role="tablist">
+        ${filtros.map(([id, label]) => html`<button type="button" key=${id} role="tab"
+          class=${'tw-chip' + (filtro === id ? ' is-on' : '')} aria-selected=${filtro === id}
+          onClick=${() => setFiltro(id)}>${label}</button>`)}
+      </div>
+
+      ${show && html`<div class="tw-card">
+        <div class="tw-card-top">
+          <span class="tw-tag">Nuevo documento</span>
+          <span class="tw-folio">Folio automático</span>
+        </div>
+        <label class="tw-field"><span class="tw-field-l">Tipo</span>
+          <span class="tw-field-v"><select value=${f.kind} onChange=${e => setF({ ...f, kind: e.target.value })}>
+            <option value="entrega">Nota de entrega</option>
+            <option value="presupuesto">Presupuesto</option>
+            <option value="recepcion">Recepción</option>
+          </select></span></label>
+        <label class="tw-field"><span class="tw-field-l">Cliente</span>
+          <span class="tw-field-v"><select value=${f.client_id} onChange=${e => setF({ ...f, client_id: e.target.value })}>
+            <option value="">Sin cliente (opcional)…</option>
+            ${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
+          </select></span></label>
+
+        ${f.items.map((it, i) => html`<div key=${i} class="tw-line">
+          <div class="tw-line-info">
+            <select class="tw-line-name" value=${it.item_id || ''} onChange=${e => pickInv(i, e.target.value)} aria-label="Inventario">
+              <option value="">Descripción a mano…</option>
+              ${inventory.map(x => html`<option key=${x.id} value=${x.id}>${x.name}</option>`)}
+            </select>
+            <input type="text" class="tw-line-sub" placeholder="Detalle de la partida"
+              value=${it.descr} onChange=${e => setItem(i, 'descr', e.target.value)} />
+          </div>
+          <div class="tw-step">
+            <button type="button" class="tw-step-b" aria-label="Menos uno"
+              onClick=${() => setItem(i, 'qty', String(Math.max(1, (Number(it.qty) || 1) - 1)))}>−</button>
+            <span class="tw-step-v">${it.qty || '1'}</span>
+            <button type="button" class="tw-step-b" aria-label="Más uno"
+              onClick=${() => setItem(i, 'qty', String((Number(it.qty) || 0) + 1))}>+</button>
+          </div>
+          <input type="number" class="styled-input w-24" aria-label="Precio unitario" min="0"
+            value=${it.unit_price} onChange=${e => setItem(i, 'unit_price', e.target.value)} />
+          <button type="button" class="tw-line-del" aria-label="Quitar partida" onClick=${() => rmItem(i)}>
+            <${CatIc} n="Trash2" s=${16} /></button>
+        </div>`)}
+
+        <button type="button" class="tw-sec-a" onClick=${addItem}>+ Agregar partida</button>
+
+        <div class="tw-sum">
+          <div class="tw-sum-row"><span>Subtotal (${f.items.length} ${f.items.length === 1 ? 'partida' : 'partidas'})</span>
+            <span>$${money(subtotal)}</span></div>
+          <div class="tw-sum-total"><span>Total</span><span>$${money(subtotal)}</span></div>
+        </div>
+
+        <button type="button" class="tw-cta" onClick=${create}
+          disabled=${!f.items.some(i => i.descr.trim())}>Emitir documento</button>
+        <p class="tw-note">Al emitir, el stock del almacén se descuenta solo.</p>
+        <button type="button" class="tw-cta sec" onClick=${cerrarForm}>Cancelar</button>
+      </div>`}
+
+      ${lista.map(d => {
+        const [tagCls, tagTxt] = TIPOS[d.kind] || ['', d.kind];
+        const cl = clients.find(x => x.id === d.client_id);
+        const fecha = new Date(d.created_at);
+        const hoy = new Date().toDateString() === fecha.toDateString();
+        const ayer = new Date(Date.now() - 86400000).toDateString() === fecha.toDateString();
+        const hora = fecha.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+        /* vehicle_snapshot es JSON congelado al emitir: si trae patente o modelo,
+           ese es el vehículo del documento aunque el cliente cambie después. */
+        let veh = '';
+        try {
+          const vs = d.vehicle_snapshot ? JSON.parse(d.vehicle_snapshot) : null;
+          veh = [vs?.plate || vs?.patente || '', vs?.model || vs?.marca || vs?.vehicle || ''].filter(Boolean).join(' ');
+        } catch (e) { veh = ''; }
+        const cuando = hoy ? `hoy ${hora}` : (ayer ? 'ayer' : fecha.toLocaleDateString('es'));
+        const meta = veh ? `${veh} · ${cuando}` : cuando;
+        return html`<div class="tw-card" key=${d.id}>
+          <div class="tw-card-top">
+            <span class="tw-tag ${tagCls}">${tagTxt}</span>
+            <span class="tw-folio">#${d.number}</span>
+            <span style=${{ marginLeft: 'auto' }}>${pildora(d)}</span>
+          </div>
+          <div class="tw-card-title">
+            <div style=${{ minWidth: 0 }}>
+              <p class="tw-card-name">${d.client_name || 'Sin cliente'}</p>
+              <p class="tw-card-meta">${meta}</p>
+            </div>
+            <span class=${'tw-card-total' + (Number(d.total) ? '' : ' zero')}>$${money0(d.total)}</span>
+          </div>
+          <div class="tw-acts">
+            ${acciones(d).map(([label, cls, ic, fn]) => html`<button type="button" key=${label}
+              class=${'tw-act' + (cls ? ' ' + cls : '')} onClick=${fn}>
+              <${CatIc} n=${ic} s=${18} />${label}</button>`)}
+          </div>
+        </div>`;
+      })}
+
+      ${lista.length === 0 && !api.loading && html`<div class="tw-empty">
+        <${CatIc} n="FileText" s=${26} />
+        <p class="tw-empty-t">${buscado || filtro !== 'todos' ? 'Sin resultados' : 'Sin documentos'}</p>
+        <p class="tw-empty-s">${buscado || filtro !== 'todos'
+          ? 'Ningún documento coincide con la búsqueda. Prueba con otro cliente o folio.'
+          : 'Crea una nota de entrega o un presupuesto con el botón de abajo.'}</p>
+      </div>`}
+
+      ${!show && html`<button type="button" class="tw-fab" aria-label="Nuevo documento" onClick=${() => setShow(true)}>
+        <${CatIc} n="Plus" s=${26} /></button>`}
     </div>
-    <div class="f-row mt-2">
-     <button type="button" class="link-btn" onClick=${addItem}>+ Agregar item</button>
-     <button type="button" class="tool-add-btn" onClick=${create} disabled=${!f.items.some(i => i.descr.trim())}>Crear y abrir</button></div></div>`}
-   <div class="doc-list f-col">
-    ${docs.map(d => html`<div class="order-item" key=${d.id}><div class="order-head"><strong>${d.kind === 'entrega' ? '' : ''} ${d.number}</strong>${d.client_name && html`<span class="muted">· ${d.client_name}</span>`}
-      <span class="order-date">${new Date(d.created_at).toLocaleDateString('es')}</span></div>
-     <div class="order-desc">${d.status} · Total $${Number(d.total || 0).toFixed(2)}</div>
-     <div class="order-foot">
-      <select class="order-status" value=${d.status} onChange=${e => setStatus(d.id, e.target.value)}>
-      <option>borrador</option><option>emitido</option><option>aprobado</option><option>rechazado</option><option>entregado</option>
-      </select>
-      ${d.kind === 'presupuesto' && html`<button type="button" class="link-btn" onClick=${() => convertToOrder(d)}>Crear orden</button>`}<button type="button" class="link-btn" onClick=${() => window.open('/api/documents/' + d.id + '/print', '_blank')}>Imprimir</button>
-      <button type="button" class="link-btn" onClick=${() => del(d.id)}>eliminar</button></div></div>`)}
-    ${docs.length === 0 && !api.loading && html`<div class="empty">Sin documentos. Crea una nota de entrega o presupuesto.</div>`}
-   </div>
   </${MicroShell}>`;
  };
+
   const SC = { padding: '10px 12px', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '8px', marginBottom: '8px' };
  const SB = { display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
  const SF = { display: 'flex', gap: '6px', alignItems: 'center' };
@@ -720,6 +950,12 @@
   const [passMsg, setPassMsg] = useState('');
   const [notifs, setNotifs] = useState([]);
   const [donations, setDonations] = useState([]);
+  /* Tablero de la cabecera: los cuatro números que antes obligaban a abrir
+     Órdenes, Caja, Agenda y Documentos solo para saber cómo va el día. */
+  const [ordersTablero] = useApi('/api/orders');
+  const [cajaTablero] = useApi('/api/cash');
+  const [citasTablero] = useApi('/api/appointments');
+  const [docsTablero] = useApi('/api/documents');
   const cargarNotifs = async () => {
    try { const d = await apiFetch('/api/workshop/notifications'); setNotifs(Array.isArray(d) ? d : []); } catch (_) {}
   };
@@ -802,6 +1038,14 @@
   if (estado === 'cargando') return html`<${MicroShell} title="Mi Taller" icon="Store" onBack=${onBack} nested=${nested}><div class="skel"><div class="skel-line"></div><div class="skel-line"></div></div></${MicroShell}>`;
   const noLeidas = notifs.filter(n => !n.is_read).length;
   const prog = me?.donor_progress || { puntos: me?.total_donated || 0, nivel: me?.donor_level || 0, nombre: 'Sin Rango', badge: 'Mecánico', porcentaje: 0, metaProximo: 1, faltaParaProximo: 1, beneficiosDesbloqueados: [], beneficiosProximos: [] };
+  const hoyStr = new Date().toISOString().slice(0, 10);
+  const money0 = (n) => Number(n || 0).toLocaleString('es', { maximumFractionDigits: 0 });
+  const activas = ordersTablero.filter(o => o.status !== 'Entregado' && o.status !== 'Cancelado').length;
+  const cajaHoy = cajaTablero.filter(m => String(m.created_at || '').slice(0, 10) === hoyStr)
+    .reduce((sum, m) => sum + (m.type === 'ingreso' ? Number(m.amount || 0) : -Number(m.amount || 0)), 0);
+  const citasHoy = citasTablero.filter(c => c.fecha === hoyStr && c.status !== 'cancelada').length;
+  const porCobrar = docsTablero.filter(d => d.kind !== 'cotizacion' && ['emitido', 'aprobado'].includes(d.status))
+    .reduce((sum, d) => sum + Number(d.total || 0), 0);
   const TABS = [
    ['taller', 'Store', 'Mi Taller'],
    ['rango', 'Award', 'Rango'],
@@ -809,7 +1053,15 @@
    ['cuenta', 'ShieldCheck', 'Cuenta']
   ];
   const renderPerk = (b, unlocked) => html`<div key=${b.nivel} style=${{ ...SC, opacity: unlocked ? 1 : .85, background: unlocked ? 'var(--sunken)' : 'var(--panel)', borderStyle: unlocked ? 'solid' : 'dashed' }}><div style=${SB}><div style=${SF}><span class=${unlocked ? "st-ok" : "muted"}><${CatIc} n=${unlocked ? 'Check' : 'Lock'} s=${12} /></span><strong class="text-sm">${b.nombre}</strong></div><span class="text-xs st-accent font-bold">${b.montoMin}+ pts</span></div><p class="muted text-xs mt-1">${b.perk}</p></div>`;
-  return html`<${MicroShell} title="Mi Taller" icon="Store" onBack=${onBack}><div class="prof-nav">${TABS.map(([k, ic, lb]) => html`
+  return html`<${MicroShell} title="Mi Taller" icon="Store" onBack=${onBack} nested=${nested}
+     sub=${prog.nombre ? `${prog.badge} · ${prog.nombre}` : 'Tu taller'}>
+   <div class="tw-stats">
+    <div class="tw-stat"><span class="tw-stat-l">Órdenes activas</span><span class="tw-stat-v">${activas}</span></div>
+    <div class="tw-stat"><span class="tw-stat-l">Caja hoy</span><span class="tw-stat-v ok">${money0(cajaHoy)}</span></div>
+    <div class="tw-stat"><span class="tw-stat-l">Citas hoy</span><span class="tw-stat-v warn">${citasHoy}</span></div>
+    <div class="tw-stat"><span class="tw-stat-l">Por cobrar</span><span class="tw-stat-v">${money0(porCobrar)}</span></div>
+   </div>
+   <div class="prof-nav">${TABS.map(([k, ic, lb]) => html`
      <button key=${k} type="button" class=${'prof-tab' + (subTab === k ? ' active' : '')} onClick=${() => setSubTab(k)}>
       <${CatIc} n=${ic} s=${14} /> <span>${lb}</span></button>`)}
    </div>

@@ -10,6 +10,7 @@ module.exports = {
     require('./005-taller-mejoras-admin'),
     require('./006-taller-inspeccion-labor'),
     require('./007-taller-agenda-operacion'),
+    require('./008-nota-fijada'),
   ],
   stats: [
     require('./stats-001-esquema'),

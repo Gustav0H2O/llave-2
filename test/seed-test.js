@@ -268,9 +268,11 @@ CREATE TABLE IF NOT EXISTS workshop_notes (
   workshop_id INTEGER NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
   text        TEXT NOT NULL,
   vehicle_ref TEXT,
+  pinned      INTEGER NOT NULL DEFAULT 0,
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_notes_ws ON workshop_notes(workshop_id);
+CREATE INDEX IF NOT EXISTS idx_notes_pinned ON workshop_notes(workshop_id, pinned);
 CREATE TABLE IF NOT EXISTS cash_moves (
   id          INTEGER PRIMARY KEY,
   workshop_id INTEGER NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,

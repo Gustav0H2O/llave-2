@@ -293,6 +293,27 @@ describe('Notas rápidas y caja del taller', () => {
     assert.equal((await t.post('/api/notes', { text: '   ' })).status, 400);
   });
 
+  /* 008 — la nota fijada sube al tope de la bitácora y lo que no se puede
+     actualizar se contesta 404/400, no un 200 vacío que haría creer al
+     mecánico que la había marcado. */
+  it('fija una nota y la sube al tope de la bitácora', async () => {
+    const vieja = await t.post('/api/notes', { text: 'Nota normal que queda abajo' });
+    const fija = await t.post('/api/notes', { text: 'Paro por seguridad del surtidor' });
+    assert.equal((await t.put(`/api/notes/${vieja.body.id}`, { pinned: 1 })).status, 200);
+
+    const lista = (await t.get('/api/notes')).body;
+    assert.equal(lista[0].id, vieja.body.id, 'la nota fijada debía encabezar la lista');
+    assert.equal(lista[0].pinned, 1);
+
+    assert.equal((await t.put('/api/notes/999999999', { pinned: 1 })).status, 404);
+    assert.equal((await t.put(`/api/notes/${fija.body.id}`, {})).status, 400);
+
+    /* Una nota de otro taller no se fija desde aquí (aislamiento por taller). */
+    const ajeno = crearCliente(ctx.base);
+    await ajeno.registrar('NotasAjeno');
+    assert.equal((await ajeno.put(`/api/notes/${vieja.body.id}`, { pinned: 0 })).status, 404);
+  });
+
   it('registra un ingreso y un egreso de caja', async () => {
     const ingreso = await t.post('/api/cash', { concept: 'Cambio de módulo', amount: 1800, type: 'ingreso' });
     assert.equal(ingreso.status, 201);

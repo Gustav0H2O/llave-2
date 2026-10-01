@@ -55,15 +55,23 @@
       ${tabs.map(x => html`<button type="button" role="tab" key=${x.id} class=${'micro-tab' + (x.id === tab ? ' active' : '')} aria-selected=${x.id === tab} onClick=${() => onTab(x.id)}>${x.label}</button>`)}
     </div>`;
 
-  const MicroShell = ({ title, icon, onBack, tabs, tab, onTab, children, nested }) => nested ? html`
+  /* Cabecera de micro app. `sub` y `action` son opcionales: sin ellos el marco es
+     exactamente el de siempre (las 40 apps que ya existen no cambian), con ellos
+     sale la variante nueva con título grande, subtítulo a la izquierda y la
+     acción secundaria a la derecha. El `h2` se envuelve para que siga siendo un
+     hijo directo del flex; el selector descendiente `.micro-shell-head h2` no se
+     mueve, así que la tipografía vieja sigue aplicando donde hay `sub` nuevo. */
+  const MicroShell = ({ title, icon, onBack, tabs, tab, onTab, children, nested, sub, action }) => nested ? html`
     <div class="micro-shell-body micro-shell-nested">${microTabBar(tabs, tab, onTab)}${children}</div>` : html`
     <div class="micro-shell panel">
-      <div class="micro-shell-head">
+      <div class=${'micro-shell-head' + (sub || action ? ' has-sub' : '')}>
         <button type="button" class="micro-back" onClick=${onBack}>
           <${CatIc} n="ChevronLeft" s=${16} /><span>Volver</span>
         </button>
         <span class="micro-shell-ic"><${CatIc} n=${icon} s=${18} /></span>
-        <h2>${title}</h2>
+        <div class="micro-shell-t"><h2>${title}</h2>
+          ${sub && html`<p class="micro-shell-sub">${sub}</p>`}</div>
+        ${action && html`<div class="micro-shell-act">${action}</div>`}
       </div>
       ${microTabBar(tabs, tab, onTab)}
       <div class="micro-shell-body">${children}</div>
@@ -3021,16 +3029,56 @@
   /* ================================================================
      27. Cotizador de mano de obra y refacciones
      ================================================================ */
+  /* ================================================================
+     Cotizador.
+     Se guarda en el taller vía /api/documents con kind 'cotizacion' (008): la
+     cotización es un documento más, así que hereda cliente, folio, partidas,
+     estados, impresión y respaldo sin una tabla ni una ruta nuevas.
+     Convención de líneas al persistir (el servidor no admite importes
+     negativos, así que el descuento NO puede ser un renglón):
+       · «Mano de obra — {trabajo}»  → qty = horas, unit_price = tarifa
+       · refacción                    → qty = cantidad, unit_price = precio
+       · «IVA {n} %»                   → qty = 1, unit_price = impuesto
+     El descuento se reparte en el precio de cada partida (factor 1 − d/100), de
+     modo que la suma de los renglones ES el total que ve el cliente. Por eso al
+     duplicar una cotización los precios ya vienen con el descuento aplicado y el
+     campo «Descuento %» vuelve a cero: el dinero es el mismo.
+     ================================================================ */
+  const QUOTE_VACIO = { rate: '350', iva: '16', disc: '0', client_id: '', veh: '', labor: [], parts: [] };
+  const PREFIJO_MO = 'Mano de obra — ';
+
   const QuoteApp = ({ onBack, nested }) => {
-    const [q, setQ] = useState(() => ls.get('ft_quote', {
-      rate: '250', iva: '16', disc: '0',
-      cliente: '', tel: '', veh: '',
-      labor: [{ d: '', h: '' }],
-      parts: [{ d: '', q: '1', p: '' }],
-    }));
-    const [copiado, setCopiado] = useState(false);
+    const [clientes] = useApi('/api/clients');
+    const [almacen] = useApi('/api/inventory');
+    const [docs, docsApi] = useApi('/api/documents');
+    const [q, setQ] = useState(() => ls.get('ft_quote', QUOTE_VACIO));
+    const [vehiculos, setVehiculos] = useState([]);
+    const [verHist, setVerHist] = useState(false);
+    const [verTiempos, setVerTiempos] = useState(false);
+    const [verAlmacen, setVerAlmacen] = useState(false);
+    const [buscaT, setBuscaT] = useState('');
+    const [buscaA, setBuscaA] = useState('');
+    const [aviso, setAviso] = useState('');
+    const [guardando, setGuardando] = useState(false);
+
+    /* El borrador vive en el teléfono para que volver atrás no borre lo escrito;
+       lo que se guarda "en el taller" es la cotización emitida, no el borrador. */
     const save = (next) => { setQ(next); ls.set('ft_quote', next); };
-    const num = (x) => { const n = parseFloat(x); return isNaN(n) ? 0 : n; };
+    const num = (x) => { const n = parseFloat(x); return Number.isFinite(n) ? n : 0; };
+    const money = (n) => num(n).toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const cliente = clientes.find((c) => String(c.id) === String(q.client_id)) || null;
+
+    /* Los vehículos son del cliente, no texto libre: al elegir cliente se traen
+       los suyos y el selector solo ofrece esos. */
+    useEffect(() => {
+      if (!q.client_id) { setVehiculos([]); return undefined; }
+      let vivo = true;
+      apiFetch('/api/clients/' + q.client_id + '/vehicles')
+        .then((r) => { if (vivo) setVehiculos(Array.isArray(r) ? r : []); })
+        .catch(() => { if (vivo) setVehiculos([]); });
+      return () => { vivo = false; };
+    }, [q.client_id]);
+
     const horas = q.labor.reduce((s, l) => s + num(l.h), 0);
     const manoObra = horas * num(q.rate);
     const refacciones = q.parts.reduce((s, p) => s + num(p.q) * num(p.p), 0);
@@ -3039,32 +3087,54 @@
     const base = subtotal - descuento;
     const iva = base * (num(q.iva) / 100);
     const total = base + iva;
-    const money = (n) => n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const setLine = (key, i, campo, val) => {
-      const arr = q[key].map((l, j) => j === i ? { ...l, [campo]: val } : l);
-      save({ ...q, [key]: arr });
-    };
-    const addLine = (key, vacia) => save({ ...q, [key]: [...q[key], vacia] });
-    const delLine = (key, i) => save({ ...q, [key]: q[key].filter((_, j) => j !== i) });
+    const hayLineas = subtotal > 0;
+    const factor = 1 - num(q.disc) / 100;
 
-    /* Texto plano, no HTML: WhatsApp solo entiende su propio marcado ligero
-       (*negrita*) y cualquier otra cosa llega como caracteres sueltos. */
+    const setL = (i, k, v) => save({ ...q, labor: q.labor.map((l, j) => (j === i ? { ...l, [k]: v } : l)) });
+    const addL = (d = '', h = '1') => save({ ...q, labor: [...q.labor, { d, h }] });
+    const delL = (i) => save({ ...q, labor: q.labor.filter((_, j) => j !== i) });
+    const pasoH = (i, d) => setL(i, 'h', String(Math.max(0, +(num(q.labor[i].h) + d).toFixed(2))));
+
+    const setP = (i, k, v) => save({ ...q, parts: q.parts.map((p, j) => (j === i ? { ...p, [k]: v } : p)) });
+    const addP = (d, p, itemId = null) => save({ ...q, parts: [...q.parts, { d, q: '1', p, item_id: itemId }] });
+    const delP = (i) => save({ ...q, parts: q.parts.filter((_, j) => j !== i) });
+    const pasoQ = (i, d) => setP(i, 'q', String(Math.max(1, Math.round(num(q.parts[i].q) + d))));
+
+    const stockDe = (p) => {
+      const item = almacen.find((x) => x.id === Number(p.item_id));
+      return item ? Number(item.qty) : null;
+    };
+
+    const etiquetaVeh = (v) => [v.brand, v.model, v.year, v.plate].filter(Boolean).join(' ') || 'Vehículo';
+
+    const tiempos = LABOR.filter(([sis, nombre]) => {
+      const t = buscaT.trim().toLowerCase();
+      return !t || (nombre + ' ' + sis).toLowerCase().includes(t);
+    }).slice(0, 60);
+
+    const delAlmacen = almacen.filter((x) => {
+      const t = buscaA.trim().toLowerCase();
+      return !t || String(x.name).toLowerCase().includes(t);
+    }).slice(0, 60);
+
+    /* El mismo texto que recibe el cliente por WhatsApp: plano, con el marcado
+       ligero de WhatsApp y nada más. */
     const comoTexto = () => {
       const L = [];
-      L.push('*PRESUPUESTO*');
-      if (q.cliente) L.push(`Cliente: ${q.cliente}`);
+      L.push('*COTIZACIÓN*');
+      if (cliente) L.push(`Cliente: ${cliente.name}`);
       if (q.veh) L.push(`Vehículo: ${q.veh}`);
       L.push('');
-      const conManoObra = q.labor.filter(l => l.d || num(l.h));
-      if (conManoObra.length) {
+      const mo = q.labor.filter((l) => l.d && num(l.h) > 0);
+      if (mo.length) {
         L.push('*Mano de obra*');
-        for (const l of conManoObra) L.push(`• ${l.d || 'Trabajo'} — ${num(l.h)} h — $${money(num(l.h) * num(q.rate))}`);
+        for (const l of mo) L.push(`• ${l.d} — ${num(l.h)} h — $${money(num(l.h) * num(q.rate))}`);
         L.push('');
       }
-      const conPartes = q.parts.filter(p => p.d || num(p.p));
-      if (conPartes.length) {
+      const pa = q.parts.filter((p) => p.d && num(p.q) > 0);
+      if (pa.length) {
         L.push('*Refacciones*');
-        for (const p of conPartes) L.push(`• ${p.d || 'Refacción'} ×${num(p.q)} — $${money(num(p.q) * num(p.p))}`);
+        for (const p of pa) L.push(`• ${p.d} ×${num(p.q)} — $${money(num(p.q) * num(p.p))}`);
         L.push('');
       }
       L.push(`Subtotal: $${money(subtotal)}`);
@@ -3072,70 +3142,270 @@
       L.push(`Impuesto (${q.iva} %): $${money(iva)}`);
       L.push(`*TOTAL: $${money(total)}*`);
       L.push('');
-      L.push('Presupuesto estimado, sujeto a revisión física del vehículo.');
+      L.push('Estimado sujeto a revisión física del vehículo.');
       return L.join('\n');
     };
-    const copiar = () => navigator.clipboard?.writeText(comoTexto()).then(() => {
-      setCopiado(true); setTimeout(() => setCopiado(false), 2000);
-    }, () => {});
-    const hayLineas = subtotal > 0;
 
-    return html`<${MicroShell} title="Cotizador Rápido" icon="Calculator" onBack=${onBack} nested=${nested}>
-      <p class="mic-lead">Arma el presupuesto antes de dar el precio y mándalo por WhatsApp al cliente. Se guarda en este navegador.</p>
+    /* Emitir = persistir en el servidor. Las partidas van con el descuento
+       repartido y el IVA como renglón propio para que el total que calcula el
+       servidor sea el mismo que ve el mecánico. Vale para los dos destinos: la
+       cotización (Historial) y el presupuesto (app Documentos). */
+    const armarItems = () => {
+      const items = [];
+      for (const l of q.labor) if (l.d.trim() && num(l.h) > 0) {
+        items.push({ descr: PREFIJO_MO + l.d.trim(), qty: num(l.h), unit_price: +(num(q.rate) * factor).toFixed(2) });
+      }
+      for (const p of q.parts) if (p.d.trim() && num(p.q) > 0) {
+        items.push({ item_id: p.item_id ? Number(p.item_id) : null, descr: p.d.trim(), qty: num(p.q), unit_price: +(num(p.p) * factor).toFixed(2) });
+      }
+      if (num(q.iva) > 0) items.push({ descr: `IVA ${q.iva} %`, qty: 1, unit_price: +iva.toFixed(2) });
+      return items;
+    };
 
-      <h3 class="mic-sub">Cliente</h3>
-      <div class="quote-params quote-params--ancho">
-        <label><span class="mic-lbl">Nombre</span><input type="text" name="cliente" autocomplete="name" class="styled-input" placeholder="Nombre del cliente" value=${q.cliente} onChange=${e => save({ ...q, cliente: e.target.value })} /></label>
-        <label><span class="mic-lbl">WhatsApp</span><input type="tel" name="telefono" autocomplete="tel" inputmode="tel" class="styled-input" placeholder="+58 412 1234567" value=${q.tel} onChange=${e => save({ ...q, tel: e.target.value })} /></label>
-        <label><span class="mic-lbl">Vehículo</span><input type="text" name="vehiculo" class="styled-input" placeholder="Marca, modelo y año" value=${q.veh} onChange=${e => save({ ...q, veh: e.target.value })} /></label>
+    const emitir = async (kind) => {
+      if (!cliente) { setAviso('Elige un cliente para emitir la cotización.'); return; }
+      const items = armarItems();
+      if (!items.length) { setAviso('Agrega al menos un trabajo o una refacción.'); return; }
+      setGuardando(true);
+      try {
+        await apiFetch('/api/documents', { method: 'POST', body: JSON.stringify({ kind, client_id: q.client_id || null, items }) });
+        docsApi.load();
+        setAviso(kind === 'cotizacion' ? 'Cotización guardada en el taller.' : 'Presupuesto creado: ya aparece en Documentos.');
+      } catch (e) { setAviso(e.message); }
+      setGuardando(false);
+    };
+
+    const historial = docs.filter((d) => d.kind === 'cotizacion');
+
+    /* Duplicar una cotización anterior: se lee su detalle y se vuelca al
+       formulario. Los renglones de IVA no vuelven al borrador (son cálculo, no
+       trabajo) y el descuento tampoco porque ya viene dentro de los precios. */
+    const duplicar = async (d) => {
+      try {
+        const det = await apiFetch('/api/documents/' + d.id);
+        const labor = [];
+        const parts = [];
+        let rate = q.rate;
+        let ivaPct = '0';
+        for (const it of (det.items || [])) {
+          const descr = String(it.descr || '');
+          if (descr.startsWith(PREFIJO_MO)) {
+            labor.push({ d: descr.slice(PREFIJO_MO.length), h: String(it.qty) });
+            rate = String(it.unit_price);
+          } else if (/^IVA\s/.test(descr)) {
+            ivaPct = descr.replace(/^IVA\s*/, '').replace('%', '').trim();
+          } else {
+            parts.push({ d: descr, q: String(it.qty), p: String(it.unit_price), item_id: it.item_id || null });
+          }
+        }
+        let veh = '';
+        try {
+          const vs = det.vehicle_snapshot ? JSON.parse(det.vehicle_snapshot) : null;
+          veh = vs ? [vs.brand, vs.model, vs.year, vs.plate].filter(Boolean).join(' ') : '';
+        } catch (e) { veh = ''; }
+        save({ ...q, rate, iva: ivaPct, disc: '0', client_id: det.client_id || '', veh, labor, parts });
+        setVerHist(false);
+        setAviso('Cotización copiada al formulario.');
+      } catch (e) { setAviso(e.message); }
+    };
+
+    const aPresupuesto = async (d, id) => {
+      const fuente = id || (d && d.id);
+      try {
+        const det = await apiFetch('/api/documents/' + fuente);
+        const items = (det.items || []).map((i) => ({ item_id: i.item_id || null, descr: i.descr, qty: i.qty, unit_price: i.unit_price }));
+        await apiFetch('/api/documents', { method: 'POST', body: JSON.stringify({ kind: 'presupuesto', client_id: det.client_id || null, items }) });
+        docsApi.load();
+        setAviso('Presupuesto creado: ya aparece en Documentos.');
+      } catch (e) { setAviso(e.message); }
+    };
+
+    const eliminar = async (d) => {
+      const ok = await confirmDialog({ title: 'Eliminar cotización', message: `¿Eliminar ${d.number}?`, confirmText: 'Eliminar', danger: true, icon: 'Trash2' });
+      if (!ok) return;
+      try { await apiFetch('/api/documents/' + d.id, { method: 'DELETE' }); docsApi.load(); }
+      catch (e) { setAviso(e.message); }
+    };
+
+    const limpiar = () => { save(QUOTE_VACIO); setAviso(''); setVerHist(false); };
+
+    return html`<${MicroShell} title="Cotizador" icon="Calculator" nested=${nested}
+        sub="Se guarda en el taller" onBack=${onBack}
+        action=${html`<button type="button" class="tw-head-act" onClick=${() => setVerHist(!verHist)}>Historial</button>`}>
+
+      ${aviso && html`<div class="tw-alert" role="status"><div class="tw-alert-b"><span class="tw-alert-t">${aviso}</span></div>
+        <button type="button" class="tw-sec-a" onClick=${() => setAviso('')}>Cerrar</button></div>`}
+
+      ${verHist ? html`<div>
+        <div class="tw-sec"><h3 class="tw-sec-t">Cotizaciones guardadas</h3>
+          <span class="tw-sec-n">${historial.length}</span></div>
+        ${docsApi.loading && !historial.length && html`<div class="tw-empty"><p class="tw-empty-t">Cargando…</p></div>`}
+        ${historial.map((d) => {
+          const f = new Date(d.created_at);
+          return html`<div class="tw-card" key=${d.id}>
+            <div class="tw-card-top">
+              <span class="tw-tag warn">Cotización</span>
+              <span class="tw-folio">#${d.number}</span>
+              <span class="tw-card-meta" style=${{ marginLeft: 'auto' }}>${f.toLocaleDateString('es')}</span>
+            </div>
+            <div class="tw-card-title">
+              <p class="tw-card-name">${d.client_name || 'Sin cliente'}</p>
+              <span class="tw-card-total">$${money(d.total)}</span>
+            </div>
+            <div class="tw-acts">
+              <button type="button" class="tw-act primary" onClick=${() => duplicar(d)}>
+                <${CatIc} n="Copy" s=${18} />Duplicar</button>
+              <button type="button" class="tw-act" onClick=${() => aPresupuesto(null, d.id)}>
+                <${CatIc} n="ArrowRight" s=${18} />A presupuesto</button>
+              <button type="button" class="tw-act" onClick=${() => window.open('/api/documents/' + d.id + '/print', '_blank')}>
+                <${CatIc} n="Printer" s=${18} />Imprimir</button>
+              <button type="button" class="tw-act danger" onClick=${() => eliminar(d)}>
+                <${CatIc} n="Trash2" s=${18} />Eliminar</button>
+            </div>
+          </div>`;
+        })}
+        ${!historial.length && !docsApi.loading && html`<div class="tw-empty">
+          <${CatIc} n="Calculator" s=${26} />
+          <p class="tw-empty-t">Sin cotizaciones guardadas</p>
+          <p class="tw-empty-s">Lo que armes con «Guardar» queda aquí, visible para todo el taller.</p>
+        </div>`}
+        <button type="button" class="tw-cta sec" onClick=${() => setVerHist(false)}>Volver al formulario</button>
+      </div>` : html`<div>
+
+      ${cliente ? html`<div class="tw-idcard">
+        <span class="tw-av">${(cliente.name || '?').trim().slice(0, 2).toUpperCase()}</span>
+        <div class="tw-idcard-b">
+          <p class="tw-idcard-n">${cliente.name}</p>
+          <p class="tw-idcard-m">${q.veh || (cliente.phone || 'Sin teléfono')}</p>
+        </div>
+        <button type="button" class="tw-act" style=${{ flex: '0 0 auto', minWidth: 'auto', minHeight: '44px', flexDirection: 'row', gap: '6px', padding: '9px 14px' }}
+          disabled=${!hayLineas} onClick=${() => enviarWhatsApp(cliente.phone || '', comoTexto())}>
+          <${CatIc} n="BrandWhatsapp" s=${16} />WhatsApp</button>
+      </div>` : html`<label class="tw-field"><span class="tw-field-l">Cliente</span>
+        <span class="tw-field-v"><select value=${q.client_id} onChange=${(e) => save({ ...q, client_id: e.target.value, veh: '' })}>
+          <option value="">Elegir cliente…</option>
+          ${clientes.map((c) => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
+        </select></span></label>`}
+
+      ${!cliente && !clientes.length && html`<p class="tw-note">Aún no hay clientes. Créalos en la app Clientes para cotizar a nombre de uno.</p>`}
+
+      ${cliente && html`<div class="tw-field">
+        <span class="tw-field-l">Vehículo</span>
+        ${vehiculos.length
+          ? html`<span class="tw-field-v"><select value=${q.veh} onChange=${(e) => save({ ...q, veh: e.target.value })}>
+              <option value="">Sin especificar…</option>
+              ${vehiculos.map((v) => html`<option key=${v.id} value=${etiquetaVeh(v)}>${etiquetaVeh(v)}</option>`)}
+            </select></span>`
+          : html`<span class="tw-field-v"><input type="text" placeholder="Marca, modelo y año" value=${q.veh}
+              onChange=${(e) => save({ ...q, veh: e.target.value })} /></span>`}
+      </div>`}
+
+      <div class="tw-sec"><h3 class="tw-sec-t">Tarifas</h3>
+        <button type="button" class="tw-sec-a" onClick=${limpiar}>Empezar de cero</button></div>
+      <div class="tw-field-3">
+        <label class="tw-field"><span class="tw-field-l">Tarifa / hora</span>
+          <span class="tw-field-v"><input type="number" min="0" value=${q.rate} onChange=${(e) => save({ ...q, rate: e.target.value })} /></span></label>
+        <label class="tw-field"><span class="tw-field-l">IVA %</span>
+          <span class="tw-field-v"><input type="number" min="0" value=${q.iva} onChange=${(e) => save({ ...q, iva: e.target.value })} /></span></label>
+        <label class="tw-field"><span class="tw-field-l">Descuento %</span>
+          <span class="tw-field-v"><input type="number" min="0" max="100" value=${q.disc} onChange=${(e) => save({ ...q, disc: e.target.value })} /></span></label>
       </div>
 
-      <h3 class="mic-sub">Tarifas</h3>
-      <div class="quote-params">
-        <label><span class="mic-lbl">Tarifa por hora</span><input type="number" class="styled-input" value=${q.rate} onChange=${e => save({ ...q, rate: e.target.value })} /></label>
-        <label><span class="mic-lbl">Impuesto %</span><input type="number" class="styled-input" value=${q.iva} onChange=${e => save({ ...q, iva: e.target.value })} /></label>
-        <label><span class="mic-lbl">Descuento %</span><input type="number" class="styled-input" value=${q.disc} onChange=${e => save({ ...q, disc: e.target.value })} /></label>
-      </div>
+      <div class="tw-sec"><h3 class="tw-sec-t">Mano de obra ${q.labor.length ? html`<span class="tw-sec-c">${q.labor.length}</span>` : null}</h3>
+        <button type="button" class="tw-sec-a" onClick=${() => setVerTiempos(!verTiempos)}>Sugerir de Tiempos</button></div>
 
-      <h3 class="mic-sub">Mano de obra</h3>
-      ${q.labor.map((l, i) => html`<div class="quote-line" key=${'l' + i}>
-        <input type="text" class="styled-input" placeholder="Trabajo: cambio de pila…" aria-label=${'Descripción del trabajo ' + (i + 1)} value=${l.d} onChange=${e => setLine('labor', i, 'd', e.target.value)} />
-        <input type="number" min="0" step="0.25" class="styled-input quote-narrow" placeholder="Horas" aria-label=${'Horas del trabajo ' + (i + 1)} value=${l.h} onChange=${e => setLine('labor', i, 'h', e.target.value)} />
-        <span class="quote-sub">$${money(num(l.h) * num(q.rate))}</span>
-        <button type="button" class="quote-del" onClick=${() => delLine('labor', i)} aria-label="Quitar línea" disabled=${q.labor.length === 1}>×</button>
+      ${verTiempos && html`<div class="tw-card">
+        <div class="tw-search"><${CatIc} n="Search" s=${16} />
+          <input type="search" placeholder="Trabajo o sistema: clutch, bomba…" aria-label="Buscar en tiempos" value=${buscaT} onChange=${(e) => setBuscaT(e.target.value)} /></div>
+        ${tiempos.map(([sis, nombre, min, max]) => html`<button type="button" class="tw-menu-i" key=${nombre}
+          onClick=${() => { addL(nombre, ((min + max) / 2).toFixed(2)); setVerTiempos(false); }}>
+          <span class="tw-menu-t"><span class="tw-menu-n">${nombre}</span>
+            <span class="tw-menu-s">${sis} · referencia ${min.toFixed(1)}–${max.toFixed(1)} h</span></span>
+          <span class="tw-menu-go"><${CatIc} n="Plus" s=${18} /></span></button>`)}
+        ${!tiempos.length && html`<p class="tw-note">Sin resultados para “${buscaT}”.</p>`}
+        <button type="button" class="tw-cta sec" onClick=${() => setVerTiempos(false)}>Cerrar</button>
+      </div>`}
+
+      ${q.labor.map((l, i) => html`<div class="tw-line" key=${'l' + i}>
+        <div class="tw-line-info">
+          <input class="tw-line-name" type="text" placeholder="Trabajo" aria-label=${'Trabajo ' + (i + 1)}
+            value=${l.d} onChange=${(e) => setL(i, 'd', e.target.value)} />
+        </div>
+        <div class="tw-step">
+          <button type="button" class="tw-step-b" aria-label="Menos un cuarto de hora" onClick=${() => pasoH(i, -0.25)}>−</button>
+          <span class="tw-step-v">${num(l.h)} h</span>
+          <button type="button" class="tw-step-b" aria-label="Más un cuarto de hora" onClick=${() => pasoH(i, 0.25)}>+</button>
+        </div>
+        <span class="tw-line-amt">$${money(num(l.h) * num(q.rate))}</span>
+        <button type="button" class="tw-line-del" aria-label="Quitar trabajo" onClick=${() => delL(i)}>
+          <${CatIc} n="Trash2" s=${16} /></button>
       </div>`)}
-      <button type="button" class="home-cta-ghost quote-add" onClick=${() => addLine('labor', { d: '', h: '' })}>+ Agregar trabajo</button>
 
-      <h3 class="mic-sub">Refacciones</h3>
-      ${q.parts.map((p, i) => html`<div class="quote-line" key=${'p' + i}>
-        <input type="text" class="styled-input" placeholder="Refacción…" aria-label=${'Refacción ' + (i + 1)} value=${p.d} onChange=${e => setLine('parts', i, 'd', e.target.value)} />
-        <input type="number" min="0" class="styled-input quote-narrow" placeholder="Cant." aria-label=${'Cantidad de la refacción ' + (i + 1)} value=${p.q} onChange=${e => setLine('parts', i, 'q', e.target.value)} />
-        <input type="number" min="0" step="0.01" class="styled-input quote-narrow" placeholder="Precio" aria-label=${'Precio unitario de la refacción ' + (i + 1)} value=${p.p} onChange=${e => setLine('parts', i, 'p', e.target.value)} />
-        <span class="quote-sub">$${money(num(p.q) * num(p.p))}</span>
-        <button type="button" class="quote-del" onClick=${() => delLine('parts', i)} aria-label="Quitar línea" disabled=${q.parts.length === 1}>×</button>
-      </div>`)}
-      <button type="button" class="home-cta-ghost quote-add" onClick=${() => addLine('parts', { d: '', q: '1', p: '' })}>+ Agregar refacción</button>
+      <button type="button" class="tw-sec-a" onClick=${() => addL()}>+ Agregar trabajo</button>
 
-      <dl class="kv quote-total">
-        <dt>Mano de obra (${horas.toFixed(1)} h)</dt><dd>$${money(manoObra)}</dd>
-        <dt>Refacciones</dt><dd>$${money(refacciones)}</dd>
-        <dt>Subtotal</dt><dd>$${money(subtotal)}</dd>
-        ${num(q.disc) > 0 && html`<dt>Descuento (${q.disc} %)</dt><dd>−$${money(descuento)}</dd>`}
-        <dt>Impuesto (${q.iva} %)</dt><dd>$${money(iva)}</dd>
-      </dl>
-      <div class="quote-grand" aria-live="polite"><span>Total</span><b>$${money(total)}</b></div>
+      <div class="tw-sec"><h3 class="tw-sec-t">Refacciones ${q.parts.length ? html`<span class="tw-sec-c">${q.parts.length}</span>` : null}</h3>
+        <button type="button" class="tw-sec-a" onClick=${() => setVerAlmacen(!verAlmacen)}>Del almacén</button></div>
 
-      <div class="insp-actions">
-        <button type="button" class="tool-add-btn" disabled=${!hayLineas || !telValido(q.tel)}
-          onClick=${() => enviarWhatsApp(q.tel, comoTexto())}>
-          Enviar por WhatsApp
-        </button>
-        <button type="button" class="home-cta-ghost" disabled=${!hayLineas} onClick=${copiar}>${copiado ? 'Copiado ✓' : 'Copiar texto'}</button>
-        <button type="button" class="home-cta-ghost" onClick=${() => save({ ...q, cliente: '', tel: '', veh: '', labor: [{ d: '', h: '' }], parts: [{ d: '', q: '1', p: '' }] })}>Presupuesto nuevo</button>
+      ${verAlmacen && html`<div class="tw-card">
+        <div class="tw-search"><${CatIc} n="Search" s=${16} />
+          <input type="search" placeholder="Pieza del almacén…" aria-label="Buscar en almacén" value=${buscaA} onChange=${(e) => setBuscaA(e.target.value)} /></div>
+        ${delAlmacen.map((x) => html`<button type="button" class="tw-menu-i" key=${x.id}
+          onClick=${() => { addP(x.name, String(x.unit_price ?? ''), x.id); setVerAlmacen(false); }}>
+          <span class="tw-menu-t"><span class="tw-menu-n">${x.name}</span>
+            <span class="tw-menu-s">stock ${Number(x.qty)} · $${money(x.unit_price)}</span></span>
+          <span class="tw-menu-go"><${CatIc} n="Plus" s=${18} /></span></button>`)}
+        ${!delAlmacen.length && html`<p class="tw-note">Sin resultados para “${buscaA}”.</p>`}
+        <button type="button" class="tw-cta sec" onClick=${() => setVerAlmacen(false)}>Cerrar</button>
+      </div>`}
+
+      ${q.parts.map((p, i) => {
+        const st = stockDe(p);
+        return html`<div class="tw-line" key=${'p' + i}>
+          <div class="tw-line-info">
+            <input class="tw-line-name" type="text" placeholder="Refacción" aria-label=${'Refacción ' + (i + 1)}
+              value=${p.d} onChange=${(e) => setP(i, 'd', e.target.value)} />
+            <input class="tw-line-sub" type="text" placeholder="precio unitario" aria-label=${'Precio de ' + (i + 1)}
+              value=${p.p} onChange=${(e) => setP(i, 'p', e.target.value)} />
+            ${st !== null && html`<span class=${'tw-line-sub' + (st <= 0 ? ' is-bad' : '')}>stock ${st}${st <= 0 ? ' · sin existencia' : (st <= 2 ? ' · bajo' : '')}</span>`}
+          </div>
+          <div class="tw-step">
+            <button type="button" class="tw-step-b" aria-label="Menos uno" onClick=${() => pasoQ(i, -1)}>−</button>
+            <span class="tw-step-v">${num(p.q)}</span>
+            <button type="button" class="tw-step-b" aria-label="Más uno" onClick=${() => pasoQ(i, 1)}>+</button>
+          </div>
+          <span class="tw-line-amt">$${money(num(p.q) * num(p.p))}</span>
+          <button type="button" class="tw-line-del" aria-label="Quitar refacción" onClick=${() => delP(i)}>
+            <${CatIc} n="Trash2" s=${16} /></button>
+        </div>`;
+      })}
+
+      <button type="button" class="tw-sec-a" onClick=${() => addP('', '')}>+ Agregar refacción</button>
+
+      <div class="tw-sum">
+        <div class="tw-sum-row"><span>Mano de obra (${horas.toFixed(1)} h)</span><span>$${money(manoObra)}</span></div>
+        <div class="tw-sum-row"><span>Refacciones</span><span>$${money(refacciones)}</span></div>
+        ${num(q.disc) > 0 && html`<div class="tw-sum-row"><span>Descuento ${q.disc} %</span><span>−$${money(descuento)}</span></div>`}
+        <div class="tw-sum-row"><span>IVA ${q.iva} %</span><span>$${money(iva)}</span></div>
+        <div class="tw-sum-total"><span>Total</span><span>$${money(total)}</span></div>
       </div>
-      ${hayLineas && !telValido(q.tel) && html`<p class="quote-hint">Escribe el WhatsApp del cliente con código de país para poder enviárselo. Mientras tanto puedes copiar el texto.</p>`}
+
+      <div class="tw-foot">
+        <button type="button" class="tw-cta" disabled=${!hayLineas || !cliente}
+          onClick=${() => enviarWhatsApp(cliente?.phone || '', comoTexto())}>
+          <${CatIc} n="BrandWhatsapp" s=${18} />Enviar por WhatsApp</button>
+        <button type="button" class="tw-cta sec" disabled=${!hayLineas || guardando} onClick=${() => emitir('cotizacion')}>
+          <${CatIc} n="Download" s=${18} />${guardando ? 'Guardando…' : 'Guardar'}</button>
+      </div>
+
+      <button type="button" class="tw-sec-a" style=${{ display: 'block', margin: '10px auto 0' }} disabled=${!hayLineas}
+        onClick=${() => emitir('presupuesto')}>→ Convertir a presupuesto</button>
+      ${!hayLineas && html`<p class="tw-note">Agrega trabajos y refacciones para cotizar.</p>`}
+      ${hayLineas && !cliente && html`<p class="tw-note">Elige un cliente para guardar y enviar la cotización.</p>`}
+      <p class="tw-note">Antes se guardaba solo en este teléfono. Ahora queda en el taller y lo ve todo el equipo.</p>
+    </div>`}
     </${MicroShell}>`;
   };
+
 
   /* ================================================================
      28. Agenda de citas
@@ -3539,42 +3809,124 @@
   </${MicroShell}>`;
 
   /* ================================================================
-     33. Tiempos de mano de obra
-     Rango de referencia para cotizar, no baremo oficial. Se enlaza con
-     el cotizador escribiendo en la misma clave de almacenamiento.
+     Tiempos de mano de obra.
+     Rango de referencia para cotizar, no baremo oficial. La barra sobre una
+     escala fija de 0 a 8 h deja ver de un golpe si un trabajo es de una hora o
+     de media jornada, y el deslizador decide las horas DENTRO del rango antes
+     de mandarlas al cotizador: antes se imponía el promedio sin preguntar.
      ================================================================ */
+  const TOPE_ESCALA = 8;
 
   const LaborApp = ({ onBack, nested }) => {
     const [q, setQ] = useState('');
-    const [agregado, setAgregado] = useState('');
+    const [sel, setSel] = useState(null);
+    const [horas, setHoras] = useState(0);
+    const [aviso, setAviso] = useState('');
+    const [favs, setFavs] = useState(() => ls.get('ft_labor_favs', []));
+    const [soloFavs, setSoloFavs] = useState(false);
+
     const t = q.trim().toLowerCase();
-    const rows = LABOR.filter(r => !t || (r[0] + ' ' + r[1]).toLowerCase().includes(t));
-    // Escribe en la misma clave que lee el cotizador: pasar de "cuánto tarda"
-    // a "cuánto cobro" es el paso siguiente natural y evita retecleado.
-    const alCotizador = (nombre, min, max) => {
-      const q0 = ls.get('ft_quote', { rate: '250', iva: '16', disc: '0', labor: [], parts: [{ d: '', q: '1', p: '' }] });
-      const horas = ((min + max) / 2).toFixed(2);
-      const labor = (q0.labor || []).filter(l => l.d || l.h);
-      ls.set('ft_quote', { ...q0, labor: [...labor, { d: nombre, h: horas }] });
-      setAgregado(nombre);
-      setTimeout(() => setAgregado(''), 2200);
+    const filas = LABOR.filter(([sis, nombre]) => !t || (nombre + ' ' + sis).toLowerCase().includes(t));
+    const visibles = soloFavs ? filas.filter(([, nombre]) => favs.includes(nombre)) : filas;
+
+    const abrir = ([sis, nombre, min, max]) => {
+      setSel({ sis, nombre, min, max });
+      setHoras(+(((min + max) / 2)).toFixed(2));
+      setAviso('');
     };
-    return html`<${MicroShell} title="Tiempos de Mano de Obra" icon="History" onBack=${onBack} nested=${nested}>
-      <p class="mic-lead">Rango de horas de referencia para cotizar. El botón manda el trabajo al cotizador con el promedio del rango ya puesto.</p>
-      <label class="sr-only" htmlFor="labor-q">Filtrar trabajo</label>
-      <input id="labor-q" name="trabajo" type="search" class="styled-input" placeholder="Trabajo o sistema: bomba, clutch…" value=${q} onChange=${e => setQ(e.target.value)} style=${{ maxWidth: '340px', marginBottom: '14px' }} />
-      <p class="sr-only" aria-live="polite">${agregado ? agregado + ' agregado al cotizador' : ''}</p>
-      <table class="mic-tbl tbl-acciones">
-        <thead><tr><th>Sistema</th><th>Trabajo</th><th>Horas</th><th><span class="sr-only">Acción</span></th></tr></thead>
-        <tbody>${rows.map(([sis, nombre, min, max], i) => html`<tr key=${i}>
-          <td class="muted">${sis}</td>
-          <td>${nombre}</td>
-          <td class="num"><strong>${min.toFixed(1)}–${max.toFixed(1)}</strong></td>
-          <td><button type="button" class="link-btn" onClick=${() => alCotizador(nombre, min, max)}>${agregado === nombre ? 'agregado ✓' : 'cotizar'}</button></td>
-        </tr>`)}</tbody>
-      </table>
-      ${rows.length === 0 && html`<div class="empty">Sin resultados para “${q}”</div>`}
-      <div class="alert" style=${{ marginTop: '14px' }}><span>No es un baremo oficial: son rangos de taller general. Un vehículo oxidado, un motor transversal apretado o un tornillo barrido se salen del rango sin discusión — cotiza con eso en mente.</span></div>
+
+    const esFav = (nombre) => favs.includes(nombre);
+    const alternarFav = (nombre) => setFavs((prev) => {
+      const next = prev.includes(nombre) ? prev.filter((x) => x !== nombre) : [nombre, ...prev].slice(0, 5);
+      ls.set('ft_labor_favs', next);
+      return next;
+    });
+
+    /* Manda el trabajo al cotizador con las horas que el mecánico eligió, no con
+       el promedio de oficio. */
+    const alCotizador = () => {
+      if (!sel) return;
+      const q0 = ls.get('ft_quote', { rate: '350', iva: '16', disc: '0', client_id: '', veh: '', labor: [], parts: [] });
+      const labor = (q0.labor || []).filter((l) => l.d || l.h);
+      ls.set('ft_quote', { ...q0, labor: [...labor, { d: sel.nombre, h: String(horas) }] });
+      setAviso(`${sel.nombre} · ${horas} h enviado al Cotizador.`);
+    };
+
+    const pct = (h) => Math.max(0, Math.min(100, (h / TOPE_ESCALA) * 100));
+
+    return html`<${MicroShell} title="Tiempos" icon="History" nested=${nested}
+        sub="Horas de referencia para cotizar" onBack=${onBack}>
+
+      ${aviso && html`<div class="tw-alert"><${CatIc} n="CircleCheck" s=${18} />
+        <div class="tw-alert-b"><span class="tw-alert-t">${aviso}</span></div>
+        <button type="button" class="tw-sec-a" onClick=${() => setAviso('')}>Cerrar</button></div>`}
+
+      <div class="tw-search"><${CatIc} n="Search" s=${16} />
+        <input type="search" placeholder="Trabajo o sistema: bomba, clutch…" aria-label="Buscar trabajo" value=${q} onChange=${(e) => setQ(e.target.value)} /></div>
+
+      ${favs.length > 0 && html`<div class="tw-chips">
+        <button type="button" class="tw-chip${soloFavs ? ' is-on' : ''}" aria-pressed=${soloFavs} onClick=${() => setSoloFavs(!soloFavs)}>
+          <${CatIc} n="Star" s=${15} />Favoritos</button>
+      </div>`}
+
+      ${sel && html`<div class="tw-card">
+        <div class="tw-card-top">
+          <span class="tw-tag">${sel.sis}</span>
+          <button type="button" class="tw-icbtn${esFav(sel.nombre) ? ' on' : ''}" aria-label="Marcar favorito"
+            style=${{ marginLeft: 'auto' }} onClick=${() => alternarFav(sel.nombre)}>
+            <${CatIc} n="Star" s=${18} /></button>
+        </div>
+        <p class="tw-card-name">${sel.nombre}</p>
+        <p class="tw-card-meta">Referencia de taller: ${sel.min.toFixed(1)}–${sel.max.toFixed(1)} h</p>
+        <div class="tw-rng">
+          <div class="tw-rng-seg" style=${{ left: pct(sel.min) + '%', right: (100 - pct(sel.max)) + '%' }}></div>
+        </div>
+        <div class="tw-scale"><span>0 h</span><span>4 h</span><span>8 h</span></div>
+
+        <div class="tw-slider">
+          <input type="range" min=${sel.min} max=${sel.max} step="0.25" value=${horas}
+            aria-label="Horas del trabajo" onChange=${(e) => setHoras(+e.target.value)} />
+          <span class="tw-slider-v">${horas} h</span>
+        </div>
+        <div class="tw-sum">
+          <div class="tw-sum-row"><span>Estimado a tarifa del cotizador</span><span>${horas} h</span></div>
+          <div class="tw-sum-total"><span>Se manda con</span><span>${horas} h</span></div>
+        </div>
+        <button type="button" class="tw-cta" onClick=${alCotizador}>Agregar al cotizador →</button>
+        <button type="button" class="tw-cta sec" onClick=${() => setSel(null)}>Cerrar</button>
+      </div>`}
+
+      ${visibles.map(([sis, nombre, min, max]) => html`<div class="tw-card" key=${nombre}>
+        <div class="tw-card-top">
+          <span class="tw-tag">${sis}</span>
+          ${esFav(nombre) && html`<span class="tw-pill warn"><${CatIc} n="Star" s=${12} />Favorito</span>`}
+          <span class="tw-card-meta" style=${{ marginLeft: 'auto' }}>${min.toFixed(1)}–${max.toFixed(1)} h</span>
+        </div>
+        <div class="tw-card-title">
+          <p class="tw-card-name">${nombre}</p>
+        </div>
+        <div class="tw-rng">
+          <div class="tw-rng-seg" style=${{ left: pct(min) + '%', right: (100 - pct(max)) + '%' }}></div>
+        </div>
+        <div class="tw-scale"><span>0 h</span><span>4 h</span><span>8 h</span></div>
+        <div class="tw-acts">
+          <button type="button" class="tw-act primary" onClick=${() => abrir([sis, nombre, min, max])}>
+            <${CatIc} n="Clock" s=${18} />Ver y ajustar</button>
+          <button type="button" class=${'tw-act' + (esFav(nombre) ? ' danger' : '')} onClick=${() => alternarFav(nombre)}>
+            <${CatIc} n="Star" s=${18} />${esFav(nombre) ? 'Quitar' : 'Favorito'}</button>
+        </div>
+      </div>`)}
+
+      ${!visibles.length && html`<div class="tw-empty">
+        <${CatIc} n="History" s=${26} />
+        <p class="tw-empty-t">${soloFavs ? 'Sin favoritos' : 'Sin resultados'}</p>
+        <p class="tw-empty-s">${soloFavs
+          ? 'Marca con la estrella los trabajos que más cotizas y aparecerán aquí.'
+          : 'Ningún trabajo coincide con “' + q + '”.'}</p>
+        ${soloFavs && html`<button type="button" class="tw-cta sec" onClick=${() => setSoloFavs(false)}>Ver todos</button>`}
+      </div>`}
+
+      <p class="tw-note">No es un baremo oficial: son rangos de taller general. Un vehículo oxidado, un motor transversal apretado o un tornillo barrido se salen del rango sin discusión — cotiza con eso en mente.</p>
     </${MicroShell}>`;
   };
 

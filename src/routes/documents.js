@@ -23,7 +23,14 @@
    nextDocNumber (2.16) y docConFechas (2.28) solo los usa este dominio, así que
    viajan con él. fechaISO, csvEscape y esc los recibe por `deps`.
    ========================================================================= */
-const DOC_KINDS = ['entrega', 'presupuesto', 'recepcion'];
+
+   /* 'cotizacion' ES EL COTIZADOR
+   La cotización rápida es un documento más: comparte cliente, partidas, folio y
+   estados con el resto, así que se ahorra una tabla y una ruta. Dos diferencias
+   que importan: lleva su propia serie (COT-0001) para que no se mezcle con las
+   NE/P/REC, y al NO ser 'entrega' no toca el almacén — el stock se descuenta
+   solo cuando el documento sale como nota de entrega. */
+const DOC_KINDS = ['entrega', 'presupuesto', 'recepcion', 'cotizacion'];
 const DOC_STATUS = ['borrador', 'emitido', 'aprobado', 'rechazado', 'entregado'];
 
 function montarDocuments(app, deps) {
@@ -36,7 +43,7 @@ function montarDocuments(app, deps) {
      número: el documento siguiente nacía con un folio que ya estaba impreso y
      entregado. El formato (NE-0001 / P-0001 / REC-0001) no cambia. */
   const nextDocNumber = async (ws, kind) => {
-    const prefix = kind === 'entrega' ? 'NE' : (kind === 'recepcion' ? 'REC' : 'P');
+    const prefix = { entrega: 'NE', recepcion: 'REC', cotizacion: 'COT' }[kind] || 'P';
     const filas = await db.all('SELECT number FROM documents WHERE workshop_id=? AND kind=?', [ws, kind]);
     let maximo = 0;
     for (const f of filas) {
@@ -82,7 +89,7 @@ function montarDocuments(app, deps) {
   app.post('/api/documents', requireWorkshop, async (req, res) => {
     const b = req.body || {};
     const kind = DOC_KINDS.includes(b.kind) ? b.kind : null;
-    if (!kind) return res.status(400).json({ error: 'Tipo de documento inválido (entrega|presupuesto)' });
+    if (!kind) return res.status(400).json({ error: 'Tipo de documento inválido (entrega|presupuesto|recepcion|cotizacion)' });
     const items = Array.isArray(b.items) ? b.items.slice(0, 200) : [];
     if (!items.length) return res.status(400).json({ error: 'El documento necesita al menos un item' });
     const client_id = toInt(b.client_id, 1, 1e9);
@@ -259,7 +266,7 @@ function montarDocuments(app, deps) {
     const vehicle = vehicleSnap || vehicleLive;
     const ws = await db.get('SELECT name, phone, address, doc_id FROM workshops WHERE id=?', req.workshopId);
     const rate = Number(req.query.rate) || Number(doc.exchange_rate) || 1.0;
-    const kindLabel = doc.kind === 'entrega' ? 'NOTA DE ENTREGA' : (doc.kind === 'recepcion' ? 'DOCUMENTO DE RECEPCIÓN / ORDEN' : 'PRESUPUESTO');
+    const kindLabel = { entrega: 'NOTA DE ENTREGA', recepcion: 'DOCUMENTO DE RECEPCIÓN / ORDEN', cotizacion: 'COTIZACIÓN' }[doc.kind] || 'PRESUPUESTO';
     const escv = esc;
     const rowsHtml = items.map((i, idx) => {
       const uPrice = Number(i.unit_price || 0);

@@ -212,6 +212,10 @@ const MARK_ICONS = {
   Flame: 'flame', TrendingDown: 'trending-down', TrendingUp: 'trending-up',
   Bell: 'bell', Crown: 'crown', Lock: 'lock', Sparkles: 'sparkles', ShieldCheck: 'shield-check',
   Send: 'send',
+  /* Rediseño de la sección Taller: el canal operativo es WhatsApp, «Imprimir»
+     tiene su propio icono y la bitácora fija sus notas con la estrella. */
+  BrandWhatsapp: 'brand-whatsapp', Printer: 'printer', Star: 'star',
+  CircleCheck: 'circle-check', AlertTriangle: 'alert-triangle', CircleX: 'circle-x',
 };
 /* Se conserva el nombre MarkIcon: lo usan app.js, microapps.js y
    microapps-taller.js en ~40 sitios, y window.FT_APP.MarkIcon es el puente. */

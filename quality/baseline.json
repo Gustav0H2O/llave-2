@@ -1,11 +1,11 @@
 {
-  "fecha": "2026-09-14T10:57:02.642Z",
-  "pruebas_total": 808,
+  "fecha": "2026-10-01T12:40:15.259Z",
+  "pruebas_total": 864,
   "pruebas_fallidas": 0,
-  "duracion_suite_seg": 73.8,
+  "duracion_suite_seg": 87,
   "guard_violaciones": 0,
   "cobertura_lib_pct": 100,
-  "rutas_api": 103,
+  "rutas_api": 128,
   "rutas_api_probadas_pct": 100,
   "rutas_api_sin_proteger": 27,
   "deuda_conocida": 5,
@@ -13,7 +13,7 @@
   "marcas": 37,
   "vehiculos_sin_verificar_pct": 35.4,
   "archivos_sobre_presupuesto": 0,
-  "max_lineas_archivo": 4294,
-  "lineas_de_prueba": 12849,
-  "razon_prueba_codigo": 0.67
+  "max_lineas_archivo": 4659,
+  "lineas_de_prueba": 13869,
+  "razon_prueba_codigo": 0.63
 }
