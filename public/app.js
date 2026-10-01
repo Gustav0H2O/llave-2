@@ -1038,11 +1038,23 @@ function LoginScreen({ onBack, notice, tabInicial, onLoginSuccess }) {
   const [locPass, setLocPass] = useState('');
   const [locName, setLocName] = useState('');
   const [locBusy, setLocBusy] = useState(false);
+ const [googleBusy, setGoogleBusy] = useState(false);
 
   useEffect(() => { setActiveNotice(notice || ''); }, [notice]);
   useEffect(() => { if (tabInicial) setMode(tabInicial); }, [tabInicial]);
 
   const cambiarModo = (m) => { setMode(m); setMsg(''); setActiveNotice(''); };
+ /* Un solo toque. El código de autorización de Google es de UN SOLO USO: si el
+    enlace se activa dos veces, el primer canje crea la sesión y el segundo vuelve
+    con `invalid_grant` y su error tapa el login que sí funcionó (pasó de verdad:
+    el log mostraba `GET /api/auth/me 200` y acto seguido `invalid_grant`). Con la
+    red del taller un doble toque sale solo, así que el enlace se bloquea en el
+    primer clic y no vuelve a activarse. El teclado (role="button") pasa por el
+    mismo guard. */
+ const googleGo = (e) => {
+   if (googleBusy) { e.preventDefault(); e.stopPropagation(); return; }
+   setGoogleBusy(true);
+ };
   const esAlta = mode === 'register';
   const esDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || (activeNotice && activeNotice.includes('no está configurado'));
 
@@ -1102,14 +1114,18 @@ function LoginScreen({ onBack, notice, tabInicial, onLoginSuccess }) {
           ${activeNotice && html`
             <div class="login-msg login-msg--top login-msg--warn"><span>${activeNotice}</span></div>`}
 
-          <a href=${'/api/auth/google?mode=' + mode} class="login-google" role="button" tabindex="0">
+          <a href=${googleBusy ? undefined : '/api/auth/google?mode=' + mode}
+             class=${'login-google' + (googleBusy ? ' is-busy' : '')}
+             role="button" tabindex=${googleBusy ? -1 : 0}
+             aria-disabled=${googleBusy}
+             onClick=${googleGo}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
-            ${esAlta ? 'Crear cuenta con Google' : 'Iniciar sesión con Google'}
+            ${googleBusy ? 'Abriendo Google…' : (esAlta ? 'Crear cuenta con Google' : 'Iniciar sesión con Google')}
           </a>
 
           ${esDev && html`

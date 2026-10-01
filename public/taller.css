@@ -49,3 +49,14 @@
 }
 .op-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .op-card-meta { color: var(--muted); font-size: 12px; }
+
+/* Botón de Google ya pulsado. Vive aquí y no en index.html porque el CSS global
+   está contra su tope de presupuesto y esto lo agrega el fix del canje repetido.
+   El código de autorización de Google es de UN SOLO USO: un segundo toque (el
+   doble toque del celular sale solo con la red del taller) llega al callback con
+   el código ya gastado, Google responde `invalid_grant` y ese error tapa el
+   login que sí funcionó. Apagado visualmente para que no vuelva a activarse. */
+.login-google.is-busy {
+  opacity: .6; cursor: default; pointer-events: none; box-shadow: none;
+}
+.login-google.is-busy:hover { border-color: var(--border-hi); }
