@@ -585,6 +585,27 @@ input.tw-line-amt { text-align: right; font-weight: 800; font-size: 16px; color:
 }
 .tw-toggle-b.is-on { background: var(--accent); color: var(--accent-ink, #fff); }
 
+/* ---------- barra contextual del taller (las 7 herramientas a un toque) ---------- */
+.taller-nav {
+  display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  padding: 2px 2px 10px; margin: 0 -2px 4px;
+  scrollbar-width: none;
+}
+.taller-nav::-webkit-scrollbar { display: none; }
+.taller-nav-b {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px;
+  min-height: 44px; padding: 8px 14px;
+  border: 1px solid var(--border); border-radius: var(--r-full, 999px);
+  background: var(--panel2, var(--panel)); color: var(--text);
+  font: 700 13px var(--font); cursor: pointer; white-space: nowrap;
+}
+.taller-nav-b svg { color: var(--muted); }
+.taller-nav-b.is-on {
+  background: var(--accent); border-color: var(--accent);
+  color: var(--accent-ink, #fff);
+}
+.taller-nav-b.is-on svg { color: var(--accent-ink, #fff); }
+
 /* ---------- casilla de fotos ---------- */
 .tw-photos { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .tw-photo {

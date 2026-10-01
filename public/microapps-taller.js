@@ -3,7 +3,7 @@
  const { useState, useEffect } = React;
  const U = window.FT_MICRO_UTIL;
  if (!U) { console.error('microapps-taller.js: falta window.FT_MICRO_UTIL'); return; }
- const { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog } = U;
+ const { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, TallerNav, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog } = U;
  const askDel = (t, m = '¿Eliminar registro?') => confirmDialog({ title: t, message: m, confirmText: 'Eliminar', danger: true, icon: 'Trash2' });
   const ORDER_TYPES = [['reparacion', 'Reparación'], ['servicio', 'Servicio'], ['garantia', 'Garantía'], ['promocion', 'Promoción'], ['otro', 'Otro']];
  const ORDER_STATUS = ['Recibido', 'En diagnóstico', 'Esperando repuesto', 'Listo', 'Entregado', 'Cancelado'];
@@ -11,9 +11,8 @@
  const stepIdxOf = (st) => st === 'Pendiente' ? 0 : st === 'En proceso' ? 2 : Math.max(0, WORKFLOW_STEPS.indexOf(st));
  const OrdersApp = ({ onBack }) => {
   /* Pestañas: una sola tarjeta en la sección taller. */
-  const [tab, setTab] = useState('principal');
-  const TABS = [{ id: 'principal', label: 'Trabajos' }, { id: 'checklist', label: 'Checklist' }, { id: 'mano_obra', label: 'Mano de obra' }, { id: 'notas', label: 'Notas' }];
-  const HIJOS = { checklist: (window.FT_MICRO || {}).InspApiApp, mano_obra: (window.FT_MICRO || {}).LaborApp, notas: (window.FT_MICRO || {}).NotesApp };
+  /* Órdenes de Trabajo: solo la vista de trabajos. Checklist, Tiempos y Bitácora
+     son tarjetas de primer nivel en la sección Taller. */
   const [orders, api] = useApi('/api/orders');
   const [clients, clientsApi] = useApi('/api/clients');
   const [inventory, invApi] = useApi('/api/inventory');
@@ -143,7 +142,7 @@
     if (mKm) setF(p => ({ ...p, vehicle_id: vid, odometer: mKm[0].replace(/[^\d]/g, '') }));
    }
   };
-  return html`<${MicroShell} title="Órdenes de Trabajo" icon="ClipboardCheck" onBack=${onBack} tabs=${TABS} tab=${tab} onTab=${setTab}>${tab === 'principal' ? html`<div class="order-stats"><span>Recibidas: <strong>${(counts['Recibido'] || 0) + (counts['Pendiente'] || 0)}</strong></span><span class="st-amber">Diagnóstico: <strong>${counts['En diagnóstico'] || 0}</strong></span><span class="st-accent">Listas: <strong>${counts['Listo'] || 0}</strong></span></div>${api.err && html`<div class="alert"><span>${api.err}</span></div>`}
+  return html`<${MicroShell} title="Órdenes de Trabajo" icon="ClipboardList" onBack=${onBack}><div class="order-stats"><span>Recibidas: <strong>${(counts['Recibido'] || 0) + (counts['Pendiente'] || 0)}</strong></span><span class="st-amber">Diagnóstico: <strong>${counts['En diagnóstico'] || 0}</strong></span><span class="st-accent">Listas: <strong>${counts['Listo'] || 0}</strong></span></div>${api.err && html`<div class="alert"><span>${api.err}</span></div>`}
    <button type="button" class="tool-add-btn taller-touch-btn mb-3 mt-2" onClick=${() => setShow(!show)}>${show ? 'Cancelar' : '+ Nueva orden de trabajo'}</button>
    ${show && html`<div class="panel p-3 mb-3"><div class="grid2"><select class="styled-input" value=${f.client_id} onChange=${e => setF({ ...f, client_id: e.target.value, vehicle_id: '' })}><option value="">Seleccionar cliente…</option>${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
      </select>
@@ -162,7 +161,7 @@
      </div>
      <div class="f-row gap-2 my-2 flex-wrap">
       <span class="text-xs font-bold muted">Combustible:</span>
-      ${['1/4', '1/2', '3/4', 'Lleno'].map(lvl => html`<button type="button" key=${lvl} class=${'fuel-chip' + (f.fuel_level === lvl ? ' active' : '')} onClick=${() => setF({ ...f, fuel_level: f.fuel_level === lvl ? '' : lvl })}>⛽ ${lvl}</button>`)}
+      ${['1/4', '1/2', '3/4', 'Lleno'].map(lvl => html`<button type="button" key=${lvl} class=${'fuel-chip' + (f.fuel_level === lvl ? ' active' : '')} onClick=${() => setF({ ...f, fuel_level: f.fuel_level === lvl ? '' : lvl })}>Gas ${lvl}</button>`)}
      </div>
      <div class="grid2 mt-1 f-row">
       <input type="number" class="styled-input" placeholder="Odómetro / Km entrada" value=${f.odometer} onChange=${e => setF({ ...f, odometer: e.target.value })} />
@@ -173,7 +172,7 @@
      </div>
      <div class="mt-2">
       <button type="button" class="link-btn text-xs" onClick=${() => setRecOpen(!recOpen)}>
-       ${recOpen ? '▲ Ocultar notas de cabina y daños previos' : '▼ Notas de recepción: daños previos y objetos en cabina'}
+       ${recOpen ? 'Ocultar notas de cabina y daños previos' : 'Notas de recepción: daños previos y objetos en cabina'}
       </button>
       ${recOpen && html`<div class="f-col mt-2">
        <input type="text" class="styled-input" placeholder="Daños previos de carrocería (rayones, golpes)…" value=${f.damage || ''} onChange=${e => setF({ ...f, damage: e.target.value })} />
@@ -287,14 +286,14 @@
       ${ORDER_STATUS.map(s => html`<option key=${s} value=${s}>${s}</option>`)}
       </select>
       <div class="f-row gap-2">
-      <button type="button" class="link-btn" onClick=${() => toggleOpen(o.id)}>${isOpen ? 'Ocultar ▲' : 'Ver detalle ▼'}</button>
+      <button type="button" class="link-btn" onClick=${() => toggleOpen(o.id)}>${isOpen ? 'Ocultar' : 'Ver detalle'}</button>
       <button type="button" class="link-btn st-danger" onClick=${() => del(o.id)}>Eliminar</button></div></div>
      </div>`;
     })}
     ${orders.length === 0 && !api.loading && html`<div class="empty">Sin órdenes de trabajo registradas.</div>`}
    </div>
    ${lightbox && html`<div class="photo-lightbox-backdrop" onClick=${() => setLightbox(null)}><div class="photo-lightbox-modal" onClick=${e => e.stopPropagation()}><div class="photo-lightbox-top"><strong class="text-sm f-row"><${CatIc} n="Camera" s=${14} /> ${lightbox.caption || 'Evidencia fotográfica'}</strong><button type="button" class="link-btn text-white p-1 text-lg" onClick=${() => setLightbox(null)}>×</button></div><div class="photo-lightbox-img-wrap"><img src=${lightbox.photo} alt="Evidencia" class="photo-lightbox-img" /></div><div class="photo-lightbox-info f-between"><span>${lightbox.caption} · <span class="muted">${new Date(lightbox.created_at).toLocaleDateString('es')}</span></span><button type="button" class="link-btn st-danger" onClick=${() => delPhoto(lightbox.oid, lightbox.id)}>Eliminar foto</button></div></div></div>`}
-  ` : (HIJOS[tab] ? html`<${HIJOS[tab]} nested=${true} onBack=${onBack} />` : null)}</${MicroShell}>`;
+  </${MicroShell}>`;
  };
   const InventoryApp = ({ onBack, onOpen }) => {
   /* Pestañas: una sola tarjeta en la sección taller. */
@@ -352,7 +351,7 @@
    }
    return true;
   });
-  return html`<${MicroShell} title="Inventario / Stock" icon="Box" onBack=${onBack} tabs=${TABS} tab=${tab} onTab=${setTab}>${tab === 'principal' ? html`<div class="f-between mb-2"><div class="tabs-bar f-row"><button type="button" class=${'filter-chip ' + (filterTab === 'all' ? 'active' : '')} onClick=${() => setFilterTab('all')}>Todos (${items.length})</button><button type="button" class=${'filter-chip ' + (filterTab === 'low' ? 'active' : '')} onClick=${() => setFilterTab('low')}>Bajo stock (${lowCount})</button><button type="button" class=${'filter-chip ' + (filterTab === 'out' ? 'active' : '')} onClick=${() => setFilterTab('out')}>Agotados (${outCount})</button></div><button type="button" class="link-btn" onClick=${exportCsv}>⬇ CSV</button></div><input type="text" class="styled-input mb-3" placeholder="Buscar pieza, código o categoría…" value=${search} onChange=${e => setSearch(e.target.value)} />${lowCount > 0 && filterTab === 'all' && html`<div class="alert mb-3"><strong class="st-amber">${lowCount} pieza(s) con stock crítico bajo el mínimo.</strong></div>`}
+  return html`<${MicroShell} title="Inventario / Stock" icon="Box" onBack=${onBack} tabs=${TABS} tab=${tab} onTab=${setTab}>${tab === 'principal' ? html`<div class="f-between mb-2"><div class="tabs-bar f-row"><button type="button" class=${'filter-chip ' + (filterTab === 'all' ? 'active' : '')} onClick=${() => setFilterTab('all')}>Todos (${items.length})</button><button type="button" class=${'filter-chip ' + (filterTab === 'low' ? 'active' : '')} onClick=${() => setFilterTab('low')}>Bajo stock (${lowCount})</button><button type="button" class=${'filter-chip ' + (filterTab === 'out' ? 'active' : '')} onClick=${() => setFilterTab('out')}>Agotados (${outCount})</button></div><button type="button" class="link-btn" onClick=${exportCsv}>Exportar CSV</button></div><input type="text" class="styled-input mb-3" placeholder="Buscar pieza, código o categoría…" value=${search} onChange=${e => setSearch(e.target.value)} />${lowCount > 0 && filterTab === 'all' && html`<div class="alert mb-3"><strong class="st-amber">${lowCount} pieza(s) con stock crítico bajo el mínimo.</strong></div>`}
    <div class="inv-form panel p-3 mb-3">
     <div class="grid2">
      ${[['name','Nombre pieza (ej. Pila)'],['sku','SKU / Código']].map(([k,p]) => html`<input type="text" class="styled-input" placeholder=${p} value=${f[k]} onChange=${e => setF({ ...f, [k]: e.target.value })} />`)}
@@ -560,10 +559,10 @@
   { id: 'other', label: 'Otro', icon: 'Wallet', cls: 'm-bs', prefix: '$' }
  ];
  const CashApp = ({ onBack, onOpen }) => {
-  /* Pestañas: una sola tarjeta en la sección taller. */
+  /* Dinero: caja y cortes. Documentos y Cotizador son tarjetas de primer nivel. */
   const [tab, setTab] = useState('principal');
-  const TABS = [{ id: 'principal', label: 'Caja' }, { id: 'cortes', label: 'Cortes' }, { id: 'documentos', label: 'Documentos' }, { id: 'cotizador', label: 'Cotizador' }];
-  const HIJOS = { cortes: (window.FT_MICRO || {}).ClosingsApp, documentos: (window.FT_MICRO || {}).DocumentsApp, cotizador: (window.FT_MICRO || {}).QuoteApp };
+  const TABS = [{ id: 'principal', label: 'Caja' }, { id: 'cortes', label: 'Cortes' }];
+  const HIJOS = { cortes: (window.FT_MICRO || {}).ClosingsApp };
   const [moves, api] = useApi('/api/cash');
   const [f, setF] = useState({ concept: '', amount: '', type: 'ingreso', method: 'cash' });
   const getMethod = (m) => {
@@ -615,7 +614,7 @@
    </div>
   ` : (HIJOS[tab] ? html`<${HIJOS[tab]} nested=${true} onBack=${onBack} />` : null)}</${MicroShell}>`;
  };
-  const DocumentsApp = ({ onBack, nested }) => {
+  const DocumentsApp = ({ onBack, onOpen, nested }) => {
   const [docs, api] = useApi('/api/documents');
   const [clients] = useApi('/api/clients');
   const [inventory, invApi] = useApi('/api/inventory');
@@ -781,6 +780,7 @@
 
   return html`<${MicroShell} title="Documentos" icon="FileText" sub="Notas de entrega y presupuestos" nested=${nested}
       onBack=${onBack} action=${html`<button type="button" class="tw-head-act" onClick=${exportCsv}>Exportar</button>`}>
+    ${!nested && html`<${TallerNav} actual="documents" onOpen=${onOpen} />`}
     ${api.err && html`<div class="alert"><span>${api.err}</span></div>`}
     <div class="tw-shell-has-fab">
       <div class="tw-stats">
@@ -937,7 +937,7 @@
   </div>`;
  };
  const UserAvatar = WorkshopAvatar;
- const ProfileApp = ({ onBack, onLogout, onUserChange, nested }) => {
+ const ProfileApp = ({ onBack, onOpen, onLogout, onUserChange, nested }) => {
   const [subTab, setSubTab] = useState('taller');
   const [me, setMe] = useState(null);
   const [f, setF] = useState({ name: '', owner_name: '', phone: '', bio: '', city: '', address: '', business_type: '', services: '', is_public: false, avatar_url: '' });
@@ -1054,7 +1054,8 @@
   ];
   const renderPerk = (b, unlocked) => html`<div key=${b.nivel} style=${{ ...SC, opacity: unlocked ? 1 : .85, background: unlocked ? 'var(--sunken)' : 'var(--panel)', borderStyle: unlocked ? 'solid' : 'dashed' }}><div style=${SB}><div style=${SF}><span class=${unlocked ? "st-ok" : "muted"}><${CatIc} n=${unlocked ? 'Check' : 'Lock'} s=${12} /></span><strong class="text-sm">${b.nombre}</strong></div><span class="text-xs st-accent font-bold">${b.montoMin}+ pts</span></div><p class="muted text-xs mt-1">${b.perk}</p></div>`;
   return html`<${MicroShell} title="Mi Taller" icon="Store" onBack=${onBack} nested=${nested}
-     sub=${prog.nombre ? `${prog.badge} · ${prog.nombre}` : 'Tu taller'}>
+     sub=${prog.nombre ? `${prog.badge || 'Taller'} · ${prog.nombre}` : 'Tu taller'}>
+   ${!nested && html`<${TallerNav} actual="profile" onOpen=${onOpen} />`}
    <div class="tw-stats">
     <div class="tw-stat"><span class="tw-stat-l">Órdenes activas</span><span class="tw-stat-v">${activas}</span></div>
     <div class="tw-stat"><span class="tw-stat-l">Caja hoy</span><span class="tw-stat-v ok">${money0(cajaHoy)}</span></div>
@@ -1216,7 +1217,7 @@
     cargar(true);
    } catch (e) { setEnvio('error'); setErr(e.message); }
   };
-  const estrellas = (n) => '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.round(n));
+  const estrellas = (n) => [1, 2, 3, 4, 5].map(i => html`<${CatIc} n="Star" s=${14} style=${{ opacity: i <= Math.round(n) ? 1 : 0.28 }} />`);
   if (err && !p) return html`<${MicroShell} title="Perfil del taller" icon="Store" onBack=${onBack}><div class="empty">${err}</div></${MicroShell}>`;
   if (!p) return html`<${MicroShell} title="Perfil del taller" icon="Store" onBack=${onBack}><div class="skel"><div class="skel-line"></div><div class="skel-line"></div></div></${MicroShell}>`;
   return html`<${MicroShell} title=${p.name} icon="Store" onBack=${onBack}><div style=${{ display: 'flex', alignItems: 'center', gap: '16px', margin: '6px 0 16px', padding: '12px 14px', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '10px' }}><${WorkshopAvatar} avatar_url=${p.avatar_url} donor_level=${p.donor_level || 0} size=${68} name=${p.name} /><div><h2 style=${{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text)' }}>${p.name}</h2><div style=${{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>${p.donor_level > 0 && bBadge(p.donor_level)}
@@ -1245,7 +1246,7 @@
      <div class="pp-form"><label><span class="mic-lbl">Tu nombre</span><input type="text" name="autor" autocomplete="name" class="styled-input" placeholder="Nombre…" value=${f.author} onChange=${e => setF({ ...f, author: e.target.value })} /></label><fieldset class="pp-rate"><legend class="mic-lbl">Calificación</legend>${[1, 2, 3, 4, 5].map(n => html`
       <button type="button" key=${n} class=${'pp-star' + (f.rating >= n ? ' on' : '')}
       aria-label=${n + ' de 5'} aria-pressed=${f.rating === n}
-      onClick=${() => setF({ ...f, rating: n })}>★</button>`)}
+      onClick=${() => setF({ ...f, rating: n })}><${CatIc} n="Star" s=${30} /></button>`)}
       </fieldset>
      </div>
      <label style=${{ display: 'block', marginTop: '12px' }}>

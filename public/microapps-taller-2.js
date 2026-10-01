@@ -22,7 +22,7 @@
  const { useState, useEffect } = React;
  const U = window.FT_MICRO_UTIL;
  if (!U) { console.error('microapps-taller-2.js: falta window.FT_MICRO_UTIL'); return; }
- const { html, ls, uid, MicroShell, useStore, apiFetch, useApi, confirmDialog, CatIc, enviarWhatsApp } = U;
+ const { html, ls, uid, MicroShell, TallerNav, useStore, apiFetch, useApi, confirmDialog, CatIc, enviarWhatsApp } = U;
 
  /* ==================================================================
     Foro Técnico (mudado de microapps-taller.js)
@@ -98,7 +98,7 @@
   ${matched && html`<div class="conn-near"><h3 class="conn-title">Contactos sugeridos (cercanos + compatibles)</h3>${matches.filter(p => p.email !== me.email).map(p => html`<div class="conn-item" key=${p.id}>
     <strong>${p.name}</strong>
     <span class="muted">${roleLabel(p.role)} · ${p.city}${p.zone ? ', ' + p.zone : ''}${p.distance_km != null ? ' · a ' + p.distance_km + ' km' : ''}</span>
-    ${p.match_score > 0 && html`<span class="match-badge">★ ${p.match_score} coincidencias</span>`}
+    ${p.match_score > 0 && html`<span class="match-badge"><${CatIc} n="Sparkles" s=${12} /> ${p.match_score} coincidencias</span>`}
     <span class="muted text-xs">${p.offers ? 'Ofrece: ' + p.offers : ''}${p.needs ? ' · Busca: ' + p.needs : ''}</span>
     ${p.phone && html`<a class="link-btn" href=${'tel:' + p.phone}>Llamar</a>`}
    </div>`)}
@@ -147,7 +147,7 @@
   const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   const CLAVE_ESTADO = { pendiente: 'warn', confirmada: 'ok', atendida: '', cancelada: '' };
 
-  const AgendaApp = ({ onBack }) => {
+  const AgendaApp = ({ onBack, onOpen }) => {
   const [citas, api] = useApi('/api/appointments');
   const [clients] = useApi('/api/clients');
   const [hoy] = useState(hoyISO());
@@ -267,6 +267,7 @@
   };
 
   return html`<${MicroShell} title="Agenda" icon="Calendar" sub="Quién viene y cuándo" onBack=${onBack}>
+    <${TallerNav} actual="agenda" onOpen=${onOpen} />
     ${err && html`<div class="tw-alert"><div class="tw-alert-b"><span class="tw-alert-t">${err}</span></div>
       <button type="button" class="tw-sec-a" onClick=${() => setErr('')}>Cerrar</button></div>`}
     ${avisoOrden && html`<div class="tw-alert"><${CatIc} n="CircleCheck" s=${18} />
@@ -436,7 +437,7 @@
   ];
   const ETIQUETA_EST = { pendiente: 'Sin marcar', bueno: 'Bien', regular: 'Regular', malo: 'Mal', no_aplica: 'N/A' };
 
-  const InspApiApp = ({ onBack, nested }) => {
+  const InspApiApp = ({ onBack, onOpen, nested }) => {
   const [orders] = useApi('/api/orders');
   const [orderId, setOrderId] = useState('');
   const [insp, setInsp] = useState([]);
@@ -492,7 +493,7 @@
 
   return html`<${MicroShell} title="Checklist" icon="ClipboardCheck" nested=${nested}
       sub="Entrada y salida del vehículo" onBack=${onBack}>
-
+    ${!nested && html`<${TallerNav} actual="inspapi" onOpen=${onOpen} />`}
     <label class="tw-field"><span class="tw-field-l">Orden de trabajo</span>
       <span class="tw-field-v"><select value=${orderId} onChange=${(e) => setOrderId(e.target.value)}>
         <option value="">Elige la orden…</option>
@@ -512,9 +513,9 @@
 
     ${orderId && html`<div class="tw-toggle" role="tablist" style=${{ marginBottom: '14px' }}>
       <button type="button" role="tab" aria-selected=${tab === 'entrada'} class=${'tw-toggle-b' + (tab === 'entrada' ? ' is-on' : '')}
-        onClick=${() => setTab('entrada')}>Entrada${entrada ? (entrada.status === 'completa' ? ' ✓' : ' · ' + entrada.items.filter(p => p.estado !== 'pendiente').length + '/' + entrada.items.length) : ''}</button>
+        onClick=${() => setTab('entrada')}>Entrada${entrada ? (entrada.status === 'completa' ? ' (lista)' : ' · ' + entrada.items.filter(p => p.estado !== 'pendiente').length + '/' + entrada.items.length) : ''}</button>
       <button type="button" role="tab" aria-selected=${tab === 'salida'} class=${'tw-toggle-b' + (tab === 'salida' ? ' is-on' : '')}
-        onClick=${() => setTab('salida')}>Salida${salida ? (salida.status === 'completa' ? ' ✓' : ' · ' + salida.items.filter(p => p.estado !== 'pendiente').length + '/' + salida.items.length) : ''}</button>
+        onClick=${() => setTab('salida')}>Salida${salida ? (salida.status === 'completa' ? ' (lista)' : ' · ' + salida.items.filter(p => p.estado !== 'pendiente').length + '/' + salida.items.length) : ''}</button>
     </div>`}
 
     ${orderId && !activa && html`<div class="tw-empty">
@@ -588,10 +589,7 @@
  const MECH_ROLES = [['mecanico', 'Mecánico'], ['ayudante', 'Ayudante'], ['administrador', 'Administrador']];
 
  const MechanicsApp = ({ onBack }) => {
-  /* Pestañas: una sola tarjeta en la sección taller. */
-  const [tab, setTab] = useState('principal');
-  const TABS = [{ id: 'principal', label: 'Mecánicos' }, { id: 'taller', label: 'Mi Taller' }];
-  const HIJOS = { taller: (window.FT_MICRO || {}).ProfileApp };
+  /* Equipo: solo mecánicos. Mi Taller es tarjeta de primer nivel. */
   const [lista, api] = useApi('/api/mechanics');
   const [f, setF] = useState({ id: null, name: '', phone: '', role: 'mecanico', active: true });
   const [err, setErr] = useState('');
@@ -611,7 +609,7 @@
    if (!ok) return;
    try { await apiFetch('/api/mechanics/' + m.id, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
   };
-  return html`<${MicroShell} title="Mecánicos" icon="Wrench" onBack=${onBack} tabs=${TABS} tab=${tab} onTab=${setTab}>${tab === 'principal' ? html`
+  return html`<${MicroShell} title="Mecánicos" icon="Wrench" onBack=${onBack}>
    <p class="mic-lead">La plantilla del taller y cuántas órdenes abiertas trae cada uno. Al asignar en la orden se elige de aquí, ya no se escribe el nombre a mano.</p>
    <div class="panel p-3 mb-3">
     <div class="grid2">
@@ -639,7 +637,7 @@
      <button type="button" class="link-btn" onClick=${() => borrar(m)}>borrar</button>
     </div>
    </div>`)}
-  ` : (HIJOS[tab] ? html`<${HIJOS[tab]} nested=${true} onBack=${onBack} />` : null)}</${MicroShell}>`;
+  </${MicroShell}>`;
  };
 
  /* ==================================================================
@@ -803,7 +801,7 @@
     división entre notas del servidor y un «registro de trabajos» que solo
     existía en este teléfono. Lo que se escribe aquí lo ve todo el taller.
     ================================================================== */
-  const NotesApp = ({ onBack, nested }) => {
+  const NotesApp = ({ onBack, onOpen, nested }) => {
   const [notes, api] = useApi('/api/notes');
   const [t, setT] = useState('');
   const [veh, setVeh] = useState('');
@@ -873,7 +871,7 @@
 
   return html`<${MicroShell} title="Bitácora" icon="BookOpen" nested=${nested}
       sub="El diario del taller" onBack=${onBack}>
-
+    ${!nested && html`<${TallerNav} actual="notes" onOpen=${onOpen} />`}
     ${err && html`<div class="tw-alert"><div class="tw-alert-b"><span class="tw-alert-t">${err}</span></div>
       <button type="button" class="tw-sec-a" onClick=${() => setErr('')}>Cerrar</button></div>`}
 
@@ -889,7 +887,7 @@
     </div>
     <button type="button" class="tw-cta" disabled=${!t.trim()} onClick=${add}>Guardar nota en la bitácora</button>
 
-    <div class="tw-sec"><h3 class="tw-sec-t">Lo anotado ${fijadas ? html`<span class="tw-sec-c">${fijadas} fijadas</span>` : null}</h3>
+    <div class="tw-sec"><h3 class="tw-sec-t">Lo anotado ${fijadas ? html`<span class="tw-sec-c">${fijadas} fijada${fijadas === 1 ? '' : 's'}</span>` : null}</h3>
       <span class="tw-sec-n">${notes.length} ${notes.length === 1 ? 'nota' : 'notas'}</span></div>
 
     <div class="tw-search"><${CatIc} n="Search" s=${16} />

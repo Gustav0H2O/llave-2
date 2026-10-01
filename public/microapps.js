@@ -77,6 +77,36 @@
       <div class="micro-shell-body">${children}</div>
     </div>`;
 
+  /* Barra contextual del taller: las 7 herramientas operativas siempre a un
+     toque, para que no se sientan separadas. Se pinta como primer hijo del
+     MicroShell de cada app con actual="<id>" y onOpen para saltar. */
+  const TALLER_NAV = [
+    { id: 'documents', t: 'Documentos', i: 'FileText' },
+    { id: 'quote', t: 'Cotizador', i: 'Calculator' },
+    { id: 'notes', t: 'Bitácora', i: 'BookOpen' },
+    { id: 'inspapi', t: 'Checklist', i: 'ClipboardCheck' },
+    { id: 'labor', t: 'Tiempos', i: 'Clock' },
+    { id: 'agenda', t: 'Agenda', i: 'Calendar' },
+    { id: 'profile', t: 'Mi Taller', i: 'Store' },
+  ];
+  const TallerNav = ({ actual, onOpen }) => {
+   /* Al abrir, centra el botón de la herramienta actual en la tira. */
+   const tira = useRef(null);
+   useEffect(() => {
+     const el = tira.current && tira.current.querySelector('.is-on');
+     if (el && el.scrollIntoView) el.scrollIntoView({ inline: 'center', block: 'nearest' });
+   }, [actual]);
+   return html`
+    <nav class="taller-nav" ref=${tira} aria-label="Herramientas del taller">
+      ${TALLER_NAV.map(a => html`<button type="button" key=${a.id}
+        class=${'taller-nav-b' + (a.id === actual ? ' is-on' : '')}
+        aria-current=${a.id === actual ? 'page' : null}
+        onClick=${() => a.id !== actual && onOpen && onOpen(a.id)}>
+        <${CatIc} n=${a.i} s=${17} /><span>${a.t}</span>
+      </button>`)}
+    </nav>`;
+  };
+
   /* ---------- datos estáticos (public/datos.js) ---------- */
   const { DTCS, TORQUES, SPARKS, TIMING, VIN_YEARS, LABOR } = window.FT_DATOS || {};
 
@@ -153,22 +183,23 @@
     { id: 'trim', t: 'Ajustes de Combustible', d: 'STFT/LTFT: pobre, rica y por qué', i: 'Droplets', g: 'diag', k: 'stft ltft ajuste combustible mezcla pobre rica trim fuel' },
     { id: 'compression', t: 'Prueba de Compresión', d: 'Diferencia entre cilindros y veredicto', i: 'Gauge', g: 'diag', k: 'compresion cilindro cilindros manometro motor desgaste anillos' },
     { id: 'pinout', t: 'Pinouts OBD-II y Relé', d: 'Dónde clavar la punta del multímetro', i: 'Sensor', g: 'diag', k: 'pinout pines conector obd dlc rele multimetro punta diagrama' },
-    // Taller (requiere cuenta)
-    { id: 'orders', t: 'Órdenes de Trabajo', d: 'Órdenes, checklist y mano de obra', i: 'ClipboardCheck', g: 'taller', need: true, k: 'orden ordenes trabajo servicio garantia promocion checklist inspeccion revision mano obra tiempos' },
+    // Taller (requiere cuenta). Las siete herramientas de operación diaria van
+    // primero como tarjetas de primer nivel; el resto (órdenes, clientes,
+    // almacén, caja y equipo) las complementa.
+    { id: 'documents', t: 'Documentos', d: 'Notas de entrega y presupuestos, con por cobrar', i: 'FileText', g: 'taller', need: true, k: 'nota entrega presupuesto cotizacion documento imprimir pdf cobrar vencimiento' },
+    { id: 'quote', t: 'Cotizador', d: 'Cotiza mano de obra y repuestos; conviértelo en presupuesto', i: 'Calculator', g: 'taller', need: true, k: 'cotizar cotizacion presupuesto mano obra refaccion iva' },
+    { id: 'notes', t: 'Bitácora', d: 'Notas del taller: fíjalas y búscalas por vehículo', i: 'BookOpen', g: 'taller', need: true, k: 'nota notas apunte recordatorio libreta bitacora fijada' },
+    { id: 'inspapi', t: 'Checklist', d: 'Inspección multipunto al recibir el vehículo', i: 'ClipboardCheck', g: 'taller', need: true, k: 'inspeccion recepcion checklist multipunto revision entrada salida' },
+    { id: 'labor', t: 'Tiempos', d: 'Horas de referencia para cotizar la mano de obra', i: 'History', g: 'taller', k: 'tiempo tiempos mano obra horas baremo' },
+    { id: 'agenda', t: 'Agenda', d: 'Citas, recordatorios y recepción de vehículos', i: 'Calendar', g: 'taller', need: true, k: 'agenda cita citas calendario turno reserva recordatorio recibir' },
+    { id: 'profile', t: 'Mi Taller', d: 'Métricas del día, datos y cuenta del taller', i: 'Store', g: 'taller', need: true, k: 'taller perfil negocio whatsapp correo cuenta metricas' },
+    { id: 'orders', t: 'Órdenes de Trabajo', d: 'Trabajos en proceso, con evidencia fotográfica', i: 'ClipboardList', g: 'taller', need: true, k: 'orden ordenes trabajo servicio garantia promocion' },
     { id: 'clients', t: 'Clientes', d: 'Clientes, proveedores y expediente del vehículo', i: 'Car', g: 'taller', need: true, k: 'cliente clientes cartera contacto telefono proveedor repuestera expediente historial vehiculo' },
     { id: 'inventory', t: 'Almacén', d: 'Inventario y alertas de existencia', i: 'Box', g: 'taller', need: true, k: 'inventario almacen stock existencia repuesto minimo alerta reponer falta' },
-    { id: 'cash', t: 'Dinero', d: 'Caja, cortes, documentos y cotizador', i: 'Calculator', g: 'taller', need: true, k: 'caja dinero cierre corte arqueo efectivo ingreso egreso documento nota entrega presupuesto cotizador cotizar' },
-    { id: 'agenda', t: 'Agenda', d: 'Citas del taller en la base', i: 'Calendar', g: 'taller', need: true, k: 'agenda cita citas calendario turno reserva recordatorio' },
-    { id: 'mechanics', t: 'Equipo', d: 'Mecánicos, su carga de trabajo y el taller', i: 'Wrench', g: 'taller', need: true, k: 'mecanico mecanicos equipo personal plantilla ayudante carga perfil mi taller' },
-    // Pestañas de las seis anteriores: siguen existiendo para enlaces directos
-    // (?app=documents), pero no se pintan como tarjeta suelta.
-    { id: 'documents', t: 'Notas de Entrega / Presupuestos', d: 'Genera e imprime documentos', i: 'FileText', g: 'taller', need: true, oculta: true, k: 'nota entrega presupuesto cotizacion documento imprimir pdf' },
-    { id: 'notes', t: 'Notas del Mecánico', d: 'Notas rápidas por vehículo', i: 'BookOpen', g: 'taller', need: true, oculta: true, k: 'nota notas apunte recordatorio libreta' },
-    { id: 'inspection', t: 'Inspección de Recepción', d: 'Checklist multipunto al recibir', i: 'ClipboardCheck', g: 'taller', oculta: true, k: 'inspeccion recepcion checklist multipunto revision' },
-    { id: 'quote', t: 'Cotizador Rápido', d: 'Mano de obra + refacciones + IVA', i: 'Calculator', g: 'taller', oculta: true, k: 'cotizar cotizacion presupuesto mano obra refaccion iva' },
+    { id: 'cash', t: 'Dinero', d: 'Caja del día y cortes', i: 'Calculator', g: 'taller', need: true, k: 'caja dinero cierre corte arqueo efectivo ingreso egreso' },
+    { id: 'mechanics', t: 'Equipo', d: 'Mecánicos y su carga de trabajo', i: 'Wrench', g: 'taller', need: true, k: 'mecanico mecanicos equipo personal plantilla ayudante carga' },
+    // Vista vieja: solo existe para enlaces directos (?app=appointments).
     { id: 'appointments', t: 'Agenda de Citas (vieja)', d: 'Se mudó a Agenda', i: 'Calendar', g: 'taller', oculta: true, k: 'cita citas agenda calendario turno' },
-    { id: 'labor', t: 'Tiempos de Mano de Obra', d: 'Horas de referencia para cotizar', i: 'History', g: 'taller', oculta: true, k: 'tiempo tiempos mano obra horas baremo' },
-    { id: 'profile', t: 'Mi Taller', d: 'Nombre, WhatsApp y correo verificado', i: 'Store', g: 'taller', need: true, oculta: true, k: 'taller perfil negocio whatsapp correo cuenta' },
     // Comunidad y mercado
     { id: 'forum', t: 'Foro Técnico', d: 'Preguntas y respuestas', i: 'MessagesSquare', g: 'comunidad', k: 'foro pregunta respuesta comunidad duda ayuda' },
     { id: 'connect', t: 'Conectar Cliente ↔ Mecánico', d: 'Asistencia cerca de tu zona', i: 'MapPin', g: 'comunidad', k: 'conectar cerca zona ubicacion mecanico cliente asistencia' },
@@ -195,7 +226,7 @@
   const GRUPOS = {
     consulta: { t: 'Consulta Rápida', c: 'Datos técnicos al instante, sin cuenta.', d: 'Datos técnicos al instante: presión de riel (PSI/Bar), códigos OBD-II, torques, bujías, cross-reference de pilas, conversor de unidades y decodificador VIN. Sin cuenta.' },
     diag: { t: 'Diagnóstico', c: 'De la medición al veredicto, con la causa probable.', d: 'Veredicto rápido de PSI comparando tu medición contra la especificación, prueba de regulador, calculadoras técnicas, registro de presión e identificador con IA.' },
-    taller: { t: 'Taller y Gestión', c: 'Inventario, órdenes, clientes y caja. Requiere tu cuenta.', d: 'Inventario, órdenes de trabajo con evidencia, cartera de clientes, notas de entrega y presupuestos, notas del mecánico y cierre de caja. Requiere tu cuenta.' },
+    taller: { t: 'Taller y Gestión', c: 'Documentos, cotizador, bitácora, checklist, tiempos, agenda y tu taller. Requiere tu cuenta.', d: 'Tu operación diaria en un solo lugar: documentos y por cobrar, cotizador, bitácora, checklist de recepción, tiempos de mano de obra, agenda de citas y las métricas de tu taller; más órdenes, clientes, almacén, caja y equipo. Requiere tu cuenta.' },
     comunidad: { t: 'Comunidad y Mercado', c: 'Foro técnico, clientes cerca y mercado de autos.', d: 'Conecta clientes y mecánicos por ubicación y oferta, foro técnico y mercado de autos.' },
     aprende: { t: 'Aprendizaje', c: 'Guías paso a paso, glosario y marcas de tiempo.', d: 'Guías paso a paso, glosario técnico y marcas de sincronización para el taller.' },
   };
@@ -3047,7 +3078,7 @@
   const QUOTE_VACIO = { rate: '350', iva: '16', disc: '0', client_id: '', veh: '', labor: [], parts: [] };
   const PREFIJO_MO = 'Mano de obra — ';
 
-  const QuoteApp = ({ onBack, nested }) => {
+  const QuoteApp = ({ onBack, onOpen, nested }) => {
     const [clientes] = useApi('/api/clients');
     const [almacen] = useApi('/api/inventory');
     const [docs, docsApi] = useApi('/api/documents');
@@ -3232,6 +3263,7 @@
     return html`<${MicroShell} title="Cotizador" icon="Calculator" nested=${nested}
         sub="Se guarda en el taller" onBack=${onBack}
         action=${html`<button type="button" class="tw-head-act" onClick=${() => setVerHist(!verHist)}>Historial</button>`}>
+      ${!nested && html`<${TallerNav} actual="quote" onOpen=${onOpen} />`}
 
       ${aviso && html`<div class="tw-alert" role="status"><div class="tw-alert-b"><span class="tw-alert-t">${aviso}</span></div>
         <button type="button" class="tw-sec-a" onClick=${() => setAviso('')}>Cerrar</button></div>`}
@@ -3817,7 +3849,7 @@
      ================================================================ */
   const TOPE_ESCALA = 8;
 
-  const LaborApp = ({ onBack, nested }) => {
+  const LaborApp = ({ onBack, onOpen, nested }) => {
     const [q, setQ] = useState('');
     const [sel, setSel] = useState(null);
     const [horas, setHoras] = useState(0);
@@ -3856,6 +3888,7 @@
 
     return html`<${MicroShell} title="Tiempos" icon="History" nested=${nested}
         sub="Horas de referencia para cotizar" onBack=${onBack}>
+      ${!nested && html`<${TallerNav} actual="labor" onOpen=${onOpen} />`}
 
       ${aviso && html`<div class="tw-alert"><${CatIc} n="CircleCheck" s=${18} />
         <div class="tw-alert-b"><span class="tw-alert-t">${aviso}</span></div>
@@ -4648,7 +4681,7 @@
      archivo: juntas superaban el tope de 3.000 líneas y los 200 KB de presupuesto
      de quality/budgets.json. Comparten estos ayudantes en vez de duplicarlos, y
      ese archivo se carga DESPUÉS de este para poder ampliar window.FT_MICRO. */
-  window.FT_MICRO_UTIL = { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog };
+  window.FT_MICRO_UTIL = { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, TallerNav, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog };
   window.FT_MICRO = {
    Home, DtcApp, TorqueApp, SparkApp, CrossApp, ConverterApp, VinApp, PressureApp,
    RegulatorApp, QuickDiagApp, TimingApp, GuidesApp, FusesApp, TireApp, InspectionApp,
