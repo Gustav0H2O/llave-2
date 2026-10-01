@@ -49,11 +49,73 @@
      tamaño si el icono falta, en vez de colapsar el botón. */
   /* Pestañas dentro de una micro app del taller: un solo armazón, menos
      pantallas sueltas. `nested` es para una app que vive como pestaña de otra:
-     devuelve solo el cuerpo, sin cabecera ni botón Volver. */
+     devuelve solo el cuerpo, sin cabecera ni botón Volver.
+
+     La pestaña activa vive en la URL (?app=orders&sub=checklist) para que el
+     botón Volver y el gesto de atrás del móvil retrocedan pestaña a pestaña
+     antes de salir de la herramienta. Antes era estado local y "Volver" desde
+     una pestaña saltaba fuera de la app de golpe. */
   const microTabBar = (tabs, tab, onTab) => !tabs || !tabs.length ? '' : html`
     <div class="micro-tabs" role="tablist">
       ${tabs.map(x => html`<button type="button" role="tab" key=${x.id} class=${'micro-tab' + (x.id === tab ? ' active' : '')} aria-selected=${x.id === tab} onClick=${() => onTab(x.id)}>${x.label}</button>`)}
     </div>`;
+
+  /* Sincroniza la pestaña con la URL sin recargar la app.
+     - `setTab` es el setter local del componente.
+     - `raiz` es la pestaña por defecto: cuando la URL no trae `sub` (o trae la
+       raíz) se limpia el parámetro en vez de dejarlo escrito, para que las
+       URLs de la raíz sigan siendo cortas y compartibles. */
+  const useSubRuta = (setTab, raiz, tabs) => {
+    useEffect(() => {
+      const alCambiar = (e) => {
+        const sub = e?.detail?.sub;
+        if (!sub || !tabs) return;
+        setTab(sub === raiz ? raiz : sub);
+      };
+      /* Al montar, la URL manda: permite compartir el enlace de una pestaña
+         concreta y recuperarla al recargar. */
+      const enURL = window.FT_RUTA ? window.FT_RUTA.leer().sub : null;
+      if (enURL && tabs && tabs.some(x => x.id === enURL)) setTab(enURL);
+      window.addEventListener('ft-sub-cambio', alCambiar);
+      return () => window.removeEventListener('ft-sub-cambio', alCambiar);
+    }, [tabs]);
+    return (id) => {
+      setTab(id);
+      if (window.FT_RUTA) window.FT_RUTA.escribir({ sub: id === raiz ? null : id });
+    };
+  };
+
+  /* ---------- listas largas: «ver más» ----------
+     Las listas del taller se pintaban enteras: con una cartera de cientos de
+     clientes o un año de órdenes, el navegador montaba miles de nodos de golpe
+     y el desplazamiento se volvía pesado. Este componente corta el problema de
+     raíz sin tocar el backend: pinta los primeros y va soltando el resto a
+     tandas. Es la única pieza de paginación del proyecto, así que se queda aquí
+     junto a MicroShell y se comparte por FT_MICRO_UTIL.
+
+     Uso:
+       const [visibles, Mas] = useVerMas(lista, 25);
+       ... visibles.map(...)
+       <${Mas} />
+
+     Devuelve la lista recortada y el botón ya montado (o null si no hace
+     falta). `etiqueta` permite decir qué se está mostrando. */
+  const useVerMas = (items, porPagina = 25, etiqueta = '') => {
+    const lista = items || [];
+    const [tope, setTope] = useState(porPagina);
+    /* Si la lista encoge (un filtro, un borrado) el tope no debe quedar por
+       encima del final: sin esto, filtrar dejaba la lista vacía hasta volver a
+       pulsar «ver más». */
+    useEffect(() => { setTope(porPagina); }, [lista.length, porPagina]);
+    const visibles = lista.slice(0, tope);
+    const quedan = lista.length - visibles.length;
+    const Mas = () => quedan <= 0 ? null : html`
+      <button type="button" class="ver-mas-btn" onClick=${() => setTope(t => t + porPagina)}>
+        Ver ${Math.min(quedan, porPagina)} más${etiqueta ? ' ' + etiqueta : ''}
+        <span class="ver-mas-n">quedan ${quedan}</span>
+      </button>`;
+    return [visibles, Mas, { total: lista.length, mostrados: visibles.length, quedan }];
+  };
 
   /* Cabecera de micro app. `sub` y `action` son opcionales: sin ellos el marco es
      exactamente el de siempre (las 40 apps que ya existen no cambian), con ellos
@@ -4594,7 +4656,7 @@
      archivo: juntas superaban el tope de 3.000 líneas y los 200 KB de presupuesto
      de quality/budgets.json. Comparten estos ayudantes en vez de duplicarlos, y
      ese archivo se carga DESPUÉS de este para poder ampliar window.FT_MICRO. */
-  window.FT_MICRO_UTIL = { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, TallerNav, TallerShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog };
+  window.FT_MICRO_UTIL = { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, TallerNav, TallerShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog, useSubRuta, useVerMas };
   window.FT_MICRO = {
    Home, DtcApp, TorqueApp, SparkApp, CrossApp, ConverterApp, VinApp, PressureApp,
    RegulatorApp, QuickDiagApp, TimingApp, GuidesApp, FusesApp, TireApp,    QuoteApp, MaintenanceApp, TrimApp, CompressionApp, PinoutApp, LaborApp,

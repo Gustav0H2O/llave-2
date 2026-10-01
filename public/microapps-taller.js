@@ -3,7 +3,7 @@
  const { useState, useEffect } = React;
  const U = window.FT_MICRO_UTIL;
  if (!U) { console.error('microapps-taller.js: falta window.FT_MICRO_UTIL'); return; }
- const { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, TallerNav, TallerShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog } = U;
+ const { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, TallerNav, TallerShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog, useSubRuta, useVerMas } = U;
  const askDel = (t, m = '¿Eliminar registro?') => confirmDialog({ title: t, message: m, confirmText: 'Eliminar', danger: true, icon: 'Trash2' });
   const ORDER_TYPES = [['reparacion', 'Reparación'], ['servicio', 'Servicio'], ['garantia', 'Garantía'], ['promocion', 'Promoción'], ['otro', 'Otro']];
  const ORDER_STATUS = ['Recibido', 'En diagnóstico', 'Esperando repuesto', 'Listo', 'Entregado', 'Cancelado'];
@@ -13,6 +13,9 @@
   /* Pestañas: una sola tarjeta en la sección taller. */
   /* Órdenes de Trabajo: solo la vista de trabajos. Checklist, Tiempos y Bitácora
      son tarjetas de primer nivel en la sección Taller. */
+  /* El historial de órdenes de un taller con años de trabajo no cabe de una
+     vez: se pintan por tandas para no montar miles de nodos al abrir. */
+  const [ordenesVisibles, MasOrdenes] = useVerMas(orders, 20, 'órdenes');
   const [orders, api] = useApi('/api/orders');
   const [clients, clientsApi] = useApi('/api/clients');
   const [inventory, invApi] = useApi('/api/inventory');
@@ -23,7 +26,8 @@
   const [lightbox, setLightbox] = useState(null);
   const [show, setShow] = useState(false);
   const [recOpen, setRecOpen] = useState(false);
-  const [f, setF] = useState({ client_id: '', vehicle_id: '', type: 'reparacion', service_type: 'correctivo', title: '', descr: '', odometer: '', fuel_level: '1/2', assigned_mechanic: '', mechanic_id: '', reception_notes: '', damage: '', cabin: '' });
+  const [f, setF] = useState({ client_id: '', vehicle_id: '', type: 'reparacion', service_type: 'correctivo', title: '', descr: '', odometer: '', fuel_level: '1/2', assigned_mechanic: '', mechanic_id: '', reception_notes: '', damage: '', cabin: '', status: 'Pendiente' });
+  const [editId, setEditId] = useState(null);
   const [newItem, setNewItem] = useState({ item_id: '', item_type: 'part', descr: '', qty: '1', unit_price: '' });
   const loadDetail = async (oid) => {
    try { const d = await apiFetch('/api/orders/' + oid); setDetails(p => ({ ...p, [oid]: d })); } catch (e) {}
@@ -53,10 +57,38 @@
    if (f.reception_notes?.trim()) fullDescr += `[Notas: ${f.reception_notes.trim()}]\n`;
    if (f.descr?.trim()) fullDescr += f.descr.trim();
    try {
-    await apiFetch('/api/orders', { method: 'POST', body: JSON.stringify({ ...f, type: f.service_type === 'preventivo' ? 'servicio' : (f.type || 'reparacion'), descr: fullDescr }) });
+    /* Editar en su sitio: antes solo se podía crear y borrar, así que
+       corregir un odómetro mal tecleado costaba las fotos, las partidas y el
+       checklist de la orden. El PUT ya existía en el backend. */
+    if (editId) {
+     await apiFetch('/api/orders/' + editId, { method: 'PUT', body: JSON.stringify({ ...f, descr: fullDescr }) });
+    } else {
+     await apiFetch('/api/orders', { method: 'POST', body: JSON.stringify({ ...f, type: f.service_type === 'preventivo' ? 'servicio' : (f.type || 'reparacion'), descr: fullDescr }) });
+    }
     setF({ client_id: '', vehicle_id: '', type: 'reparacion', service_type: 'correctivo', title: '', descr: '', odometer: '', fuel_level: '1/2', assigned_mechanic: '', mechanic_id: '', reception_notes: '', damage: '', cabin: '' });
-    setRecOpen(false); setShow(false); api.load(); clientsApi.load();
+    setEditId(null); setRecOpen(false); setShow(false); api.load(); clientsApi.load();
+    if (openId) loadDetail(openId);
    } catch (e) { alert(e.message); }
+  };
+  /* Abre el formulario con los datos de la orden cargados. El estado `status`
+     se conserva tal cual: el PUT exige mandarlo y perderlo la devolvería a
+     'Pendiente' sin que nadie lo pida. */
+  const editOrder = async (o) => {
+   let d = details[o.id];
+   if (!d) { try { d = await apiFetch('/api/orders/' + o.id); setDetails(p => ({ ...p, [o.id]: d })); } catch (e) { d = null; } }
+   const base = (d && d.order) ? d.order : o;
+   const p = parseRec(base.descr || '');
+   setEditId(o.id);
+   setF({
+    client_id: base.client_id || '', vehicle_id: base.vehicle_id || '', type: base.type || 'reparacion',
+    service_type: base.service_type || 'correctivo', title: base.title || '', descr: p.descr || '',
+    odometer: base.odometer || '', fuel_level: base.fuel_level || '1/2',
+    assigned_mechanic: base.assigned_mechanic || '', mechanic_id: base.mechanic_id || '',
+    reception_notes: '', damage: p.damage || '', cabin: p.cabin || '',
+    status: base.status || 'Pendiente',
+   });
+   setShow(true); setRecOpen(true);
+   window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const setStatus = async (id, st) => {
    let register_cash = false;
@@ -143,7 +175,8 @@
    }
   };
   return html`<${MicroShell} title="Órdenes de Trabajo" icon="ClipboardList" onBack=${onBack}><div class="order-stats"><span>Recibidas: <strong>${(counts['Recibido'] || 0) + (counts['Pendiente'] || 0)}</strong></span><span class="st-amber">Diagnóstico: <strong>${counts['En diagnóstico'] || 0}</strong></span><span class="st-accent">Listas: <strong>${counts['Listo'] || 0}</strong></span></div>${api.err && html`<div class="alert"><span>${api.err}</span></div>`}
-   <button type="button" class="tool-add-btn taller-touch-btn mb-3 mt-2" onClick=${() => setShow(!show)}>${show ? 'Cancelar' : '+ Nueva orden de trabajo'}</button>
+   <button type="button" class=${'tool-add-btn taller-touch-btn mb-3 mt-2' + (editId ? ' is-editing' : '')} onClick=${() => { if (show) { setShow(false); setEditId(null); } else setShow(true); }}>${show ? 'Cancelar' : '+ Nueva orden de trabajo'}</button>
+   ${editId && show && html`<div class="alert blue mb-3"><span>Editando la orden <strong>#${editId}</strong>. Guarda para aplicar los cambios.</span></div>`}
    ${show && html`<div class="panel p-3 mb-3"><div class="grid2"><select class="styled-input" value=${f.client_id} onChange=${e => setF({ ...f, client_id: e.target.value, vehicle_id: '' })}><option value="">Seleccionar cliente…</option>${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
      </select>
      <select class="styled-input" value=${f.vehicle_id} onChange=${e => onSelectVeh(e.target.value)} disabled=${!f.client_id}>
@@ -182,9 +215,9 @@
     </div>
     <input type="text" class="styled-input mt-2" placeholder="Trabajo / Motivo (ej. Cambio de bomba de gasolina)" value=${f.title} onChange=${e => setF({ ...f, title: e.target.value })} />
     <textarea class="styled-input mt-2" rows="2" placeholder="Fallas reportadas por el cliente…" value=${f.descr} onChange=${e => setF({ ...f, descr: e.target.value })}></textarea>
-    <button type="button" class="tool-add-btn taller-touch-btn mt-2 w-full" onClick=${save} disabled=${!f.title.trim()}>Guardar orden de trabajo</button></div>`}
+    <button type="button" class="tool-add-btn taller-touch-btn mt-2 w-full" onClick=${save} disabled=${!f.title.trim()}>${editId ? 'Guardar cambios de la orden' : 'Guardar orden de trabajo'}</button></div>`}
    <div class="order-list">
-    ${orders.map(o => {
+    ${ordenesVisibles.map(o => {
      const od = details[o.id] || o;
      const curIdx = stepIdxOf(o.status);
      const isOpen = openId === o.id;
@@ -287,10 +320,12 @@
       </select>
       <div class="f-row gap-2">
       <button type="button" class="link-btn" onClick=${() => toggleOpen(o.id)}>${isOpen ? 'Ocultar' : 'Ver detalle'}</button>
+      ${o.status !== 'Entregado' && html`<button type="button" class="link-btn" onClick=${() => editOrder(o)}>Editar</button>`}
       <button type="button" class="link-btn st-danger" onClick=${() => del(o.id)}>Eliminar</button></div></div>
      </div>`;
     })}
     ${orders.length === 0 && !api.loading && html`<div class="empty">Sin órdenes de trabajo registradas.</div>`}
+    <${MasOrdenes} />
    </div>
    ${lightbox && html`<div class="photo-lightbox-backdrop" onClick=${() => setLightbox(null)}><div class="photo-lightbox-modal" onClick=${e => e.stopPropagation()}><div class="photo-lightbox-top"><strong class="text-sm f-row"><${CatIc} n="Camera" s=${14} /> ${lightbox.caption || 'Evidencia fotográfica'}</strong><button type="button" class="link-btn text-white p-1 text-lg" onClick=${() => setLightbox(null)}>×</button></div><div class="photo-lightbox-img-wrap"><img src=${lightbox.photo} alt="Evidencia" class="photo-lightbox-img" /></div><div class="photo-lightbox-info f-between"><span>${lightbox.caption} · <span class="muted">${new Date(lightbox.created_at).toLocaleDateString('es')}</span></span><button type="button" class="link-btn st-danger" onClick=${() => delPhoto(lightbox.oid, lightbox.id)}>Eliminar foto</button></div></div></div>`}
   </${MicroShell}>`;
@@ -300,6 +335,7 @@
   const [tab, setTab] = useState('principal');
   const TABS = [{ id: 'principal', label: 'Inventario' }, { id: 'alertas', label: 'Alertas' }];
   const HIJOS = { alertas: (window.FT_MICRO || {}).AlertsApp };
+  const irATab = useSubRuta(setTab, 'principal', TABS);
   const [items, api] = useApi('/api/inventory');
   const [moves, movesApi] = useApi('/api/inventory/moves');
   const [f, setF] = useState({ name: '', sku: '', category: '', qty: '', min: '', price: '', cost: '', notes: '' });
@@ -351,6 +387,8 @@
    }
    return true;
   });
+  /* Un almacén real acumula cientos de referencias: se pintan por tandas. */
+  const [piezasVisibles, MasPiezas] = useVerMas(filtered, 24, 'piezas');
   return html`<${MicroShell} title="Inventario / Stock" icon="Box" onBack=${onBack} tabs=${TABS} tab=${tab} onTab=${setTab}>${tab === 'principal' ? html`<div class="f-between mb-2"><div class="tabs-bar f-row"><button type="button" class=${'filter-chip ' + (filterTab === 'all' ? 'active' : '')} onClick=${() => setFilterTab('all')}>Todos (${items.length})</button><button type="button" class=${'filter-chip ' + (filterTab === 'low' ? 'active' : '')} onClick=${() => setFilterTab('low')}>Bajo stock (${lowCount})</button><button type="button" class=${'filter-chip ' + (filterTab === 'out' ? 'active' : '')} onClick=${() => setFilterTab('out')}>Agotados (${outCount})</button></div><button type="button" class="link-btn" onClick=${exportCsv}>Exportar CSV</button></div><input type="text" class="styled-input mb-3" placeholder="Buscar pieza, código o categoría…" value=${search} onChange=${e => setSearch(e.target.value)} />${lowCount > 0 && filterTab === 'all' && html`<div class="alert mb-3"><strong class="st-amber">${lowCount} pieza(s) con stock crítico bajo el mínimo.</strong></div>`}
    <div class="inv-form panel p-3 mb-3">
     <div class="grid2">
@@ -373,7 +411,7 @@
      ${editing && html`<button type="button" class="link-btn" onClick=${reset}>cancelar edición</button>`}
     </div></div>
    <div class="inv-list inv-grid-list">
-    ${filtered.map(i => {
+    ${piezasVisibles.map(i => {
      const isOut = i.qty <= 0;
      const isLow = !isOut && i.qty <= i.min_qty;
      const badgeClass = isOut ? 'out' : isLow ? 'low' : 'ok';
@@ -392,6 +430,7 @@
      </div>`;
     })}
     ${filtered.length === 0 && !api.loading && html`<div class="empty">No se encontraron piezas en inventario.</div>`}
+    <${MasPiezas} />
    </div>
    ${moveFor && html`<div class="panel p-3 mt-3"><h3 class="text-sm st-accent mb-2">Movimiento de inventario</h3><div class="grid2"><select class="styled-input" value=${move.kind} onChange=${e => setMove({ ...move, kind: e.target.value })}><option value="entrada">Entrada (+)</option><option value="salida">Salida (−)</option><option value="ajuste">Ajuste</option></select><input type="number" class="styled-input" placeholder="Cantidad" value=${move.delta} onChange=${e => setMove({ ...move, delta: e.target.value })} /></div><input type="text" class="styled-input mt-2" placeholder="Motivo (opcional)" value=${move.note} onChange=${e => setMove({ ...move, note: e.target.value })} /><div class="f-row mt-2"><button type="button" class="tool-add-btn taller-touch-btn" onClick=${applyMove} disabled=${!move.delta}>Registrar movimiento</button><button type="button" class="link-btn" onClick=${() => setMoveFor(null)}>cancelar</button></div></div>`}
    ${moves.length > 0 && html`<details class="mt-3"><summary class="muted cursor-pointer text-sm">Historial de movimientos (${moves.length})</summary><div class="pres-list mt-2">${moves.slice(0, 60).map(m => html`<div class="pres-item" key=${m.id}>
@@ -407,6 +446,7 @@
   const [vista, setVista] = useState('principal');
   const TABS = [{ id: 'principal', label: 'Clientes' }, { id: 'expediente', label: 'Expediente' }];
   const HIJOS = { expediente: (window.FT_MICRO || {}).VehicleHistoryApp };
+  const irAVista = useSubRuta(setVista, 'principal', TABS);
   const [tab, setTab] = useState('clients');
   const [clients, api] = useApi('/api/clients');
   const [suppliers, supApi] = useApi('/api/suppliers');
@@ -418,9 +458,10 @@
   const [vehicles, setVehicles] = useState({});
   const [clientOrders, setClientOrders] = useState({});
   const [vf, setVf] = useState({ brand: '', model: '', year: '', plate: '', vin: '', notes: '' });
+  const [editVeh, setEditVeh] = useState(null);
   const reset = () => { setF({ name: '', doc_id: '', phone: '', email: '', address: '', city: '', notes: '' }); setEditing(null); };
   const resetSup = () => { setSf({ name: '', rif: '', phone: '', email: '', specialty: '', contact_person: '', notes: '' }); setEditingSup(null); };
-  const resetVeh = () => setVf({ brand: '', model: '', year: '', plate: '', vin: '', notes: '' });
+  const resetVeh = () => { setVf({ brand: '', model: '', year: '', plate: '', vin: '', notes: '' }); setEditVeh(null); };
   const save = async () => {
    if (!f.name.trim()) return;
    try {
@@ -447,6 +488,9 @@
    if (!(await askDel('Eliminar proveedor', '¿Eliminar proveedor / repuestera?'))) return;
    try { await apiFetch(`/api/suppliers/${id}`, { method: 'DELETE' }); supApi.load(); } catch (e) { alert(e.message); }
   };
+  /* Cartera de clientes y repuesteras: listas que crecen sin tope. */
+  const [clientesVisibles, MasClientes] = useVerMas(clients, 20, 'clientes');
+  const [proveedoresVisibles, MasProveedores] = useVerMas(suppliers, 20, 'proveedores');
   const toggle = async (c) => {
    const next = openId === c.id ? null : c.id;
    setOpenId(next);
@@ -464,19 +508,38 @@
   const addVehicle = async (cid) => {
    if (!vf.brand.trim() && !vf.model.trim()) return;
    try {
-    await apiFetch(`/api/clients/${cid}/vehicles`, { method: 'POST', body: JSON.stringify(vf) });
+    /* Si hay un vehículo en edición se actualiza en su sitio (PUT ya existía
+       en el backend y solo lo usaba el expediente): antes había que borrarlo
+       y volverlo a crear, perdiendo el historial de órdenes asociado. */
+    if (editVeh) await apiFetch(`/api/clients/${cid}/vehicles/${editVeh}`, { method: 'PUT', body: JSON.stringify(vf) });
+    else await apiFetch(`/api/clients/${cid}/vehicles`, { method: 'POST', body: JSON.stringify(vf) });
     resetVeh();
     const rows = await apiFetch(`/api/clients/${cid}/vehicles`);
     setVehicles(v => ({ ...v, [cid]: rows }));
+    api.load();
    } catch (e) { alert(e.message); }
   };
+  const editVehicle = (v) => {
+   setEditVeh(v.id);
+   setVf({ brand: v.brand || '', model: v.model || '', year: v.year || '', plate: v.plate || '', vin: v.vin || '', notes: v.notes || '' });
+  };
   const delVehicle = async (cid, vid) => {
+   /* Este era el ÚNICO borrado del taller que no pedía confirmación, con el
+      botón × pegado al de «expediente»: un toque con guantes borraba el
+      vehículo y su historial sin vuelta atrás. */
+   const veh = (vehicles[cid] || []).find(x => x.id === vid);
+   const nombre = veh ? [veh.brand, veh.model, veh.year].filter(Boolean).join(' ') : 'este vehículo';
+   if (!(await askDel('Eliminar vehículo', `¿Eliminar ${nombre}? Se pierde su historial de órdenes y documentos.`))) return;
    try {
     await apiFetch(`/api/clients/vehicles/${vid}`, { method: 'DELETE' });
     setVehicles(v => ({ ...v, [cid]: (v[cid] || []).filter(x => x.id !== vid) }));
+    /* El cliente también trae `vehicles` embebido y el expediente lo lee de
+       ahí: sin recargar, el vehículo borrado seguía apareciendo en el
+       expediente hasta refrescar la página. */
+    api.load();
    } catch (e) { alert(e.message); }
   };
-  return html`<${MicroShell} title="Cartera: Clientes y Proveedores" icon="Car" onBack=${onBack} tabs=${TABS} tab=${vista} onTab=${setVista}>${vista === 'principal' ? html`
+  return html`<${MicroShell} title="Cartera: Clientes y Proveedores" icon="Car" onBack=${onBack} tabs=${TABS} tab=${vista} onTab=${irAVista}>${vista === 'principal' ? html`
    <div class="tabs-bar f-row mb-3">
     <button type="button" class=${'filter-chip ' + (tab === 'clients' ? 'active' : '')} onClick=${() => setTab('clients')}>Clientes (${clients.length})</button>
     <button type="button" class=${'filter-chip ' + (tab === 'suppliers' ? 'active' : '')} onClick=${() => setTab('suppliers')}>Proveedores (${suppliers.length})</button>
@@ -490,7 +553,7 @@
      ${editing && html`<button type="button" class="link-btn" onClick=${reset}>cancelar</button>`}
     </div>
     <div class="cli-list">
-     ${clients.map(c => html`<div class="cli-item" key=${c.id}>
+     ${clientesVisibles.map(c => html`<div class="cli-item" key=${c.id}>
       <div class="f-between w-full"><button type="button" class="link-btn font-bold text-sm" onClick=${() => toggle(c)}>${c.name} ${c.doc_id ? html`<span class="muted font-normal text-xs">(${c.doc_id})</span>` : ''}</button>
        <div class="f-row gap-2">
         ${telValido(c.phone) && html`<button type="button" class="cli-wa" onClick=${() => enviarWhatsApp(c.phone, `Hola ${c.name}, le escribimos del taller.`)}>WhatsApp</button>`}
@@ -510,7 +573,11 @@
           ${v.notes && html`<span class="rec-chip">${v.notes}</span>`}
          </div>
         </div>
-        <button type="button" class="link-btn" onClick=${() => { window.FT_VEHICULO_CLIENTE = c.id; window.FT_VEHICULO_ID = v.id; if (onOpen) onOpen('expediente'); }}>expediente</button> <button type="button" class="link-btn st-danger" onClick=${() => delVehicle(c.id, v.id)}>×</button></div>`)}
+        <div class="f-row gap-2">
+         <button type="button" class="link-btn" onClick=${() => editVehicle(v)}>editar</button>
+         <button type="button" class="link-btn" onClick=${() => { window.FT_VEHICULO_CLIENTE = c.id; window.FT_VEHICULO_ID = v.id; if (onOpen) onOpen('expediente'); }}>expediente</button>
+         <button type="button" class="link-btn st-danger" onClick=${() => delVehicle(c.id, v.id)} aria-label="Eliminar vehículo">×</button>
+        </div></div>`)}
        <div class="grid2 mt-2 f-row">
         <input type="text" class="styled-input" placeholder="Marca (ej. Toyota)" value=${vf.brand} onChange=${e => setVf({ ...vf, brand: e.target.value })} />
         <input type="text" class="styled-input" placeholder="Modelo (ej. Corolla)" value=${vf.model} onChange=${e => setVf({ ...vf, model: e.target.value })} />
@@ -519,7 +586,8 @@
         <input type="text" class="styled-input" placeholder="VIN / Chasis (opcional)" maxLength="17" value=${vf.vin || ''} onChange=${e => setVf({ ...vf, vin: e.target.value.toUpperCase() })} />
         <input type="text" class="styled-input" placeholder="Km actual (opcional)" value=${vf.notes || ''} onChange=${e => setVf({ ...vf, notes: e.target.value })} />
        </div>
-       <button type="button" class="tool-add-btn mt-2" onClick=${() => addVehicle(c.id)} disabled=${!vf.brand.trim() && !vf.model.trim()}>+ Vehículo</button>
+       <button type="button" class="tool-add-btn mt-2" onClick=${() => addVehicle(c.id)} disabled=${!vf.brand.trim() && !vf.model.trim()}>${editVeh ? 'Guardar vehículo' : '+ Vehículo'}</button>
+       ${editVeh && html`<button type="button" class="link-btn mt-2" onClick=${resetVeh}>cancelar edición</button>`}
        <div class="mt-3 pt-2 border-t">
         <strong class="muted text-xs">Historial de órdenes (${(clientOrders[c.id] || []).length})</strong>
         ${(clientOrders[c.id] || []).map(o => html`<div key=${o.id} class="f-between text-xs p-1 my-1 bg-panel2 rounded"><span>#${o.id} · ${o.title} · <strong class="st-accent">${o.status}</strong></span><span class="tabular font-bold">$${Number(o.total || 0).toFixed(2)}</span></div>`)}
@@ -528,6 +596,7 @@
       </div>`}
      </div>`)}
      ${clients.length === 0 && !api.loading && html`<div class="empty">Sin clientes registrados.</div>`}
+     <${MasClientes} />
     </div>` : html`
     <div class="cli-form grid2">
      ${[['name','Nombre proveedor…'],['rif','RIF / Doc'],['phone','Teléfono','tel'],['email','Correo','email'],['specialty','Especialidad'],['contact_person','Contacto'],['notes','Notas / Crédito']].map(([k,p,t='text']) => html`<input type=${t} class="styled-input" placeholder=${p} value=${sf[k]} onChange=${e => setSf({ ...sf, [k]: e.target.value })} />`)}
@@ -537,7 +606,7 @@
      ${editingSup && html`<button type="button" class="link-btn" onClick=${resetSup}>cancelar</button>`}
     </div>
     <div class="cli-list">
-     ${suppliers.map(s => html`<div class="cli-item" key=${s.id}>
+     ${proveedoresVisibles.map(s => html`<div class="cli-item" key=${s.id}>
       <div class="f-between w-full">
        <span class="font-bold text-sm">${s.name} ${s.specialty ? html`<span class="inv-stock-badge ok ml-1">${s.specialty}</span>` : ''}</span>
        <div class="f-row gap-2">
@@ -549,6 +618,7 @@
       <div class="muted text-xs">${[s.rif, s.phone, s.contact_person ? 'Contacto: ' + s.contact_person : '', s.notes].filter(Boolean).join(' · ')}</div>
      </div>`)}
      ${suppliers.length === 0 && !supApi.loading && html`<div class="empty">Sin proveedores registrados. Agrega tus repuesteras de confianza.</div>`}
+     <${MasProveedores} />
     </div>`}
   ` : (HIJOS[vista] ? html`<${HIJOS[vista]} nested=${true} onBack=${onBack} />` : null)}</${MicroShell}>`;
   };
@@ -563,8 +633,10 @@
   const [tab, setTab] = useState('principal');
   const TABS = [{ id: 'principal', label: 'Caja' }, { id: 'cortes', label: 'Cortes' }];
   const HIJOS = { cortes: (window.FT_MICRO || {}).ClosingsApp };
+ const irATab = useSubRuta(setTab, 'principal', TABS);
   const [moves, api] = useApi('/api/cash');
   const [f, setF] = useState({ concept: '', amount: '', type: 'ingreso', method: 'cash' });
+  const [editId, setEditId] = useState(null);
   const getMethod = (m) => {
    const k = ((typeof m === 'object' ? m.method || m.concept : m) || '').toLowerCase();
    return /card|tarjeta/.test(k) ? 'card' : /trans|banco|zelle/.test(k) ? 'transfer' : /other|otro|m[oó]vil|bs/.test(k) ? 'other' : 'cash';
@@ -573,14 +645,28 @@
   const save = async () => {
    const a = parseFloat(f.amount); if (!f.concept.trim() || isNaN(a)) return;
    try {
-    await apiFetch('/api/cash', { method: 'POST', body: JSON.stringify({ concept: f.concept.trim(), amount: Math.abs(a), type: f.type, method: f.method }) });
-    setF({ concept: '', amount: '', type: 'ingreso', method: f.method }); api.load();
+    /* Editar en su sitio. El concepto guardado lleva un prefijo [Método] que
+       limpia cleanConcept al pintarlo: si se editara tal cual, el prefijo se
+       duplicaría en cada guardado. */
+    if (editId) {
+     await apiFetch('/api/cash/' + editId, { method: 'PUT', body: JSON.stringify({ concept: cleanConcept(f.concept).trim(), amount: Math.abs(a), type: f.type, method: f.method }) });
+    } else {
+     await apiFetch('/api/cash', { method: 'POST', body: JSON.stringify({ concept: f.concept.trim(), amount: Math.abs(a), type: f.type, method: f.method }) });
+    }
+    setF({ concept: '', amount: '', type: 'ingreso', method: f.method }); setEditId(null); api.load();
    } catch (e) { alert(e.message); }
+  };
+  const editMove = (m) => {
+   setEditId(m.id);
+   setF({ concept: cleanConcept(m.concept), amount: String(m.amount), type: m.type || 'ingreso', method: getMethod(m) });
+   window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const del = async (id) => {
    if (!(await askDel('Eliminar movimiento', '¿Eliminar registro de caja?'))) return;
    try { await apiFetch('/api/cash/' + id, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
   };
+  /* Un año de caja son miles de filas: se pintan por tandas. */
+  const [movsVisibles, MasMovs] = useVerMas(moves, 30, 'movimientos');
   const total = moves.reduce((s, m) => s + (m.type === 'ingreso' ? m.amount : -m.amount), 0);
   const today = moves.filter(m => new Date(m.created_at).toDateString() === new Date().toDateString()).reduce((s, m) => s + (m.type === 'ingreso' ? m.amount : -m.amount), 0);
   const methodTotals = moves.reduce((acc, m) => {
@@ -589,7 +675,7 @@
    acc[met] = (acc[met] || 0) + d;
    return acc;
   }, {});
-  return html`<${MicroShell} title="Cierre de Caja" icon="Calculator" onBack=${onBack} tabs=${TABS} tab=${tab} onTab=${setTab}>${tab === 'principal' ? html`<div class="cash-totals"><div class="cash-today"><span>HOY (NETO)</span><strong>$${today.toFixed(2)}</strong></div><div class="cash-all"><span>TOTAL ACUMULADO</span><strong>$${total.toFixed(2)}</strong></div></div><div class="cash-method-grid">${CASH_METHODS.map(m => html`<div class=${'cash-method-card ' + m.cls} key=${m.id}>
+  return html`<${MicroShell} title="Cierre de Caja" icon="Calculator" onBack=${onBack} tabs=${TABS} tab=${tab} onTab=${irATab}>${tab === 'principal' ? html`<div class="cash-totals"><div class="cash-today"><span>HOY (NETO)</span><strong>$${today.toFixed(2)}</strong></div><div class="cash-all"><span>TOTAL ACUMULADO</span><strong>$${total.toFixed(2)}</strong></div></div><div class="cash-method-grid">${CASH_METHODS.map(m => html`<div class=${'cash-method-card ' + m.cls} key=${m.id}>
      <div class="cash-method-lbl"><${CatIc} n=${m.icon} s=${13} /> ${m.label}</div>
      <div class="cash-method-val">${m.prefix}${Number(methodTotals[m.id] || 0).toFixed(2)}</div></div>`)}
    </div>
@@ -602,15 +688,16 @@
     </select>
     <input type="number" class="styled-input" placeholder="Monto" value=${f.amount} onChange=${e => setF({ ...f, amount: e.target.value })} />
     <input type="text" class="styled-input flex-2" placeholder="Concepto…" value=${f.concept} onChange=${e => setF({ ...f, concept: e.target.value })} />
-    <button type="button" class="tool-add-btn taller-touch-btn" onClick=${save} disabled=${!f.concept.trim() || !f.amount}>+ Registrar</button></div>
+    <button type="button" class="tool-add-btn taller-touch-btn" onClick=${save} disabled=${!f.concept.trim() || !f.amount}>${editId ? 'Guardar cambios' : '+ Registrar'}</button>${editId && html`<button type="button" class="link-btn" onClick=${() => { setEditId(null); setF({ concept: '', amount: '', type: 'ingreso', method: f.method }); }}>cancelar</button>`}</div>
    <div class="cash-list">
-    ${moves.map(m => {
+    ${movsVisibles.map(m => {
      const met = getMethod(m);
      const foundM = CASH_METHODS.find(x => x.id === met) || CASH_METHODS[0];
      const txt = cleanConcept(m.concept);
-     return html`<div class="cash-item" key=${m.id}><span class=${'cash-type ' + m.type}>${m.type === 'ingreso' ? '+' : '−'}</span><span class=${'cash-method-chip ' + foundM.cls}>${foundM.label}</span><span class="cash-concept">${txt} <span class="muted text-xs ml-1">${new Date(m.created_at).toLocaleDateString('es')}</span></span><span class=${'cash-amount ' + m.type}>$${Number(m.amount).toFixed(2)}</span><button type="button" class="link-btn" onClick=${() => del(m.id)}>×</button></div>`;
+     return html`<div class="cash-item" key=${m.id}><span class=${'cash-type ' + m.type}>${m.type === 'ingreso' ? '+' : '−'}</span><span class=${'cash-method-chip ' + foundM.cls}>${foundM.label}</span><span class="cash-concept">${txt} <span class="muted text-xs ml-1">${new Date(m.created_at).toLocaleDateString('es')}</span></span><span class=${'cash-amount ' + m.type}>$${Number(m.amount).toFixed(2)}</span><button type="button" class="link-btn" onClick=${() => editMove(m)} aria-label="Editar movimiento">editar</button><button type="button" class="link-btn st-danger" onClick=${() => del(m.id)} aria-label="Eliminar movimiento">×</button></div>`;
     })}
     ${moves.length === 0 && !api.loading && html`<div class="empty">Sin movimientos registrados.</div>`}
+    <${MasMovs} />
    </div>
   ` : (HIJOS[tab] ? html`<${HIJOS[tab]} nested=${true} onBack=${onBack} />` : null)}</${MicroShell}>`;
  };

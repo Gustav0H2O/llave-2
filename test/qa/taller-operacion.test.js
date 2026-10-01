@@ -288,6 +288,61 @@ describe('Operación del taller: agenda, mecánicos, inspecciones, alertas y caj
     assert.equal(r.status, 400);
   });
 
+  /* ---------------- Caja: editar movimiento y borrar corte ----------------
+     Ambas faltaban por completo: un monto mal tecleado obligaba a borrar el
+     movimiento y recrearlo (perdiendo su fecha), y un corte mal contado
+     quedaba congelado para siempre en el historial. */
+
+  it('edita un movimiento de caja en su sitio', async () => {
+    const m = await t.post('/api/cash', { concept: 'Cobro mal tecleado', amount: 50, type: 'ingreso', method: 'cash' });
+    assert.equal(m.status, 201);
+    const r = await t.put(`/api/cash/${m.body.id}`, { concept: 'Cobro corregido', amount: 75.5, type: 'ingreso', method: 'card' });
+    assert.equal(r.status, 200);
+    const lista = await t.get('/api/cash');
+    const fila = lista.body.find((x) => x.id === m.body.id);
+    assert.equal(fila.concept, 'Cobro corregido');
+    assert.equal(Number(fila.amount), 75.5);
+    assert.equal(fila.method, 'card');
+  });
+
+  it('rechaza editar un movimiento con monto fuera de rango', async () => {
+    const m = await t.post('/api/cash', { concept: 'Para validar', amount: 10 });
+    assert.equal(m.status, 201);
+    const r = await t.put(`/api/cash/${m.body.id}`, { concept: 'Monto absurdo', amount: 999999999 });
+    assert.equal(r.status, 400, 'el tope de monto del POST también aplica al PUT');
+  });
+
+  it('no deja editar el movimiento de caja de otro taller', async () => {
+    const m = await t.post('/api/cash', { concept: 'Mío', amount: 33 });
+    assert.equal(m.status, 201);
+    const r = await otro.put(`/api/cash/${m.body.id}`, { concept: 'Ajeno', amount: 44 });
+    assert.equal(r.status, 404);
+    const sinCambios = await t.get('/api/cash');
+    assert.equal(sinCambios.body.find((x) => x.id === m.body.id).concept, 'Mío');
+  });
+
+  it('borra un corte equivocado sin tocar los movimientos del día', async () => {
+    const mov = await t.post('/api/cash', { concept: 'Venta del día', amount: 200 });
+    assert.equal(mov.status, 201);
+    const c = await t.post('/api/cash/closings', { conteo: 200, notes: 'corte a borrar' });
+    assert.equal(c.status, 201);
+    const del = await t.del(`/api/cash/closings/${c.body.id}`);
+    assert.equal(del.status, 200);
+    const lista = await t.get('/api/cash/closings');
+    assert.equal(lista.body.some((x) => x.id === c.body.id), false, 'el corte ya no está');
+    const movs = await t.get('/api/cash');
+    assert.ok(movs.body.some((x) => x.id === mov.body.id), 'el movimiento del día sigue intacto');
+  });
+
+  it('no deja borrar el corte de otro taller', async () => {
+    const c = await t.post('/api/cash/closings', { conteo: 10 });
+    assert.equal(c.status, 201);
+    const r = await otro.del(`/api/cash/closings/${c.body.id}`);
+    assert.equal(r.status, 404);
+    const lista = await t.get('/api/cash/closings');
+    assert.ok(lista.body.some((x) => x.id === c.body.id), 'el corte sigue ahí');
+  });
+
   /* ---------------- Vehículos: edición y expediente ---------------- */
 
   it('edita el vehículo sin perder su historial', async () => {

@@ -22,7 +22,7 @@
  const { useState, useEffect } = React;
  const U = window.FT_MICRO_UTIL;
  if (!U) { console.error('microapps-taller-2.js: falta window.FT_MICRO_UTIL'); return; }
- const { html, ls, uid, MicroShell, TallerNav, TallerShell, useStore, apiFetch, useApi, confirmDialog, CatIc, enviarWhatsApp } = U;
+ const { html, ls, uid, MicroShell, TallerNav, TallerShell, useStore, apiFetch, useApi, confirmDialog, CatIc, enviarWhatsApp, useSubRuta } = U;
 
  /* ==================================================================
     Foro Técnico (mudado de microapps-taller.js)
@@ -587,11 +587,26 @@
  const MECH_ROLES = [['mecanico', 'Mecánico'], ['ayudante', 'Ayudante'], ['administrador', 'Administrador']];
 
  const MechanicsApp = ({ onBack }) => {
-  /* Equipo: solo mecánicos. Mi Taller es tarjeta de primer nivel. */
+  /* Equipo: mecánicos, con Mi Taller como pestaña. Las pestañas dejan la
+     herramienta en una sola tarjeta y la pestaña activa va en la URL, así que
+     Volver sube a Mecánicos antes de salir de la herramienta. */
+  const [tab, setTab] = useState('principal');
+  const TABS = [{ id: 'principal', label: 'Mecánicos' }, { id: 'taller', label: 'Mi Taller' }];
+  const HIJOS = { taller: (window.FT_MICRO || {}).ProfileApp };
+  const irATab = useSubRuta(setTab, 'principal', TABS);
   const [lista, api] = useApi('/api/mechanics');
   const [f, setF] = useState({ id: null, name: '', phone: '', role: 'mecanico', active: true });
   const [err, setErr] = useState('');
   const reset = () => setF({ id: null, name: '', phone: '', role: 'mecanico', active: true });
+  const [busca, setBusca] = useState('');
+  /* La plantilla no tenía búsqueda: con diez o más personas y varios roles ya
+     costaba encontrar a alguien de un vistazo. */
+  const plantilla = lista.filter((m) => {
+    const q = busca.trim().toLowerCase();
+    if (!q) return true;
+    const rol = (MECH_ROLES.find((r) => r[0] === m.role) || [, m.role])[1] || '';
+    return (String(m.name || '') + ' ' + String(m.phone || '') + ' ' + rol).toLowerCase().includes(q);
+  });
   const guardar = async () => {
    setErr('');
    if (!f.name.trim()) { setErr('Ponle nombre'); return; }
@@ -607,7 +622,7 @@
    if (!ok) return;
    try { await apiFetch('/api/mechanics/' + m.id, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
   };
-  return html`<${MicroShell} title="Mecánicos" icon="Wrench" onBack=${onBack}>
+  return html`<${MicroShell} title="Mecánicos" icon="Wrench" onBack=${onBack} tabs=${TABS} tab=${tab} onTab=${irATab}>${tab === 'principal' ? html`
    <p class="mic-lead">La plantilla del taller y cuántas órdenes abiertas trae cada uno. Al asignar en la orden se elige de aquí, ya no se escribe el nombre a mano.</p>
    <div class="panel p-3 mb-3">
     <div class="grid2">
@@ -624,18 +639,22 @@
      ${err && html`<span class="muted text-xs">${err}</span>`}
     </div>
    </div>
-   ${lista.length === 0 ? html`<div class="empty">Sin personal dado de alta.</div>` : lista.map(m => html`<div class="panel p-3 mb-2" key=${m.id} style=${{ opacity: m.active ? 1 : .6 }}>
-    <div class="f-row" style=${{ justifyContent: 'space-between' }}>
+   ${lista.length > 0 && html`<div class="tw-search mb-2"><${CatIc} n="Search" s=${16} />
+     <input type="search" placeholder="Buscar por nombre, teléfono o puesto…" aria-label="Buscar en la plantilla" value=${busca} onChange=${e => setBusca(e.target.value)} /></div>`}
+   ${lista.length === 0 ? html`<div class="empty">Sin personal dado de alta.</div>`
+     : plantilla.length === 0 ? html`<div class="empty">Nadie coincide con «${busca}».</div>`
+     : plantilla.map(m => html`<div class="panel p-3 mb-2" key=${m.id} style=${{ opacity: m.active ? 1 : .6 }}>
+    <div class="f-between">
      <strong>${m.name}</strong>
      <span class="muted text-xs">${(MECH_ROLES.find(r => r[0] === m.role) || [, m.role])[1]}${m.active ? '' : ' · inactivo'}</span>
     </div>
     <div class="muted text-xs">${m.phone || 'sin teléfono'} · ${m.open_orders || 0} orden(es) abierta(s)</div>
     <div class="mt-2" style=${AGREGA_BTN}>
      <button type="button" class="link-btn" onClick=${() => editar(m)}>editar</button>
-     <button type="button" class="link-btn" onClick=${() => borrar(m)}>borrar</button>
+     <button type="button" class="link-btn st-danger" onClick=${() => borrar(m)}>borrar</button>
     </div>
    </div>`)}
-  </${MicroShell}>`;
+  ` : (HIJOS[tab] ? html`<${HIJOS[tab]} nested=${true} onBack=${onBack} />` : null)}</${MicroShell}>`;
  };
 
  /* ==================================================================
@@ -660,7 +679,7 @@
    ${alertas.length === 0 ? html`<div class="empty">Todo por encima del mínimo. Nada que reponer.</div>` : alertas.map(a => html`<div class="panel p-3 mb-2" key=${a.id}>
     <div class="f-row" style=${{ justifyContent: 'space-between' }}>
      <strong>${a.name}</strong>
-     <span class="muted text-xs" style=${{ color: a.qty <= 0 ? 'var(--bad, #b91c1c)' : 'var(--warn, #b45309)' }}>quedan ${a.qty} · mínimo ${a.min_qty}</span>
+     <span class="muted text-xs" style=${{ color: a.qty <= 0 ? 'var(--danger)' : 'var(--amber)' }}>quedan ${a.qty} · mínimo ${a.min_qty}</span>
     </div>
     <div class="muted text-xs">${a.sku || 'sin SKU'}</div>
     <div class="mt-2" style=${AGREGA_BTN}>
@@ -684,9 +703,18 @@
   const cerrar = async () => {
    setErr('');
    try {
+    /* Cerrar la caja congela una foto del día y antes no preguntaba nada: un
+       toque por error dejaba un corte falso en el historial. */
+    const ok = await confirmDialog({ title: 'Cerrar la caja', message: `Se guardará el corte${conteo !== '' ? ' con $' + (Number(conteo) || 0).toFixed(2) + ' contados' : ''}. ¿Continuar?`, confirmText: 'Cerrar caja', icon: 'Calculator' });
+    if (!ok) return;
     const r = await apiFetch('/api/cash/closings', { method: 'POST', body: JSON.stringify({ conteo: conteo === '' ? null : Number(conteo), notes }) });
     setUltimo(r); setConteo(''); setNotes(''); api.load();
    } catch (e) { setErr(e.message); }
+  };
+  const borrarCorte = async (c) => {
+   const ok = await confirmDialog({ title: 'Eliminar corte', message: `¿Eliminar el corte del ${c.fecha}? Los movimientos del día NO se borran, solo la foto del arqueo.`, confirmText: 'Eliminar corte', danger: true, icon: 'Trash2' });
+   if (!ok) return;
+   try { await apiFetch('/api/cash/closings/' + c.id, { method: 'DELETE' }); api.load(); } catch (e) { setErr(e.message); }
   };
   const money = (n) => '$' + (Number(n) || 0).toFixed(2);
   const detalle = (c) => Object.entries(c.por_metodo || {}).map(([m, v]) => `${m}: +${money(v.ingresos)} / -${money(v.egresos)}`).join(' · ') || 'sin movimientos';
@@ -708,6 +736,7 @@
     <div class="muted text-xs">Ingresos ${money(c.ingresos)} · Egresos ${money(c.egresos)} · Saldo ${money(c.saldo)}${c.conteo != null ? ' · Contado ' + money(c.conteo) + ' · Diferencia ' + money(c.diferencia) : ''}</div>
     <div class="muted text-xs">${detalle(c)}</div>
     ${c.notes && html`<div class="muted text-xs">${c.notes}</div>`}
+    <div class="mt-2"><button type="button" class="link-btn st-danger" onClick=${() => borrarCorte(c)}>Eliminar corte</button></div>
    </div>`)}
   </${MicroShell}>`;
  };
@@ -803,6 +832,7 @@
   const [notes, api] = useApi('/api/notes');
   const [t, setT] = useState('');
   const [veh, setVeh] = useState('');
+  const [editId, setEditId] = useState(null);
   const [q, setQ] = useState('');
   const [filtro, setFiltro] = useState('todas');
   const [err, setErr] = useState('');
@@ -837,10 +867,22 @@
     if (!t.trim()) return;
     setErr('');
     try {
-      await apiFetch('/api/notes', { method: 'POST', body: JSON.stringify({ text: t.trim(), vehicle_ref: veh.trim() }) });
-      setT(''); setVeh(''); api.load();
+      /* Editar en su sitio: el PUT de notas ya aceptaba el texto completo, pero
+         la UI solo lo usaba para fijar. Corregir una nota obligaba a borrarla y
+         volverla a escribir, perdiendo su fecha original. */
+      if (editId) await apiFetch('/api/notes/' + editId, { method: 'PUT', body: JSON.stringify({ text: t.trim(), vehicle_ref: veh.trim() }) });
+      else await apiFetch('/api/notes', { method: 'POST', body: JSON.stringify({ text: t.trim(), vehicle_ref: veh.trim() }) });
+      setT(''); setVeh(''); setEditId(null); api.load();
     } catch (e) { setErr(e.message); }
   };
+
+  const editar = (n) => {
+    setEditId(n.id); setT(n.text || ''); setVeh(n.vehicle_ref || '');
+    setErr('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelarEdicion = () => { setEditId(null); setT(''); setVeh(''); };
 
   const fijar = async (n) => {
     try {
@@ -873,7 +915,7 @@
       <button type="button" class="tw-sec-a" onClick=${() => setErr('')}>Cerrar</button></div>`}
 
     <div class="tw-field">
-      <span class="tw-field-l">Nota rápida</span>
+      <span class="tw-field-l">${editId ? 'Editando nota' : 'Nota rápida'}</span>
       <span class="tw-field-v"><input type="text" placeholder="Qué hay que recordar…" value=${t}
         onChange=${(e) => setT(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') add(); }} /></span>
     </div>
@@ -882,7 +924,10 @@
       <span class="tw-field-v"><input type="text" placeholder="Jetta 2016 · ABC-123" value=${veh}
         onChange=${(e) => setVeh(e.target.value)} /></span>
     </div>
-    <button type="button" class="tw-cta" disabled=${!t.trim()} onClick=${add}>Guardar nota en la bitácora</button>
+    <div class="tw-foot">
+      <button type="button" class="tw-cta" disabled=${!t.trim()} onClick=${add}>${editId ? 'Guardar cambios' : 'Guardar nota en la bitácora'}</button>
+      ${editId && html`<button type="button" class="tw-cta sec" onClick=${cancelarEdicion}>Cancelar</button>`}
+    </div>
 
     <div class="tw-sec"><h3 class="tw-sec-t">Lo anotado ${fijadas ? html`<span class="tw-sec-c">${fijadas} fijada${fijadas === 1 ? '' : 's'}</span>` : null}</h3>
       <span class="tw-sec-n">${notes.length} ${notes.length === 1 ? 'nota' : 'notas'}</span></div>
@@ -908,6 +953,8 @@
       <div class="tw-acts">
         <button type="button" class=${'tw-act' + (n.pinned ? ' primary' : '')} onClick=${() => fijar(n)}>
           <${CatIc} n="Star" s=${18} />${n.pinned ? 'Fijada' : 'Fijar'}</button>
+        <button type="button" class="tw-act" onClick=${() => editar(n)}>
+          <${CatIc} n="Pencil" s=${18} />Editar</button>
         <button type="button" class="tw-act danger" onClick=${() => borrar(n)}>
           <${CatIc} n="Trash2" s=${18} />Borrar</button>
       </div>

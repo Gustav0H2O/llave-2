@@ -108,6 +108,39 @@ function montarCash(app, deps) {
     res.json({ ok: true });
   });
 
+  /* Editar un movimiento de caja. Faltaba por completo: un monto mal tecleado
+     obligaba a borrar el movimiento y volver a crearlo, con lo que se perdía
+     su fecha original y el orden del arqueo. Se revalida todo igual que en el
+     POST para que no entre por aquí un monto fuera de rango. */
+  app.put('/api/cash/:id', requireWorkshop, async (req, res) => {
+    const id = idDe(req); /* 2.21 */
+    if (id === null) return res.status(404).json({ error: 'No encontrado' });
+    const b = req.body || {};
+    const concept = str(b.concept, 200);
+    const amount = num(b.amount);
+    const type = b.type === 'egreso' ? 'egreso' : 'ingreso';
+    if (!concept || !enRango(amount, 0.01, TOPE_QTY)) {
+      return res.status(400).json({ error: 'Concepto y monto válido requeridos (0.01 a 1000000)' });
+    }
+    const METODOS_VALIDOS = ['cash', 'card', 'transfer', 'other', 'efectivo_usd', 'efectivo_bs', 'pago_movil', 'zelle'];
+    const method = METODOS_VALIDOS.includes(b.method) ? b.method : 'cash';
+    const info = await db.run('UPDATE cash_moves SET concept=?, amount=?, type=?, method=? WHERE id=? AND workshop_id=?',
+      [concept, amount, type, method, id, req.workshopId]);
+    if (!info.changes) return res.status(404).json({ error: 'No encontrado' });
+    res.json({ ok: true });
+  });
+
+  /* Borrar un corte equivocado. Era imposible: un arqueo mal contado quedaba
+     congelado para siempre y descuadraba el historial. Solo borra la foto del
+     corte, nunca los movimientos del dia. */
+  app.delete('/api/cash/closings/:id', requireWorkshop, async (req, res) => {
+    const id = idDe(req); /* 2.21 */
+    if (id === null) return res.status(404).json({ error: 'No encontrado' });
+    const info = await db.run('DELETE FROM cash_closings WHERE id=? AND workshop_id=?', [id, req.workshopId]);
+    if (!info.changes) return res.status(404).json({ error: 'No encontrado' });
+    res.json({ ok: true });
+  });
+
 }
 
 module.exports = { montarCash };

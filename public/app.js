@@ -1204,6 +1204,10 @@ function App() {
      principio en readURLState(): «la app arranca directo en ese vehículo». */
   const [viewState, setViewState] = useState(initialURL.selected ? 'search' : 'home'); // 'home' | 'search'
   const [microApp, setMicroApp] = useState(null);     // micro app abierta desde el dashboard
+  /* El id (`orders`) frente al nombre del componente (`OrdersApp`): la ruta
+     habla de ids, así que hace falta recordar cuál está montado para saber si
+     un popstate solo cambió de pestaña o cambió de herramienta. */
+  const microAppIdRef = useRef(null);
   // ── Sesión del taller (cuenta de mecánico) ──
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -1526,7 +1530,11 @@ function App() {
   window.FT_RUTA = {
     leer: () => {
       const p = new URLSearchParams(location.search);
-      return { app: p.get('app') || null, cat: p.get('cat') || null };
+      /* `sub` es la pestaña interna de una micro app (?app=orders&sub=checklist).
+         Antes las pestañas eran estado local y no dejaban rastro en el
+         historial: pulsar "Volver" desde una pestaña saltaba fuera de la
+         herramienta (o del sitio) en vez de subir a la pestaña raíz. */
+      return { app: p.get('app') || null, cat: p.get('cat') || null, sub: p.get('sub') || null };
     },
     escribir: rutaEscribir,
   };
@@ -1550,6 +1558,7 @@ function App() {
     if (protectedIds.includes(id) && !user) { setShowLogin(true); return; }
     if (apps[id] && FT[apps[id]]) {
       if (!opciones.silencioso) rutaEscribir({ app: id });
+      microAppIdRef.current = id;
       setMicroApp(apps[id]); setViewState('home');
     }
   };
@@ -1562,7 +1571,8 @@ function App() {
        hay nada que deshacer: se limpia la URL en el sitio. */
     if (window.FT_RUTA.leer().app && history.state && history.state.ft) { history.back(); return; }
     if (location.pathname !== '/') history.replaceState(null, '', '/');
-    rutaEscribir({ app: null }, 'replace');
+    rutaEscribir({ app: null, sub: null }, 'replace');
+    microAppIdRef.current = null;
     setMicroApp(null); setViewState('home');
   };
 
@@ -1570,10 +1580,17 @@ function App() {
      la primera carga con ?app= puesto (enlace compartido o acceso directo del
      menú de la app instalada en Android). */
   const aplicarRuta = React.useCallback(() => {
-    const { app } = window.FT_RUTA.leer();
+    const { app, sub } = window.FT_RUTA.leer();
     /* `search` (el catálogo) no es una ruta: un enlace viejo con ?app=search
        devolvía al catálogo al recargar en vez de al inicio. */
     if (!app || app === 'search') { setMicroApp(null); setViewState('home'); return; }
+    /* Si la herramienta ya está montada solo cambió la pestaña: se avisa por
+       evento para que sincronice sin remontarse y sin perder el formulario
+       abierto. El remontaje se reserva para cuando cambia la herramienta. */
+    if (app === microAppIdRef.current && sub) {
+      window.dispatchEvent(new CustomEvent('ft-sub-cambio', { detail: { sub } }));
+      return;
+    }
     setMicroApp(null);
     openMicro(app, { silencioso: true });
   }, [user]);
