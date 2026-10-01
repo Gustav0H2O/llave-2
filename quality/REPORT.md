@@ -1,6 +1,6 @@
 # Informe de calidad — FuelTech Master
 
-_Generado el 2026-10-01 12:43 por `npm run metrics`. No lo edites a mano._
+_Generado el 2026-10-01 13:10 por `npm run metrics`. No lo edites a mano._
 
 ## ✅ Todos los presupuestos se cumplen
 
@@ -11,7 +11,7 @@ Nada que corregir.
 | Métrica | Valor | Estado |
 | --- | --- | --- |
 | Pruebas que pasan | 864 / 864 | ✅ |
-| Duración de la suite | 85.1 s | ✅ |
+| Duración de la suite | 87 s | ✅ |
 | Reglas de restricción | 20 reglas, 0 violaciones | ✅ |
 | Rutas de API probadas | 100% de 128 | ✅ |
 | Deuda conocida aceptada | 5 de 5 | ✅ |
@@ -42,7 +42,7 @@ Nada que corregir.
 ## Tamaño de los archivos que descarga el usuario
 
 ```
-✓ public/app.js              107.6 KB  de 109 KB
+✓ public/app.js              108.5 KB  de 109 KB
 ✓ public/microapps.js        293.3 KB  de 297 KB
 ✓ public/microapps-taller.js    97.1 KB  de 98 KB
 ✓ public/microapps-taller-2.js    57.9 KB  de 62 KB

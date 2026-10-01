@@ -1043,22 +1043,38 @@ function LoginScreen({ onBack, notice, tabInicial, onLoginSuccess }) {
   const [locName, setLocName] = useState('');
   const [locBusy, setLocBusy] = useState(false);
  const [googleBusy, setGoogleBusy] = useState(false);
+ /* Guard síncrono del primer toque: un ref, no el estado, porque el estado
+    re-renderiza y el ref corta el segundo clic en el acto. */
+ const googleYa = useRef(false);
 
   useEffect(() => { setActiveNotice(notice || ''); }, [notice]);
   useEffect(() => { if (tabInicial) setMode(tabInicial); }, [tabInicial]);
 
-  const cambiarModo = (m) => { setMode(m); setMsg(''); setActiveNotice(''); };
- /* Un solo toque. El código de autorización de Google es de UN SOLO USO: si el
-    enlace se activa dos veces, el primer canje crea la sesión y el segundo vuelve
-    con `invalid_grant` y su error tapa el login que sí funcionó (pasó de verdad:
-    el log mostraba `GET /api/auth/me 200` y acto seguido `invalid_grant`). Con la
-    red del taller un doble toque sale solo, así que el enlace se bloquea en el
-    primer clic y no vuelve a activarse. El teclado (role="button") pasa por el
-    mismo guard. */
- const googleGo = (e) => {
-   if (googleBusy) { e.preventDefault(); e.stopPropagation(); return; }
-   setGoogleBusy(true);
- };
+  const cambiarModo = (m) => {
+    setMode(m); setMsg(''); setActiveNotice('');
+    /* Cambiar de pestaña devuelve el botón a la vida: si el primer toque no
+       llegó a navegar, nadie debe quedarse con un enlace muerto. */
+    googleYa.current = false; setGoogleBusy(false);
+  };
+  /* Un solo toque, pero SIN matar el primero. El código de autorización de
+     Google es de UN SOLO USO: si el enlace se activa dos veces, el primer canje
+     crea la sesión y el segundo vuelve con `invalid_grant`, con un error que
+     tapa el login que sí funcionó (pasó de verdad: el log mostraba
+     `GET /api/auth/me 200` y acto seguido `invalid_grant`).
+
+     El guard va en el ref y NO en el `href`. Quitar el `href` en el primer clic
+     re-renderizaba el ancla antes de que el navegador procesara su acción por
+     defecto, así que la navegación se cancelaba y la pantalla se quedaba
+     congelada en «Abriendo Google…»: el botón bloqueaba su propio viaje. Con el
+     `href` siempre puesto, el primer toque navega y el ref solo descarta los
+     siguientes. Si el navegador no llega a navegar —red caída, gesto cancelado,
+     pestaña restaurada— el botón se rearma solo a los pocos segundos. */
+  const googleGo = (e) => {
+    if (googleYa.current) { e.preventDefault(); e.stopPropagation(); return; }
+    googleYa.current = true;
+    setGoogleBusy(true);
+    window.setTimeout(() => { googleYa.current = false; setGoogleBusy(false); }, 8000);
+  };
   const esAlta = mode === 'register';
   const esDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || (activeNotice && activeNotice.includes('no está configurado'));
 
@@ -1118,10 +1134,10 @@ function LoginScreen({ onBack, notice, tabInicial, onLoginSuccess }) {
           ${activeNotice && html`
             <div class="login-msg login-msg--top login-msg--warn"><span>${activeNotice}</span></div>`}
 
-          <a href=${googleBusy ? undefined : '/api/auth/google?mode=' + mode}
+          <a href=${'/api/auth/google?mode=' + mode}
              class=${'login-google' + (googleBusy ? ' is-busy' : '')}
              role="button" tabindex=${googleBusy ? -1 : 0}
-             aria-disabled=${googleBusy}
+             aria-disabled=${googleBusy || undefined}
              onClick=${googleGo}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
