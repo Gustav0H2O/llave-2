@@ -3,7 +3,7 @@
  const { useState, useEffect } = React;
  const U = window.FT_MICRO_UTIL;
  if (!U) { console.error('microapps-taller.js: falta window.FT_MICRO_UTIL'); return; }
- const { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, TallerNav, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog } = U;
+ const { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, TallerNav, TallerShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog } = U;
  const askDel = (t, m = '¿Eliminar registro?') => confirmDialog({ title: t, message: m, confirmText: 'Eliminar', danger: true, icon: 'Trash2' });
   const ORDER_TYPES = [['reparacion', 'Reparación'], ['servicio', 'Servicio'], ['garantia', 'Garantía'], ['promocion', 'Promoción'], ['otro', 'Otro']];
  const ORDER_STATUS = ['Recibido', 'En diagnóstico', 'Esperando repuesto', 'Listo', 'Entregado', 'Cancelado'];
@@ -778,9 +778,8 @@
 
   const filtros = [['todos', 'Todos'], ['entrega', 'Entregas'], ['presupuesto', 'Presupuestos'], ['recepcion', 'Recepciones']];
 
-  return html`<${MicroShell} title="Documentos" icon="FileText" sub="Notas de entrega y presupuestos" nested=${nested}
-      onBack=${onBack} action=${html`<button type="button" class="tw-head-act" onClick=${exportCsv}>Exportar</button>`}>
-    ${!nested && html`<${TallerNav} actual="documents" onOpen=${onOpen} />`}
+  return html`<${TallerShell} tool="documents" title="Documentos" icon="FileText" sub="Notas de entrega y presupuestos" nested=${nested}
+      onBack=${onBack} onOpen=${onOpen} action=${html`<button type="button" class="tw-head-act" onClick=${exportCsv}>Exportar</button>`}>
     ${api.err && html`<div class="alert"><span>${api.err}</span></div>`}
     <div class="tw-shell-has-fab">
       <div class="tw-stats">
@@ -1035,7 +1034,7 @@
     setTimeout(() => { setPassEstado(''); setPassMsg(''); }, 3000);
    } catch (e) { setPassEstado('error'); setPassMsg(e.message); }
   };
-  if (estado === 'cargando') return html`<${MicroShell} title="Mi Taller" icon="Store" onBack=${onBack} nested=${nested}><div class="skel"><div class="skel-line"></div><div class="skel-line"></div></div></${MicroShell}>`;
+  if (estado === 'cargando') return html`<${TallerShell} tool="profile" title="Mi Taller" icon="Store" onBack=${onBack} nested=${nested} onOpen=${onOpen}><div class="skel"><div class="skel-line"></div><div class="skel-line"></div></div></${TallerShell}>`;
   const noLeidas = notifs.filter(n => !n.is_read).length;
   const prog = me?.donor_progress || { puntos: me?.total_donated || 0, nivel: me?.donor_level || 0, nombre: 'Sin Rango', badge: 'Mecánico', porcentaje: 0, metaProximo: 1, faltaParaProximo: 1, beneficiosDesbloqueados: [], beneficiosProximos: [] };
   const hoyStr = new Date().toISOString().slice(0, 10);
@@ -1053,9 +1052,8 @@
    ['cuenta', 'ShieldCheck', 'Cuenta']
   ];
   const renderPerk = (b, unlocked) => html`<div key=${b.nivel} style=${{ ...SC, opacity: unlocked ? 1 : .85, background: unlocked ? 'var(--sunken)' : 'var(--panel)', borderStyle: unlocked ? 'solid' : 'dashed' }}><div style=${SB}><div style=${SF}><span class=${unlocked ? "st-ok" : "muted"}><${CatIc} n=${unlocked ? 'Check' : 'Lock'} s=${12} /></span><strong class="text-sm">${b.nombre}</strong></div><span class="text-xs st-accent font-bold">${b.montoMin}+ pts</span></div><p class="muted text-xs mt-1">${b.perk}</p></div>`;
-  return html`<${MicroShell} title="Mi Taller" icon="Store" onBack=${onBack} nested=${nested}
+  return html`<${TallerShell} tool="profile" title="Mi Taller" icon="Store" onBack=${onBack} nested=${nested} onOpen=${onOpen}
      sub=${prog.nombre ? `${prog.badge || 'Taller'} · ${prog.nombre}` : 'Tu taller'}>
-   ${!nested && html`<${TallerNav} actual="profile" onOpen=${onOpen} />`}
    <div class="tw-stats">
     <div class="tw-stat"><span class="tw-stat-l">Órdenes activas</span><span class="tw-stat-v">${activas}</span></div>
     <div class="tw-stat"><span class="tw-stat-l">Caja hoy</span><span class="tw-stat-v ok">${money0(cajaHoy)}</span></div>

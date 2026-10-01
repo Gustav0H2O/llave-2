@@ -1,6 +1,6 @@
 # Informe de calidad — FuelTech Master
 
-_Generado el 2026-10-01 13:46 por `npm run metrics`. No lo edites a mano._
+_Generado el 2026-10-01 14:38 por `npm run metrics`. No lo edites a mano._
 
 ## ✅ Todos los presupuestos se cumplen
 
@@ -15,7 +15,7 @@ Nada que corregir.
 | Reglas de restricción | 20 reglas, 0 violaciones | ✅ |
 | Rutas de API probadas | 100% de 128 | ✅ |
 | Deuda conocida aceptada | 5 de 5 | ✅ |
-| Razón prueba/código | 0.63x | ✅ |
+| Razón prueba/código | 0.64x | ✅ |
 
 ## Cobertura de las reglas del taller (lib/)
 
@@ -43,20 +43,23 @@ Nada que corregir.
 
 ```
 ✓ public/app.js              106.6 KB  de 109 KB
-✓ public/microapps.js        290.5 KB  de 297 KB
+✓ public/microapps.js        284.2 KB  de 297 KB
 ✓ public/microapps-taller.js    95.5 KB  de 98 KB
-✓ public/microapps-taller-2.js      57 KB  de 62 KB
+✓ public/microapps-taller-2.js    56.9 KB  de 62 KB
 ✓ public/datos.js             29.9 KB  de 32 KB
 ✓ public/index.html          214.1 KB  de 218 KB
 ✓ public/three3d.js           63.9 KB  de 68 KB
-✓ public/taller.css           30.4 KB  de 32 KB
+✓ public/taller.css           35.6 KB  de 36 KB
 ✓ public/sw.js                 7.8 KB  de 8 KB
 ✓ server-pg.js                26.2 KB  de 40 KB
 ```
 
 ## Evolución respecto a la referencia
 
-Sin cambios respecto a la última referencia aceptada.
+**Mejoras:**
+
+- max_lineas_archivo: 4659 → 4604
+
 
 ## Deuda conocida pendiente de decisión
 

@@ -107,6 +107,35 @@
     </nav>`;
   };
 
+  /* Shell propio de la sección taller: le da identidad visual distinta del
+     MicroShell genérico que usan las herramientas de consulta. Encabezado con
+     pastilla de color por herramienta, título grande y la barra de las 7
+     herramientas integrada (en modo nested se comporta como MicroShell para
+     no romper a quien la incrusta). */
+  const TallerShell = ({ tool, title, sub, icon, onBack, onOpen, nested, action, children }) => {
+    if (nested) return html`<${MicroShell} title=${title} icon=${icon} sub=${sub} onBack=${onBack} nested=${true}>${children}</${MicroShell}>`;
+    return html`
+    <div class="taller-shell panel" data-tool=${tool || 'documents'}>
+      <div class="taller-shell-head">
+        <div class="taller-shell-top">
+          <button type="button" class="taller-back" onClick=${onBack} aria-label="Volver">
+            <${CatIc} n="ChevronLeft" s=${18} /><span>Volver</span>
+          </button>
+          ${action && html`<div class="taller-shell-action">${action}</div>`}
+        </div>
+        <div class="taller-shell-id">
+          <span class="taller-shell-ic" aria-hidden="true"><${CatIc} n=${icon} s=${22} /></span>
+          <div class="taller-shell-tt">
+            <h2>${title}</h2>
+            ${sub && html`<p>${sub}</p>`}
+          </div>
+        </div>
+      </div>
+      <${TallerNav} actual=${tool} onOpen=${onOpen} />
+      <div class="taller-shell-body">${children}</div>
+    </div>`;
+  };
+
   /* ---------- datos estáticos (public/datos.js) ---------- */
   const { DTCS, TORQUES, SPARKS, TIMING, VIN_YEARS, LABOR } = window.FT_DATOS || {};
 
@@ -507,6 +536,67 @@
         document.body.style.overflow = previo;
       };
     }, [abierta]);
+  };
+
+  /* Tablero de la sección taller: en vez del grid genérico del catálogo, una
+     portada de operaciones con los números del día, las 7 herramientas como
+     filas grandes con su color y las 5 de gestión como accesos compactos. */
+  const TallerHome = ({ user, abrir }) => {
+    const [orders] = useApi('/api/orders');
+    const [citas] = useApi('/api/appointments');
+    const [docs] = useApi('/api/documents');
+    const [caja] = useApi('/api/cash');
+    const HERR = ['documents', 'quote', 'notes', 'inspapi', 'labor', 'agenda', 'profile'];
+    const lista = APPS.filter(a => a.g === 'taller' && !a.oculta);
+    const herr = HERR.map(id => lista.find(a => a.id === id)).filter(Boolean);
+    const gest = lista.filter(a => !HERR.includes(a.id));
+    const hoyStr = new Date().toISOString().slice(0, 10);
+    const fechaRaw = new Date().toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
+    const fecha = fechaRaw.charAt(0).toUpperCase() + fechaRaw.slice(1);
+    const money0 = (n) => '$' + Number(n || 0).toLocaleString('es', { maximumFractionDigits: 0 });
+    const activas = orders.filter(o => o.status !== 'Entregado' && o.status !== 'Cancelado').length;
+    const citasHoy = citas.filter(c => c.fecha === hoyStr && c.status !== 'cancelada').length;
+    const porCobrar = docs.filter(d => d.kind !== 'cotizacion' && ['emitido', 'aprobado'].includes(d.status))
+      .reduce((s, d) => s + Number(d.total || 0), 0);
+    const cajaHoy = caja.filter(m => String(m.created_at || '').slice(0, 10) === hoyStr)
+      .reduce((s, m) => s + (m.type === 'ingreso' ? Number(m.amount || 0) : -Number(m.amount || 0)), 0);
+    const STATS = [
+      ['orders', 'Órdenes activas', String(activas), 'ClipboardList'],
+      ['agenda', 'Citas hoy', String(citasHoy), 'Calendar'],
+      ['documents', 'Por cobrar', money0(porCobrar), 'FileText'],
+      ['cash', 'Caja hoy', money0(cajaHoy), 'Calculator'],
+    ];
+    return html`
+    <div class="th">
+      <header class="th-head">
+        <p class="th-kicker">Taller y gestión</p>
+        <h1 class="th-title">${user?.name || 'Mi taller'}</h1>
+        <p class="th-fecha">${fecha}</p>
+      </header>
+      <div class="th-stats" role="list">
+        ${STATS.map(([id, label, valor, icon]) => html`<button type="button" class="th-stat" role="listitem" key=${id}
+          data-tool=${id} onClick=${() => abrir(lista.find(a => a.id === id))}>
+          <span class="th-stat-ic"><${CatIc} n=${icon} s=${18} /></span>
+          <span class="th-stat-v">${valor}</span>
+          <span class="th-stat-l">${label}</span>
+        </button>`)}
+      </div>
+      <h2 class="th-sec">Operación diaria</h2>
+      <div class="th-herr">
+        ${herr.map(a => html`<button type="button" class="th-row" data-tool=${a.id} key=${a.id} onClick=${() => abrir(a)}>
+          <span class="th-row-ic"><${CatIc} n=${a.i} s=${20} /></span>
+          <span class="th-row-tx"><strong>${a.t}</strong><em>${a.d}</em></span>
+          <${CatIc} n="ChevronRight" s=${18} />
+        </button>`)}
+      </div>
+      ${gest.length > 0 && html`
+        <h2 class="th-sec">Gestión</h2>
+        <div class="th-gest">
+          ${gest.map(a => html`<button type="button" class="th-mini" key=${a.id} onClick=${() => abrir(a)}>
+            <${CatIc} n=${a.i} s=${18} /><span>${a.t}</span>
+          </button>`)}
+        </div>`}
+    </div>`;
   };
 
   const Home = ({ onOpen, user, onLogout, onLogin, onUserChange }) => {
@@ -1336,7 +1426,7 @@
                 ${filtered.length === 0 && html`<div class="empty">Sin resultados para “${q}”. Prueba con el síntoma (“no enciende”) o con la pieza (“regulador”).</div>`}
               </section>`
               : html`
-                ${recientes.length > 1 && html`
+                ${recientes.length > 1 && tab !== 'taller' && html`
                   <section class="home-recientes">
                     <h2 class="home-recientes-t"><${CatIc} n="Clock" s=${14} /> Lo último que usaste</h2>
                     <div class="home-recientes-lista">
@@ -1345,12 +1435,14 @@
                       </button>`)}
                     </div>
                   </section>`}
+                ${tab === 'taller' ? html`<${TallerHome} user=${user} abrir=${abrir} />` : html`
                 <header class="home-cat-head">
                   <h1 class="home-cat-title">${GRUPOS[tab].t}</h1>
                   <p class="home-cat-desc home-cat-desc--larga">${GRUPOS[tab].d}</p>
                   <p class="home-cat-desc home-cat-desc--corta">${GRUPOS[tab].c}</p>
                 </header>
                 <div class="home-group-grid home-apps-grid">${appsOf(tab).map(a => card(a))}</div>
+                `}
               `}
           </div>
         `}
@@ -2932,132 +3024,6 @@
   };
 
   /* ================================================================
-     26. Inspección de recepción (multipunto)
-     Guarda en el navegador, no en la nube: es una lista de trabajo del
-     momento y no debería exigir cuenta para usarse en la rampa.
-     ================================================================ */
-  const INSPECTION = [
-    ['Niveles', ['Aceite de motor', 'Refrigerante', 'Líquido de frenos', 'Dirección hidráulica', 'Limpiaparabrisas']],
-    ['Neumáticos', ['Delantero izq.', 'Delantero der.', 'Trasero izq.', 'Trasero der.', 'Refacción', 'Presión de inflado']],
-    ['Frenos', ['Pastillas delanteras', 'Pastillas traseras', 'Discos / tambores', 'Freno de mano']],
-    ['Luces', ['Bajas', 'Altas', 'Direccionales', 'Freno', 'Reversa', 'Tablero sin testigos']],
-    ['Motor', ['Bandas', 'Mangueras', 'Filtro de aire', 'Bujías / cables', 'Fugas visibles']],
-    ['Eléctrico', ['Batería y bornes', 'Alternador (carga)', 'Motor de arranque', 'Claxon']],
-    ['Suspensión', ['Amortiguadores', 'Rótulas y terminales', 'Bujes', 'Ruidos en camino']],
-  ];
-  const INSP_STATES = [['ok', 'Bien'], ['warn', 'Atención'], ['bad', 'Mal']];
-
-  /* Checklist de instalación de bomba/módulo, portado del árbol legacy. Vive
-     aquí y no en su propia micro app porque es otra lista de trabajo del
-     momento, como la inspección; persiste aparte, en `ft_install_check`. */
-  const INSTALL_STEPS = [
-    'Aliviar presión: quitar fusible/relé de la bomba y arrancar hasta que se apague.',
-    'Desconectar el negativo de la batería.',
-    'Localizar el módulo según la ficha (zona y si requiere bajar tanque).',
-    'Limpiar la zona de trabajo y el borde del tanque antes de abrir.',
-    'Retirar el anillo de retención o tornillos; marcar la orientación de la tapa.',
-    'Extraer el módulo con cuidado (el flotador se daña fácil).',
-    'Desconectar el conector eléctrico y las líneas; tapar la boca del tanque.',
-    'Comparar la pila nueva contra la vieja: medidas, conector y polaridad.',
-    'Reemplazar el cedazo (pre-filtro) SIEMPRE al cambiar la bomba.',
-    'Instalar la pila nueva en el módulo; revisar el sello (O-ring) de la tapa.',
-    'Reinsertar el módulo respetando la orientación; no forzar.',
-    'Colocar el anillo de retención con su sello; apretar a su posición.',
-    'Reconectar líneas y conector; conectar la batería.',
-    'Primer encendido: llave en ON 2 s (deja cebar la bomba), luego arrancar.',
-    'Verificar presión en el riel contra la especificación de la ficha.',
-    'Revisar fugas en conexiones y la tapa; probar arranque en caliente.',
-  ];
-  const InspectionApp = ({ onBack }) => {
-    const [d, setD] = useState(() => ls.get('ft_inspection', { veh: '', plate: '', km: '', notes: '', marks: {} }));
-    const [inst, setInst] = useState(() => {
-      const saved = ls.get('ft_install_check', null);
-      return Array.isArray(saved) && saved.length === INSTALL_STEPS.length ? saved : INSTALL_STEPS.map(() => false);
-    });
-    const toggleInst = (i) => { const next = inst.map((v, j) => j === i ? !v : v); setInst(next); ls.set('ft_install_check', next); };
-    const instDone = inst.filter(Boolean).length;
-    const [copiado, setCopiado] = useState(false);
-    const save = (next) => { setD(next); ls.set('ft_inspection', next); };
-    const mark = (k, v) => save({ ...d, marks: { ...d.marks, [k]: d.marks[k] === v ? undefined : v } });
-    const total = INSPECTION.reduce((n, g) => n + g[1].length, 0);
-    const done = Object.values(d.marks).filter(Boolean).length;
-    const counts = INSP_STATES.map(([s]) => Object.values(d.marks).filter(v => v === s).length);
-    const resumen = () => {
-      const lineas = [`Inspección de recepción — ${d.veh || 'vehículo sin identificar'}${d.plate ? ' (' + d.plate + ')' : ''}${d.km ? ' · ' + d.km + ' km' : ''}`, ''];
-      for (const [grupo, puntos] of INSPECTION) {
-        const conMarca = puntos.filter(p => d.marks[grupo + '|' + p]);
-        if (!conMarca.length) continue;
-        lineas.push(grupo.toUpperCase());
-        for (const p of conMarca) {
-          const est = INSP_STATES.find(s => s[0] === d.marks[grupo + '|' + p]);
-          lineas.push(`  [${est ? est[1] : '—'}] ${p}`);
-        }
-        lineas.push('');
-      }
-      if (d.notes) lineas.push('NOTAS', d.notes);
-      const txt = lineas.join('\n');
-      // Copiar no cambia nada visible por sí solo: sin acuse, el mecánico
-      // vuelve a tocar el botón sin saber si funcionó.
-      navigator.clipboard?.writeText(txt).then(() => {
-        setCopiado(true);
-        setTimeout(() => setCopiado(false), 2000);
-      }, () => {});
-    };
-    return html`<${MicroShell} title="Inspección de Recepción" icon="ClipboardCheck" onBack=${onBack}>
-      <p class="mic-lead">Recorre el vehículo antes de aceptarlo y deja constancia de cómo llegó. Se guarda en este navegador; copia el resumen para pegarlo en la orden.</p>
-      <div class="insp-head">
-        <input type="text" name="vehiculo" class="styled-input" placeholder="Marca y modelo" aria-label="Vehículo: marca y modelo" value=${d.veh} onChange=${e => save({ ...d, veh: e.target.value })} />
-        <input type="text" name="placa" class="styled-input" placeholder="Placa…" aria-label="Placa" spellcheck="false" value=${d.plate} onChange=${e => save({ ...d, plate: e.target.value })} />
-        <input type="number" name="km" class="styled-input" placeholder="Kilometraje…" aria-label="Kilometraje" value=${d.km} onChange=${e => save({ ...d, km: e.target.value })} />
-      </div>
-
-      <div class="insp-progress" aria-live="polite">
-        <span><strong>${done}</strong> de ${total} puntos revisados</span>
-        <span class="insp-tally">
-          <em class="ok">${counts[0]} bien</em>
-          <em class="warn">${counts[1]} atención</em>
-          <em class="bad">${counts[2]} mal</em>
-        </span>
-      </div>
-
-      ${INSPECTION.map(([grupo, puntos]) => html`
-        <section class="insp-group" key=${grupo}>
-          <h3 class="mic-sub">${grupo}</h3>
-          ${puntos.map(p => {
-            const k = grupo + '|' + p;
-            return html`<div class="insp-row" key=${p}>
-              <span>${p}</span>
-              <div class="insp-btns">
-                ${INSP_STATES.map(([s, label]) => html`
-                  <button type="button" key=${s} class=${'insp-btn ' + s + (d.marks[k] === s ? ' on' : '')}
-                    aria-pressed=${d.marks[k] === s} onClick=${() => mark(k, s)}>${label}</button>`)}
-              </div>
-            </div>`;
-          })}
-        </section>`)}
-
-      <details class="panel" style=${{ padding: 0 }}>
-        <summary style=${{ padding: '14px 18px', cursor: 'pointer', fontWeight: 600, color: 'var(--ink)' }}>
-          Checklist de instalación de bomba/módulo · ${instDone}/${INSTALL_STEPS.length}
-        </summary>
-        <div style=${{ padding: '0 14px 14px' }}>
-          ${INSTALL_STEPS.map((s, i) => html`<label key=${i} class="insp-check" style=${{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '9px 4px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}>
-            <input type="checkbox" checked=${inst[i]} onChange=${() => toggleInst(i)} style=${{ marginTop: '2px', flex: 'none' }} />
-            <span style=${{ fontSize: '12.5px', lineHeight: 1.5, color: inst[i] ? 'var(--muted)' : 'var(--text)' }}>${s}</span>
-          </label>`)}
-        </div>
-      </details>
-
-      <h3 class="mic-sub">Notas</h3>
-      <textarea class="styled-input" rows="3" placeholder="Golpes, faltantes, objetos dentro…" value=${d.notes} onChange=${e => save({ ...d, notes: e.target.value })}></textarea>
-      <div class="insp-actions">
-        <button type="button" class="tool-add-btn" onClick=${resumen} disabled=${!done}>${copiado ? 'Copiado ✓' : 'Copiar resumen'}</button>
-        <button type="button" class="home-cta-ghost" onClick=${() => save({ veh: '', plate: '', km: '', notes: '', marks: {} })}>Inspección nueva</button>
-      </div>
-    </${MicroShell}>`;
-  };
-
-  /* ================================================================
      27. Cotizador de mano de obra y refacciones
      ================================================================ */
   /* ================================================================
@@ -3260,10 +3226,9 @@
 
     const limpiar = () => { save(QUOTE_VACIO); setAviso(''); setVerHist(false); };
 
-    return html`<${MicroShell} title="Cotizador" icon="Calculator" nested=${nested}
-        sub="Se guarda en el taller" onBack=${onBack}
+    return html`<${TallerShell} tool="quote" title="Cotizador" icon="Calculator" nested=${nested}
+        sub="Se guarda en el taller" onBack=${onBack} onOpen=${onOpen}
         action=${html`<button type="button" class="tw-head-act" onClick=${() => setVerHist(!verHist)}>Historial</button>`}>
-      ${!nested && html`<${TallerNav} actual="quote" onOpen=${onOpen} />`}
 
       ${aviso && html`<div class="tw-alert" role="status"><div class="tw-alert-b"><span class="tw-alert-t">${aviso}</span></div>
         <button type="button" class="tw-sec-a" onClick=${() => setAviso('')}>Cerrar</button></div>`}
@@ -3442,58 +3407,7 @@
   /* ================================================================
      28. Agenda de citas
      ================================================================ */
-  const AppointmentsApp = ({ onBack }) => {
-    const [items, setItems] = useState(() => ls.get('ft_appointments', []));
-    const [f, setF] = useState({ when: '', client: '', veh: '', job: '' });
-    const save = (arr) => { setItems(arr); ls.set('ft_appointments', arr); };
-    const add = () => {
-      if (!f.when || !f.client) return;
-      save([...items, { ...f, id: uid(), done: false }]);
-      setF({ when: '', client: '', veh: '', job: '' });
-    };
-    const orden = [...items].sort((a, b) => a.when.localeCompare(b.when));
-    const hoy = new Date().toISOString().slice(0, 10);
-    const fmt = (s) => {
-      const d = new Date(s);
-      return isNaN(d) ? s : d.toLocaleString('es', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-    };
-    return html`<${MicroShell} title="Agenda de Citas" icon="Calendar" onBack=${onBack}>
-      <p class="mic-lead">Quién viene, cuándo y a qué. Se guarda en este navegador.</p>
-      <div class="cita-form">
-        <input type="datetime-local" name="fecha" class="styled-input" value=${f.when} onChange=${e => setF({ ...f, when: e.target.value })} aria-label="Fecha y hora de la cita" />
-        <input type="text" name="cliente" autocomplete="name" class="styled-input" placeholder="Cliente…" aria-label="Nombre del cliente" value=${f.client} onChange=${e => setF({ ...f, client: e.target.value })} />
-        <input type="text" name="vehiculo" class="styled-input" placeholder="Vehículo…" aria-label="Vehículo" value=${f.veh} onChange=${e => setF({ ...f, veh: e.target.value })} />
-        <input type="text" name="servicio" class="styled-input" placeholder="Servicio…" aria-label="Servicio a realizar" value=${f.job} onChange=${e => setF({ ...f, job: e.target.value })} />
-        <button type="button" class="tool-add-btn" onClick=${add} disabled=${!f.when || !f.client}>Agendar</button>
-      </div>
-      <p class="sr-only" aria-live="polite">${orden.length} citas agendadas</p>
-      ${orden.length === 0
-        ? html`<div class="empty">Sin citas agendadas.</div>`
-        : orden.map(c => html`<div class=${'cita-item' + (c.done ? ' done' : '') + (c.when.slice(0, 10) === hoy ? ' hoy' : '')} key=${c.id}>
-            <div class="cita-when">${fmt(c.when)}${c.when.slice(0, 10) === hoy ? html`<em>hoy</em>` : ''}</div>
-            <div class="cita-body">
-              <strong>${c.client}</strong>
-              <span>${[c.veh, c.job].filter(Boolean).join(' · ') || 'Sin detalle'}</span>
-            </div>
-            <div class="cita-acts">
-              <button type="button" class="link-btn" onClick=${() => save(items.map(x => x.id === c.id ? { ...x, done: !x.done } : x))}>${c.done ? 'reabrir' : 'atendida'}</button>
-              <button type="button" class="link-btn" onClick=${async () => {
-                const ok = await confirmDialog({
-                  title: 'Eliminar cita',
-                  message: `¿Eliminar la cita de ${c.client}?`,
-                  confirmText: 'Eliminar cita',
-                  cancelText: 'Cancelar',
-                  danger: true,
-                  icon: 'Trash2'
-                });
-                if (ok) save(items.filter(x => x.id !== c.id));
-              }}>borrar</button>
-            </div>
-          </div>`)}
-    </${MicroShell}>`;
-  };
-
-  /* ================================================================
+/* ================================================================
      29. Plan de mantenimiento por kilometraje
      Los intervalos son los genéricos de servicio ligero; el manual del
      vehículo manda y por eso son editables.
@@ -3886,9 +3800,8 @@
 
     const pct = (h) => Math.max(0, Math.min(100, (h / TOPE_ESCALA) * 100));
 
-    return html`<${MicroShell} title="Tiempos" icon="History" nested=${nested}
-        sub="Horas de referencia para cotizar" onBack=${onBack}>
-      ${!nested && html`<${TallerNav} actual="labor" onOpen=${onOpen} />`}
+    return html`<${TallerShell} tool="labor" title="Tiempos" icon="History" nested=${nested}
+        sub="Horas de referencia para cotizar" onBack=${onBack} onOpen=${onOpen}>
 
       ${aviso && html`<div class="tw-alert"><${CatIc} n="CircleCheck" s=${18} />
         <div class="tw-alert-b"><span class="tw-alert-t">${aviso}</span></div>
@@ -4681,11 +4594,10 @@
      archivo: juntas superaban el tope de 3.000 líneas y los 200 KB de presupuesto
      de quality/budgets.json. Comparten estos ayudantes en vez de duplicarlos, y
      ese archivo se carga DESPUÉS de este para poder ampliar window.FT_MICRO. */
-  window.FT_MICRO_UTIL = { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, TallerNav, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog };
+  window.FT_MICRO_UTIL = { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, TallerNav, TallerShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog };
   window.FT_MICRO = {
    Home, DtcApp, TorqueApp, SparkApp, CrossApp, ConverterApp, VinApp, PressureApp,
-   RegulatorApp, QuickDiagApp, TimingApp, GuidesApp, FusesApp, TireApp, InspectionApp,
-   QuoteApp, AppointmentsApp, MaintenanceApp, TrimApp, CompressionApp, PinoutApp, LaborApp,
+   RegulatorApp, QuickDiagApp, TimingApp, GuidesApp, FusesApp, TireApp,    QuoteApp, MaintenanceApp, TrimApp, CompressionApp, PinoutApp, LaborApp,
    NoStartApp, BatteryApp, SymptomDiagApp, CalcApp, AidApp, GlossaryApp,
   };
 })();

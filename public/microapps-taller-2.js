@@ -22,7 +22,7 @@
  const { useState, useEffect } = React;
  const U = window.FT_MICRO_UTIL;
  if (!U) { console.error('microapps-taller-2.js: falta window.FT_MICRO_UTIL'); return; }
- const { html, ls, uid, MicroShell, TallerNav, useStore, apiFetch, useApi, confirmDialog, CatIc, enviarWhatsApp } = U;
+ const { html, ls, uid, MicroShell, TallerNav, TallerShell, useStore, apiFetch, useApi, confirmDialog, CatIc, enviarWhatsApp } = U;
 
  /* ==================================================================
     Foro Técnico (mudado de microapps-taller.js)
@@ -266,8 +266,7 @@
     } catch (e) { setErr(e.message); }
   };
 
-  return html`<${MicroShell} title="Agenda" icon="Calendar" sub="Quién viene y cuándo" onBack=${onBack}>
-    <${TallerNav} actual="agenda" onOpen=${onOpen} />
+  return html`<${TallerShell} tool="agenda" title="Agenda" icon="Calendar" sub="Quién viene y cuándo" onBack=${onBack} onOpen=${onOpen}>
     ${err && html`<div class="tw-alert"><div class="tw-alert-b"><span class="tw-alert-t">${err}</span></div>
       <button type="button" class="tw-sec-a" onClick=${() => setErr('')}>Cerrar</button></div>`}
     ${avisoOrden && html`<div class="tw-alert"><${CatIc} n="CircleCheck" s=${18} />
@@ -491,9 +490,8 @@
   const pct = total ? Math.round((hechos / total) * 100) : 0;
   const malos = activa ? activa.items.filter((p) => p.estado === 'malo') : [];
 
-  return html`<${MicroShell} title="Checklist" icon="ClipboardCheck" nested=${nested}
-      sub="Entrada y salida del vehículo" onBack=${onBack}>
-    ${!nested && html`<${TallerNav} actual="inspapi" onOpen=${onOpen} />`}
+  return html`<${TallerShell} tool="inspapi" title="Checklist" icon="ClipboardCheck" nested=${nested}
+      sub="Entrada y salida del vehículo" onBack=${onBack} onOpen=${onOpen}>
     <label class="tw-field"><span class="tw-field-l">Orden de trabajo</span>
       <span class="tw-field-v"><select value=${orderId} onChange=${(e) => setOrderId(e.target.value)}>
         <option value="">Elige la orden…</option>
@@ -869,9 +867,8 @@
   });
   const fijadas = notes.filter((n) => n.pinned).length;
 
-  return html`<${MicroShell} title="Bitácora" icon="BookOpen" nested=${nested}
-      sub="El diario del taller" onBack=${onBack}>
-    ${!nested && html`<${TallerNav} actual="notes" onOpen=${onOpen} />`}
+  return html`<${TallerShell} tool="notes" title="Bitácora" icon="BookOpen" nested=${nested}
+      sub="El diario del taller" onBack=${onBack} onOpen=${onOpen}>
     ${err && html`<div class="tw-alert"><div class="tw-alert-b"><span class="tw-alert-t">${err}</span></div>
       <button type="button" class="tw-sec-a" onClick=${() => setErr('')}>Cerrar</button></div>`}
 
