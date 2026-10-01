@@ -504,11 +504,20 @@ function montarAuth(app, deps) {
       if (!tokenRes.ok) {
         const errText = await tokenRes.text();
         let code = '';
-        try { code = JSON.parse(errText).error || ''; } catch (e) { /* respuesta no-JSON */ }
+        let desc = '';
+        try {
+          const j = JSON.parse(errText);
+          code = j.error || '';
+          /* `error_description` es el campo que dice POR QUÉ: sin él, un
+             `invalid_grant` es indistinguible entre código expirado, código ya
+             usado y URI que no coincide, y no hay forma de diagnostics. Se acota a
+             200 caracteres porque la respuesta es de Google, no nuestra. */
+          desc = typeof j.error_description === 'string' ? j.error_description.slice(0, 200) : '';
+        } catch (e) { /* respuesta no-JSON */ }
         /* Se registra SIEMPRE (también en producción): sin el código de Google
            —`redirect_uri_mismatch`, `invalid_client`…— el fallo era invisible.
            No lleva secretos: es el error del intercambio, no el token. */
-        console.error('[Google OAuth] token error:', tokenRes.status, code || errText.slice(0, 120));
+        console.error('[Google OAuth] token error:', tokenRes.status, code || errText.slice(0, 120), desc ? `| motivo: ${desc}` : '| motivo: (Google no lo detailo)');
         const tokenErr = new Error('Error al obtener tokens de Google');
         tokenErr.oauthDetalle = code ? `token_${code}` : `token_${tokenRes.status}`;
         throw tokenErr;
