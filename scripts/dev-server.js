@@ -29,7 +29,15 @@
 const PELIGROSAS = ['TURSO_URL', 'TURSO_AUTH_TOKEN', 'DATABASE_URL'];
 const tenian = PELIGROSAS.filter((v) => (process.env[v] || '').trim() !== '');
 for (const v of PELIGROSAS) process.env[v] = '';
-process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+/* NODE_ENV se fija a 'development' con asignación directa, NO con el clásico
+   `process.env.NODE_ENV || 'development'`. El `||` solo cubre el caso de que la
+   variable falte: si el entorno donde se lanza (una sesión de shell, un runner
+   de CI, un terminal heredado de otra herramienta) ya trae NODE_ENV=production,
+   el `||` la respeta, db.js ve 'production' sin TURSO_URL —que la limpieza de
+   arriba acaba de vaciar— y tumba el arranque con «En producción se requiere
+   TURSO_URL…». Este servidor es de DESARROLLO por definición: su modo no puede
+   depender de lo que traiga el entorno del sistema. */
+process.env.NODE_ENV = 'development';
 
 const arg = (n, d) => {
   const m = process.argv.find((a) => a.startsWith('--' + n + '='));

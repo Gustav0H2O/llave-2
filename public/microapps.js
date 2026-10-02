@@ -4599,12 +4599,15 @@
      ese archivo se carga DESPUÉS de este para poder ampliar window.FT_MICRO. */
   window.FT_MICRO_UTIL = { html, ls, uid, hoyISO, enviarWhatsApp, telValido, PAISES, telInternacional, telPartir, paisRecordado, recordarPais, now, CatIc, MicroShell, TallerNav, TallerShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog, useSubRuta, useVerMas };
   window.FT_MICRO = {
-   /* AgendaApp se mudo aqui desde microapps-taller-2.js: la agenda completa
-      (rejilla horaria, vista de mes, horario del taller) no cabia en un
-      archivo que ya estaba contra su tope. Aqui vive el resto de la operacion
-      diaria. */
+   /* SOLO las apps definidas EN ESTE archivo. AgendaApp y LaborApp se mudaron a
+      microapps-agenda.js (y demas archivos de micro apps) y alli se suman con
+      Object.assign sobre window.FT_MICRO. Nombrarlas aqui es referenciar una
+      variable de otro script: el literal lanza ReferenceError al evaluarse y
+      window.FT_MICRO queda SIN asignar entero —ni Home ni ninguna otra—. Sin
+      Home, la portada cae al catalogo y "Volver" no lleva a ningun lado, porque
+      la vista ya era 'home' y el boton solo vuelve a ponerla en 'home'. */
    Home, DtcApp, TorqueApp, SparkApp, CrossApp, ConverterApp, VinApp, PressureApp,
-   RegulatorApp, QuickDiagApp, TimingApp, GuidesApp, FusesApp, TireApp,    QuoteApp, MaintenanceApp, TrimApp, CompressionApp, PinoutApp, LaborApp,
+   RegulatorApp, QuickDiagApp, TimingApp, GuidesApp, FusesApp, TireApp, QuoteApp, MaintenanceApp, TrimApp, CompressionApp, PinoutApp,
    NoStartApp, BatteryApp, SymptomDiagApp, CalcApp, AidApp, GlossaryApp,
   };
 })();
