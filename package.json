@@ -49,7 +49,7 @@
     "pg": "^8.22.0"
   },
   "devDependencies": {
-    "@tabler/icons": "^3.46.0",
+    "@tabler/icons": "^3.48.0",
     "puppeteer": "^25.5.0",
     "puppeteer-core": "^25.8.0"
   },
