@@ -108,3 +108,47 @@ factura oficial, falta el último tramo.
 Los 5 problemas de datos del catálogo de autos (ver `quality/REPORT.md`, deuda
 conocida pendiente) siguen sin resolverse — requieren decisión del dueño; no
 bloquean el envío, pero conviene atenderlos.
+
+## Auditoría previa al envío a talleres (2026-10-02, segunda pasada)
+
+Antes de mandar esto a un taller se auditó de nuevo el conjunto, no solo lo
+nuevo. Se revisaron las 22 rutas que tocan datos de taller, la autenticación, el
+cálculo fiscal, las migraciones y los cuatro archivos de micro-apps, y se
+recorrió un día completo de taller contra la app real.
+
+**Lo que estaba mal y se corrigió:**
+
+| Hallazgo | Por qué importa en un taller | Arreglo |
+| --- | --- | --- |
+| **El total del documento no cuadraba con sus propias líneas** | El PDF imprime los renglones y el total uno al lado. Con precios de tres decimales el papel no sumaba y el cliente lo notaba | `documents.js`: el subtotal se suma sobre el renglón **ya redondeado** (prueba 21f) |
+| **Dos emisiones simultáneas podían sacar el mismo folio** | Dos notas de entrega con el mismo número, ya impresas y entregadas | Migración 014: `UNIQUE (workshop_id, kind, number)` + reintento con el folio libre (prueba 21g) |
+| **`trust proxy` sin configurar en Render** | `req.ip` era siempre el proxy: el rate limit se volvía global (un ataque tumba la API de todos los talleres) y el contador de visitas marcaba siempre 1 | `TRUST_PROXY=1` en `render.yaml` |
+| **Abrir una herramienta con candado sin sesión dejaba `?app=` colgando** | Cerrar el login dejaba la barra apuntando a algo que no abre, y recargar volvía a pedir la contraseña | `app.js`: la ruta se limpia antes de pedir el login |
+| **`<input>` con dos atributos `class`** | React ignora el segundo: el campo de nombre del Foro se veía a ancho completo | `microapps-taller-2.js`: un solo `class` |
+| **Clases CSS fantasma** (`w-48`, `ag-acciones`) | No existen en la hoja de estilos: sin estilo y sin error visible | Se quitaron |
+| **`.ag-celda` definida dos veces** | La regla del mes pisaba a la de la rejilla horaria y deformaba la columna de horas | `tinta.css`: la del mes pasa a `.ag-mes .ag-celda` |
+| **`useSubRuta` se re-registraba en cada render** | Podía devolver al usuario a la pestaña anterior a la que acababa de elegir | `microapps.js`: depende de la lista de ids, no del array |
+| **"Agregar al cotizador →" no abría el cotizador** | Flecha que promete navegación y no navega | `microapps-agenda.js`: ahora abre el Cotizador |
+
+**Lo que se revisó y estaba bien:** el aislamiento por taller (las 22 rutas
+filtran por `workshop_id`, incluidas las referencias cruzadas: no se puede colgar
+un `client_id` o un `item_id` de otro taller), scrypt con N=2¹⁷, `sameSite=lax`,
+CSP sin `unsafe-inline`, fotos validadas por números mágicos, ausencia de
+`dangerouslySetInnerHTML` y cero rutas sin cubrir por contrato.
+
+**Un hallazgo que resultó ser falso:** se reportó que `locked_until` bloqueaba
+una cuenta de forma permanente. Al leer el código, ambos caminos (contraseña y
+Google) comparan contra `Date.now()`: el bloqueo **expira**. No se cambió nada.
+
+**Verificación:** `npm run verify` en verde (609 pruebas, 20/20 reglas, 917 en el
+contador del proyecto) más `test/qa/dia-de-taller.test.js`, un recorrido de un
+día completo — alta, cliente, vehículo, orden, repuesto, presupuesto con
+descuento e IVA, impresión, conversión, entrega, cobro y corte— que además
+comprueba que el total del documento cuadra con lo impreso y que un segundo
+taller no ve nada del primero.
+
+**Pendiente que no bloquea el envío** (decisiones de negocio, no técnicas):
+formato fiscal de un país concreto (RUC/NIT), vista previa antes de emitir,
+editar un documento ya emitido y catálogo compartido entre talleres. La deuda
+técnica conocida que sí conviene atender es `tolerarErrores` en las migraciones
+005/006, que puede marcar una migración como aplicada aunque haya fallado.

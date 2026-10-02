@@ -16,6 +16,7 @@ module.exports = {
     require('./011-checklist-template'),
     require('./012-documento-fiscal'),
     require('./013-inventario-tipo'),
+    require('./014-documento-folio-unico'),
   ],
   stats: [
     require('./stats-001-esquema'),

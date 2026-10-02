@@ -275,6 +275,47 @@ describe('Flujo completo: cliente → vehículo → orden → documento', () => 
     assert.equal(r.body.total, 0);
   });
 
+  it('21f. el total cuadra con la suma de sus renglones, decimal incluido', async () => {
+    /* El subtotal se suma sobre el renglón YA redondeado. Antes se sumaban los
+       productos en crudo y se redondeaba el resultado, así que el total
+       guardado no coincidía con la suma de line_total que se imprime al lado:
+       con tres renglones de 3 × 10,005 el documento decía 90,05 y sus líneas
+       sumaban 90,03. Es el fallo que hace que un cliente que suma el papel
+       pregunte por qué no le da. */
+    const r = await t.post('/api/documents', {
+      kind: 'presupuesto', client_id: ids.cliente,
+      items: [
+        { descr: 'A', qty: 3, unit_price: 10.005 },
+        { descr: 'B', qty: 3, unit_price: 10.005 },
+        { descr: 'C', qty: 3, unit_price: 10.005 },
+      ],
+      descuento_pct: 0, iva_pct: 0,
+    });
+    assert.equal(r.status, 201);
+    const guardado = (await t.get(`/api/documents/${r.body.id}`)).body;
+    const suma = +(guardado.items || []).reduce((s, it) => s + Number(it.line_total), 0).toFixed(2);
+    assert.equal(Number(guardado.subtotal), suma, 'el subtotal debe ser la suma de los renglones');
+    assert.equal(Number(guardado.total), suma, 'el total debe cuadrar con lo que suman las líneas');
+  });
+
+  it('21g. dos emisiones del mismo folio no salen con el mismo número', async () => {
+    /* La migración 014 pone UNIQUE (taller, tipo, folio). Si dos emisiones
+       simultáneas leen el mismo MAX(), la segunda choca contra el índice y se
+       reintenta con el folio siguiente: dos papeles distintos, nunca el mismo
+       número entregado al cliente. */
+    const cuerpo = {
+      kind: 'presupuesto', client_id: ids.cliente,
+      items: [{ descr: 'Repuesto', qty: 1, unit_price: 250 }],
+    };
+    const [a, b] = await Promise.all([
+      t.post('/api/documents', cuerpo),
+      t.post('/api/documents', cuerpo),
+    ]);
+    assert.equal(a.status, 201);
+    assert.equal(b.status, 201, 'la segunda emisión no debe fallar: se reintenta con el folio libre');
+    assert.notEqual(a.body.number, b.body.number, 'dos documentos con el mismo folio es lo que el índice evita');
+  });
+
   it('22. un documento sin partidas se rechaza', async () => {
     const r = await t.post('/api/documents', { kind: 'entrega', items: [] });
     assert.equal(r.status, 400);

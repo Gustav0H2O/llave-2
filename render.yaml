@@ -9,6 +9,15 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Render mete un proxy delante: el tráfico real llega con X-Forwarded-For.
+      # Sin esto, Express no confía en esa cabecera y `req.ip` es SIEMPRE la IP
+      # del proxy — con lo que todos los visitantes comparten un único contador:
+      # el rate limit se vuelve global (un atacante tumba la API para todos los
+      # talleres a la vez), el anti-abuso de reseñas deja de separar a nadie y el
+      # contador de visitas de la portada marca siempre 1. Con 1 se confía en
+      # toda la cadena, que es lo correcto mientras haya un solo proxy delante.
+      - key: TRUST_PROXY
+        value: 1
       - key: PUPPETEER_SKIP_DOWNLOAD
         value: 1
       # Dominio público REAL del servicio (afecta canonical, sitemap, Open Graph

@@ -55,6 +55,18 @@ function montarDocuments(app, deps) {
     return `${prefix}-${String(maximo + 1).padStart(4, '0')}`;
   };
 
+  /* El folio siguiente al que se acaba de rechazar, para el reintento tras un
+     conflicto de unicidad. No vuelve a preguntar por el MAX(): si dos emisiones
+     chocaron, la que ganó ya ocupa ese número, así que preguntar otra vez por el
+     máximo devuelve justo el folio que acaba de fallar y el reintento no
+     avanzaría. Se avanza sobre el folio que el llamador ya traía. */
+  const siguienteFolio = (kind, actual) => {
+    const prefix = { entrega: 'NE', recepcion: 'REC', cotizacion: 'COT' }[kind] || 'P';
+    const n = Number.parseInt(String(actual || '').replace(/^\D+/, ''), 10);
+    const siguiente = Number.isSafeInteger(n) && n > 0 ? n + 1 : 1;
+    return `${prefix}-${String(siguiente).padStart(4, '0')}`;
+  };
+
   /* 2.28 (B46): fechaISO normaliza a ISO-8601 con zona. SQLite guarda
      "YYYY-MM-DD HH:MM:SS" sin zona y `new Date(sin Z)` se interpreta en la hora
      LOCAL del host: el mismo documento salía con horas distintas según dónde
@@ -183,7 +195,7 @@ function montarDocuments(app, deps) {
     if (order_id && !(await db.get('SELECT id FROM work_orders WHERE id=? AND workshop_id=?', [order_id, req.workshopId]))) {
       return res.status(400).json({ error: 'Orden no válida' });
     }
-    const number = await nextDocNumber(req.workshopId, kind);
+    let number = await nextDocNumber(req.workshopId, kind);
     /* Foto del cliente y del vehículo AL EMITIR: si mañana corrigen un
        teléfono o el carro cambia de dueño, el documento sigue diciendo lo
        que decía el día que se entregó. La ficha viva no se toca. */
@@ -224,38 +236,62 @@ function montarDocuments(app, deps) {
        IVA en el cuerpo; si no los manda, el documento sale sin ellos, que es
        lo que pasaba antes: el cotizador los calculaba en el teléfono y se
        perdían al emitir. `total` sigue siendo el importe a cobrar, así que
-       todo lo que ya lo leía sigue leyendo lo mismo. */
-    const subtotal = +partidas.reduce((s, p) => s + p.qty * p.unit_price, 0).toFixed(2);
+       todo lo que ya lo leía sigue leyendo lo mismo.
+
+       El subtotal se suma SOBRE EL RENGÓN YA REDONDEADO, con la misma operación
+       que luego se guarda en document_items.line_total. Sumar los productos sin
+       redondear primero y redondear al final hacía que el total no cuadrara con
+       la suma de sus propias líneas (con tres renglones de 30,015 salía 90,05
+       arriba y 90,03 abajo), y el PDF imprime una cosa y la otra al lado: el
+       cliente que suma el papel lo detecta. El redondeo va ANTES de la suma
+       porque es el mismo número que se va a ver impreso. */
+    const lineas = partidas.map((p) => ({
+      ...p,
+      line_total: +(p.qty * p.unit_price).toFixed(2),
+    }));
+    const subtotal = +lineas.reduce((s, l) => s + l.line_total, 0).toFixed(2);
     const descPct = Math.max(0, Math.min(100, num(b.descuento_pct) ?? 0));
     const descuento = +((subtotal * descPct) / 100).toFixed(2);
     const base = +(subtotal - descuento).toFixed(2);
     const ivaPct = Math.max(0, Math.min(100, num(b.iva_pct) ?? 0));
     const iva = +((base * ivaPct) / 100).toFixed(2);
     let did;
-    try {
-      await enTransaccion(async () => {
-        did = await db.insertReturningId(`INSERT INTO documents (workshop_id, kind, number, client_id, order_id, status, client_snapshot, vehicle_snapshot, subtotal, descuento, iva_pct, iva, total)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [req.workshopId, kind, number, client_id, order_id, 'emitido', client_snapshot, vehicle_snapshot,
-            subtotal, descuento, ivaPct, iva, +(base + iva).toFixed(2)]);
-        for (const p of partidas) {
-          const line_total = +(p.qty * p.unit_price).toFixed(2);
-          await db.run(`INSERT INTO document_items (workshop_id, document_id, item_id, descr, qty, unit_price, line_total)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`, [req.workshopId, did, p.item_id, p.descr, p.qty, p.unit_price, line_total]);
-          if (kind === 'entrega' && p.item_id) { /* 2.17 */
-            const pieza = await db.get('SELECT qty FROM inventory_items WHERE id=? AND workshop_id=?', [p.item_id, req.workshopId]);
-            if (pieza) {
-              await db.run('UPDATE inventory_items SET qty=? WHERE id=? AND workshop_id=?', [pieza.qty - p.qty, p.item_id, req.workshopId]);
-              await db.run(`INSERT INTO inventory_moves (workshop_id, item_id, delta, kind, order_id, note)
-              VALUES (?, ?, ?, 'salida', ?, ?)`, [req.workshopId, p.item_id, -p.qty, order_id, `Nota de entrega ${number}`]);
+    /* El folio se calcula con MAX() y se escribe después: entre una cosa y otra
+       otra emisión puede coger el mismo número. El índice único de la
+       migración 014 hace que eso reviente el INSERT en vez de imprimir dos
+       papeles con el mismo folio, y aquí se reintenta con el siguiente. Con
+       esto, dos emisiones simultáneas producen NE-0042 y NE-0043 en lugar de
+       dos NE-0042: la segunda se salva sola esperando un folio libre. */
+    for (let intento = 0; intento < 3; intento++) {
+      try {
+        await enTransaccion(async () => {
+          did = await db.insertReturningId(`INSERT INTO documents (workshop_id, kind, number, client_id, order_id, status, client_snapshot, vehicle_snapshot, subtotal, descuento, iva_pct, iva, total)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [req.workshopId, kind, number, client_id, order_id, 'emitido', client_snapshot, vehicle_snapshot,
+              subtotal, descuento, ivaPct, iva, +(base + iva).toFixed(2)]);
+          for (const p of lineas) {
+            const line_total = p.line_total;
+            await db.run(`INSERT INTO document_items (workshop_id, document_id, item_id, descr, qty, unit_price, line_total)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`, [req.workshopId, did, p.item_id, p.descr, p.qty, p.unit_price, line_total]);
+            if (kind === 'entrega' && p.item_id) { /* 2.17 */
+              const pieza = await db.get('SELECT qty FROM inventory_items WHERE id=? AND workshop_id=?', [p.item_id, req.workshopId]);
+              if (pieza) {
+                await db.run('UPDATE inventory_items SET qty=? WHERE id=? AND workshop_id=?', [pieza.qty - p.qty, p.item_id, req.workshopId]);
+                await db.run(`INSERT INTO inventory_moves (workshop_id, item_id, delta, kind, order_id, note)
+                VALUES (?, ?, ?, 'salida', ?, ?)`, [req.workshopId, p.item_id, -p.qty, order_id, `Nota de entrega ${number}`]);
+              }
             }
           }
-        }
-      });
-      res.status(201).json({ id: did, number, subtotal, descuento, iva_pct: ivaPct, iva, total: +(base + iva).toFixed(2) });
-    } catch (e) {
-      res.status(400).json({ error: errorAccionable(e, 'No se pudo emitir el documento') }); /* 2.23 */
+        });
+        break;
+      } catch (e) {
+        const msg = String((e && e.message) || '');
+        const esFolio = /UNIQUE|constraint failed: documents|idx_documents_folio/i.test(msg);
+        if (esFolio && intento < 2) { number = siguienteFolio(kind, number); continue; }
+        return res.status(400).json({ error: errorAccionable(e, 'No se pudo emitir el documento') }); /* 2.23 */
+      }
     }
+    return res.status(201).json({ id: did, number, subtotal, descuento, iva_pct: ivaPct, iva, total: +(base + iva).toFixed(2) });
   });
 
   app.get('/api/documents/:id', requireWorkshop, async (req, res) => {

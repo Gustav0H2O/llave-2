@@ -1621,7 +1621,15 @@ function App() {
     if (id === 'search') return abrirCatalogo(!!opciones.silencioso);
     const apps = { dtc: 'DtcApp', torque: 'TorqueApp', spark: 'SparkApp', cross: 'CrossApp', convert: 'ConverterApp', vin: 'VinApp', pressure: 'PressureApp', regulator: 'RegulatorApp', orders: 'OrdersApp', inventory: 'InventoryApp', clients: 'ClientsApp', notes: 'NotesApp', cash: 'CashApp', forum: 'ForumApp', connect: 'ConnectApp', quickdiag: 'QuickDiagApp', documents: 'DocumentsApp', market: 'MarketApp', timing: 'TimingApp', fuses: 'FusesApp', tires: 'TireApp', inspection: 'InspApiApp', quote: 'QuoteApp', appointments: 'AgendaApp', maintenance: 'MaintenanceApp', trim: 'TrimApp', compression: 'CompressionApp', pinout: 'PinoutApp', labor: 'LaborApp', nostart: 'NoStartApp', battery: 'BatteryApp', profile: 'ProfileApp', perfilPublico: 'PublicProfileApp', guides: 'GuidesApp', diag: 'SymptomDiagApp', calc: 'CalcApp', aid: 'AidApp', glossary: 'GlossaryApp', agenda: 'AgendaApp', inspapi: 'InspApiApp', mechanics: 'MechanicsApp', alerts: 'AlertsApp', closings: 'ClosingsApp', expediente: 'VehicleHistoryApp' };
     const protectedIds = ['orders', 'inventory', 'clients', 'notes', 'cash', 'documents', 'pressure', 'profile', 'agenda', 'inspapi', 'mechanics', 'alerts', 'closings', 'expediente'];
-    if (protectedIds.includes(id) && !user) { setShowLogin(true); return; }
+    if (protectedIds.includes(id) && !user) {
+      /* Sin sesión la herramienta pide login, pero la URL NO debe quedarse con
+         ?app=… colgando: si se queda, cerrar el login deja la barra apuntando a
+         una app que no se puede abrir, y recargar vuelve a pedir la contraseña.
+         Con la ruta limpia, cancelar el login es simplemente quedarse en la
+         portada. */
+      rutaEscribir({ app: null, sub: null }, 'replace');
+      setShowLogin(true); return;
+    }
     if (apps[id] && FT[apps[id]]) {
       if (!opciones.silencioso) rutaEscribir({ app: id });
       microAppIdRef.current = id;

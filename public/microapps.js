@@ -99,6 +99,13 @@
        raíz) se limpia el parámetro en vez de dejarlo escrito, para que las
        URLs de la raíz sigan siendo cortas y compartibles. */
   const useSubRuta = (setTab, raiz, tabs) => {
+    /* Se depende de la LISTA DE IDS, no del array: cada componente declara sus
+       pestañas como un literal dentro del render (`const TABS = [...]`), así que
+       el array es una referencia nueva en cada render y un `[tabs]` re-registraba
+       el efecto siempre. Peor que un coste: al re-montarse, la línea que lee la
+       URL volvía a imponer su pestaña y el usuario perdía la que acababa de
+       elegir. Los ids en texto cambia solo si hay una pestaña nueva de verdad. */
+    const idsTabs = tabs ? tabs.map((t) => t.id).join('|') : '';
     useEffect(() => {
       const alCambiar = (e) => {
         const sub = e?.detail?.sub;
@@ -111,7 +118,7 @@
       if (enURL && tabs && tabs.some(x => x.id === enURL)) setTab(enURL);
       window.addEventListener('ft-sub-cambio', alCambiar);
       return () => window.removeEventListener('ft-sub-cambio', alCambiar);
-    }, [tabs]);
+    }, [idsTabs, raiz, setTab]);
     return (id) => {
       setTab(id);
       if (window.FT_RUTA) window.FT_RUTA.escribir({ sub: id === raiz ? null : id });
@@ -338,14 +345,13 @@
      (barra inferior del celular, donde no caben "Diagnostico" ni "Comunidad"). */
   /* El orden de esta lista ES el orden del menú de escritorio, el de la barra
      inferior del móvil y el de los grupos de la portada: una sola fuente.
-     Taller va en segundo lugar, justo detrás de Inicio y por delante de la
-     consulta técnica: es la razón por la que un taller entra todos los días
-     (documentos, cotizador, agenda, caja) y tenerla a un toque de distancia
-     importa más que el orden temático. */
+     Consulta va antes que Taller a propósito: es el recorrido de quien entra
+     por un vehículo del catálogo y de ahí salta a gestionarlo. Antes Taller
+     iba segundo y quedan los dos menos de un toque de distancia. */
   const NAV = [
     ['inicio', 'Inicio', 'Home', 'Inicio'],
-    ['taller', 'Taller', 'Wrench', 'Taller'],
     ['consulta', 'Consulta', 'Fuel', 'Consulta'],
+    ['taller', 'Taller', 'Wrench', 'Taller'],
     ['diag', 'Diagnóstico', 'Stethoscope', 'Diagnóstico'],
     ['comunidad', 'Comunidad', 'MapPin', 'Comunidad'],
     ['aprende', 'Aprender', 'BookOpen', 'Aprender'],
@@ -1317,10 +1323,13 @@
             </div>
           </section>
 
-          ${/* Categorías con sus herramientas, en un grid limpio */''}
+          ${/* Categorías con sus herramientas, en un grid limpio.
+               El orden pone Taller justo detrás de Consulta (el catálogo) porque
+               es el recorrido natural de quien entra por un vehículo y termina
+               trabajando en él; Diagnóstico queda como la bisagra entre ambos. */''}
           <section class="home-cats">
             <div class="home-ecosystem-inner">
-              ${[['consulta', 'consulta'], ['diag', 'diagnóstico'], ['taller', 'taller'], ['comunidad', 'comunidad'], ['aprende', 'aprendizaje']].map(([g, label]) => appsOf(g).length > 0 ? html`
+              ${[['consulta', 'consulta'], ['taller', 'taller'], ['diag', 'diagnóstico'], ['comunidad', 'comunidad'], ['aprende', 'aprendizaje']].map(([g, label]) => appsOf(g).length > 0 ? html`
                 <div class="home-cat-block" key=${g}>
                   <div class="home-cat-head">
                     <h2 class="home-cat-title">${label.charAt(0).toUpperCase() + label.slice(1)}</h2>

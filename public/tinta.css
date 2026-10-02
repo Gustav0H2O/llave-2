@@ -34,6 +34,11 @@
   font: 700 11px var(--font); color: var(--muted); font-variant-numeric: tabular-nums;
   border-right: 1px solid var(--border); background: var(--panel2, var(--panel));
 }
+/* La rejilla del día y la vista de mes comparten el nombre .ag-celda pero NO
+   pueden compartir reglas. La del mes va más abajo como .ag-mes .ag-celda para
+   tener más especificidad y ganar sin pisar esta: con dos .ag-celda sueltas, la
+   segunda se aplicaba a las dos y la rejilla horaria acababa con
+   aspect-ratio 1/1, que deformaba la columna de horas. */
 .ag-celda { padding: 4px; display: flex; flex-direction: column; gap: 4px; min-height: 34px; }
 .ag-libre {
   width: 100%; min-height: 26px; border: 1px dashed var(--border);
@@ -56,15 +61,15 @@
 .ag-mes-head, .ag-mes { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .ag-mes-head { margin-bottom: 4px; }
 .ag-mes-head span { text-align: center; font: 700 10px var(--font); color: var(--muted); text-transform: uppercase; }
-.ag-celda {
+.ag-mes .ag-celda {
   aspect-ratio: 1 / 1; min-height: 44px; padding: 3px;
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   border: 1px solid var(--border); border-radius: 8px;
   background: var(--panel2, var(--panel)); cursor: pointer;
 }
-.ag-celda.off { opacity: .38; }
-.ag-celda.is-hoy { border-color: var(--accent); background: var(--accent-soft); }
-.ag-celda.is-sel { outline: 2px solid var(--accent-dim); outline-offset: -2px; }
+.ag-mes .ag-celda.off { opacity: .38; }
+.ag-mes .ag-celda.is-hoy { border-color: var(--accent); background: var(--accent-soft); }
+.ag-mes .ag-celda.is-sel { outline: 2px solid var(--accent-dim); outline-offset: -2px; }
 .ag-celda-n { font: 700 13px var(--font); color: var(--ink); }
 .ag-celda-pts { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; }
 .ag-pt { width: 5px; height: 5px; border-radius: 50%; display: block; }

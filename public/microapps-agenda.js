@@ -34,7 +34,7 @@
      estética: era dos sitios donde arreglar el mismo fallo, y de hecho la de
      semana se había quedado sin "Mover" ni "Eliminar" sin que nadie lo notara. */
   const AccionesCita = ({ c, estado, borrar, reprogramar, recibir, telefonoDe, lineaWhatsApp }) => html`
-    <div class="tw-acts ag-acciones">
+    <div class="tw-acts">
       ${c.status !== 'confirmada' && c.status !== 'atendida' && html`<button type="button" class="tw-act primary" onClick=${() => estado(c, 'confirmada')}>
         <${CatIc} n="Check" s=${18} />Confirmar</button>`}
       <button type="button" class="tw-act" onClick=${() => enviarWhatsApp(telefonoDe(c), lineaWhatsApp(c))}>
@@ -546,13 +546,17 @@
     });
 
     /* Manda el trabajo al cotizador con las horas que el mecánico eligió, no con
-       el promedio de oficio. */
+       el promedio de oficio. El botón dice «Agregar al cotizador →», así que
+       también tiene que abrirlo: dejarlo solo escribiendo en localStorage
+       dejaba al usuario en Tiempos sin saber que ya podía cotizar, y con una
+       flecha que promete lo contrario. */
     const alCotizador = () => {
       if (!sel) return;
       const q0 = ls.get('ft_quote', { rate: '350', iva: '16', disc: '0', client_id: '', veh: '', labor: [], parts: [] });
       const labor = (q0.labor || []).filter((l) => l.d || l.h);
       ls.set('ft_quote', { ...q0, labor: [...labor, { d: sel.nombre, h: String(horas) }] });
       setAviso(`${sel.nombre} · ${horas} h enviado al Cotizador.`);
+      onOpen?.('quote');
     };
 
     /* --- CRUD del catálogo de tiempos --- */

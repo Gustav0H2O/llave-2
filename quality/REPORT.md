@@ -1,6 +1,6 @@
 # Informe de calidad — FuelTech Master
 
-_Generado el 2026-10-02 12:05 por `npm run metrics`. No lo edites a mano._
+_Generado el 2026-10-02 14:38 por `npm run metrics`. No lo edites a mano._
 
 ## ✅ Todos los presupuestos se cumplen
 
@@ -10,12 +10,12 @@ Nada que corregir.
 
 | Métrica | Valor | Estado |
 | --- | --- | --- |
-| Pruebas que pasan | 914 / 914 | ✅ |
-| Duración de la suite | 82.2 s | ✅ |
+| Pruebas que pasan | 917 / 917 | ✅ |
+| Duración de la suite | 127.4 s | ✅ |
 | Reglas de restricción | 20 reglas, 0 violaciones | ✅ |
 | Rutas de API probadas | 100% de 148 | ✅ |
 | Deuda conocida aceptada | 5 de 5 | ✅ |
-| Razón prueba/código | 0.6x | ✅ |
+| Razón prueba/código | 0.61x | ✅ |
 
 ## Cobertura de las reglas del taller (lib/)
 
@@ -42,14 +42,14 @@ Nada que corregir.
 ## Tamaño de los archivos que descarga el usuario
 
 ```
-✓ public/app.js              112.8 KB  de 114 KB
-✓ public/microapps-agenda.js    39.1 KB  de 42 KB
-✓ public/microapps.js        289.2 KB  de 297 KB
+✓ public/app.js              113.3 KB  de 114 KB
+✓ public/microapps-agenda.js    39.4 KB  de 42 KB
+✓ public/microapps.js          290 KB  de 297 KB
 ✓ public/microapps-taller.js     110 KB  de 112 KB
 ✓ public/microapps-taller-2.js      51 KB  de 54 KB
 ✓ public/datos.js             31.4 KB  de 32 KB
 ✓ public/index.html          215.6 KB  de 219 KB
-✓ public/tinta.css             4.8 KB  de 12 KB
+✓ public/tinta.css             5.2 KB  de 12 KB
 ✓ public/three3d.js           65.2 KB  de 68 KB
 ✓ public/taller.css           42.6 KB  de 44 KB
 ✓ public/sw.js                   8 KB  de 8 KB
@@ -60,8 +60,8 @@ Nada que corregir.
 
 **Mejoras:**
 
-- pruebas_total: 864 → 914
-- max_lineas_archivo: 4659 → 4614
+- pruebas_total: 864 → 917
+- max_lineas_archivo: 4659 → 4623
 
 
 ## Deuda conocida pendiente de decisión
