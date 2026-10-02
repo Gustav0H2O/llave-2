@@ -1,6 +1,6 @@
 # Informe de calidad — FuelTech Master
 
-_Generado el 2026-10-01 14:38 por `npm run metrics`. No lo edites a mano._
+_Generado el 2026-10-02 04:37 por `npm run metrics`. No lo edites a mano._
 
 ## ✅ Todos los presupuestos se cumplen
 
@@ -10,12 +10,12 @@ Nada que corregir.
 
 | Métrica | Valor | Estado |
 | --- | --- | --- |
-| Pruebas que pasan | 864 / 864 | ✅ |
-| Duración de la suite | 74.7 s | ✅ |
+| Pruebas que pasan | 914 / 914 | ✅ |
+| Duración de la suite | 95.5 s | ✅ |
 | Reglas de restricción | 20 reglas, 0 violaciones | ✅ |
-| Rutas de API probadas | 100% de 128 | ✅ |
+| Rutas de API probadas | 100% de 148 | ✅ |
 | Deuda conocida aceptada | 5 de 5 | ✅ |
-| Razón prueba/código | 0.64x | ✅ |
+| Razón prueba/código | 0.6x | ✅ |
 
 ## Cobertura de las reglas del taller (lib/)
 
@@ -42,23 +42,26 @@ Nada que corregir.
 ## Tamaño de los archivos que descarga el usuario
 
 ```
-✓ public/app.js              106.6 KB  de 109 KB
-✓ public/microapps.js        284.2 KB  de 297 KB
-✓ public/microapps-taller.js    95.5 KB  de 98 KB
-✓ public/microapps-taller-2.js    56.9 KB  de 62 KB
-✓ public/datos.js             29.9 KB  de 32 KB
-✓ public/index.html          214.1 KB  de 218 KB
-✓ public/three3d.js           63.9 KB  de 68 KB
-✓ public/taller.css           35.6 KB  de 36 KB
-✓ public/sw.js                 7.8 KB  de 8 KB
-✓ server-pg.js                26.2 KB  de 40 KB
+✓ public/app.js              112.8 KB  de 114 KB
+✓ public/microapps-agenda.js    39.1 KB  de 42 KB
+✓ public/microapps.js        288.9 KB  de 297 KB
+✓ public/microapps-taller.js     110 KB  de 112 KB
+✓ public/microapps-taller-2.js      51 KB  de 54 KB
+✓ public/datos.js             31.4 KB  de 32 KB
+✓ public/index.html          215.6 KB  de 219 KB
+✓ public/tinta.css             4.8 KB  de 12 KB
+✓ public/three3d.js           65.2 KB  de 68 KB
+✓ public/taller.css           42.6 KB  de 44 KB
+✓ public/sw.js                   8 KB  de 8 KB
+✓ server-pg.js                26.9 KB  de 40 KB
 ```
 
 ## Evolución respecto a la referencia
 
 **Mejoras:**
 
-- max_lineas_archivo: 4659 → 4604
+- pruebas_total: 864 → 914
+- max_lineas_archivo: 4659 → 4611
 
 
 ## Deuda conocida pendiente de decisión
@@ -71,4 +74,4 @@ Nada que corregir.
 
 ---
 
-Reglas para modificar este sistema: ver `AGENTS.md`.
+Reglas para modificar este sistema: ver `DECISIONES.md`.

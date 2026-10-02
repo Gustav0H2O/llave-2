@@ -13,12 +13,12 @@
 
    POR QUÉ AQUÍ Y NO EN lib/
    Habla con la base de datos y con las opciones de express: es servidor, no
-   regla del taller (AGENTS.md §3). lib/ sigue puro.
+   regla del taller (DECISIONES.md §3). lib/ sigue puro.
 
    CÓMO SE USA
    El Store recibe el adaptador `db` INYECTADO (el mismo que recibe createApp),
    nunca el singleton del módulo ./db: los tests montan una base en memoria por
-   app y jamás deben tocar la base real (AGENTS.md §5).
+   app y jamás deben tocar la base real (DECISIONES.md §7).
 
      const store = new StoreBD(db, 'catalog');
      rateLimit({ windowMs: 60_000, limit: 30, store, standardHeaders: true, legacyHeaders: false });

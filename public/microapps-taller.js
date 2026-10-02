@@ -3,7 +3,22 @@
  const { useState, useEffect } = React;
  const U = window.FT_MICRO_UTIL;
  if (!U) { console.error('microapps-taller.js: falta window.FT_MICRO_UTIL'); return; }
- const { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, TallerNav, TallerShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog, useSubRuta, useVerMas } = U;
+ const { html, ls, uid, enviarWhatsApp, telValido, PAISES, telInternacional, telPartir, paisRecordado, recordarPais, now, CatIc, MicroShell, TallerNav, TallerShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog, useSubRuta, useVerMas } = U;
+ /* Descarga un export del servidor. Estaba duplicado en Documentos y en
+    Almacen, casi byte por byte: dos sitios donde arreglar el mismo fallo de
+    descarga. Uno solo. */
+ const descargarExport = async (ruta, nombre, formato) => {
+  try {
+   const r = await fetch(ruta + '?format=' + formato, { credentials: 'same-origin' });
+   if (!r.ok) throw new Error('No se pudo exportar (' + r.status + ')');
+   const blob = await r.blob();
+   const url = URL.createObjectURL(blob);
+   const a = document.createElement('a');
+   a.href = url; a.download = nombre + '.' + formato;
+   document.body.appendChild(a); a.click(); a.remove();
+   setTimeout(() => URL.revokeObjectURL(url), 4000);
+  } catch (e) { alertDialog({ title: 'No se pudo exportar', message: e.message, confirmText: 'Entendido', icon: 'AlertTriangle' }); }
+ };
  const askDel = (t, m = '¿Eliminar registro?') => confirmDialog({ title: t, message: m, confirmText: 'Eliminar', danger: true, icon: 'Trash2' });
   const ORDER_TYPES = [['reparacion', 'Reparación'], ['servicio', 'Servicio'], ['garantia', 'Garantía'], ['promocion', 'Promoción'], ['otro', 'Otro']];
  const ORDER_STATUS = ['Recibido', 'En diagnóstico', 'Esperando repuesto', 'Listo', 'Entregado', 'Cancelado'];
@@ -15,8 +30,8 @@
      son tarjetas de primer nivel en la sección Taller. */
   /* El historial de órdenes de un taller con años de trabajo no cabe de una
      vez: se pintan por tandas para no montar miles de nodos al abrir. */
-  const [ordenesVisibles, MasOrdenes] = useVerMas(orders, 20, 'órdenes');
   const [orders, api] = useApi('/api/orders');
+  const [ordenesVisibles, MasOrdenes] = useVerMas(orders, 20, 'órdenes');
   const [clients, clientsApi] = useApi('/api/clients');
   const [inventory, invApi] = useApi('/api/inventory');
   const [mechanics] = useApi('/api/mechanics');
@@ -335,16 +350,21 @@
   const [tab, setTab] = useState('principal');
   const TABS = [{ id: 'principal', label: 'Inventario' }, { id: 'alertas', label: 'Alertas' }];
   const HIJOS = { alertas: (window.FT_MICRO || {}).AlertsApp };
+  /* Tipos de artículo del inventario (ft-inventario-01). Sin clasificar queda
+     fuera del mapa a propósito: no toda fila necesita etiqueta y una vacía se
+     lee mejor que un «—». */
+  const ETQ_INV_TIPO = { repuesto: 'Repuesto', servicio: 'Servicio', consumible: 'Consumible' };
   const irATab = useSubRuta(setTab, 'principal', TABS);
   const [items, api] = useApi('/api/inventory');
   const [moves, movesApi] = useApi('/api/inventory/moves');
-  const [f, setF] = useState({ name: '', sku: '', category: '', qty: '', min: '', price: '', cost: '', notes: '' });
+  const VACIO_INV = { name: '', sku: '', category: '', item_tipo: '', qty: '', min: '', price: '', cost: '', notes: '' };
+  const [f, setF] = useState(VACIO_INV);
   const [editing, setEditing] = useState(null);
   const [moveFor, setMoveFor] = useState(null);
   const [move, setMove] = useState({ delta: '', kind: 'entrada', note: '' });
   const [filterTab, setFilterTab] = useState('all');
   const [search, setSearch] = useState('');
-  const reset = () => { setF({ name: '', sku: '', category: '', qty: '', min: '', price: '', cost: '', notes: '' }); setEditing(null); };
+  const reset = () => { setF(VACIO_INV); setEditing(null); };
   const save = async () => {
    if (!f.name.trim()) return;
    const payload = { ...f, qty: f.qty || 0, min_qty: f.min, unit_price: f.price, cost_price: f.cost || 0 };
@@ -356,7 +376,7 @@
   };
   const edit = (i) => {
    setEditing(i.id);
-   setF({ name: i.name, sku: i.sku || '', category: i.category || '', qty: i.qty, min: i.min_qty, price: i.unit_price, cost: i.cost_price || '', notes: i.notes || '' });
+   setF({ ...VACIO_INV, name: i.name, sku: i.sku || '', category: i.category || '', item_tipo: i.item_tipo || '', qty: i.qty, min: i.min_qty, price: i.unit_price, cost: i.cost_price || '', notes: i.notes || '' });
   };
   const del = async (id) => {
    if (!(await askDel('Eliminar pieza', '¿Eliminar pieza del inventario?'))) return;
@@ -373,38 +393,57 @@
     setMove({ delta: '', kind: 'entrada', note: '' }); setMoveFor(null); api.load(); movesApi.load();
    } catch (e) { alert(e.message); }
   };
-  const exportCsv = async () => {
-   try { const csv = await apiFetch('/api/inventory/export?format=csv'); downloadBlob('inventario.csv', csv); } catch (e) { alert(e.message); }
+  /* Exportar la lista. Antes solo habia CSV, y con coma y sin BOM: Excel en
+     espanol lo abria en una sola columna y con los acentos rotos. Ahora el
+     .xlsx es un libro de verdad y el PDF sale hecho, sin pasar por Ctrl+P. */
+  const exportar = async (formato) => {
+    try {
+      const r = await fetch('/api/documents/export?format=' + formato, { credentials: 'same-origin' });
+      if (!r.ok) throw new Error('No se pudo exportar (' + r.status + ')');
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'documentos.' + formato;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch (e) { alertDialog({ title: 'No se pudo exportar', message: e.message, confirmText: 'Entendido', icon: 'AlertTriangle' }); }
   };
   const lowCount = items.filter(i => i.qty > 0 && i.qty <= i.min_qty).length;
   const outCount = items.filter(i => i.qty <= 0).length;
+  const servCount = items.filter(i => i.item_tipo === 'servicio').length;
   const filtered = items.filter(i => {
    if (filterTab === 'low' && (i.qty <= 0 || i.qty > i.min_qty)) return false;
    if (filterTab === 'out' && i.qty > 0) return false;
+   if (filterTab === 'servicios' && i.item_tipo !== 'servicio') return false;
    if (search.trim()) {
     const q = search.toLowerCase();
     return (i.name || '').toLowerCase().includes(q) || (i.sku || '').toLowerCase().includes(q) || (i.category || '').toLowerCase().includes(q);
    }
    return true;
   });
+  const exportarInv = (formato) => descargarExport('/api/inventory/export', 'inventario', formato);
   /* Un almacén real acumula cientos de referencias: se pintan por tandas. */
   const [piezasVisibles, MasPiezas] = useVerMas(filtered, 24, 'piezas');
-  return html`<${MicroShell} title="Inventario / Stock" icon="Box" onBack=${onBack} tabs=${TABS} tab=${tab} onTab=${setTab}>${tab === 'principal' ? html`<div class="f-between mb-2"><div class="tabs-bar f-row"><button type="button" class=${'filter-chip ' + (filterTab === 'all' ? 'active' : '')} onClick=${() => setFilterTab('all')}>Todos (${items.length})</button><button type="button" class=${'filter-chip ' + (filterTab === 'low' ? 'active' : '')} onClick=${() => setFilterTab('low')}>Bajo stock (${lowCount})</button><button type="button" class=${'filter-chip ' + (filterTab === 'out' ? 'active' : '')} onClick=${() => setFilterTab('out')}>Agotados (${outCount})</button></div><button type="button" class="link-btn" onClick=${exportCsv}>Exportar CSV</button></div><input type="text" class="styled-input mb-3" placeholder="Buscar pieza, código o categoría…" value=${search} onChange=${e => setSearch(e.target.value)} />${lowCount > 0 && filterTab === 'all' && html`<div class="alert mb-3"><strong class="st-amber">${lowCount} pieza(s) con stock crítico bajo el mínimo.</strong></div>`}
+  return html`<${MicroShell} title="Inventario / Stock" icon="Box" onBack=${onBack} tabs=${TABS} tab=${tab} onTab=${setTab}>${tab === 'principal' ? html`<div class="f-between mb-2"><div class="tabs-bar f-row"><button type="button" class=${'filter-chip ' + (filterTab === 'all' ? 'active' : '')} onClick=${() => setFilterTab('all')}>Todos (${items.length})</button><button type="button" class=${'filter-chip ' + (filterTab === 'low' ? 'active' : '')} onClick=${() => setFilterTab('low')}>Bajo stock (${lowCount})</button><button type="button" class=${'filter-chip ' + (filterTab === 'out' ? 'active' : '')} onClick=${() => setFilterTab('out')}>Agotados (${outCount})</button>${servCount > 0 && html`<button type="button" class=${'filter-chip ' + (filterTab === 'servicios' ? 'active' : '')} onClick=${() => setFilterTab('servicios')}>Servicios (${servCount})</button>`}</div><div class="tw-export"><button type="button" class="link-btn" onClick=${() => exportarInv('xlsx')}>Excel</button><button type="button" class="link-btn" onClick=${() => exportarInv('csv')}>CSV</button></div></div><input type="text" class="styled-input mb-3" placeholder="Buscar pieza, código o categoría…" value=${search} onChange=${e => setSearch(e.target.value)} />${lowCount > 0 && filterTab === 'all' && html`<div class="alert mb-3"><strong class="st-amber">${lowCount} pieza(s) con stock crítico bajo el mínimo.</strong></div>`}
    <div class="inv-form panel p-3 mb-3">
     <div class="grid2">
      ${[['name','Nombre pieza (ej. Pila)'],['sku','SKU / Código']].map(([k,p]) => html`<input type="text" class="styled-input" placeholder=${p} value=${f[k]} onChange=${e => setF({ ...f, [k]: e.target.value })} />`)}
     </div>
-    <div class="grid2 mt-2">
-     <input type="text" class="styled-input" placeholder="Categoría (ej. Bombas, Filtros)" value=${f.category} onChange=${e => setF({ ...f, category: e.target.value })} />
-     ${!editing && html`<input type="number" class="styled-input" placeholder="Existencia inicial" value=${f.qty} onChange=${e => setF({ ...f, qty: e.target.value })} />`}
-    </div>
-    <div class="grid2 mt-2">
-     ${[['min','Stock Mínimo'],['cost','Costo ($)']].map(([k,p]) => html`<input type="number" class="styled-input" placeholder=${p} value=${f[k]} onChange=${e => setF({ ...f, [k]: e.target.value })} />`)}
-    </div>
-    <div class="grid2 mt-2">
-     <input type="number" class="styled-input" placeholder="Precio venta ($)" value=${f.price} onChange=${e => setF({ ...f, price: e.target.value })} />
-     <div class="text-xs muted flex items-center">${f.price && f.cost ? `Margen: +$${(Number(f.price) - Number(f.cost)).toFixed(2)}` : 'Margen auto'}</div>
-    </div>
+<div class="grid2 mt-2">
+      <input type="text" class="styled-input" placeholder="Categoría (ej. Bombas, Filtros)" value=${f.category} onChange=${e => setF({ ...f, category: e.target.value })} />
+      <select class="styled-input" aria-label="Tipo de artículo" value=${f.item_tipo} onChange=${e => setF({ ...f, item_tipo: e.target.value })}>
+       <option value="">Sin clasificar</option><option value="repuesto">Repuesto</option><option value="servicio">Servicio</option><option value="consumible">Consumible</option>
+      </select>
+     </div>
+     <div class="grid2 mt-2">
+      ${!editing && html`<input type="number" class="styled-input" placeholder="Existencia inicial" value=${f.qty} onChange=${e => setF({ ...f, qty: e.target.value })} />`}
+      <input type="number" class="styled-input" placeholder="Stock Mínimo" value=${f.min} onChange=${e => setF({ ...f, min: e.target.value })} />
+     </div>
+     <div class="grid2 mt-2">
+      <input type="number" class="styled-input" placeholder="Costo ($)" value=${f.cost} onChange=${e => setF({ ...f, cost: e.target.value })} />
+      <input type="number" class="styled-input" placeholder="Precio venta ($)" value=${f.price} onChange=${e => setF({ ...f, price: e.target.value })} />
+     </div>
+     ${f.price && f.cost ? html`<div class="text-xs muted mt-2">Margen: +$${(Number(f.price) - Number(f.cost)).toFixed(2)}</div>` : null}
     <input type="text" class="styled-input mt-2" placeholder="Notas (compatibilidad, ubicación)" value=${f.notes} onChange=${e => setF({ ...f, notes: e.target.value })} />
     <div class="f-row mt-2">
      <button type="button" class="tool-add-btn taller-touch-btn" onClick=${save} disabled=${!f.name.trim()}>${editing ? 'Guardar cambios' : '+ Agregar pieza'}</button>
@@ -416,7 +455,7 @@
      const isLow = !isOut && i.qty <= i.min_qty;
      const badgeClass = isOut ? 'out' : isLow ? 'low' : 'ok';
      const badgeText = isOut ? 'Agotado' : isLow ? 'Stock Bajo' : 'Normal';
-     return html`<div class=${'inv-card ' + badgeClass} key=${i.id}><div class="inv-item-info"><div class="f-row"><span class="inv-name font-bold text-sm">${i.name}</span><span class=${'inv-stock-badge ' + badgeClass}>${badgeText}</span></div><div class="muted text-xs">${[i.sku, i.category].filter(Boolean).join(' · ')} · Mín: ${i.min_qty} ${i.unit_price ? '· $' + Number(i.unit_price).toFixed(2) : ''}</div>${i.notes && html`<div class="muted text-xs italic">${i.notes}</div>`}
+     return html`<div class=${'inv-card ' + badgeClass} key=${i.id}><div class="inv-item-info"><div class="f-row"><span class="inv-name font-bold text-sm">${i.name}</span><span class=${'inv-stock-badge ' + badgeClass}>${badgeText}</span></div><div class="muted text-xs">${[i.sku, i.category, ETQ_INV_TIPO[i.item_tipo]].filter(Boolean).join(' · ')} · Mín: ${i.min_qty} ${i.unit_price ? '· $' + Number(i.unit_price).toFixed(2) : ''}</div>${i.notes && html`<div class="muted text-xs italic">${i.notes}</div>`}
       </div>
       <div class="f-row gap-2">
       <div class="f-row">
@@ -450,25 +489,47 @@
   const [tab, setTab] = useState('clients');
   const [clients, api] = useApi('/api/clients');
   const [suppliers, supApi] = useApi('/api/suppliers');
+  /* El teléfono se edita en dos piezas —prefijo de país y número— porque
+     wa.me exige el prefijo en dígitos puros y un número local guardado como
+     "0412-1234567" no abre el chat del cliente. Se sigue guardando como un
+     solo texto en formato internacional, así que la base y el backend no
+     cambian: lo que cambia es que ahora se puede ELEGIR el país. */
   const [f, setF] = useState({ name: '', doc_id: '', phone: '', email: '', address: '', city: '', notes: '' });
+  const [pais, setPais] = useState(paisRecordado);
+  const [telNum, setTelNum] = useState('');
   const [sf, setSf] = useState({ name: '', rif: '', phone: '', email: '', specialty: '', contact_person: '', notes: '' });
+  const [paisSup, setPaisSup] = useState(paisRecordado);
+  const [telSup, setTelSup] = useState('');
   const [editing, setEditing] = useState(null);
   const [editingSup, setEditingSup] = useState(null);
   const [openId, setOpenId] = useState(null);
   const [vehicles, setVehicles] = useState({});
   const [clientOrders, setClientOrders] = useState({});
-  const [vf, setVf] = useState({ brand: '', model: '', year: '', plate: '', vin: '', notes: '' });
+  const [vf, setVf] = useState({ brand: '', model: '', year: '', plate: '', vin: '', mileage: '', notes: '' });
   const [editVeh, setEditVeh] = useState(null);
-  const reset = () => { setF({ name: '', doc_id: '', phone: '', email: '', address: '', city: '', notes: '' }); setEditing(null); };
-  const resetSup = () => { setSf({ name: '', rif: '', phone: '', email: '', specialty: '', contact_person: '', notes: '' }); setEditingSup(null); };
-  const resetVeh = () => { setVf({ brand: '', model: '', year: '', plate: '', vin: '', notes: '' }); setEditVeh(null); };
+  /* Buscador de la cartera: filtra en el cliente porque /api/clients
+     ya trae los 500, así que no hace falta otro viaje al servidor. */
+  const [busca, setBusca] = useState('');
+  const reset = () => { setF({ name: '', doc_id: '', phone: '', email: '', address: '', city: '', notes: '' }); setTelNum(''); setEditing(null); };
+  const resetSup = () => { setSf({ name: '', rif: '', phone: '', email: '', specialty: '', contact_person: '', notes: '' }); setTelSup(''); setEditingSup(null); };
+  const resetVeh = () => { setVf({ brand: '', model: '', year: '', plate: '', vin: '', mileage: '', notes: '' }); setEditVeh(null); };
   const save = async () => {
    if (!f.name.trim()) return;
+   /* El teléfono es el único campo por el que el taller pierde dinero si está
+      mal: es el canal de aviso y de cobro. Antes se guardaba cualquier cosa y
+      el fallo aparecía después, al pulsar WhatsApp. Ahora se comprueba aquí. */
+   const tel = telInternacional(pais, telNum);
+   if (telNum.trim() && !telValido(tel)) {
+    await alertDialog({ title: 'Teléfono incompleto', message: 'El número no parece válido. Revisa el país y el número: debe quedar entre 7 y 15 dígitos (ej. +58 412 1234567).', confirmText: 'Entendido', icon: 'AlertTriangle' });
+    return;
+   }
+   if (tel) recordarPais(pais);
+   const cuerpo = { ...f, phone: tel || '' };
    try {
-    if (editing) await apiFetch(`/api/clients/${editing}`, { method: 'PUT', body: JSON.stringify(f) });
-    else await apiFetch('/api/clients', { method: 'POST', body: JSON.stringify(f) });
+    if (editing) await apiFetch(`/api/clients/${editing}`, { method: 'PUT', body: JSON.stringify(cuerpo) });
+    else await apiFetch('/api/clients', { method: 'POST', body: JSON.stringify(cuerpo) });
     reset(); api.load();
-   } catch (e) { alert(e.message); }
+   } catch (e) { alertDialog({ title: 'No se pudo guardar', message: e.message, confirmText: 'Entendido', icon: 'AlertTriangle' }); }
   };
   const saveSup = async () => {
    if (!sf.name.trim()) return;
@@ -478,8 +539,20 @@
     resetSup(); supApi.load();
    } catch (e) { alert(e.message); }
   };
-  const edit = (c) => { setEditing(c.id); setF({ name: c.name, doc_id: c.doc_id || '', phone: c.phone || '', email: c.email || '', address: c.address || '', city: c.city || '', notes: c.notes || '' }); };
-  const editSup = (s) => { setEditingSup(s.id); setSf({ name: s.name, rif: s.rif || '', phone: s.phone || '', email: s.email || '', specialty: s.specialty || '', contact_person: s.contact_person || '', notes: s.notes || '' }); };
+  const edit = (c) => {
+   setEditing(c.id);
+   setF({ name: c.name, doc_id: c.doc_id || '', phone: c.phone || '', email: c.email || '', address: c.address || '', city: c.city || '', notes: c.notes || '' });
+   /* Se parte el teléfono guardado en sus dos campos sin perder nada: si el
+      número venía de antes sin prefijo, queda entero en el campo del número. */
+   const p = telPartir(c.phone, paisRecordado());
+   setPais(p.prefijo); setTelNum(p.numero);
+  };
+  const editSup = (s) => {
+   setEditingSup(s.id);
+   setSf({ name: s.name, rif: s.rif || '', phone: s.phone || '', email: s.email || '', specialty: s.specialty || '', contact_person: s.contact_person || '', notes: s.notes || '' });
+   const p = telPartir(s.phone, paisRecordado());
+   setPaisSup(p.prefijo); setTelSup(p.numero);
+  };
   const del = async (id) => {
    if (!(await askDel('Eliminar cliente', '¿Eliminar cliente y sus vehículos?'))) return;
    try { await apiFetch(`/api/clients/${id}`, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
@@ -489,8 +562,12 @@
    try { await apiFetch(`/api/suppliers/${id}`, { method: 'DELETE' }); supApi.load(); } catch (e) { alert(e.message); }
   };
   /* Cartera de clientes y repuesteras: listas que crecen sin tope. */
-  const [clientesVisibles, MasClientes] = useVerMas(clients, 20, 'clientes');
+  const clientesFiltrados = busca.trim()
+    ? clients.filter(c => [c.name, c.doc_id, c.phone, c.city, c.email].some(x => (x || '').toLowerCase().includes(busca.trim().toLowerCase())))
+    : clients;
+  const [clientesVisibles, MasClientes] = useVerMas(clientesFiltrados, 20, 'clientes');
   const [proveedoresVisibles, MasProveedores] = useVerMas(suppliers, 20, 'proveedores');
+  const exportarClientes = (formato) => descargarExport('/api/clients/export', 'clientes', formato);
   const toggle = async (c) => {
    const next = openId === c.id ? null : c.id;
    setOpenId(next);
@@ -521,7 +598,7 @@
   };
   const editVehicle = (v) => {
    setEditVeh(v.id);
-   setVf({ brand: v.brand || '', model: v.model || '', year: v.year || '', plate: v.plate || '', vin: v.vin || '', notes: v.notes || '' });
+    setVf({ brand: v.brand || '', model: v.model || '', year: v.year || '', plate: v.plate || '', vin: v.vin || '', mileage: v.mileage ?? '', notes: v.notes || '' });
   };
   const delVehicle = async (cid, vid) => {
    /* Este era el ÚNICO borrado del taller que no pedía confirmación, con el
@@ -545,8 +622,18 @@
     <button type="button" class=${'filter-chip ' + (tab === 'suppliers' ? 'active' : '')} onClick=${() => setTab('suppliers')}>Proveedores (${suppliers.length})</button>
    </div>
    ${tab === 'clients' ? html`
+    <div class="tw-export mb-2">
+      <input type="search" class="styled-input" style=${{ flex: '1 1 auto', minWidth: 0 }} placeholder="Buscar cliente…" value=${busca} onChange=${e => setBusca(e.target.value)} aria-label="Buscar cliente" />
+      <button type="button" class="tw-head-act" onClick=${() => exportarClientes('xlsx')} title="Descargar en Excel">Excel</button>
+      <button type="button" class="tw-head-act" onClick=${() => exportarClientes('pdf')} title="Descargar en PDF">PDF</button>
+      <button type="button" class="tw-head-act" onClick=${() => exportarClientes('csv')} title="Descargar en CSV">CSV</button>
+    </div>
     <div class="cli-form grid2">
-     ${[['name','Nombre…'],['doc_id','Doc ID / Cédula'],['phone','WhatsApp / Teléfono','tel'],['email','Correo…','email'],['address','Dirección…'],['city','Ciudad…'],['notes','Notas…']].map(([k,p,t='text']) => html`<input type=${t} class="styled-input" placeholder=${p} value=${f[k]} onChange=${e => setF({ ...f, [k]: e.target.value })} />`)}
+     ${[["name","Nombre…"],["doc_id","Doc ID / Cédula"],["email","Correo…","email"],["address","Dirección…"],["city","Ciudad…"],["notes","Notas…"]].map(([k,p,t='text']) => html`<input type=${t} class="styled-input" placeholder=${p} value=${f[k]} onChange=${e => setF({ ...f, [k]: e.target.value })} />`)}
+     <div class="cli-tel">
+      <select class="styled-input cli-tel-pais" aria-label="País del teléfono" value=${pais} onChange=${e => { setPais(e.target.value); recordarPais(e.target.value); }}>${PAISES.map(([iso, n, p]) => html`<option key=${iso} value=${p}>${p} ${n}</option>`)}</select>
+      <input type="tel" class="styled-input cli-tel-num" placeholder="412 1234567" value=${telNum} inputMode="tel" onChange=${e => setTelNum(e.target.value.replace(/[^\d\s-]/g, ''))} />
+     </div>
     </div>
     <div class="f-row my-2">
      <button type="button" class="tool-add-btn" onClick=${save} disabled=${!f.name.trim()}>${editing ? 'Guardar cambios' : '+ Agregar cliente'}</button>
@@ -584,7 +671,7 @@
         <input type="number" class="styled-input" placeholder="Año" value=${vf.year} onChange=${e => setVf({ ...vf, year: e.target.value })} />
         <input type="text" class="styled-input" placeholder="Placa (ej. ABC12D)" value=${vf.plate} onChange=${e => setVf({ ...vf, plate: e.target.value.toUpperCase() })} />
         <input type="text" class="styled-input" placeholder="VIN / Chasis (opcional)" maxLength="17" value=${vf.vin || ''} onChange=${e => setVf({ ...vf, vin: e.target.value.toUpperCase() })} />
-        <input type="text" class="styled-input" placeholder="Km actual (opcional)" value=${vf.notes || ''} onChange=${e => setVf({ ...vf, notes: e.target.value })} />
+         <input type="number" class="styled-input" placeholder="Km actual (opcional)" value=${vf.mileage || ''} onChange=${e => setVf({ ...vf, mileage: e.target.value })} />
        </div>
        <button type="button" class="tool-add-btn mt-2" onClick=${() => addVehicle(c.id)} disabled=${!vf.brand.trim() && !vf.model.trim()}>${editVeh ? 'Guardar vehículo' : '+ Vehículo'}</button>
        ${editVeh && html`<button type="button" class="link-btn mt-2" onClick=${resetVeh}>cancelar edición</button>`}
@@ -719,7 +806,8 @@
     rechazado: ['bad', 'Rechazado'], entregado: ['ok', 'Entregado'],
   };
   const TIPOS = {
-    entrega: ['', 'Entrega'], presupuesto: ['warn', 'Presupuesto'], recepcion: ['info', 'Recepción'],
+    entrega: ['', 'Entrega'], presupuesto: ['warn', 'Presupuesto'],
+    cotizacion: ['info', 'Cotización'], recepcion: ['info', 'Recepción'],
   };
   const PENDIENTES = ['emitido', 'aprobado'];
   const VIGENCIA_DIAS = 15;
@@ -823,10 +911,7 @@
     try { await apiFetch(`/api/documents/${d.id}`, { method: 'DELETE' }); api.load(); } catch (e) { alert(e.message); }
   };
 
-  const exportCsv = async () => {
-    try { const csv = await apiFetch('/api/documents/export?format=csv'); downloadBlob('documentos.csv', csv); }
-    catch (e) { alert(e.message); }
-  };
+  const exportar = (formato) => descargarExport('/api/documents/export', 'documentos', formato);
 
   const imprimir = (d) => window.open('/api/documents/' + d.id + '/print', '_blank');
 
@@ -845,28 +930,33 @@
   const acciones = (d) => {
     const wa = ['WhatsApp', '', 'BrandWhatsapp', () => waDoc(d)];
     const imp = ['Imprimir', '', 'Printer', () => imprimir(d)];
+    const pdf = ['PDF', '', 'Download', () => window.open('/api/documents/' + d.id + '/pdf', '_blank')];
     const dup = ['Duplicar', '', 'Copy', () => duplicar(d)];
     const eli = ['Eliminar', '', 'Trash2', () => del(d)];
     const a = [];
     if (d.status === 'borrador') {
-      a.push(['Emitir', 'primary', 'Send', () => setStatus(d.id, 'emitido')], imp, eli);
+      a.push(['Emitir', 'primary', 'Send', () => setStatus(d.id, 'emitido')], pdf, imp);
     } else if (d.status === 'rechazado') {
       a.push(dup, eli);
     } else if (d.kind === 'presupuesto' && PENDIENTES.includes(d.status)) {
-      a.push(['Crear orden', 'primary', 'ArrowRight', () => convertToOrder(d)], wa, imp, dup);
+      a.push(['Crear orden', 'primary', 'ArrowRight', () => convertToOrder(d)], pdf, wa, imp);
     } else if (d.kind === 'entrega' && PENDIENTES.includes(d.status)) {
-      a.push(['Cobrar', 'primary', 'Check', () => setStatus(d.id, 'entregado')], wa, imp, dup);
+      a.push(['Cobrar', 'primary', 'Check', () => setStatus(d.id, 'entregado')], pdf, wa, imp);
     } else {
-      a.push(wa, imp, dup);
+      a.push(pdf, wa, imp);
       if (d.status === 'entregado') a.push(eli);
     }
     return a.slice(0, 4);
   };
 
-  const filtros = [['todos', 'Todos'], ['entrega', 'Entregas'], ['presupuesto', 'Presupuestos'], ['recepcion', 'Recepciones']];
+  const filtros = [['todos', 'Todos'], ['entrega', 'Entregas'], ['presupuesto', 'Presupuestos'], ['cotizacion', 'Cotizaciones'], ['recepcion', 'Recepciones']];
 
   return html`<${TallerShell} tool="documents" title="Documentos" icon="FileText" sub="Notas de entrega y presupuestos" nested=${nested}
-      onBack=${onBack} onOpen=${onOpen} action=${html`<button type="button" class="tw-head-act" onClick=${exportCsv}>Exportar</button>`}>
+      onBack=${onBack} onOpen=${onOpen} action=${html`<div class="tw-export">
+        <button type="button" class="tw-head-act" onClick=${() => exportar('xlsx')} title="Descargar en Excel">Excel</button>
+        <button type="button" class="tw-head-act" onClick=${() => exportar('pdf')} title="Descargar en PDF">PDF</button>
+        <button type="button" class="tw-head-act" onClick=${() => exportar('csv')} title="Descargar en CSV">CSV</button>
+      </div>`}>
     ${api.err && html`<div class="alert"><span>${api.err}</span></div>`}
     <div class="tw-shell-has-fab">
       <div class="tw-stats">
@@ -905,6 +995,7 @@
           <span class="tw-field-v"><select value=${f.kind} onChange=${e => setF({ ...f, kind: e.target.value })}>
             <option value="entrega">Nota de entrega</option>
             <option value="presupuesto">Presupuesto</option>
+            <option value="cotizacion">Cotización</option>
             <option value="recepcion">Recepción</option>
           </select></span></label>
         <label class="tw-field"><span class="tw-field-l">Cliente</span>
@@ -913,7 +1004,13 @@
             ${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
           </select></span></label>
 
-        ${f.items.map((it, i) => html`<div key=${i} class="tw-line">
+        ${/* La cantidad era un <span> de solo lectura: para pedir 12 unidades
+               o 3.75 horas había que pulsar '+' doce veces, y una fracción era
+               imposible. Ahora el número se teclea, sin perder el stepper.
+               Dentro de una plantilla htm un comentario de bloque NO es un
+               comentario: htm lo mete como hijo de texto y React revienta con
+               el error #31. Por eso este va aquí y no dentro del marcado. */
+        f.items.map((it, i) => html`<div key=${i} class="tw-line">
           <div class="tw-line-info">
             <select class="tw-line-name" value=${it.item_id || ''} onChange=${e => pickInv(i, e.target.value)} aria-label="Inventario">
               <option value="">Descripción a mano…</option>
@@ -925,11 +1022,12 @@
           <div class="tw-step">
             <button type="button" class="tw-step-b" aria-label="Menos uno"
               onClick=${() => setItem(i, 'qty', String(Math.max(1, (Number(it.qty) || 1) - 1)))}>−</button>
-            <span class="tw-step-v">${it.qty || '1'}</span>
+            <input type="number" class="tw-step-in" aria-label="Cantidad" min="0" step="any" inputmode="decimal"
+              value=${it.qty} onChange=${e => setItem(i, 'qty', e.target.value)} />
             <button type="button" class="tw-step-b" aria-label="Más uno"
               onClick=${() => setItem(i, 'qty', String((Number(it.qty) || 0) + 1))}>+</button>
           </div>
-          <input type="number" class="styled-input w-24" aria-label="Precio unitario" min="0"
+          <input type="number" class="styled-input tw-line-price" aria-label="Precio unitario" min="0" step="any" inputmode="decimal"
             value=${it.unit_price} onChange=${e => setItem(i, 'unit_price', e.target.value)} />
           <button type="button" class="tw-line-del" aria-label="Quitar partida" onClick=${() => rmItem(i)}>
             <${CatIc} n="Trash2" s=${16} /></button>

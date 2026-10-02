@@ -5,7 +5,7 @@ process.env.NODE_ENV = 'test';
    (src/services/rate-limit-store.js — deuda de escalado).
 
    Se prueba la LÓGICA del Store sobre una base SQLite en memoria con el
-   adaptador en modo 'local' (nunca la base real, AGENTS.md §5). La tabla no se
+   adaptador en modo 'local' (nunca la base real, DECISIONES.md §7). La tabla no se
    crea a mano: la aplica `migrarPrincipal`, que es como nace en producción, así
    que estas pruebas también cubren la migración 003.
    ========================================================================= */

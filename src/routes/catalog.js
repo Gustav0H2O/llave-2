@@ -9,7 +9,7 @@
 
    POR QUÉ AQUÍ Y NO EN lib/
    Esto habla con la base de datos y con express: es servidor, no regla del
-   taller (AGENTS.md §3). lib/ sigue siendo puro.
+   taller (DECISIONES.md §3). lib/ sigue siendo puro.
 
    CACHÉS COMPARTIDAS
    metaCache y pumpsCache son estado MUTABLE por proceso: este módulo las LEE y

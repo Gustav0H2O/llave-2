@@ -135,299 +135,8 @@
  </${MicroShell}>`;
  };
 
-  const hoyISO = () => new Date().toISOString().slice(0, 10);
   const AGREGA_BTN = { display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' };
 
-  /* ==================================================================
-    Agenda de citas. Vive en el servidor (007): lo que agenda recepción lo ve
-    el dueño. Se lee por día o por semana, se confirma por WhatsApp y la cita
-    se convierte en orden de trabajo al recibir el vehículo — sin rehacer nada.
-    ================================================================== */
-  const DIAS_CORTOS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
-  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  const CLAVE_ESTADO = { pendiente: 'warn', confirmada: 'ok', atendida: '', cancelada: '' };
-
-  const AgendaApp = ({ onBack, onOpen }) => {
-  const [citas, api] = useApi('/api/appointments');
-  const [clients] = useApi('/api/clients');
-  const [hoy] = useState(hoyISO());
-  const [sel, setSel] = useState(hoyISO());
-  const [vista, setVista] = useState('dia');
-  const [nueva, setNueva] = useState(false);
-  const [err, setErr] = useState('');
-  const [avisoOrden, setAvisoOrden] = useState('');
-  const [f, setF] = useState({ fecha: hoyISO(), hora: '09:00', client_id: '', veh: '', servicio: '', notes: '' });
-
-  /* Viaje de ida: las citas que quedaron en ESTE navegador (la agenda vieja)
-     suben a la base la primera vez, y la clave local se borra para no
-     migrarlas dos veces. */
-  useEffect(() => {
-    const viejas = ls.get('ft_appointments', []);
-    if (!Array.isArray(viejas) || !viejas.length) return;
-    (async () => {
-      for (const c of viejas) {
-        const cuando = String(c.when || '');
-        if (!cuando) continue;
-        try {
-          await apiFetch('/api/appointments', { method: 'POST', body: JSON.stringify({
-            fecha: cuando.slice(0, 10), hora: cuando.slice(11, 16),
-            client_name: c.client || '', vehicle_ref: c.veh || '', servicio: c.job || '',
-            status: c.done ? 'atendida' : 'pendiente',
-          }) });
-        } catch (e) { /* una cita mala no puede frenar el resto */ }
-      }
-      try { localStorage.removeItem('ft_appointments'); } catch (e) { /* sin permiso */ }
-      api.load();
-    })();
-    /* eslint-disable-next-line */
-  }, []);
-
-  const iso = (d) => { const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 10); };
-  const fechaLarga = (s) => { const d = new Date(s + 'T12:00:00'); return `${DIAS_CORTOS[(d.getDay() + 6) % 7]} ${d.getDate()} ${MESES[d.getMonth()]}`; };
-
-  const semana = (() => {
-    const base = new Date(sel + 'T12:00:00');
-    const lunes = new Date(base);
-    lunes.setDate(base.getDate() - ((base.getDay() + 6) % 7));
-    return Array.from({ length: 7 }, (_, i) => { const d = new Date(lunes); d.setDate(lunes.getDate() + i); return iso(d); });
-  })();
-
-  const porDia = (dia) => citas.filter((c) => c.fecha === dia).sort((a, b) => String(a.hora || '').localeCompare(String(b.hora || '')));
-  const delDia = porDia(sel);
-  const sinConfirmar = citas.filter((c) => c.status === 'pendiente' && c.fecha >= hoy);
-  const telefonoDe = (c) => (clients.find((x) => x.id === c.client_id) || {}).phone || '';
-
-  const lineaWhatsApp = (c) => [
-    `Hola ${c.client_name || ''}, le confirmo su cita en el taller:`,
-    `${fechaLarga(c.fecha)}${c.hora ? ' a las ' + c.hora : ''}.`,
-    c.servicio ? `Servicio: ${c.servicio}.` : '',
-    c.vehicle_ref ? `Vehículo: ${c.vehicle_ref}.` : '',
-    'Si necesita cambiarla, avíseme por aquí.',
-  ].filter(Boolean).join('\n');
-
-  const crear = async () => {
-    setErr('');
-    if (!f.fecha) { setErr('Ponle fecha a la cita.'); return; }
-    try {
-      const cli = clients.find((c) => c.id === Number(f.client_id));
-      await apiFetch('/api/appointments', { method: 'POST', body: JSON.stringify({
-        fecha: f.fecha, hora: f.hora, client_id: f.client_id || null, client_name: cli ? cli.name : '',
-        vehicle_ref: f.veh, servicio: f.servicio, notes: f.notes,
-      }) });
-      setNueva(false);
-      setSel(f.fecha);
-      setF({ fecha: hoyISO(), hora: '09:00', client_id: '', veh: '', servicio: '', notes: '' });
-      api.load();
-    } catch (e) { setErr(e.message); }
-  };
-
-  const estado = async (c, status, extra = {}) => {
-    try {
-      await apiFetch('/api/appointments/' + c.id, { method: 'PUT', body: JSON.stringify({
-        fecha: c.fecha, hora: c.hora || '', client_id: c.client_id || null, client_name: c.client_name || '',
-        servicio: c.servicio || '', notes: c.notes || '', ...extra, status,
-      }) });
-      api.load();
-    } catch (e) { setErr(e.message); }
-  };
-
-  /* Reprogramar mueve la cita en su sitio: antes había que borrarla y crearla
-     de nuevo, y se perdía el cliente asociado. */
-  const reprogramar = async (c) => {
-    try {
-      const nuevaFecha = window.prompt('Nueva fecha (AAAA-MM-DD)', c.fecha);
-      if (!nuevaFecha || !/^\d{4}-\d{2}-\d{2}$/.test(nuevaFecha)) return;
-      const nuevaHora = window.prompt('Nueva hora (HH:MM)', c.hora || '09:00');
-      if (nuevaHora === null) return;
-      await estado(c, c.status, { fecha: nuevaFecha, hora: nuevaHora || '' });
-      setSel(nuevaFecha);
-    } catch (e) { setErr(e.message); }
-  };
-
-  const borrar = async (c) => {
-    const ok = await confirmDialog({ title: 'Eliminar cita', message: '¿Eliminar la cita de ' + (c.client_name || 'sin nombre') + '?', confirmText: 'Eliminar cita', danger: true, icon: 'Trash2' });
-    if (!ok) return;
-    try { await apiFetch('/api/appointments/' + c.id, { method: 'DELETE' }); api.load(); } catch (e) { setErr(e.message); }
-  };
-
-  /* Recibir vehículo: la cita se vuelve orden de trabajo con su cliente y su
-     servicio ya puestos, y la cita queda atendida. */
-  const recibir = async (c) => {
-    try {
-      const r = await apiFetch('/api/orders', { method: 'POST', body: JSON.stringify({
-        title: c.servicio || `Recepción de ${c.client_name || 'cliente'}`,
-        client_id: c.client_id || null,
-        descr: c.notes || c.servicio || '',
-        reception_notes: c.notes || null,
-      }) });
-      await estado(c, 'atendida');
-      setErr('');
-      setAvisoOrden(`Orden #${r.id || ''} creada. Ya está en Órdenes.`);
-    } catch (e) { setErr(e.message); }
-  };
-
-  return html`<${TallerShell} tool="agenda" title="Agenda" icon="Calendar" sub="Quién viene y cuándo" onBack=${onBack} onOpen=${onOpen}>
-    ${err && html`<div class="tw-alert"><div class="tw-alert-b"><span class="tw-alert-t">${err}</span></div>
-      <button type="button" class="tw-sec-a" onClick=${() => setErr('')}>Cerrar</button></div>`}
-    ${avisoOrden && html`<div class="tw-alert"><${CatIc} n="CircleCheck" s=${18} />
-      <div class="tw-alert-b"><span class="tw-alert-t">${avisoOrden}</span></div>
-      <button type="button" class="tw-sec-a" onClick=${() => setAvisoOrden('')}>Cerrar</button></div>`}
-
-    <div class="tw-sec" style=${{ marginTop: 0 }}>
-      <h3 class="tw-sec-t">${vista === 'dia' ? fechaLarga(sel) : 'Semana del ' + fechaLarga(semana[0])}</h3>
-      <div class="tw-toggle" role="tablist">
-        <button type="button" role="tab" aria-selected=${vista === 'dia'} class=${'tw-toggle-b' + (vista === 'dia' ? ' is-on' : '')} onClick=${() => setVista('dia')}>Día</button>
-        <button type="button" role="tab" aria-selected=${vista === 'semana'} class=${'tw-toggle-b' + (vista === 'semana' ? ' is-on' : '')} onClick=${() => setVista('semana')}>Semana</button>
-      </div>
-    </div>
-
-    <div class="tw-days">
-      ${semana.map((d) => {
-        const n = porDia(d).length;
-        const f2 = new Date(d + 'T12:00:00');
-        return html`<button type="button" key=${d} class=${'tw-day' + (d === sel ? ' is-today' : '')}
-          aria-pressed=${d === sel} onClick=${() => setSel(d)}>
-          <span class="tw-day-d">${DIAS_CORTOS[(f2.getDay() + 6) % 7]}</span>
-          <span class="tw-day-n">${f2.getDate()}</span>
-          <span class=${'tw-day-dot' + (n ? '' : ' off')}></span>
-        </button>`;
-      })}
-    </div>
-
-    ${vista === 'dia' ? html`<div>
-      ${delDia.length ? html`<div class="tw-time">
-        ${sel === hoy && html`<div class="tw-now"><span>Ahora</span></div>`}
-        ${delDia.map((c) => html`<div class=${'tw-item ' + (CLAVE_ESTADO[c.status] || '')} key=${c.id}>
-          <span class="tw-item-stripe"></span>
-          <div class="tw-item-head">
-            <div class="tw-item-clock">
-              <span class="tw-item-h">${c.hora || '--:--'}</span>
-              <span class="tw-item-d">${c.status}</span>
-            </div>
-            <div class="tw-item-body">
-              <p class="tw-item-name">${c.client_name || 'Sin nombre'}</p>
-              <p class="tw-item-svc">${[c.vehicle_ref, c.servicio].filter(Boolean).join(' · ') || 'Sin detalle'}</p>
-              <div class="tw-acts" style=${{ marginTop: 0, borderTop: 0, paddingTop: 0 }}>
-                ${c.status !== 'confirmada' && c.status !== 'atendida' && html`<button type="button" class="tw-act primary" onClick=${() => estado(c, 'confirmada')}>
-                  <${CatIc} n="Check" s=${18} />Confirmar</button>`}
-                <button type="button" class="tw-act" onClick=${() => enviarWhatsApp(telefonoDe(c), lineaWhatsApp(c))}>
-                  <${CatIc} n="BrandWhatsapp" s=${18} />WhatsApp</button>
-                ${c.status !== 'atendida' && html`<button type="button" class="tw-act" onClick=${() => recibir(c)}>
-                  <${CatIc} n="ArrowRight" s=${18} />Recibir</button>`}
-                <button type="button" class="tw-act" onClick=${() => reprogramar(c)}>
-                  <${CatIc} n="Clock" s=${18} />Mover</button>
-                <button type="button" class="tw-act danger" onClick=${() => borrar(c)}>
-                  <${CatIc} n="Trash2" s=${18} />Eliminar</button>
-              </div>
-            </div>
-          </div>
-        </div>`)}
-      </div>` : html`<div class="tw-empty">
-        <${CatIc} n="Calendar" s=${26} />
-        <p class="tw-empty-t">Sin citas el ${fechaLarga(sel)}</p>
-        <p class="tw-empty-s">Agenda una con el botón de abajo. Al recibir el vehículo, la cita se vuelve orden de trabajo.</p>
-      </div>`}
-    </div>` : html`<div>
-      ${semana.filter((d) => porDia(d).length).map((d) => html`<div key=${d}>
-        <div class="tw-sec"><h3 class="tw-sec-t">${fechaLarga(d)}${d === hoy ? ' · hoy' : ''}</h3>
-          <span class="tw-sec-n">${porDia(d).length}</span></div>
-        ${porDia(d).map((c) => html`<div class="tw-card" key=${c.id}>
-          <div class="tw-card-top">
-            <span class="tw-tag">${c.hora || '--:--'}</span>
-            <span class=${'tw-pill ' + (CLAVE_ESTADO[c.status] || 'mute')}>${c.status}</span>
-          </div>
-          <div class="tw-card-title">
-            <div style=${{ minWidth: 0 }}>
-              <p class="tw-card-name">${c.client_name || 'Sin nombre'}</p>
-              <p class="tw-card-meta">${[c.vehicle_ref, c.servicio].filter(Boolean).join(' · ') || 'Sin detalle'}</p>
-            </div>
-          </div>
-          <div class="tw-acts">
-            ${c.status === 'pendiente' && html`<button type="button" class="tw-act primary" onClick=${() => estado(c, 'confirmada')}>
-              <${CatIc} n="Check" s=${18} />Confirmar</button>`}
-            <button type="button" class="tw-act" onClick=${() => enviarWhatsApp(telefonoDe(c), lineaWhatsApp(c))}>
-              <${CatIc} n="BrandWhatsapp" s=${18} />WhatsApp</button>
-            ${c.status !== 'atendida' && html`<button type="button" class="tw-act" onClick=${() => recibir(c)}>
-              <${CatIc} n="ArrowRight" s=${18} />Recibir</button>`}
-          </div>
-        </div>`)}
-      </div>`)}
-      ${!semana.some((d) => porDia(d).length) && html`<div class="tw-empty">
-        <${CatIc} n="Calendar" s=${26} />
-        <p class="tw-empty-t">Semana libre</p>
-        <p class="tw-empty-s">No hay citas agendadas en estos siete días.</p>
-      </div>`}
-    </div>`}
-
-    ${sinConfirmar.length > 0 && html`<div>
-      <div class="tw-sec"><h3 class="tw-sec-t">Sin confirmar</h3><span class="tw-sec-c">${sinConfirmar.length}</span></div>
-      ${sinConfirmar.map((c) => html`<div class="tw-card is-focus" key=${'s' + c.id}>
-        <div class="tw-card-top">
-          <span class="tw-tag warn">${fechaLarga(c.fecha)}${c.hora ? ' · ' + c.hora : ''}</span>
-        </div>
-        <div class="tw-card-title">
-          <div style=${{ minWidth: 0 }}>
-            <p class="tw-card-name">${c.client_name || 'Sin nombre'}</p>
-            <p class="tw-card-meta">${[c.vehicle_ref, c.servicio].filter(Boolean).join(' · ') || 'Sin detalle'}</p>
-          </div>
-        </div>
-        <div class="tw-acts">
-          <button type="button" class="tw-act primary" onClick=${() => enviarWhatsApp(telefonoDe(c), lineaWhatsApp(c))}>
-            <${CatIc} n="BrandWhatsapp" s=${18} />Confirmar por WhatsApp</button>
-          <button type="button" class="tw-act" onClick=${() => estado(c, 'confirmada')}>
-            <${CatIc} n="Check" s=${18} />Ya confirmó</button>
-        </div>
-      </div>`)}
-    </div>`}
-
-    ${nueva && html`<div class="tw-card">
-      <div class="tw-card-top"><span class="tw-tag">Nueva cita</span></div>
-      <div class="tw-field-2">
-        <label class="tw-field"><span class="tw-field-l">Fecha</span>
-          <span class="tw-field-v"><input type="date" value=${f.fecha} onChange=${(e) => setF({ ...f, fecha: e.target.value })} /></span></label>
-        <label class="tw-field"><span class="tw-field-l">Hora</span>
-          <span class="tw-field-v"><input type="time" value=${f.hora} onChange=${(e) => setF({ ...f, hora: e.target.value })} /></span></label>
-      </div>
-      <label class="tw-field"><span class="tw-field-l">Cliente</span>
-        <span class="tw-field-v"><select value=${f.client_id} onChange=${(e) => setF({ ...f, client_id: e.target.value })}>
-          <option value="">Sin cliente…</option>
-          ${clients.map((c) => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
-        </select></span></label>
-      <div class="tw-field">
-        <span class="tw-field-l">Vehículo</span>
-        <span class="tw-field-v"><input type="text" placeholder="Jetta 2016 · ABC-123" value=${f.veh} onChange=${(e) => setF({ ...f, veh: e.target.value })} /></span>
-      </div>
-      <div class="tw-field">
-        <span class="tw-field-l">Servicio</span>
-        <span class="tw-field-v"><input type="text" placeholder="Cambio de pila, revisión…" value=${f.servicio} onChange=${(e) => setF({ ...f, servicio: e.target.value })} /></span>
-      </div>
-      <div class="tw-field">
-        <span class="tw-field-l">Notas</span>
-        <span class="tw-field-v"><textarea rows="2" placeholder="Falla, refacciones que trae…" value=${f.notes} onChange=${(e) => setF({ ...f, notes: e.target.value })}></textarea></span>
-      </div>
-      <button type="button" class="tw-cta" onClick=${crear}>Agendar cita</button>
-      <button type="button" class="tw-cta sec" onClick=${() => setNueva(false)}>Cancelar</button>
-    </div>`}
-
-    <div class="tw-shell-has-fab">
-      ${!nueva && html`<button type="button" class="tw-fab" aria-label="Agendar cita" onClick=${() => { setF({ ...f, fecha: sel }); setNueva(true); }}>
-        <${CatIc} n="Plus" s=${26} /></button>`}
-    </div>
-  </${MicroShell}>`;
-  };
-
-
- /* ==================================================================
-    Checklist de la orden (entrada/salida) contra el servidor. Es el control
-    de calidad: la orden no se entrega sin la salida completa (orders.js).
-    ================================================================== */
-  /* ==================================================================
-    Checklist de la orden (entrada/salida) contra el servidor. Es el control
-    de calidad: la orden no se entrega sin la salida completa (orders.js).
-    Se marca con botones grandes de un toque —el ciclado anterior obligaba a
-    pulsar hasta cuatro veces y con las manos engrasadas se perdía la cuenta—,
-    y el avance se ve por sección y en total.
-    ================================================================== */
   const ESTADOS_UI = [
     ['bueno', 'Bien', 'is-ok'],
     ['regular', 'Regular', 'is-warn'],
@@ -443,6 +152,44 @@
   const [tab, setTab] = useState('entrada');
   const [err, setErr] = useState('');
   const [notas, setNotas] = useState({});
+  /* Qué secciones están abiertas. Por defecto NINGUNA: con la plantilla de
+     entrada (17 puntos en 6 secciones) la pantalla era un scroll larguísimo y
+     el mecánico perdía de vista dónde estaba. Cerradas, las seis cabeceras
+     caben de golpe con su contador (3/4, 0/2…) y el progreso se lee de un
+     vistazo; se abre solo la que se está revisando. */
+  const [abiertas, setAbiertas] = useState({});
+  const alternar = (nombre) => setAbiertas(a => ({ ...a, [nombre]: !a[nombre] }));
+  /* Editor de la plantilla del taller: qué puntos salen al crear una
+     inspección nueva. Las YA creadas no se tocan — un hallazgo de la
+     recepción es un hecho del día, no una preferencia. */
+  const [vista, setVista] = useState('revisar');
+  const [tpl, setTpl] = useState(null);
+  const [nuevo, setNuevo] = useState({ tipo: 'entrada', seccion: '', punto: '' });
+  const cargarTpl = () => { apiFetch('/api/inspections/template').then(setTpl).catch((e) => setErr(e.message)); };
+  const semillaTpl = () => {
+    try { apiFetch('/api/inspections/template/seed', { method: 'POST' }).then(() => cargarTpl()).catch((e) => setErr(e.message)); }
+    catch (e) { setErr(e.message); }
+  };
+  const agregarPunto = async () => {
+    if (!nuevo.seccion.trim() || !nuevo.punto.trim()) { setErr('El punto necesita sección y texto'); return; }
+    try {
+      await apiFetch('/api/inspections/template', { method: 'POST', body: JSON.stringify(nuevo) });
+      setNuevo({ tipo: nuevo.tipo, seccion: '', punto: '' }); cargarTpl();
+    } catch (e) { setErr(e.message); }
+  };
+  const editarPunto = async (p) => {
+    const punto = window.prompt('Texto del punto', p.punto);
+    if (punto === null) return;
+    const seccion = window.prompt('Sección', p.seccion);
+    if (seccion === null) return;
+    try { await apiFetch(`/api/inspections/template/${p.id}`, { method: 'PUT', body: JSON.stringify({ seccion, punto }) }); cargarTpl(); }
+    catch (e) { setErr(e.message); }
+  };
+  const borrarPunto = async (p) => {
+    if (!confirm(`¿Quitar “${p.punto}” de la plantilla?`)) return;
+    try { await apiFetch(`/api/inspections/template/${p.id}`, { method: 'DELETE' }); cargarTpl(); }
+    catch (e) { setErr(e.message); }
+  };
   const cargar = async () => {
     if (!orderId) { setInsp([]); return; }
     try {
@@ -492,6 +239,44 @@
 
   return html`<${TallerShell} tool="inspapi" title="Checklist" icon="ClipboardCheck" nested=${nested}
       sub="Entrada y salida del vehículo" onBack=${onBack} onOpen=${onOpen}>
+
+    ${err && html`<div class="tw-alert"><div class="tw-alert-b"><span class="tw-alert-t">${err}</span></div>
+      <button type="button" class="tw-sec-a" onClick=${() => setErr('')}>Cerrar</button></div>`}
+
+    <div class="tw-toggle" role="tablist" style=${{ marginBottom: '14px' }}>
+      <button type="button" role="tab" aria-selected=${vista === 'revisar'} class=${'tw-toggle-b' + (vista === 'revisar' ? ' is-on' : '')}
+        onClick=${() => setVista('revisar')}>Revisar orden</button>
+      <button type="button" role="tab" aria-selected=${vista === 'plantilla'} class=${'tw-toggle-b' + (vista === 'plantilla' ? ' is-on' : '')}
+        onClick=${() => { setVista('plantilla'); if (!tpl) cargarTpl(); }}>Plantilla</button>
+    </div>
+
+    ${vista === 'plantilla' ? html`<div>
+      ${tpl && tpl.deFabrica && html`<div class="tw-alert"><${CatIc} n="Info" s=${18} />
+        <div class="tw-alert-b"><span class="tw-alert-t">Usando la referencia de fábrica.</span>
+          <span class="tw-alert-s">Personaliza para quitar los puntos que no usas y agregar los tuyos.</span></div>
+        <button type="button" class="tw-sec-a" onClick=${semillaTpl}>Personalizar</button></div>`}
+
+      <div class="tw-card">
+        <p class="tw-card-name">Agregar un punto</p>
+        <div class="grid2">
+          <select class="styled-input" value=${nuevo.tipo} aria-label="Tipo" onChange=${(e) => setNuevo({ ...nuevo, tipo: e.target.value })}>
+            <option value="entrada">Entrada</option><option value="salida">Salida</option>
+          </select>
+          <input class="styled-input" placeholder="Sección (Motor, Frenos…)" value=${nuevo.seccion} maxLength="60" aria-label="Sección" onChange=${(e) => setNuevo({ ...nuevo, seccion: e.target.value })} />
+        </div>
+        <input class="styled-input" style=${{ width: '100%', marginTop: '6px' }} placeholder="Punto de revisión" value=${nuevo.punto} maxLength="160" aria-label="Punto" onChange=${(e) => setNuevo({ ...nuevo, punto: e.target.value })} />
+        <div class="tw-acts"><button type="button" class="tw-act primary" onClick=${agregarPunto}><${CatIc} n="Plus" s=${18} />Agregar</button></div>
+      </div>
+
+      ${tpl && ['entrada', 'salida'].map((tipo) => html`<div class="tw-sec"><h3 class="tw-sec-t">${tipo === 'entrada' ? 'Recepción' : 'Salida'} <span class="tw-sec-c">${tpl.puntos[tipo].length}</span></h3></div>
+        ${tpl.puntos[tipo].map((p) => html`<div class="tw-line" key=${p.id ?? p.punto}>
+          <div class="tw-line-info"><p class="tw-point-name">${p.punto}</p>
+            <span class="tw-tag">${p.seccion}</span></div>
+          ${p.id ? html`<button type="button" class="tw-act" onClick=${() => editarPunto(p)}><${CatIc} n="Edit" s=${18} />Editar</button>
+          <button type="button" class="tw-act danger" onClick=${() => borrarPunto(p)}><${CatIc} n="Trash" s=${18} />Quitar</button>`
+          : html`<span class="tw-pill mute">Personaliza para editarlo</span>`}
+        </div>`)}`)}
+    </div>` : html`<div>
     <label class="tw-field"><span class="tw-field-l">Orden de trabajo</span>
       <span class="tw-field-v"><select value=${orderId} onChange=${(e) => setOrderId(e.target.value)}>
         <option value="">Elige la orden…</option>
@@ -505,9 +290,6 @@
         <p class="tw-idcard-m">${[orden.vehicle_model, orden.plate, orden.status].filter(Boolean).join(' · ')}</p>
       </div>
     </div>`}
-
-    ${err && html`<div class="tw-alert"><div class="tw-alert-b"><span class="tw-alert-t">${err}</span></div>
-      <button type="button" class="tw-sec-a" onClick=${() => setErr('')}>Cerrar</button></div>`}
 
     ${orderId && html`<div class="tw-toggle" role="tablist" style=${{ marginBottom: '14px' }}>
       <button type="button" role="tab" aria-selected=${tab === 'entrada'} class=${'tw-toggle-b' + (tab === 'entrada' ? ' is-on' : '')}
@@ -547,12 +329,23 @@
 
       ${secciones.map((s) => {
         const hechosS = s.puntos.filter((p) => p.estado !== 'pendiente').length;
-        return html`<div class="tw-card" key=${s.nombre}>
-          <div class="tw-card-top">
+        const malos = s.puntos.filter((p) => p.estado === 'malo').length;
+        const abierta = !!abiertas[s.nombre];
+        const completa = hechosS === s.puntos.length;
+        return html`<div class=${"tw-card tw-sec-card" + (abierta ? " is-open" : "") + (malos ? " has-bad" : "")} key=${s.nombre}>
+          <button type="button" class="tw-card-top tw-sec-toggle" aria-expanded=${abierta}
+            onClick=${() => alternar(s.nombre)}>
+            <${CatIc} n=${abierta ? "ChevronDown" : "ChevronRight"} s=${16} />
             <span class="tw-tag">${s.nombre}</span>
-            <span class="tw-sec-n" style=${{ marginLeft: 'auto' }}>${hechosS}/${s.puntos.length}</span>
-          </div>
-          ${s.puntos.map((p) => html`<div class="tw-point" key=${p.id}>
+            ${malos ? html`<span class="tw-sec-bad" title="Puntos marcados como mal">${malos}</span>` : ""}
+            <span class=${"tw-sec-n" + (completa ? " is-done" : "")} style=${{ marginLeft: "auto" }}>${hechosS}/${s.puntos.length}</span>
+          </button>
+          ${!abierta && html`<div class="tw-sec-mini" role="list">
+            ${s.puntos.map((p) => html`<span role="listitem" key=${p.id}
+              class=${"tw-sec-dot is-" + (p.estado || "pendiente")}
+              title=${p.punto + " - " + (ETIQUETA_EST[p.estado] || "Sin marcar")}></span>`)}
+          </div>`}
+          ${abierta && s.puntos.map((p) => html`<div class="tw-point" key=${p.id}>
             <p class="tw-point-name">${p.punto}</p>
             <div class="tw-states">
               ${ESTADOS_UI.map(([val, label, cls]) => html`<button type="button" key=${val}
@@ -576,6 +369,7 @@
       <${CatIc} n="ClipboardCheck" s=${26} />
       <p class="tw-empty-t">Elige una orden</p>
       <p class="tw-empty-s">El checklist va siempre pegado a una orden de trabajo: es lo que se revisó al recibir el carro y lo que se entrega.</p>
+    </div>`}
     </div>`}
   </${MicroShell}>`;
   };
@@ -973,7 +767,7 @@
 
  window.FT_MICRO = Object.assign(window.FT_MICRO || {}, {
   ForumApp, ConnectApp, MarketApp,
-  NotesApp, AgendaApp, InspApiApp, MechanicsApp, AlertsApp, ClosingsApp, VehicleHistoryApp,
+  NotesApp, InspApiApp, MechanicsApp, AlertsApp, ClosingsApp, VehicleHistoryApp,
  });
 
  /* Tarjetas nuevas del inicio: se empujan en la MISMA lista que declara

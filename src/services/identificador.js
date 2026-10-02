@@ -18,7 +18,7 @@
    día digan cosas distintas.
 
    POR QUÉ AQUÍ Y NO EN lib/
-   `lib/` es puro (AGENTS.md §3). Esto lee el entorno y habla por HTTP.
+   `lib/` es puro (DECISIONES.md §3). Esto lee el entorno y habla por HTTP.
 
    SIN CLAVE NO HAY FUNCIÓN, Y SE DICE
    Sin ninguna clave de proveedor la ruta responde 503 con un mensaje que nombra

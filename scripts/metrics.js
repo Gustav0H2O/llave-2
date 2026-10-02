@@ -386,7 +386,7 @@ function escribirInforme(m, cobertura, rutas, datos, archivos, guard, comparacio
     .flatMap(k => (KNOWN[k] || []).map(d => `- **${d.clave}** — ${d.razon} _(${d.decidir})_`));
   if (deuda.length) lineas.push('', '## Deuda conocida pendiente de decisión', '', ...deuda);
 
-  lineas.push('', '---', '', 'Reglas para modificar este sistema: ver `AGENTS.md`.', '');
+  lineas.push('', '---', '', 'Reglas para modificar este sistema: ver `DECISIONES.md`.', '');
   fs.writeFileSync(P('quality/REPORT.md'), lineas.join('\n'));
 }
 

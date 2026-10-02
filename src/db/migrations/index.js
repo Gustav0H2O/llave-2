@@ -11,6 +11,11 @@ module.exports = {
     require('./006-taller-inspeccion-labor'),
     require('./007-taller-agenda-operacion'),
     require('./008-nota-fijada'),
+    require('./009-agenda-cita-completa'),
+    require('./010-labor-catalog'),
+    require('./011-checklist-template'),
+    require('./012-documento-fiscal'),
+    require('./013-inventario-tipo'),
   ],
   stats: [
     require('./stats-001-esquema'),

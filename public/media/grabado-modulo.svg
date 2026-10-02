@@ -5,7 +5,7 @@
     ni degradado) para que invertirla dé exactamente el mismo dibujo en blanco
     sobre grafito — por eso tinta.css la voltea con filter:invert(1) en oscuro
     en vez de servir dos archivos.
-    Vocabulario del taller (AGENTS.md §0): la PILA es la bomba sola; el MÓDULO
+    Vocabulario del taller (DECISIONES.md §0): la PILA es la bomba sola; el MÓDULO
     es el ensamble completo que va en el tanque; el RIEL o FLAUTA alimenta los
     inyectores. Los rótulos del dibujo usan esos nombres y no otros.
   -->

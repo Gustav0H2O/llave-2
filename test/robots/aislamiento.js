@@ -2,7 +2,7 @@
 /* ============================================================================
    ROBOT DE AISLAMIENTO ENTRE TALLERES
 
-   El riesgo número uno de este producto, tal cual lo dice AGENTS.md §4.5: los
+   El riesgo número uno de este producto, tal cual lo dice DECISIONES.md §4.5: los
    talleres COMPARTEN TABLAS. Una sola consulta sin `workshop_id` en el WHERE es
    una fuga de datos de un negocio a otro — el inventario, los clientes y la
    caja de un taller visibles desde la cuenta de otro.

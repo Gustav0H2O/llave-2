@@ -33,7 +33,8 @@
     "verify": "node scripts/qa.js",
     "prepare": "node scripts/git-identidad.js instalar",
     "git:auditar": "node scripts/git-identidad.js auditar",
-    "git:limpiar": "node scripts/git-identidad.js limpiar"
+    "git:limpiar": "node scripts/git-identidad.js limpiar",
+    "dev": "node scripts/dev-server.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

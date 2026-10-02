@@ -9,7 +9,7 @@
 
    POR QUÉ AQUÍ Y NO EN lib/
    `lib/` tiene que seguir siendo puro (nada de express, base de datos ni
-   entorno: AGENTS.md §3). Esto es una ruta HTTP con consultas a la base y
+   entorno: DECISIONES.md §3). Esto es una ruta HTTP con consultas a la base y
    configuración del entorno, así que va en `src/`.
 
    CÓMO SE MONTA
@@ -162,7 +162,7 @@ async function contextoRelevante(db, mensaje) {
    El chat y el identificador de piezas (`POST /api/aid/identify`, en
    src/services/identificador.js) comparten CADA decisión de esta cadena: el
    tope de tiempo (2.41), el paso al siguiente modelo cuando el primario está
-   saturado (429) o ya no existe (404/410 — AGENTS.md §4.10, un id retirado
+   saturado (429) o ya no existe (404/410 — DECISIONES.md §4.10, un id retirado
    apagaba el asistente en silencio), y el 502 cuando ninguno contesta. Dos
    copias serían dos sitios donde arreglarlo el día que un proveedor cambie.
 
@@ -192,7 +192,7 @@ async function completarProveedor(proveedor, mensajes, { timeoutMs, maxTokens = 
        preaviso, y un id mal escrito da lo mismo). Se pasa al siguiente de la
        cadena en vez de tumbar el chat: la alternativa es que el asistente muera
        en silencio el día que caduque un modelo, que es exactamente lo que avisa
-       AGENTS.md §4.10. El log deja dicho cuál hay que cambiar en NVIDIA_MODELS. */
+       DECISIONES.md §4.10. El log deja dicho cuál hay que cambiar en NVIDIA_MODELS. */
     if (orRes.status === 404 || orRes.status === 410) {
       const detalle = await orRes.text().catch(() => '');
       console.error(`${proveedor.nombre}: el modelo "${modelo}" ya no existe (${orRes.status}) — quítalo de la configuración.`, detalle.slice(0, 160));

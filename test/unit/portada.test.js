@@ -97,7 +97,7 @@ test('lib/portada.js — los datos se escapan y los conteos salen de la base', a
     assert.ok(html.includes('href="/guias"'));
   });
 
-  /* AGENTS.md §2: las presiones viven SOLO en lib/domain.js. Esta prosa nombra
+  /* DECISIONES.md §3: las presiones viven SOLO en lib/domain.js. Esta prosa nombra
      los sistemas de inyección; el día que alguien le meta una cifra de riel,
      esta prueba falla antes que el guard. */
   await t.test('la prosa no repite las presiones del taller', () => {

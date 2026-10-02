@@ -378,7 +378,7 @@ describe('Seguridad — cabeceras y superficie pública', () => {
         continue;
       }
       // El parser normaliza CRLF a LF antes de calcular el hash; el servidor
-      // hace lo mismo al leer index.html (AGENTS.md §4.7).
+      // hace lo mismo al leer index.html (DECISIONES.md §4.7).
       const cuerpo = s[1].replace(/\r\n?/g, '\n');
       const hash = `'sha256-${crypto.createHash('sha256').update(cuerpo, 'utf8').digest('base64')}'`;
       assert.ok(csp.includes(hash), `la CSP no autoriza por hash uno de los scripts inline de la portada: ${etiqueta}`);

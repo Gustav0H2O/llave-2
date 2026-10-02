@@ -155,6 +155,75 @@ describe('Operación del taller: agenda, mecánicos, inspecciones, alertas y caj
     assert.equal(r.status, 400);
   });
 
+  /* ---------------- Plantilla del checklist ---------------- */
+
+  it('la plantilla arranca en la de fábrica, sin id porque no hay fila que borrar', async () => {
+    const r = await t.get('/api/inspections/template');
+    assert.equal(r.status, 200);
+    assert.equal(r.body.deFabrica, true);
+    assert.ok(r.body.puntos.entrada.length > 0 && r.body.puntos.salida.length > 0);
+    assert.ok(r.body.puntos.entrada.every((p) => p.id === null), 'la de fábrica no debe traer id: no está en la base');
+  });
+
+  it('personalizar la plantilla la materializa en el taller', async () => {
+    const r = await t.post('/api/inspections/template/seed');
+    assert.equal(r.status, 200);
+    assert.ok(r.body.count > 0);
+    const tpl = await t.get('/api/inspections/template');
+    assert.equal(tpl.body.deFabrica, false);
+    assert.ok(tpl.body.puntos.entrada.every((p) => p.id !== null), 'ya son filas propias y se pueden editar');
+  });
+
+  it('agrega, edita y elimina un punto de la plantilla del taller', async () => {
+    await t.post('/api/inspections/template/seed');
+    const alta = await t.post('/api/inspections/template', { tipo: 'entrada', seccion: 'Prueba', punto: 'Punto de prueba' });
+    assert.equal(alta.status, 201);
+    const id = alta.body.id;
+
+    const ed = await t.put(`/api/inspections/template/${id}`, { seccion: 'Prueba', punto: 'Punto editado' });
+    assert.equal(ed.status, 200);
+    let tpl = await t.get('/api/inspections/template');
+    let fila = tpl.body.puntos.entrada.find((p) => p.id === id);
+    assert.equal(fila.punto, 'Punto editado', 'no se guardó la edición');
+
+    assert.equal((await t.del(`/api/inspections/template/${id}`)).status, 200);
+    tpl = await t.get('/api/inspections/template');
+    assert.ok(!tpl.body.puntos.entrada.find((p) => p.id === id), 'el punto eliminado sigue en la plantilla');
+  });
+
+  it('la plantilla del taller es la que crea las inspecciones nuevas', async () => {
+    /* Se deja UN punto propio y se borran los de fábrica: la siguiente
+       inspección tiene que salir de la plantilla, no de la constante. */
+    await t.post('/api/inspections/template/seed');
+    const tpl = await t.get('/api/inspections/template');
+    for (const p of tpl.body.puntos.entrada) {
+      if (p.id) assert.equal((await t.del(`/api/inspections/template/${p.id}`)).status, 200);
+    }
+    assert.equal((await t.post('/api/inspections/template', { tipo: 'entrada', seccion: 'Propia', punto: 'Solo el mío' })).status, 201);
+
+    const orden = await t.post('/api/orders', { title: 'Orden con checklist propia' });
+    assert.equal(orden.status, 201);
+    const insp = await t.post('/api/inspections', { order_id: orden.body.id, tipo: 'entrada' });
+    assert.equal(insp.status, 201);
+    const creada = (await t.get(`/api/inspections?order_id=${orden.body.id}`)).body[0];
+    assert.deepEqual(creada.items.map((i) => i.punto), ['Solo el mío'],
+      'la inspección debe salir de la plantilla del taller, no de la de fábrica');
+  });
+
+  it('rechaza un punto de plantilla sin sección o sin texto', async () => {
+    assert.equal((await t.post('/api/inspections/template', { tipo: 'entrada', seccion: '', punto: 'X' })).status, 400);
+    assert.equal((await t.post('/api/inspections/template', { tipo: 'ojo', seccion: 'A', punto: 'B' })).status, 400);
+  });
+
+  it('la plantilla de un taller no se ve ni se toca desde otra cuenta (aislamiento, 4.5)', async () => {
+    await t.post('/api/inspections/template', { tipo: 'entrada', seccion: 'Secreto', punto: 'Solo mi checklist' });
+    const r = await otro.get('/api/inspections/template');
+    assert.equal(r.status, 200);
+    assert.equal(r.body.deFabrica, true, 'el otro taller sigue con la de fábrica');
+    assert.ok(!String(JSON.stringify(r.body)).includes('Solo mi checklist'),
+      'un taller puede ver la plantilla de otro: fuga de datos');
+  });
+
   it('reabrir un punto devuelve la inspección a incompleta (PUT de la inspección entera)', async () => {
     const insp = (await t.get(`/api/inspections?order_id=${ids.orden}`)).body.find((x) => x.id === ids.inspeccion);
     const items = insp.items.map((p, i) => ({ seccion: p.seccion, punto: p.punto, estado: i === 0 ? 'pendiente' : p.estado }));

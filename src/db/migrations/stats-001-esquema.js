@@ -2,7 +2,7 @@
 /* ==========================================================================
    4.3 — Migración de la base de ESTADÍSTICAS (stats.db).
 
-   Vive aparte porque es OTRA base (AGENTS.md §4.9: el seed borra el catálogo y
+   Vive aparte porque es OTRA base (DECISIONES.md §4.9: el seed borra el catálogo y
    las estadísticas no pueden perder el contador de visitas por eso). Contiene
    las tablas del contador, la meta y los límites del chat.
    ========================================================================== */

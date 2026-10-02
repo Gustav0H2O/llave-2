@@ -7,7 +7,7 @@
 
    POR QUÉ AQUÍ Y NO EN lib/
    Esto habla con la base de datos y con express: es servidor, no regla del
-   taller (AGENTS.md §3). lib/ sigue siendo puro.
+   taller (DECISIONES.md §3). lib/ sigue siendo puro.
 
    ENUMS COMPARTIDOS
    El import sanciona las columnas type/status de work_orders contra
@@ -23,6 +23,7 @@
    ========================================================================= */
 const { ORDER_TYPES, ORDER_STATUS, FUEL_LEVELS, SERVICE_TYPES } = require('./orders');
 const { DOC_KINDS, DOC_STATUS } = require('./documents');
+const { ITEM_TIPOS } = require('./inventory');
 
 function montarBackup(app, deps) {
   const { db, requireWorkshop, enTransaccion, esDataUrlImagenPermitida, errorAccionable, str, num, toInt } = deps;
@@ -88,7 +89,7 @@ function montarBackup(app, deps) {
        que no se entiende es como acabar con un `kind` inventado en el kardex.
        Un respaldo legítimo, exportado por esta misma app, entra sin cambios. */
     const CAMPOS = {
-      inventory_items: [['name', 'str', 120], ['sku', 'str', 60], ['category', 'str', 60], ['qty', 'num'], ['min_qty', 'num'], ['unit_price', 'num'], ['cost_price', 'num'], ['notes', 'str', 500], ['low_stock_alerted', 'int', 0, 1]],
+      inventory_items: [['name', 'str', 120], ['sku', 'str', 60], ['category', 'str', 60], ['item_tipo', 'enum', ITEM_TIPOS, null], ['qty', 'num'], ['min_qty', 'num'], ['unit_price', 'num'], ['cost_price', 'num'], ['notes', 'str', 500], ['low_stock_alerted', 'int', 0, 1]],
       inventory_moves: [['item_id', 'num'], ['delta', 'num'], ['kind', 'enum', ['entrada', 'salida', 'ajuste', 'orden', 'compra', 'garantia'], 'ajuste'], ['order_id', 'num'], ['note', 'str', 300], ['supplier_id', 'num']],
       clients: [['name', 'str', 120], ['doc_id', 'str', 40], ['phone', 'str', 40], ['email', 'str', 120], ['address', 'str', 300], ['city', 'str', 120], ['notes', 'str', 500]],
       client_vehicles: [['client_id', 'num'], ['brand', 'str', 60], ['model', 'str', 80], ['year', 'int', 1900, 2100], ['plate', 'str', 20], ['vin', 'str', 30], ['mileage', 'int', 0, 2000000], ['notes', 'str', 300]],

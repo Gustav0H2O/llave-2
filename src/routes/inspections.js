@@ -12,7 +12,7 @@
                 la puerta de paso a 'Entregado' (ver orders.js).
 
    POR QUÉ AQUÍ Y NO EN lib/
-   Habla con la base y con express: es servidor, no regla del taller (AGENTS.md
+   Habla con la base y con express: es servidor, no regla del taller (DECISIONES.md
    §3). La plantilla de los puntos vive aquí porque el servidor es quien la
    sirve igual a web, móvil y PDF.
 
@@ -78,6 +78,36 @@ function montarInspections(app, deps) {
   const leerItems = async (iid, ws) =>
     db.all('SELECT * FROM inspection_items WHERE inspection_id=? AND workshop_id=? ORDER BY id', [iid, ws]);
 
+  /* La plantilla del taller. Sin filas propias devuelve la de fábrica (sin
+     escribir nada): el taller la personaliza solo si lo pide, y borrarla
+     entera no la devuelve por arte de magia. */
+  const plantillaDe = async (ws, tipo) => {
+    const filas = await db.all(
+      'SELECT seccion, punto FROM checklist_template WHERE workshop_id=? AND tipo=? ORDER BY orden, id',
+      [ws, tipo]);
+    if (filas.length) return filas.map((f) => [f.seccion, f.punto]);
+    return PLANTILLA[tipo];
+  };
+
+  const contarPlantilla = async (ws) => {
+    const n = await db.get('SELECT COUNT(*) AS n FROM checklist_template WHERE workshop_id=?', [ws]);
+    return n.n;
+  };
+
+  const sembrarPlantilla = async (ws) => {
+    if (await contarPlantilla(ws)) return await contarPlantilla(ws);
+    await enTransaccion(async () => {
+      for (const tipo of TIPOS) {
+        let i = 0;
+        for (const [seccion, punto] of PLANTILLA[tipo]) {
+          await db.run('INSERT INTO checklist_template (workshop_id, tipo, seccion, punto, orden) VALUES (?, ?, ?, ?, ?)',
+            [ws, tipo, seccion, punto, i++]);
+        }
+      }
+    });
+    return await contarPlantilla(ws);
+  };
+
   const recalcular = async (insp, ws, items) => {
     const estado = estadoInspeccion(items);
     const ahora = estado === 'completa' && !insp.completed_at ? new Date().toISOString() : (estado === 'completa' ? insp.completed_at : null);
@@ -128,10 +158,11 @@ function montarInspections(app, deps) {
 
     const validado = validarPuntos(b);
     if (validado.error) return res.status(400).json({ error: validado.error });
-    /* Sin puntos enviados se crea desde la plantilla: nadie arranca con una
-       hoja en blanco, y las dos revisiones salen idénticas en todo el taller. */
+    /* Sin puntos enviados se crea desde la plantilla DEL TALLER (o, si no la
+       tiene, la de fábrica): nadie arranca con una hoja en blanco, y las dos
+       revisiones salen idénticas en todo el taller. */
     const puntos = (validado.lista && validado.lista.length ? validado.lista
-      : PLANTILLA[tipo].map(([seccion, punto]) => ({ seccion, punto, estado: 'pendiente', notes: null })));
+      : (await plantillaDe(req.workshopId, tipo)).map(([seccion, punto]) => ({ seccion, punto, estado: 'pendiente', notes: null })));
     const notes = str(b.notes, 1000) || null;
     const estado = estadoInspeccion(puntos);
     let nid;
@@ -203,6 +234,86 @@ function montarInspections(app, deps) {
       const estadoInsp = await recalcular(insp, req.workshopId, items);
       res.json({ ok: true, status: estadoInsp });
     } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo actualizar el punto') }); } /* 2.23 */
+  });
+
+  /* ---- Plantilla del checklist (los puntos por defecto del taller) ---- */
+
+  const validarPuntoTpl = (b) => {
+    const tipo = TIPOS.includes(b?.tipo) ? b.tipo : null;
+    const seccion = str(b?.seccion, 60);
+    const punto = str(b?.punto, 160);
+    if (!tipo) return { error: 'Tipo inválido (entrada|salida)' };
+    if (!seccion || !punto) return { error: 'Cada punto necesita sección y texto' };
+    return { tipo, seccion, punto };
+  };
+
+  app.get('/api/inspections/template', requireWorkshop, async (req, res) => {
+    const ws = req.workshopId;
+    const propias = await contarPlantilla(ws);
+    const salida = {};
+    for (const tipo of TIPOS) {
+      /* Con plantilla propia manda la del taller, y sus puntos vienen con id
+         para que se puedan editar o borrar. La de fábrica no: no hay fila que
+         borrar hasta que el taller la materializa (POST .../seed). */
+      const filas = await db.all(
+        'SELECT id, seccion, punto FROM checklist_template WHERE workshop_id=? AND tipo=? ORDER BY orden, id',
+        [ws, tipo]);
+      salida[tipo] = propias
+        ? filas.map((f) => ({ id: f.id, seccion: f.seccion, punto: f.punto }))
+        : PLANTILLA[tipo].map(([seccion, punto]) => ({ id: null, seccion, punto }));
+    }
+    res.set('Cache-Control', 'no-store').json({ deFabrica: !propias, puntos: salida });
+  });
+
+  app.post('/api/inspections/template/seed', requireWorkshop, async (req, res) => {
+    try {
+      res.json({ ok: true, count: await sembrarPlantilla(req.workshopId) });
+    } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo personalizar la plantilla') }); }
+  });
+
+  /* Agrega un punto a la plantilla. Si el taller aún no personalizó, se
+     materializa la de fábrica primero: no pierde los puntos que ya usaba. */
+  app.post('/api/inspections/template', requireWorkshop, async (req, res) => {
+    const v = validarPuntoTpl(req.body || {});
+    if (v.error) return res.status(400).json({ error: v.error });
+    try {
+      await sembrarPlantilla(req.workshopId);
+      const n = await db.get('SELECT COALESCE(MAX(orden), -1) AS o FROM checklist_template WHERE workshop_id=? AND tipo=?',
+        [req.workshopId, v.tipo]);
+      const id = await db.insertReturningId(
+        'INSERT INTO checklist_template (workshop_id, tipo, seccion, punto, orden) VALUES (?, ?, ?, ?, ?)',
+        [req.workshopId, v.tipo, v.seccion, v.punto, Number(n.o) + 1]);
+      res.status(201).json({ id });
+    } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo agregar el punto') }); }
+  });
+
+  app.put('/api/inspections/template/:id', requireWorkshop, async (req, res) => {
+    const id = idDe(req);
+    if (id === null) return res.status(404).json({ error: 'No encontrado' });
+    const fila = await db.get('SELECT * FROM checklist_template WHERE id=? AND workshop_id=?', [id, req.workshopId]);
+    if (!fila) return res.status(404).json({ error: 'No encontrado' });
+    /* El tipo no se cambia: mover un punto de 'entrada' a 'salida' es
+       borrarlo de una y agregarlo a la otra, y dejarlo a medias convertía
+       una inspección ya usada en otra cosa. */
+    const seccion = str(req.body?.seccion, 60);
+    const punto = str(req.body?.punto, 160);
+    if (!seccion || !punto) return res.status(400).json({ error: 'Cada punto necesita sección y texto' });
+    try {
+      await db.run('UPDATE checklist_template SET seccion=?, punto=? WHERE id=? AND workshop_id=?',
+        [seccion, punto, id, req.workshopId]);
+      res.json({ ok: true });
+    } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo editar el punto') }); }
+  });
+
+  app.delete('/api/inspections/template/:id', requireWorkshop, async (req, res) => {
+    const id = idDe(req);
+    if (id === null) return res.status(404).json({ error: 'No encontrado' });
+    const fila = await db.get('SELECT id FROM checklist_template WHERE id=? AND workshop_id=?', [id, req.workshopId]);
+    if (!fila) return res.status(404).json({ error: 'No encontrado' });
+    try {
+      await db.run('DELETE FROM checklist_template WHERE id=? AND workshop_id=?', [id, req.workshopId]);
+      res.json({ ok: true });
+    } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo eliminar el punto') }); }
   });
 }
 

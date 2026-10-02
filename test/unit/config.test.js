@@ -86,7 +86,7 @@ describe('config (4.2) — lectura y validación del entorno', () => {
     // Se lanza un proceso con el entorno del host (NODE_ENV=production y sin
     // sal) y se ejecuta la misma comprobación que server-pg.js hace al arrancar.
     // No se levanta el servidor entero a propósito: eso conectaría con la base
-    // del .env (AGENTS.md §5).
+    // del .env (DECISIONES.md §7).
     const ruta = path.join(__dirname, '..', '..', 'src', 'config', 'index.js');
     const guion = `const m = require(${JSON.stringify(ruta)}); m.validarConfig(m.config);`;
     let salida = '';

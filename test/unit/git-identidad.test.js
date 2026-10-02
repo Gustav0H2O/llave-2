@@ -1,7 +1,7 @@
 'use strict';
 /* ============================================================================
    Pruebas de scripts/git-identidad.js — la herramienta que impone el autor
-   único (AGENTS.md §8b).
+   único (DECISIONES.md §12).
 
    Se prueba la DETECCIÓN con historiales inventados (la función la acepta como
    parámetro), no se lanza git: una prueba que dependiera del repositorio real

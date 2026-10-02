@@ -9,7 +9,7 @@
    listo, y server-pg.js no vuelve a leer `process.env` para estas claves.
 
    POR QUÉ NO VA EN lib/
-   `lib/` tiene que seguir siendo puro (AGENTS.md §3): nada de express, base de
+   `lib/` tiene que seguir siendo puro (DECISIONES.md §3): nada de express, base de
    datos ni entorno. Leer el entorno es exactamente lo contrario de puro.
 
    ARRANQUE
@@ -60,7 +60,7 @@ function construirConfig(entorno = process.env) {
     /* --- Proveedores del chat (4.4). Prioridad: Groq > NVIDIA > OpenRouter.
        Gemini va aparte, como último recurso. --- */
     GEMINI_API_KEY: texto(env.GEMINI_API_KEY),
-    /* AGENTS.md §4.10: el id tiene que existir. `gemini-3.5-flash` no existe y
+    /* DECISIONES.md §4.10: el id tiene que existir. `gemini-3.5-flash` no existe y
        hacía que el chat respondiera 502. */
     GEMINI_MODEL: texto(env.GEMINI_MODEL) || 'gemini-1.5-flash',
     GROQ_API_KEY: texto(env.GROQ_API_KEY),

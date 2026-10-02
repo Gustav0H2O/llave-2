@@ -5,7 +5,7 @@ process.env.NODE_ENV = 'test';
 
    NUNCA se llama a un proveedor real: se levanta un proveedor falso en
    localhost y se apunta la configuración a él, igual que en chat.test.js. No se
-   abre ninguna base (AGENTS.md §5): el doble de `db` solo existe para el StoreBD
+   abre ninguna base (DECISIONES.md §7): el doble de `db` solo existe para el StoreBD
    del limitador (deuda de escalado), que cuenta contra la tabla rate_limits; el
    contrato de la ruta sigue siendo (descripción) → (candidatos).
    ========================================================================= */

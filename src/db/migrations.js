@@ -16,7 +16,7 @@
        real tiene que verse.
 
    Vive en src/ (no en lib/): habla de bases de datos y lee archivos, así que no
-   es una función pura (AGENTS.md §3).
+   es una función pura (DECISIONES.md §3).
    ========================================================================= */
 const { principal: MIGRACIONES_PRINCIPAL, stats: MIGRACIONES_STATS } = require('./migrations/index');
 

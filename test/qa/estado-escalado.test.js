@@ -12,7 +12,7 @@ process.env.NODE_ENV = 'test';
      (a) el cupo de un limitador lo ven las dos apps (StoreBD), y
      (b) el lockout de login se cuenta entre las dos (login_attempts).
 
-   La base es SIEMPRE ':memory:' con el adaptador en modo 'local' (AGENTS.md §5):
+   La base es SIEMPRE ':memory:' con el adaptador en modo 'local' (DECISIONES.md §7):
    nunca se toca fueltech.db, stats.db ni Turso.
    ========================================================================= */
 const { describe, it, before, after } = require('node:test');

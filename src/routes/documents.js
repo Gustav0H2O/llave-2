@@ -7,7 +7,7 @@
 
    POR QUÉ AQUÍ Y NO EN lib/
    Esto habla con la base de datos y con express: es servidor, no regla del
-   taller (AGENTS.md §3). lib/ sigue siendo puro.
+   taller (DECISIONES.md §3). lib/ sigue siendo puro.
 
    CÓMO SE MONTA
    server-pg.js llama montarDocuments(app, { ... }) en la MISMA posición en la que
@@ -30,6 +30,8 @@
    que importan: lleva su propia serie (COT-0001) para que no se mezcle con las
    NE/P/REC, y al NO ser 'entrega' no toca el almacén — el stock se descuenta
    solo cuando el documento sale como nota de entrega. */
+const { armarPdf, armarXlsx, armarCsv, escPdf, b, anchoTexto, recortar } = require('../services/exportar');
+
 const DOC_KINDS = ['entrega', 'presupuesto', 'recepcion', 'cotizacion'];
 const DOC_STATUS = ['borrador', 'emitido', 'aprobado', 'rechazado', 'entregado'];
 
@@ -71,17 +73,98 @@ function montarDocuments(app, deps) {
     res.set('Cache-Control', 'no-store').json(rows.map(docConFechas)); /* 2.28 */
   });
 
+  /* ---------- PDF de verdad ----------
+     Antes "PDF" era solo el diálogo de imprimir del navegador: el taller tenía
+     que abrir la vista, pulsar Ctrl+P y elegir "Guardar como PDF". Eso obliga a
+     un paso manual en CADA documento, que es justo lo que un taller con veinte
+     entregas al día no hace. Aquí el archivo sale hecho.
+
+     Se dibuja a mano porque el proyecto no tiene build step y no cabe una
+     librería de PDF en el presupuesto (ver src/services/exportar.js). */
+
+  /* Cabecera que comparten los dos PDF (el de la lista y el del documento). */
+  const pdfCabecera = (ops, ws, titulo, subtitulo) => {
+    const W = 595.28, H = 841.89, M = 48;
+    ops.push('BT /F2 20 Tf 1 0 0 1 ' + M + ' ' + (H - 66) + ' Tm (' + escPdf(ws?.name || 'Taller') + ') Tj ET');
+    if (ws?.doc_id) ops.push('BT /F1 10 Tf 1 0 0 1 ' + M + ' ' + (H - 82) + ' Tm (' + escPdf('RIF/CI: ' + ws.doc_id) + ') Tj ET');
+    const contacto = [ws?.phone, ws?.address].filter(Boolean).join(' · ');
+    if (contacto) ops.push('BT /F1 10 Tf 1 0 0 1 ' + M + ' ' + (H - 96) + ' Tm (' + escPdf(contacto) + ') Tj ET');
+    ops.push('BT /F2 22 Tf 1 0 0 1 ' + M + ' ' + (H - 136) + ' Tm (' + escPdf(titulo) + ') Tj ET');
+    if (subtitulo) ops.push('BT /F1 11 Tf 1 0 0 1 ' + M + ' ' + (H - 154) + ' Tm (' + escPdf(subtitulo) + ') Tj ET');
+    ops.push('0.8 w ' + M + ' ' + (H - 168) + ' m ' + (W - M) + ' ' + (H - 168) + ' l S');
+    return { W, H, M, y: H - 192 };
+  };
+  const pdfTexto = (ops, x, y, txt, tam, negrita, max) => {
+    const t = max ? recortar(txt, max, tam, negrita) : String(txt == null ? '' : txt);
+    ops.push('BT /F' + (negrita ? 2 : 1) + ' ' + tam + ' Tf 1 0 0 1 ' + x.toFixed(1) + ' ' + y.toFixed(1) + ' Tm (' + escPdf(t) + ') Tj ET');
+  };
+  const pdfDerecha = (ops, xDer, y, txt, tam, negrita, max) => {
+    const t = max ? recortar(txt, max, tam, negrita) : String(txt == null ? '' : txt);
+    pdfTexto(ops, xDer - anchoTexto(t, tam, negrita), y, t, tam, negrita);
+  };
+  const pdfPie = (ops, H, M, W) => {
+    ops.push('0.5 w ' + M + ' ' + 62 + ' m ' + (W - M) + ' ' + 62 + ' l S');
+    pdfTexto(ops, M, 48, 'Documento generado por FuelTech Master. Verifique los datos antes de entregarlo.', 8, false);
+  };
+
+  /* PDF de la lista de documentos. */
+  const enviarPdfLista = (res, req, rows, ETQ) => {
+    (async () => {
+      const ws = await db.get('SELECT name, phone, address, doc_id FROM workshops WHERE id=?', [req.workshopId]);
+      const ops = [];
+      const { W, M, y: y0 } = pdfCabecera(ops, ws, 'Documentos', 'Listado de ' + rows.length + ' documento(s)');
+      let y = y0;
+      pdfTexto(ops, M, y, 'Número', 10, true); pdfTexto(ops, M + 90, y, 'Tipo', 10, true);
+      pdfTexto(ops, M + 190, y, 'Cliente', 10, true); pdfDerecha(ops, W - M, y, 'Total', 10, true);
+      y -= 14;
+      ops.push('0.4 w ' + M + ' ' + y + ' m ' + (W - M) + ' ' + y + ' l S');
+      y -= 16;
+      let suma = 0;
+      for (const r of rows) {
+        if (y < 90) break; /* una página: el listado completo va en Excel */
+        suma += Number(r.total) || 0;
+        pdfTexto(ops, M, y, r.number, 10, false);
+        pdfTexto(ops, M + 90, y, ETQ[r.kind] || r.kind, 10, false, 90);
+        pdfTexto(ops, M + 190, y, r.client_name || 'Sin cliente', 10, false, 230);
+        pdfDerecha(ops, W - M, y, (Number(r.total) || 0).toFixed(2), 10, false);
+        y -= 15;
+      }
+      ops.push('0.8 w ' + M + ' ' + (y - 4) + ' m ' + (W - M) + ' ' + (y - 4) + ' l S');
+      pdfDerecha(ops, W - M, y - 22, 'TOTAL  ' + suma.toFixed(2), 13, true);
+      pdfPie(ops, 841.89, M, W);
+      const pdf = armarPdf(ops);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline; filename="documentos.pdf"');
+      res.send(pdf);
+    })().catch(e => res.status(500).json({ error: errorAccionable(e, 'No se pudo generar el PDF') }));
+  };
+
   app.get('/api/documents/export', requireWorkshop, async (req, res) => {
     const filas = await db.all(`SELECT d.number, d.kind, d.status, d.total, d.created_at, c.name AS client_name FROM documents d
       LEFT JOIN clients c ON c.id = d.client_id WHERE d.workshop_id = ? ORDER BY d.id`, req.workshopId);
     const rows = filas.map(docConFechas); /* 2.28 */
-    if (req.query.format === 'csv') {
-      const head = ['Número', 'Tipo', 'Estado', 'Cliente', 'Total', 'Fecha'];
-      /* 4.6: csvEscape real, no el esc de HTML. */
-      const csv = [head.map(csvEscape).join(','), ...rows.map(r => [r.number, r.kind, r.status, r.client_name, r.total, r.created_at].map(csvEscape).join(','))].join('\n');
+    const ETQ = { entrega: 'Nota de entrega', presupuesto: 'Presupuesto', recepcion: 'Recepción', cotizacion: 'Cotización' };
+    /* El CSV salía con coma y sin BOM: Excel en español lo abre en una sola
+       columna y rompe los acentos ("Pérez" -> "PÃ©rez"). Se usa punto y coma
+       y BOM UTF-8, que es lo que Excel espera en esta configuración regional. */
+    const cabecera = ['Número', 'Tipo', 'Estado', 'Cliente', 'Total', 'Fecha'];
+    const cuerpo = rows.map(r => [r.number, ETQ[r.kind] || r.kind, r.status, r.client_name, Number(r.total) || 0, r.created_at]);
+    const formato = String(req.query.format || '').toLowerCase();
+    if (formato === 'csv') {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', 'attachment; filename="documentos.csv"');
-      return res.send(csv);
+      return res.send(armarCsv([cabecera, ...cuerpo]));
+    }
+    /* .xlsx REAL (no un CSV renombrado): Excel lo abre como libro y respeta
+       los tipos, así que la columna Total suma sin conversiones. */
+    if (formato === 'xlsx') {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="documentos.xlsx"');
+      return res.send(armarXlsx([cabecera, ...cuerpo], { hoja: 'Documentos' }));
+    }
+    /* PDF de la lista: reutiliza el mismo generador que el documento suelto. */
+    if (formato === 'pdf') {
+      return enviarPdfLista(res, req, rows, ETQ);
     }
     res.json(rows);
   });
@@ -137,15 +220,26 @@ function montarDocuments(app, deps) {
       }
       if (faltantes.length) return res.status(409).json({ error: `No hay existencia suficiente — ${faltantes.join('; ')}` });
     }
-    let total = 0;
+    /* Desglose fiscal (ft-documentos-01). El cliente puede mandar descuento e
+       IVA en el cuerpo; si no los manda, el documento sale sin ellos, que es
+       lo que pasaba antes: el cotizador los calculaba en el teléfono y se
+       perdían al emitir. `total` sigue siendo el importe a cobrar, así que
+       todo lo que ya lo leía sigue leyendo lo mismo. */
+    const subtotal = +partidas.reduce((s, p) => s + p.qty * p.unit_price, 0).toFixed(2);
+    const descPct = Math.max(0, Math.min(100, num(b.descuento_pct) ?? 0));
+    const descuento = +((subtotal * descPct) / 100).toFixed(2);
+    const base = +(subtotal - descuento).toFixed(2);
+    const ivaPct = Math.max(0, Math.min(100, num(b.iva_pct) ?? 0));
+    const iva = +((base * ivaPct) / 100).toFixed(2);
     let did;
     try {
       await enTransaccion(async () => {
-        did = await db.insertReturningId(`INSERT INTO documents (workshop_id, kind, number, client_id, order_id, status, client_snapshot, vehicle_snapshot) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [req.workshopId, kind, number, client_id, order_id, 'emitido', client_snapshot, vehicle_snapshot]);
+        did = await db.insertReturningId(`INSERT INTO documents (workshop_id, kind, number, client_id, order_id, status, client_snapshot, vehicle_snapshot, subtotal, descuento, iva_pct, iva, total)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [req.workshopId, kind, number, client_id, order_id, 'emitido', client_snapshot, vehicle_snapshot,
+            subtotal, descuento, ivaPct, iva, +(base + iva).toFixed(2)]);
         for (const p of partidas) {
           const line_total = +(p.qty * p.unit_price).toFixed(2);
-          total += line_total;
           await db.run(`INSERT INTO document_items (workshop_id, document_id, item_id, descr, qty, unit_price, line_total)
           VALUES (?, ?, ?, ?, ?, ?, ?)`, [req.workshopId, did, p.item_id, p.descr, p.qty, p.unit_price, line_total]);
           if (kind === 'entrega' && p.item_id) { /* 2.17 */
@@ -157,9 +251,8 @@ function montarDocuments(app, deps) {
             }
           }
         }
-        await db.run('UPDATE documents SET total=? WHERE id=? AND workshop_id=?', [+total.toFixed(2), did, req.workshopId]);
       });
-      res.status(201).json({ id: did, number });
+      res.status(201).json({ id: did, number, subtotal, descuento, iva_pct: ivaPct, iva, total: +(base + iva).toFixed(2) });
     } catch (e) {
       res.status(400).json({ error: errorAccionable(e, 'No se pudo emitir el documento') }); /* 2.23 */
     }
@@ -173,7 +266,13 @@ function montarDocuments(app, deps) {
     const items = await db.all('SELECT * FROM document_items WHERE document_id=? AND workshop_id=?', [id, req.workshopId]);
     const client = doc.client_id ? await db.get('SELECT name, phone, address FROM clients WHERE id=? AND workshop_id=?', [doc.client_id, req.workshopId]) : null;
     const ws = await db.get('SELECT name FROM workshops WHERE id=?', req.workshopId);
-    res.set('Cache-Control', 'no-store').json({ ...docConFechas(doc), items, client, workshop: ws }); /* 2.28 */
+    /* descuento_pct se devuelve DERIVADO: la tabla guarda el importe del
+       descuento, no el porcentaje, y al duplicar una cotización el formulario
+       necesita el porcentaje para volver a aplicar el mismo trato. Con un
+       subtotal de 0 no hay porcentaje que derivar y se devuelve 0. */
+    const subtotal = Number(doc.subtotal) || 0;
+    const descuento_pct = subtotal > 0 ? +(((Number(doc.descuento) || 0) / subtotal) * 100).toFixed(2) : 0;
+    res.set('Cache-Control', 'no-store').json({ ...docConFechas(doc), descuento_pct, items, client, workshop: ws }); /* 2.28 */
   });
 
   app.post('/api/documents/:id/convert-to-order', requireWorkshop, async (req, res) => {
@@ -243,6 +342,92 @@ function montarDocuments(app, deps) {
       if (!info.changes) return res.status(404).json({ error: 'No encontrado' });
       res.json({ ok: true });
     } catch (e) { res.status(400).json({ error: errorAccionable(e, 'No se pudo borrar el documento') }); } /* 2.23 */
+  });
+
+  /* PDF descargable de UN documento. Es la ruta que hace cierta la promesa
+     "presupuestos en PDF": sale el archivo, no una pestaña que hay que
+     imprimir a mano. Comparte cabecera y pie con el PDF de la lista. */
+  app.get('/api/documents/:id/pdf', requireWorkshop, async (req, res) => {
+    const id = idDe(req); /* 2.21 */
+    if (id === null) return res.status(404).json({ error: 'No encontrado' });
+    try {
+      const doc = await db.get('SELECT * FROM documents WHERE id=? AND workshop_id=?', [id, req.workshopId]);
+      if (!doc) return res.status(404).json({ error: 'No encontrado' });
+      const items = await db.all('SELECT * FROM document_items WHERE document_id=? AND workshop_id=?', [id, req.workshopId]);
+      /* Foto congelada: el papel no debe cambiar porque hoy el cliente tenga
+         otro telefono (mismo criterio que la vista imprimible). */
+      let clientSnap = null;
+      try { clientSnap = doc.client_snapshot ? JSON.parse(doc.client_snapshot) : null; } catch { clientSnap = null; }
+      const client = clientSnap || (doc.client_id ? await db.get('SELECT * FROM clients WHERE id=? AND workshop_id=?', [doc.client_id, req.workshopId]) : null);
+      const order = doc.order_id ? await db.get('SELECT * FROM work_orders WHERE id=? AND workshop_id=?', [doc.order_id, req.workshopId]) : null;
+      let vehicleSnap = null;
+      try { vehicleSnap = doc.vehicle_snapshot ? JSON.parse(doc.vehicle_snapshot) : null; } catch { vehicleSnap = null; }
+      const vehLive = (order && order.vehicle_id)
+        ? await db.get('SELECT * FROM client_vehicles WHERE id=? AND workshop_id=?', [order.vehicle_id, req.workshopId])
+        : (doc.client_id ? await db.get('SELECT * FROM client_vehicles WHERE client_id=? AND workshop_id=? ORDER BY id DESC LIMIT 1', [doc.client_id, req.workshopId]) : null);
+      const vehicle = vehicleSnap || vehLive;
+      const ws = await db.get('SELECT name, phone, address, doc_id FROM workshops WHERE id=?', [req.workshopId]);
+      const ETIQUETA = { entrega: 'NOTA DE ENTREGA', recepcion: 'RECEPCION DE VEHICULO', cotizacion: 'COTIZACION' };
+      const titulo = ETIQUETA[doc.kind] || 'PRESUPUESTO';
+      const ops = [];
+      const cab = pdfCabecera(ops, ws, titulo, 'N. ' + doc.number + ' - ' + fechaISO(doc.created_at));
+      const W = cab.W, M = cab.M;
+      let y = cab.y;
+      pdfTexto(ops, M, y, 'Cliente', 9, true); pdfTexto(ops, M + 90, y, 'Vehiculo', 9, true);
+      y -= 14;
+      pdfTexto(ops, M, y, (client && client.name) || 'Sin cliente', 11, false, 240);
+      const vehTxt = vehicle ? [vehicle.brand, vehicle.model, vehicle.year, vehicle.plate].filter(Boolean).join(' ') : '-';
+      pdfTexto(ops, M + 90, y, vehTxt, 11, false, 250);
+      y -= 16;
+      if (client && client.doc_id) { pdfTexto(ops, M, y, 'Doc: ' + client.doc_id, 9, false); y -= 12; }
+      if (client && client.phone) { pdfTexto(ops, M, y, 'Tel: ' + client.phone, 9, false); y -= 12; }
+      y -= 10;
+      pdfTexto(ops, M, y, '#', 9, true); pdfTexto(ops, M + 20, y, 'Descripcion', 9, true);
+      pdfTexto(ops, M + 300, y, 'Cant.', 9, true); pdfDerecha(ops, M + 400, y, 'P. unit.', 9, true);
+      pdfDerecha(ops, W - M, y, 'Importe', 9, true);
+      y -= 12;
+      ops.push('0.6 w ' + M + ' ' + y + ' m ' + (W - M) + ' ' + y + ' l S');
+      y -= 15;
+      items.forEach((it, idx) => {
+        if (y < 110) return;
+        pdfTexto(ops, M, y, String(idx + 1), 10, false);
+        pdfTexto(ops, M + 20, y, it.descr || '', 10, false, 270);
+        pdfTexto(ops, M + 300, y, String(it.qty), 10, false);
+        pdfDerecha(ops, M + 400, y, (Number(it.unit_price) || 0).toFixed(2), 10, false);
+        pdfDerecha(ops, W - M, y, (Number(it.line_total) || 0).toFixed(2), 10, false);
+        y -= 15;
+      });
+      y -= 6;
+      ops.push('0.8 w ' + M + ' ' + y + ' m ' + (W - M) + ' ' + y + ' l S');
+      /* Desglose fiscal (ft-documentos-01). Solo se imprimen las líneas que
+         aplican: un documento sin descuento ni IVA no necesita una fila de
+         ceros que confunda al cliente. El TOTAL sale de doc.total, que sigue
+         siendo el importe a cobrar. */
+      const dSub = Number(doc.subtotal) || 0;
+      const dDesc = Number(doc.descuento) || 0;
+      const dIva = Number(doc.iva) || 0;
+      const dIvaPct = Number(doc.iva_pct) || 0;
+      let yT = y - 12;
+      if (dDesc > 0) {
+        pdfDerecha(ops, W - M, yT, 'Subtotal  ' + dSub.toFixed(2), 11, false); yT -= 13;
+        pdfDerecha(ops, W - M, yT, 'Descuento  -' + dDesc.toFixed(2), 11, false); yT -= 13;
+      }
+      if (dIva > 0) {
+        pdfDerecha(ops, W - M, yT, 'IVA (' + dIvaPct + '%)  ' + dIva.toFixed(2), 11, false); yT -= 13;
+      }
+      pdfDerecha(ops, W - M, yT - 11, 'TOTAL  ' + (Number(doc.total) || 0).toFixed(2), 15, true);
+      y = yT;
+      const yF = Math.max(y - 110, 110);
+      ops.push('0.6 w ' + M + ' ' + yF + ' m ' + (M + 170) + ' ' + yF + ' l S');
+      ops.push('0.6 w ' + (W - M - 170) + ' ' + yF + ' m ' + (W - M) + ' ' + yF + ' l S');
+      pdfTexto(ops, M, yF - 12, 'Responsable del taller', 9, false);
+      pdfTexto(ops, W - M - 170, yF - 12, 'Conformidad del cliente', 9, false);
+      pdfPie(ops, 841.89, M, W);
+      const pdf = armarPdf(ops);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline; filename="' + doc.number + '.pdf"');
+      res.send(pdf);
+    } catch (e) { res.status(500).json({ error: errorAccionable(e, 'No se pudo generar el PDF') }); }
   });
 
   // Vista imprimible de documento (nota de entrega / presupuesto / recepción)

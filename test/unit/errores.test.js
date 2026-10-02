@@ -104,7 +104,7 @@ test('pantallas de error', async (t) => {
     assert.ok(!paginaError({ codigo: 404 }).includes('err-marca'), 'pintó la caja de marca vacía');
   });
 
-  await t.test('no repite presiones del taller (AGENTS.md §2)', () => {
+  await t.test('no repite presiones del taller (DECISIONES.md §3)', () => {
     for (const codigo of codigosDeError()) {
       const texto = paginaError({ codigo, contacto: CONTACTO }).replace(/<[^>]+>/g, ' ');
       assert.ok(!/\bPSI\b/.test(texto), `${codigo}: apareció una presión en la pantalla de error`);

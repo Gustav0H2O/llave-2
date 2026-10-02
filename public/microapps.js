@@ -23,6 +23,39 @@
     window.open(url, '_blank', 'noopener,noreferrer');
   };
   const telValido = (t) => /^\d{7,15}$/.test(soloDigitos(t));
+
+  /* ---------- telefono con codigo de pais ----------
+     wa.me EXIGE el prefijo de pais en digitos puros: un numero local guardado
+     como 0412-1234567 abria el selector de contactos en vez del chat del
+     cliente, que es el canal por el que el taller avisa y cobra. Estas dos
+     operaciones separan lo guardado y lo recomponen internacional. La tabla
+     de prefijos vive en public/datos.js (son datos, no codigo). */
+  /* Compone el internacional: respeta un "+" ya puesto y quita el 0 inicial
+     de la marcacion local, que es lo que impide que wa.me lo reconozca. */
+  const telInternacional = (prefijo, numero) => {
+    const d = soloDigitos(numero);
+    if (!d) return '';
+    if (String(numero).trim().startsWith('+')) return '+' + d;
+    return (prefijo || '') + d.replace(/^0+/, '');
+  };
+  /* Parte un telefono guardado en prefijo + resto, para editarlo en dos campos. */
+  const telPartir = (guardado, porDefecto = '+58') => {
+    const t = String(guardado || '').trim();
+    if (!t) return { prefijo: porDefecto, numero: '' };
+    const d = soloDigitos(t);
+    const pais = PAISES.map(p => p[2]).filter(p => p !== '+1')
+      .sort((a, b) => b.length - a.length).find(p => d.startsWith(soloDigitos(p)));
+    if (pais) return { prefijo: pais, numero: d.slice(soloDigitos(pais).length) };
+    return { prefijo: porDefecto, numero: d };
+  };
+  /* El pais elegido se recuerda para no preguntarlo en cada cliente nuevo. */
+  const paisRecordado = () => { try { return localStorage.getItem('ft_pais') || '+58'; } catch (e) { return '+58'; } };
+  const recordarPais = (p) => { try { localStorage.setItem('ft_pais', p); } catch (e) {} };
+  /* La fecha de hoy en ISO (AAAA-MM-DD). Vive aqui, y no en el archivo del
+     taller, porque microapps.js se carga ANTES: la agenda la usa en su estado
+     inicial y una definicion posterior llegaria tarde ("hoyISO is not
+     defined"). Es ayudante compartido, y este es el archivo de los compartidos. */
+  const hoyISO = () => new Date().toISOString().slice(0, 10);
   const now = () => new Date().toLocaleString('es', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   const confirmDialog = (opts) => window.confirmDialog ? window.confirmDialog(opts) : Promise.resolve(window.confirm(typeof opts === 'string' ? opts : opts?.message || ''));
   const alertDialog = (opts) => window.alertDialog ? window.alertDialog(opts) : Promise.resolve(window.alert(typeof opts === 'string' ? opts : opts?.message || ''));
@@ -199,7 +232,7 @@
   };
 
   /* ---------- datos estáticos (public/datos.js) ---------- */
-  const { DTCS, TORQUES, SPARKS, TIMING, VIN_YEARS, LABOR } = window.FT_DATOS || {};
+  const { DTCS, TORQUES, SPARKS, TIMING, VIN_YEARS, LABOR, PAISES } = window.FT_DATOS || {};
 
   const ZONES = ['Centro', 'Norte', 'Sur', 'Este', 'Oeste', 'Zona Industrial'];
 
@@ -303,11 +336,17 @@
 
   /* Categorias: id, nombre largo (menu de escritorio), icono y nombre corto
      (barra inferior del celular, donde no caben "Diagnostico" ni "Comunidad"). */
+  /* El orden de esta lista ES el orden del menú de escritorio, el de la barra
+     inferior del móvil y el de los grupos de la portada: una sola fuente.
+     Taller va en segundo lugar, justo detrás de Inicio y por delante de la
+     consulta técnica: es la razón por la que un taller entra todos los días
+     (documentos, cotizador, agenda, caja) y tenerla a un toque de distancia
+     importa más que el orden temático. */
   const NAV = [
     ['inicio', 'Inicio', 'Home', 'Inicio'],
+    ['taller', 'Taller', 'Wrench', 'Taller'],
     ['consulta', 'Consulta', 'Fuel', 'Consulta'],
     ['diag', 'Diagnóstico', 'Stethoscope', 'Diagnóstico'],
-    ['taller', 'Taller', 'Wrench', 'Taller'],
     ['comunidad', 'Comunidad', 'MapPin', 'Comunidad'],
     ['aprende', 'Aprender', 'BookOpen', 'Aprender'],
   ];
@@ -3097,11 +3136,10 @@
      negativos, así que el descuento NO puede ser un renglón):
        · «Mano de obra — {trabajo}»  → qty = horas, unit_price = tarifa
        · refacción                    → qty = cantidad, unit_price = precio
-       · «IVA {n} %»                   → qty = 1, unit_price = impuesto
-     El descuento se reparte en el precio de cada partida (factor 1 − d/100), de
-     modo que la suma de los renglones ES el total que ve el cliente. Por eso al
-     duplicar una cotización los precios ya vienen con el descuento aplicado y el
-     campo «Descuento %» vuelve a cero: el dinero es el mismo.
+     El descuento y el IVA ya NO se cocen en las partidas: viajan como
+     descuento_pct / iva_pct y el servidor calcula el desglose (ft-documentos-01).
+     Las partidas van a precio de lista, así que duplicar una cotización ya no
+     arrastra un descuento doble: los porcentajes se copian tal cual.
      ================================================================ */
   const QUOTE_VACIO = { rate: '350', iva: '16', disc: '0', client_id: '', veh: '', labor: [], parts: [] };
   const PREFIJO_MO = 'Mano de obra — ';
@@ -3147,7 +3185,6 @@
     const iva = base * (num(q.iva) / 100);
     const total = base + iva;
     const hayLineas = subtotal > 0;
-    const factor = 1 - num(q.disc) / 100;
 
     const setL = (i, k, v) => save({ ...q, labor: q.labor.map((l, j) => (j === i ? { ...l, [k]: v } : l)) });
     const addL = (d = '', h = '1') => save({ ...q, labor: [...q.labor, { d, h }] });
@@ -3205,19 +3242,18 @@
       return L.join('\n');
     };
 
-    /* Emitir = persistir en el servidor. Las partidas van con el descuento
-       repartido y el IVA como renglón propio para que el total que calcula el
-       servidor sea el mismo que ve el mecánico. Vale para los dos destinos: la
-       cotización (Historial) y el presupuesto (app Documentos). */
+    /* Emitir = persistir en el servidor. El desglose fiscal viaja APARTE
+       (descuento_pct / iva_pct) en vez de cocido en los precios unitarios: el
+       servidor guarda de qué salió el total y el PDF lo puede imprimir. El IVA
+       deja de ser un renglón de texto y pasa a ser el impuesto. */
     const armarItems = () => {
       const items = [];
       for (const l of q.labor) if (l.d.trim() && num(l.h) > 0) {
-        items.push({ descr: PREFIJO_MO + l.d.trim(), qty: num(l.h), unit_price: +(num(q.rate) * factor).toFixed(2) });
+        items.push({ descr: PREFIJO_MO + l.d.trim(), qty: num(l.h), unit_price: +num(q.rate).toFixed(2) });
       }
       for (const p of q.parts) if (p.d.trim() && num(p.q) > 0) {
-        items.push({ item_id: p.item_id ? Number(p.item_id) : null, descr: p.d.trim(), qty: num(p.q), unit_price: +(num(p.p) * factor).toFixed(2) });
+        items.push({ item_id: p.item_id ? Number(p.item_id) : null, descr: p.d.trim(), qty: num(p.q), unit_price: +num(p.p).toFixed(2) });
       }
-      if (num(q.iva) > 0) items.push({ descr: `IVA ${q.iva} %`, qty: 1, unit_price: +iva.toFixed(2) });
       return items;
     };
 
@@ -3227,7 +3263,14 @@
       if (!items.length) { setAviso('Agrega al menos un trabajo o una refacción.'); return; }
       setGuardando(true);
       try {
-        await apiFetch('/api/documents', { method: 'POST', body: JSON.stringify({ kind, client_id: q.client_id || null, items }) });
+        await apiFetch('/api/documents', {
+          method: 'POST',
+          body: JSON.stringify({
+            kind, client_id: q.client_id || null, items,
+            descuento_pct: +num(q.disc).toFixed(2),
+            iva_pct: +num(q.iva).toFixed(2),
+          }),
+        });
         docsApi.load();
         setAviso(kind === 'cotizacion' ? 'Cotización guardada en el taller.' : 'Presupuesto creado: ya aparece en Documentos.');
       } catch (e) { setAviso(e.message); }
@@ -3237,15 +3280,19 @@
     const historial = docs.filter((d) => d.kind === 'cotizacion');
 
     /* Duplicar una cotización anterior: se lee su detalle y se vuelca al
-       formulario. Los renglones de IVA no vuelven al borrador (son cálculo, no
-       trabajo) y el descuento tampoco porque ya viene dentro de los precios. */
+       formulario. El IVA y el descuento ahora vienen guardados como
+       porcentajes (ft-documentos-01), así que se copian tal cual; las
+       partidas vuelven a precio de lista. Los documentos anteriores a ese
+       cambio tenían el IVA como renglón de texto, y ese caso sigue leyéndose
+       para no perder las cotizaciones ya emitidas. */
     const duplicar = async (d) => {
       try {
         const det = await apiFetch('/api/documents/' + d.id);
         const labor = [];
         const parts = [];
         let rate = q.rate;
-        let ivaPct = '0';
+        let ivaPct = String(det.iva_pct ?? 0);
+        let discPct = String(det.descuento_pct ?? 0);
         for (const it of (det.items || [])) {
           const descr = String(it.descr || '');
           if (descr.startsWith(PREFIJO_MO)) {
@@ -3262,7 +3309,7 @@
           const vs = det.vehicle_snapshot ? JSON.parse(det.vehicle_snapshot) : null;
           veh = vs ? [vs.brand, vs.model, vs.year, vs.plate].filter(Boolean).join(' ') : '';
         } catch (e) { veh = ''; }
-        save({ ...q, rate, iva: ivaPct, disc: '0', client_id: det.client_id || '', veh, labor, parts });
+        save({ ...q, rate, iva: ivaPct, disc: discPct, client_id: det.client_id || '', veh, labor, parts });
         setVerHist(false);
         setAviso('Cotización copiada al formulario.');
       } catch (e) { setAviso(e.message); }
@@ -3273,7 +3320,16 @@
       try {
         const det = await apiFetch('/api/documents/' + fuente);
         const items = (det.items || []).map((i) => ({ item_id: i.item_id || null, descr: i.descr, qty: i.qty, unit_price: i.unit_price }));
-        await apiFetch('/api/documents', { method: 'POST', body: JSON.stringify({ kind: 'presupuesto', client_id: det.client_id || null, items }) });
+        /* El desglose se copia tal cual: si no, el presupuesto salía por el
+           total de las partidas y perdía el descuento y el IVA. */
+        await apiFetch('/api/documents', {
+          method: 'POST',
+          body: JSON.stringify({
+            kind: 'presupuesto', client_id: det.client_id || null, items,
+            descuento_pct: Number(det.descuento_pct) || 0,
+            iva_pct: Number(det.iva_pct) || 0,
+          }),
+        });
         docsApi.load();
         setAviso('Presupuesto creado: ya aparece en Documentos.');
       } catch (e) { setAviso(e.message); }
@@ -3823,121 +3879,6 @@
      de media jornada, y el deslizador decide las horas DENTRO del rango antes
      de mandarlas al cotizador: antes se imponía el promedio sin preguntar.
      ================================================================ */
-  const TOPE_ESCALA = 8;
-
-  const LaborApp = ({ onBack, onOpen, nested }) => {
-    const [q, setQ] = useState('');
-    const [sel, setSel] = useState(null);
-    const [horas, setHoras] = useState(0);
-    const [aviso, setAviso] = useState('');
-    const [favs, setFavs] = useState(() => ls.get('ft_labor_favs', []));
-    const [soloFavs, setSoloFavs] = useState(false);
-
-    const t = q.trim().toLowerCase();
-    const filas = LABOR.filter(([sis, nombre]) => !t || (nombre + ' ' + sis).toLowerCase().includes(t));
-    const visibles = soloFavs ? filas.filter(([, nombre]) => favs.includes(nombre)) : filas;
-
-    const abrir = ([sis, nombre, min, max]) => {
-      setSel({ sis, nombre, min, max });
-      setHoras(+(((min + max) / 2)).toFixed(2));
-      setAviso('');
-    };
-
-    const esFav = (nombre) => favs.includes(nombre);
-    const alternarFav = (nombre) => setFavs((prev) => {
-      const next = prev.includes(nombre) ? prev.filter((x) => x !== nombre) : [nombre, ...prev].slice(0, 5);
-      ls.set('ft_labor_favs', next);
-      return next;
-    });
-
-    /* Manda el trabajo al cotizador con las horas que el mecánico eligió, no con
-       el promedio de oficio. */
-    const alCotizador = () => {
-      if (!sel) return;
-      const q0 = ls.get('ft_quote', { rate: '350', iva: '16', disc: '0', client_id: '', veh: '', labor: [], parts: [] });
-      const labor = (q0.labor || []).filter((l) => l.d || l.h);
-      ls.set('ft_quote', { ...q0, labor: [...labor, { d: sel.nombre, h: String(horas) }] });
-      setAviso(`${sel.nombre} · ${horas} h enviado al Cotizador.`);
-    };
-
-    const pct = (h) => Math.max(0, Math.min(100, (h / TOPE_ESCALA) * 100));
-
-    return html`<${TallerShell} tool="labor" title="Tiempos" icon="History" nested=${nested}
-        sub="Horas de referencia para cotizar" onBack=${onBack} onOpen=${onOpen}>
-
-      ${aviso && html`<div class="tw-alert"><${CatIc} n="CircleCheck" s=${18} />
-        <div class="tw-alert-b"><span class="tw-alert-t">${aviso}</span></div>
-        <button type="button" class="tw-sec-a" onClick=${() => setAviso('')}>Cerrar</button></div>`}
-
-      <div class="tw-search"><${CatIc} n="Search" s=${16} />
-        <input type="search" placeholder="Trabajo o sistema: bomba, clutch…" aria-label="Buscar trabajo" value=${q} onChange=${(e) => setQ(e.target.value)} /></div>
-
-      ${favs.length > 0 && html`<div class="tw-chips">
-        <button type="button" class="tw-chip${soloFavs ? ' is-on' : ''}" aria-pressed=${soloFavs} onClick=${() => setSoloFavs(!soloFavs)}>
-          <${CatIc} n="Star" s=${15} />Favoritos</button>
-      </div>`}
-
-      ${sel && html`<div class="tw-card">
-        <div class="tw-card-top">
-          <span class="tw-tag">${sel.sis}</span>
-          <button type="button" class="tw-icbtn${esFav(sel.nombre) ? ' on' : ''}" aria-label="Marcar favorito"
-            style=${{ marginLeft: 'auto' }} onClick=${() => alternarFav(sel.nombre)}>
-            <${CatIc} n="Star" s=${18} /></button>
-        </div>
-        <p class="tw-card-name">${sel.nombre}</p>
-        <p class="tw-card-meta">Referencia de taller: ${sel.min.toFixed(1)}–${sel.max.toFixed(1)} h</p>
-        <div class="tw-rng">
-          <div class="tw-rng-seg" style=${{ left: pct(sel.min) + '%', right: (100 - pct(sel.max)) + '%' }}></div>
-        </div>
-        <div class="tw-scale"><span>0 h</span><span>4 h</span><span>8 h</span></div>
-
-        <div class="tw-slider">
-          <input type="range" min=${sel.min} max=${sel.max} step="0.25" value=${horas}
-            aria-label="Horas del trabajo" onChange=${(e) => setHoras(+e.target.value)} />
-          <span class="tw-slider-v">${horas} h</span>
-        </div>
-        <div class="tw-sum">
-          <div class="tw-sum-row"><span>Estimado a tarifa del cotizador</span><span>${horas} h</span></div>
-          <div class="tw-sum-total"><span>Se manda con</span><span>${horas} h</span></div>
-        </div>
-        <button type="button" class="tw-cta" onClick=${alCotizador}>Agregar al cotizador →</button>
-        <button type="button" class="tw-cta sec" onClick=${() => setSel(null)}>Cerrar</button>
-      </div>`}
-
-      ${visibles.map(([sis, nombre, min, max]) => html`<div class="tw-card" key=${nombre}>
-        <div class="tw-card-top">
-          <span class="tw-tag">${sis}</span>
-          ${esFav(nombre) && html`<span class="tw-pill warn"><${CatIc} n="Star" s=${12} />Favorito</span>`}
-          <span class="tw-card-meta" style=${{ marginLeft: 'auto' }}>${min.toFixed(1)}–${max.toFixed(1)} h</span>
-        </div>
-        <div class="tw-card-title">
-          <p class="tw-card-name">${nombre}</p>
-        </div>
-        <div class="tw-rng">
-          <div class="tw-rng-seg" style=${{ left: pct(min) + '%', right: (100 - pct(max)) + '%' }}></div>
-        </div>
-        <div class="tw-scale"><span>0 h</span><span>4 h</span><span>8 h</span></div>
-        <div class="tw-acts">
-          <button type="button" class="tw-act primary" onClick=${() => abrir([sis, nombre, min, max])}>
-            <${CatIc} n="Clock" s=${18} />Ver y ajustar</button>
-          <button type="button" class=${'tw-act' + (esFav(nombre) ? ' danger' : '')} onClick=${() => alternarFav(nombre)}>
-            <${CatIc} n="Star" s=${18} />${esFav(nombre) ? 'Quitar' : 'Favorito'}</button>
-        </div>
-      </div>`)}
-
-      ${!visibles.length && html`<div class="tw-empty">
-        <${CatIc} n="History" s=${26} />
-        <p class="tw-empty-t">${soloFavs ? 'Sin favoritos' : 'Sin resultados'}</p>
-        <p class="tw-empty-s">${soloFavs
-          ? 'Marca con la estrella los trabajos que más cotizas y aparecerán aquí.'
-          : 'Ningún trabajo coincide con “' + q + '”.'}</p>
-        ${soloFavs && html`<button type="button" class="tw-cta sec" onClick=${() => setSoloFavs(false)}>Ver todos</button>`}
-      </div>`}
-
-      <p class="tw-note">No es un baremo oficial: son rangos de taller general. Un vehículo oxidado, un motor transversal apretado o un tornillo barrido se salen del rango sin discusión — cotiza con eso en mente.</p>
-    </${MicroShell}>`;
-  };
-
   /* ================================================================
      34. "No enciende" — árbol de decisión
      Es la consulta número uno del oficio y llega siempre igual de vaga.
@@ -4656,8 +4597,12 @@
      archivo: juntas superaban el tope de 3.000 líneas y los 200 KB de presupuesto
      de quality/budgets.json. Comparten estos ayudantes en vez de duplicarlos, y
      ese archivo se carga DESPUÉS de este para poder ampliar window.FT_MICRO. */
-  window.FT_MICRO_UTIL = { html, ls, uid, enviarWhatsApp, telValido, now, CatIc, MicroShell, TallerNav, TallerShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog, useSubRuta, useVerMas };
+  window.FT_MICRO_UTIL = { html, ls, uid, hoyISO, enviarWhatsApp, telValido, PAISES, telInternacional, telPartir, paisRecordado, recordarPais, now, CatIc, MicroShell, TallerNav, TallerShell, useStore, apiFetch, useApi, downloadBlob, confirmDialog, alertDialog, useSubRuta, useVerMas };
   window.FT_MICRO = {
+   /* AgendaApp se mudo aqui desde microapps-taller-2.js: la agenda completa
+      (rejilla horaria, vista de mes, horario del taller) no cabia en un
+      archivo que ya estaba contra su tope. Aqui vive el resto de la operacion
+      diaria. */
    Home, DtcApp, TorqueApp, SparkApp, CrossApp, ConverterApp, VinApp, PressureApp,
    RegulatorApp, QuickDiagApp, TimingApp, GuidesApp, FusesApp, TireApp,    QuoteApp, MaintenanceApp, TrimApp, CompressionApp, PinoutApp, LaborApp,
    NoStartApp, BatteryApp, SymptomDiagApp, CalcApp, AidApp, GlossaryApp,

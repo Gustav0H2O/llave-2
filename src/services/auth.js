@@ -5,7 +5,7 @@
    POR QUÉ AQUÍ Y NO EN lib/
    Estas primitivas hablan con la base de datos (sesiones, talleres), con el
    entorno (Resend, hashes) o con las cookies de express. Son servidor, no
-   reglas del taller: lib/ sigue puro (AGENTS.md §3).
+   reglas del taller: lib/ sigue puro (DECISIONES.md §3).
 
    QUÉ SE MUEVE
    Antes eran variables y funciones de la clausura de createApp en server-pg.js.

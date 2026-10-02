@@ -7,7 +7,7 @@
 
    POR QUÉ AQUÍ Y NO EN lib/
    Esto habla con la base de datos y con express: es servidor, no regla del
-   taller (AGENTS.md §3). lib/ sigue siendo puro.
+   taller (DECISIONES.md §3). lib/ sigue siendo puro.
 
    CÓMO SE MONTA
    server-pg.js llama montarInventory(app, { ... }) en la MISMA posición en la que
@@ -15,6 +15,19 @@
    por `deps` exactamente lo que necesita. Ver src/routes/README.md.
    ========================================================================= */
 const { crearAlertaStock } = require('../services/stock');
+
+/* Tipos de artículo (ft-inventario-01). `category` sigue siendo texto libre y
+   sirve para agrupar; esto responde a otra pregunta: si la fila es una pieza
+   que se compra y se gasta, un servicio que se vende por hora, o algo que se
+   consume en el trabajo (aceite, refrigerante). Un taller no puede tener su
+   propio catálogo de servicios sin esto: un servicio no tiene existencias que
+   reponer, pero sí precio y se factura igual que una pieza.
+
+   `null` (no informado) es un valor legítimo y el más común a corto plazo:
+   las filas ya escritas no se reclasifican solas, porque adivinar qué es un
+   artículo que el taller nunca dijo sería inventar su catálogo. */
+const ITEM_TIPOS = ['repuesto', 'servicio', 'consumible'];
+const tipoDe = (v) => (ITEM_TIPOS.includes(v) ? v : null);
 
 function montarInventory(app, deps) {
   const { db, requireWorkshop, idDe, str, num, toInt, enRango, TOPE_QTY, TOPE_PRECIO, FUERA_CANTIDAD, FUERA_PRECIO, errorAccionable, enTransaccion, csvEscape } = deps;
@@ -53,12 +66,12 @@ function montarInventory(app, deps) {
     if (!enRango(unit_price, 0, TOPE_PRECIO) || !enRango(cost_price, 0, TOPE_PRECIO)) {
       return res.status(400).json({ error: FUERA_PRECIO });
     }
-    try {
-      const id = await db.insertReturningId(`INSERT INTO inventory_items
-        (workshop_id, name, sku, category, qty, min_qty, unit_price, cost_price, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [req.workshopId, name, str(b.sku, 60) || null, str(b.category, 60) || null,
-         qty, min_qty, unit_price, cost_price, str(b.notes, 500) || null]);
+try {
+      const id = await db.insertReturningId(`INSERT INTO inventory_items
+        (workshop_id, name, sku, category, item_tipo, qty, min_qty, unit_price, cost_price, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.workshopId, name, str(b.sku, 60) || null, str(b.category, 60) || null,
+         tipoDe(b.item_tipo), qty, min_qty, unit_price, cost_price, str(b.notes, 500) || null]);
       res.status(201).json({ id });
 
       /* Una pieza que nace ya en el mínimo avisa una vez (y solo una). */
@@ -87,11 +100,18 @@ function montarInventory(app, deps) {
     if (!enRango(unit_price, 0, TOPE_PRECIO) || !enRango(cost_price, 0, TOPE_PRECIO)) {
       return res.status(400).json({ error: FUERA_PRECIO });
     }
-    try {
-      const info = await db.run(`UPDATE inventory_items SET name=?, sku=?, category=?, min_qty=?, unit_price=?, cost_price=?, notes=?
-        WHERE id=? AND workshop_id=?`,
-        [name, str(b.sku, 60) || null, str(b.category, 60) || null,
-         min_qty, unit_price, cost_price, str(b.notes, 500) || null, id, req.workshopId]);
+try {
+      /* item_tipo solo se reescribe si viene en el cuerpo: una edición que no
+         manda el campo no debe borrar la clasificación que el taller ya hizo.
+         tipoDe() devuelve null para un valor fuera de lista, que es la misma
+         respuesta que "el taller lo quitó a propósito". */
+      const actual = 'item_tipo' in b
+        ? tipoDe(b.item_tipo)
+        : (await db.get('SELECT item_tipo FROM inventory_items WHERE id=? AND workshop_id=?', [id, req.workshopId]))?.item_tipo ?? null;
+      const info = await db.run(`UPDATE inventory_items SET name=?, sku=?, category=?, item_tipo=?, min_qty=?, unit_price=?, cost_price=?, notes=?
+        WHERE id=? AND workshop_id=?`,
+        [name, str(b.sku, 60) || null, str(b.category, 60) || null,
+         actual, min_qty, unit_price, cost_price, str(b.notes, 500) || null, id, req.workshopId]);
       if (!info.changes) return res.status(404).json({ error: 'No encontrado' });
       /* Cambiar el mínimo puede encender la alerta: se reevalúa. */
       await evaluarAlertaStock(id, req.workshopId);
@@ -159,20 +179,20 @@ function montarInventory(app, deps) {
     res.set('Cache-Control', 'no-store').json(rows);
   });
 
-  app.get('/api/inventory/export', requireWorkshop, async (req, res) => {
-    const rows = await db.all('SELECT name, sku, category, qty, min_qty, unit_price, cost_price, notes FROM inventory_items WHERE workshop_id = ? ORDER BY name', req.workshopId);
-    if (req.query.format === 'csv') {
-      const head = ['Nombre', 'SKU', 'Categoría', 'Cantidad', 'Mínimo', 'Precio', 'Costo', 'Notas'];
-      /* 4.6: csvEscape real (no el esc de HTML): dobla comillas y encierra el
-         campo con coma/comilla/salto. */
-      const csv = [head.map(csvEscape).join(','), ...rows.map(r => [r.name, r.sku, r.category, r.qty, r.min_qty, r.unit_price, r.cost_price, r.notes].map(csvEscape).join(','))].join('\n');
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', 'attachment; filename="inventario.csv"');
-      return res.send(csv);
-    }
-    res.json(rows);
-  });
+app.get('/api/inventory/export', requireWorkshop, async (req, res) => {
+    const rows = await db.all('SELECT name, sku, category, item_tipo, qty, min_qty, unit_price, cost_price, notes FROM inventory_items WHERE workshop_id = ? ORDER BY name', req.workshopId);
+    if (req.query.format === 'csv') {
+      const head = ['Nombre', 'SKU', 'Categoría', 'Tipo', 'Cantidad', 'Mínimo', 'Precio', 'Costo', 'Notas'];
+      /* 4.6: csvEscape real (no el esc de HTML): dobla comillas y encierra el
+         campo con coma/comilla/salto. */
+      const csv = [head.map(csvEscape).join(','), ...rows.map(r => [r.name, r.sku, r.category, r.item_tipo, r.qty, r.min_qty, r.unit_price, r.cost_price, r.notes].map(csvEscape).join(','))].join('\n');
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="inventario.csv"');
+      return res.send(csv);
+    }
+    res.json(rows);
+  });
 
 }
 
-module.exports = { montarInventory };
+module.exports = { montarInventory, ITEM_TIPOS };

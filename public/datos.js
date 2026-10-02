@@ -291,9 +291,9 @@
         montoMin: 5,
         icon: 'ShieldCheck',
         color: '#94a3b8',
-        perk: 'Presupuestos y notas de entrega en PDF sin marca de agua',
+        perk: 'Presupuestos y notas de entrega en PDF descargable, sin marca de agua',
         beneficios: [
-          'Descarga de cotizaciones y notas en PDF 100% limpias',
+          'Descarga de cotizaciones y notas en PDF, listas para enviar',
           'Formato corporativo con datos de tu taller para clientes',
           'Todos los beneficios del nivel Impulsor incluidos'
         ]
@@ -310,7 +310,7 @@
         beneficios: [
           'Aparición prioritaria en el buscador de mecánicos y talleres',
           'Respaldo completo de inventario, clientes y órdenes en 1 clic',
-          'Generación ilimitada de documentos PDF sin marca de agua'
+          'Generación ilimitada de documentos en PDF y Excel sin marca de agua'
         ]
       },
       {
@@ -346,5 +346,22 @@
     ],
   };
 
-  window.FT_DATOS = { DTCS, TORQUES, SPARKS, TIMING, VIN_YEARS, LABOR };
+  /* Prefijos telefónicos para el alta de clientes.
+     Viven aquí —y no en microapps.js— por la misma razón que el resto de las
+     tablas: son DATOS y crecen con el uso. wa.me exige el prefijo de país en
+     dígitos puros, así que este es el catálogo que evita que un número local
+     guardado como "0412-1234567" abra el selector de contactos en vez del
+     chat del cliente. Se listan primero los países donde hay talleres. */
+  const PAISES = [
+    ['VE', 'Venezuela', '+58'], ['CO', 'Colombia', '+57'], ['MX', 'México', '+52'],
+    ['AR', 'Argentina', '+54'], ['CL', 'Chile', '+56'], ['PE', 'Perú', '+51'],
+    ['EC', 'Ecuador', '+593'], ['BO', 'Bolivia', '+591'], ['PY', 'Paraguay', '+595'],
+    ['UY', 'Uruguay', '+598'], ['BR', 'Brasil', '+55'], ['PA', 'Panamá', '+507'],
+    ['CR', 'Costa Rica', '+506'], ['GT', 'Guatemala', '+502'], ['DO', 'Rep. Dominicana', '+1'],
+    ['CU', 'Cuba', '+53'], ['HN', 'Honduras', '+504'], ['SV', 'El Salvador', '+503'],
+    ['NI', 'Nicaragua', '+505'], ['PR', 'Puerto Rico', '+1'], ['ES', 'España', '+34'],
+    ['US', 'Estados Unidos', '+1'],
+  ];
+
+  window.FT_DATOS = { DTCS, TORQUES, SPARKS, TIMING, VIN_YEARS, LABOR, PAISES };
 })();

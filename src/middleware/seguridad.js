@@ -10,7 +10,7 @@
 
    POR QUÉ AQUÍ Y NO EN lib/
    Lee `public/index.html` del disco y usa `crypto`/`helmet`: es servidor, no una
-   regla del taller. `lib/` tiene que seguir siendo puro (AGENTS.md §3).
+   regla del taller. `lib/` tiene que seguir siendo puro (DECISIONES.md §3).
 
    ORDEN DE REGISTRO = CONTRATO (src/routes/README.md §1)
    `aplicarNonce` se llama antes que el modo mantenimiento; `aplicarSeguridad`

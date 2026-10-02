@@ -304,6 +304,72 @@ function GlobalDialog() {
 }
 window.FT_APP.GlobalDialog = GlobalDialog;
 
+/* ============================================================================
+   Límite de error de las micro apps.
+
+   Por qué existe: una micro app que lanza en su PRIMER render dejaba la
+   pantalla completamente blanca y muda. No es hipotético — pasó con Órdenes
+   de Trabajo, que leía un estado antes de declararlo (zona muerta temporal de
+   `const`). React 18 desmonta TODO el árbol del root cuando un render lanza y
+   no hay ningún límite por encima, así que el usuario veía una página vacía,
+   sin mensaje, sin botón y sin forma de salir; desde fuera, "la app está rota".
+
+   Un límite de error convierte eso en lo que de verdad es: un fallo acotado,
+   con un texto en español y una salida (Volver) que el mecánico puede usar.
+
+   Tiene que ser una CLASE: React no ofrece versión con hooks de
+   componentDidCatch/getDerivedStateFromError, y no hay build step para
+   transpilar nada. */
+class MicroErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+    this.reintentar = this.reintentar.bind(this);
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    /* Queda en la consola del navegador con el componente que falló: es el
+       rastro que hace falta para arreglarlo, y antes no existía ninguno. */
+    console.error('[micro-app] fallo el render:', error, info?.componentStack);
+  }
+  componentDidUpdate(previos) {
+    /* Al cambiar de herramienta se limpia el error: si no, el límite se
+       quedaría enganchado y ninguna otra micro app volvería a pintarse. */
+    if (this.state.error && previos.appKey !== this.props.appKey) this.setState({ error: null });
+  }
+  reintentar() {
+    this.setState({ error: null });
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    const msg = this.state.error?.message || String(this.state.error);
+    return html`
+      <div class="micro-shell panel">
+        <div class="micro-shell-head">
+          <button type="button" class="micro-back" onClick=${this.props.onBack}>
+            <${MarkIcon} name="ChevronLeft" size=${16} /><span>Volver</span>
+          </button>
+          <span class="micro-shell-ic"><${MarkIcon} name="AlertTriangle" size=${18} /></span>
+          <div class="micro-shell-t">
+            <h2>Esta herramienta falló</h2>
+            <p class="micro-shell-sub">El resto de la aplicación sigue funcionando.</p>
+          </div>
+        </div>
+        <div class="micro-shell-body">
+          <div class="alert" role="alert"><span>No se pudo abrir la herramienta. Vuelve al inicio e inténtalo otra vez; si sigue igual, avisa con este detalle:</span></div>
+          <p class="tw-note" style=${{ overflowWrap: 'anywhere' }}>${msg}</p>
+          <div class="f-row gap-2 mt-2">
+            <button type="button" class="tw-cta" onClick=${this.reintentar}>Reintentar</button>
+            <button type="button" class="tw-cta sec" onClick=${this.props.onBack}>Volver al inicio</button>
+          </div>
+        </div>
+      </div>`;
+  }
+}
+window.FT_APP.MicroErrorBoundary = MicroErrorBoundary;
+
 
 /* Reconstruye al cambiar de tema. Las escenas de Three.js fijan sus colores al
    crear los materiales, así que recolorear en vivo exigiría recorrerlas enteras;
@@ -1635,7 +1701,10 @@ function App() {
       /* onOpen va a todas: algunas herramientas encadenan con otra ("no
          enciende" manda a batería o a compresión) y sin esto el usuario
          tendría que volver al inicio y buscarla de nuevo. */
-      return html`<div class="micro-app-view">${html`<${AppComp} onBack=${closeMicro} onOpen=${openMicro} onLogout=${logout} onUserChange=${refreshUser} user=${user} />`}${overlays}</div>`;
+      return html`<div class="micro-app-view">
+        <${MicroErrorBoundary} appKey=${microApp} onBack=${closeMicro}>
+          <${AppComp} onBack=${closeMicro} onOpen=${openMicro} onLogout=${logout} onUserChange=${refreshUser} user=${user} />
+        </${MicroErrorBoundary}>${overlays}</div>`;
     }
     /* Esqueleto en vez de un texto "Cargando…": reserva el alto del contenido
        y evita que el home salte cuando llega la sesión. */

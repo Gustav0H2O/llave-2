@@ -62,6 +62,45 @@ describe('Flujo completo: cliente → vehículo → orden → documento', () => 
     ids.pieza = r.body.id;
   });
 
+  it('5b. una pieza sin clasificar lo queda: no se inventa su tipo', async () => {
+    /* ft-inventario-01: las filas ya escritas no se reclasifican solas. Adivinar
+       qué es un artículo que el taller nunca dijo sería inventar su catálogo. */
+    const lista = (await t.get('/api/inventory')).body;
+    const pieza = lista.find((i) => i.id === ids.pieza);
+    assert.equal(pieza.item_tipo, null, 'sin item_tipo, la pieza queda sin clasificar');
+  });
+
+  it('5c. clasifica el artículo como repuesto, servicio o consumible', async () => {
+    const rep = await t.post('/api/inventory', { name: 'Filtro de aire', item_tipo: 'repuesto', unit_price: 30 });
+    const srv = await t.post('/api/inventory', { name: 'Cambio de pila (servicio)', item_tipo: 'servicio', unit_price: 120 });
+    const cons = await t.post('/api/inventory', { name: 'Aceite 5W30', item_tipo: 'consumible', unit_price: 18 });
+    assert.equal(rep.status, 201); assert.equal(srv.status, 201); assert.equal(cons.status, 201);
+
+    const lista = (await t.get('/api/inventory')).body;
+    assert.equal(lista.find((i) => i.id === rep.body.id).item_tipo, 'repuesto');
+    assert.equal(lista.find((i) => i.id === srv.body.id).item_tipo, 'servicio');
+    assert.equal(lista.find((i) => i.id === cons.body.id).item_tipo, 'consumible');
+  });
+
+  it('5d. un tipo inventado no se guarda (se trata como sin clasificar)', async () => {
+    const r = await t.post('/api/inventory', { name: 'Cosa rara', item_tipo: 'inventado', unit_price: 5 });
+    assert.equal(r.status, 201, 'un tipo fuera de lista no debe tumbar el alta');
+    const fila = (await t.get('/api/inventory')).body.find((i) => i.id === r.body.id);
+    assert.equal(fila.item_tipo, null, 'lo que no está en la lista blanca no se escribe');
+  });
+
+  it('5e. editar sin mandar el tipo no borra la clasificación', async () => {
+    const alta = await t.post('/api/inventory', { name: 'Bujía', item_tipo: 'repuesto', unit_price: 12 });
+    assert.equal(alta.status, 201);
+    /* Una edición que no toca el tipo lo deja como estaba: mandar solo el
+       nombre no puede devolver la pieza al limbo de "sin clasificar". */
+    const ed = await t.put(`/api/inventory/${alta.body.id}`, { name: 'Bujía de iridio', unit_price: 20 });
+    assert.equal(ed.status, 200);
+    const fila = (await t.get('/api/inventory')).body.find((i) => i.id === alta.body.id);
+    assert.equal(fila.item_tipo, 'repuesto', 'el tipo debe sobrevivir a una edición que no lo menciona');
+    assert.equal(fila.name, 'Bujía de iridio');
+  });
+
   it('6. un movimiento de entrada suma existencia', async () => {
     const r = await t.post(`/api/inventory/${ids.pieza}/moves`, { delta: 5, kind: 'entrada', note: 'Compra' });
     assert.equal(r.status, 200);
@@ -176,6 +215,66 @@ describe('Flujo completo: cliente → vehículo → orden → documento', () => 
     assert.equal(Number(cabecera.total), 2 * 850 + 400, 'el total no cuadra con las partidas');
   });
 
+  it('21b. sin descuento ni IVA el desglose queda en cero y el total es el subtotal', async () => {
+    /* Un documento emitido sin desglose fiscal no puede inventarse uno: el
+       PDF sale con un TOTAL solo y los ceros se leen como error de cálculo. */
+    const doc = (await t.get(`/api/documents/${ids.documento}`)).body;
+    assert.equal(Number(doc.subtotal), 2100, 'el subtotal es la suma de las partidas');
+    assert.equal(Number(doc.descuento), 0);
+    assert.equal(Number(doc.iva), 0);
+    assert.equal(Number(doc.total), Number(doc.subtotal), 'sin impuestos, el total ES el subtotal');
+  });
+
+  it('21c. el IVA se calcula sobre la base ya descontada', async () => {
+    const r = await t.post('/api/documents', {
+      kind: 'presupuesto', client_id: ids.cliente,
+      items: [{ descr: 'Servicio', qty: 1, unit_price: 1000 }],
+      descuento_pct: 10, iva_pct: 16,
+    });
+    assert.equal(r.status, 201);
+    assert.equal(r.body.subtotal, 1000);
+    assert.equal(r.body.descuento, 100);
+    /* 16 % de 900, NO de 1000: descontar antes de taxpagar es lo que separa
+       un desglose correcto de uno que multiplica dos veces. */
+    assert.equal(r.body.iva, 144, 'el IVA debe ir sobre la base descontada');
+    assert.equal(r.body.total, 1044, 'total = subtotal − descuento + IVA');
+
+    const guardado = (await t.get(`/api/documents/${r.body.id}`)).body;
+    assert.equal(Number(guardado.subtotal), 1000);
+    assert.equal(Number(guardado.iva_pct), 16);
+    assert.equal(Number(guardado.iva), 144);
+    assert.equal(Number(guardado.descuento_pct), 10, 'el % de descuento se deriva del importe guardado');
+  });
+
+  it('21d. el desglose fiscal sale en el PDF del documento', async () => {
+    const r = await t.post('/api/documents', {
+      kind: 'presupuesto', client_id: ids.cliente,
+      items: [{ descr: 'Cambio de pila', qty: 1, unit_price: 500 }],
+      descuento_pct: 20, iva_pct: 16,
+    });
+    assert.equal(r.status, 201);
+    const pdf = await t.get(`/api/documents/${r.body.id}/pdf`);
+    assert.equal(pdf.status, 200);
+    /* Es un PDF binario, no texto: lo que se comprueba aquí es que la ruta
+       responde con un archivo real tras el cambio de columnas, que es donde
+       un desglose mal cableado rompe (subtotal/descuento/iva en cero). */
+    const buf = Buffer.isBuffer(pdf.body) ? pdf.body : Buffer.from(String(pdf.body));
+    assert.equal(buf.slice(0, 4).toString(), '%PDF', 'debe salir un PDF real, no texto plano');
+    assert.ok(buf.length > 500, 'el PDF debe traer contenido');
+  });
+
+  it('21e. un descuento o IVA fuera de rango se acota, no se cuela', async () => {
+    const r = await t.post('/api/documents', {
+      kind: 'presupuesto', client_id: ids.cliente,
+      items: [{ descr: 'X', qty: 1, unit_price: 100 }],
+      descuento_pct: 250, iva_pct: -5,
+    });
+    assert.equal(r.status, 201, 'un porcentaje fuera de rango no debe tumbar la emisión');
+    assert.equal(r.body.descuento, 100, 'el descuento se acota al 100 %: nunca mayor que el subtotal');
+    assert.equal(r.body.iva, 0, 'un IVA negativo se trata como 0');
+    assert.equal(r.body.total, 0);
+  });
+
   it('22. un documento sin partidas se rechaza', async () => {
     const r = await t.post('/api/documents', { kind: 'entrega', items: [] });
     assert.equal(r.status, 400);
@@ -222,8 +321,54 @@ describe('Flujo completo: cliente → vehículo → orden → documento', () => 
     const r = await t.get('/api/documents/export?format=csv');
     assert.equal(r.status, 200);
     const csv = String(r.body);
-    assert.match(csv, /Número,Tipo,Estado,Cliente,Total,Fecha/, 'falta la cabecera del CSV');
-    assert.ok(csv.split('\n').length >= 2, 'el CSV no trae filas');
+    /* 2026-10-01: el CSV pasa a punto y coma con BOM UTF-8. Con coma y sin BOM,
+       Excel en español abría el archivo en una sola columna y rompía los
+       acentos ("Pérez" salía como "PÃ©rez"), así que el "Excel" que se ofrecía
+       no servía para lo que el taller lo quería. El BOM hace que Excel detecte
+       UTF-8; el punto y coma es lo que espera esta configuración regional. */
+    /* El BOM se comprueba en el SERVICIO, no aquí: el cliente de pruebas lee
+       con res.text(), que decodifica el UTF-8 y descarta el U+FEFF. Comprobarlo
+       sobre el cuerpo ya decodificado daría un falso negativo siempre. */
+    const { armarCsv } = require('../../src/services/exportar');
+    const conBom = armarCsv([['A', 'B'], ['José', '1']]);
+    assert.deepEqual([...conBom.slice(0, 3)], [0xEF, 0xBB, 0xBF], 'el CSV debe empezar con BOM UTF-8 (Excel rompe los acentos sin él)');
+    assert.match(conBom.toString('utf8'), /^\uFEFFA;B/, 'la cabecera va en punto y coma (Excel en español)');
+    assert.match(csv, /Número;Tipo;Estado;Cliente;Total;Fecha/, 'falta la cabecera del CSV');
+    assert.ok(csv.split('\r\n').length >= 2, 'el CSV no trae filas');
+  });
+
+  it('28b. exporta los documentos en Excel (.xlsx real, no un CSV renombrado)', async () => {
+    const r = await t.get('/api/documents/export?format=xlsx');
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get('content-type') || '', /spreadsheetml\.sheet/);
+    /* Un .xlsx es un ZIP: su firma son los bytes "PK". El cliente de prueba
+       entrega el cuerpo como texto, así que se compara el prefijo tal cual. */
+    assert.ok(String(r.body).startsWith('PK'), 'un .xlsx debe empezar con la firma ZIP (PK)');
+  });
+
+  it('28c. exporta un documento suelto en PDF de verdad', async () => {
+    const r = await t.get(`/api/documents/${ids.documento}/pdf`);
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get('content-type') || '', /application\/pdf/);
+    const pdf = String(r.body);
+    /* Comprobaciones mínimas de que es un PDF bien cerrado: cabecera, marca de
+       fin y la tabla de referencias cruzadas que los lectores exigen. */
+    assert.ok(pdf.startsWith('%PDF-'), 'no empieza con la cabecera de PDF');
+    assert.ok(pdf.includes('%%EOF'), 'le falta el terminador %%EOF');
+    assert.ok(pdf.includes('startxref'), 'le falta la tabla xref');
+  });
+
+  it('28d. el PDF de un documento que no existe da 404, no un archivo vacío', async () => {
+    const r = await t.get('/api/documents/999999/pdf');
+    assert.equal(r.status, 404);
+  });
+
+  it('28e. el PDF de un documento de OTRO taller da 404 (aislamiento, 4.5)', async () => {
+    /* La ruta filtra por workshop_id, no solo por id: un taller no puede
+       descargarse el presupuesto de otro cambiando el número en la URL. */
+    const otro = crearCliente(ctx.base);
+    await otro.registrar('PdfAjeno');
+    assert.equal((await otro.get(`/api/documents/${ids.documento}/pdf`)).status, 404);
   });
 
   it('29. exporta el inventario en CSV', async () => {
@@ -244,6 +389,93 @@ describe('Flujo completo: cliente → vehículo → orden → documento', () => 
     // que es lo que impide que la coma parta la fila en dos columnas.
     assert.ok(csv.includes('"Filtro, ""premium"" 8"""'),
       `el campo con coma y comillas debe ir entrecomillado y con las comillas dobladas:\n${csv}`);
+  });
+
+  it('29c. exporta los clientes en CSV', async () => {
+    const r = await t.get('/api/clients/export?format=csv');
+    assert.equal(r.status, 200);
+    const csv = String(r.body);
+    assert.match(csv, /Nombre;Doc ID;Teléfono;Correo;Ciudad;Dirección;Notas/, 'falta la cabecera del CSV de clientes');
+    assert.ok(csv.includes('Juan Pérez'), 'el cliente dado de alta no aparece en el export');
+  });
+
+  it('29d. exporta los clientes en Excel (.xlsx real, no un CSV renombrado)', async () => {
+    const r = await t.get('/api/clients/export?format=xlsx');
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get('content-type') || '', /spreadsheetml\.sheet/);
+    assert.ok(String(r.body).startsWith('PK'), 'un .xlsx debe empezar con la firma ZIP (PK)');
+  });
+
+  it('29e. exporta los clientes en PDF de verdad', async () => {
+    const r = await t.get('/api/clients/export?format=pdf');
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get('content-type') || '', /application\/pdf/);
+    const pdf = String(r.body);
+    assert.ok(pdf.startsWith('%PDF-'), 'no empieza con la cabecera de PDF');
+    assert.ok(pdf.includes('%%EOF'), 'le falta el terminador %%EOF');
+    assert.ok(pdf.includes('startxref'), 'le falta la tabla xref');
+  });
+
+  it('29f. el export de clientes de OTRO taller no muestra los de este (aislamiento, 4.5)', async () => {
+    /* La ruta filtra por workshop_id: un taller no puede descargarse
+       la cartera de otro. El export ajeno trae su propia lista
+       (vacía aquí), nunca los clientes de este taller. */
+    const otro = crearCliente(ctx.base);
+    await otro.registrar('ExportAjeno');
+    const r = await otro.get('/api/clients/export?format=csv');
+    assert.equal(r.status, 200);
+    assert.ok(!String(r.body).includes('Juan Pérez'),
+      'el export de clientes no filtra por workshop_id: fuga de cartera entre talleres');
+  });
+
+  it('30. la lista de tiempos arranca en la referencia de fábrica', async () => {
+    const r = await t.get('/api/labor');
+    assert.equal(r.status, 200);
+    assert.equal(r.body.deFabrica, true, 'sin personalizar, debe usar la referencia de fábrica');
+    assert.ok(r.body.items.length > 0, 'la referencia de fábrica no puede estar vacía');
+  });
+
+  it('30b. personalizar materializa la referencia en el catálogo del taller', async () => {
+    const r = await t.post('/api/labor/seed');
+    assert.equal(r.status, 200);
+    assert.ok(r.body.count > 0, 'debe sembrar los tiempos de fábrica');
+    const l = await t.get('/api/labor');
+    assert.equal(l.body.deFabrica, false, 'ya tiene su propio catálogo');
+  });
+
+  it('30c. agrega, edita y elimina un tiempo del taller', async () => {
+    await t.post('/api/labor/seed');
+    const alta = await t.post('/api/labor', { sistema: 'Prueba', nombre: 'Trabajo de prueba', horas_min: 0.5, horas_max: 1.0 });
+    assert.equal(alta.status, 201);
+    const id = alta.body.id;
+    const ed = await t.put(`/api/labor/${id}`, { sistema: 'Prueba', nombre: 'Trabajo editado', horas_min: 1.0, horas_max: 2.0 });
+    assert.equal(ed.status, 200);
+    const l = await t.get('/api/labor');
+    const fila = l.body.items.find(x => x.id === id);
+    assert.ok(fila, 'el tiempo agregado no aparece en la lista');
+    assert.equal(fila.nombre, 'Trabajo editado', 'no se guardó la edición');
+    assert.equal(fila.horas_max, 2.0, 'no se guardó el máximo');
+    const del = await t.del(`/api/labor/${id}`);
+    assert.equal(del.status, 200);
+    const l2 = await t.get('/api/labor');
+    assert.ok(!l2.body.items.find(x => x.id === id), 'el tiempo eliminado sigue apareciendo');
+  });
+
+  it('30d. rechaza un tiempo cuyo mínimo supera al máximo', async () => {
+    await t.post('/api/labor/seed');
+    const r = await t.post('/api/labor', { sistema: 'X', nombre: 'Y', horas_min: 5.0, horas_max: 1.0 });
+    assert.equal(r.status, 400);
+  });
+
+  it('30e. el catálogo de tiempos de OTRO taller es el suyo (aislamiento, 4.5)', async () => {
+    await t.post('/api/labor/seed');
+    await t.post('/api/labor', { sistema: 'Secreto', nombre: 'Solo mío', horas_min: 1, horas_max: 2 });
+    const otro = crearCliente(ctx.base);
+    await otro.registrar('LaborAjeno');
+    const r = await otro.get('/api/labor');
+    assert.equal(r.status, 200);
+    assert.ok(!String(JSON.stringify(r.body)).includes('Solo mío'),
+      'un taller no puede ver los tiempos de otro: fuga de catálogo');
   });
 
   it('30. borra una partida de la orden', async () => {

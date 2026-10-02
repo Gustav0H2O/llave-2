@@ -10,7 +10,7 @@
 
    POR QUÉ AQUÍ Y NO EN lib/
    Estas rutas hablan con la base de datos y con express: son servidor, no
-   regla del taller (AGENTS.md §3). lib/ sigue siendo puro.
+   regla del taller (DECISIONES.md §3). lib/ sigue siendo puro.
 
    CÓMO SE MONTA
    server-pg.js llama montarAuth(app, { ... }) en la MISMA posición en la que

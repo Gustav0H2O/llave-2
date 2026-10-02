@@ -12,7 +12,7 @@
        siguiente desgaste vuelve a avisar.
 
    POR QUÉ AQUÍ Y NO EN lib/
-   Habla con la base de datos (AGENTS.md §3): es servidor, no regla pura.
+   Habla con la base de datos (DECISIONES.md §3): es servidor, no regla pura.
 
    CÓMO SE USA
    El adaptador `db` y el número de teléfono del taller viven fuera, así que el

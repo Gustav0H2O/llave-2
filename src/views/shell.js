@@ -9,7 +9,7 @@
 
    Vive en src/ y no en lib/ porque lee el index.html del disco, usa el nonce de
    la respuesta y depende del cliente de anuncios del entorno; lib/ tiene que
-   seguir puro (AGENTS.md §3). Y vive aquí, y no en el monolito, porque la usan
+   seguir puro (DECISIONES.md §3). Y vive aquí, y no en el monolito, porque la usan
    DOS sitios: el SSR de las páginas (src/routes/paginas.js) y las pantallas de
    error (server-pg.js). Una sola definición, como el resto de piezas
    compartidas del servidor.

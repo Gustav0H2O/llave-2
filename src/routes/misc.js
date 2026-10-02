@@ -25,7 +25,7 @@
 
    POR QUÉ AQUÍ Y NO EN lib/
    Consultan la base, leen el nonce de la respuesta y arman cabeceras: son
-   servidor (AGENTS.md §3). Las PANTALLAS (el HTML de cada código) sí son dato
+   servidor (DECISIONES.md §3). Las PANTALLAS (el HTML de cada código) sí son dato
    puro y viven en lib/errores.js.
    ========================================================================= */
 const crypto = require('crypto');

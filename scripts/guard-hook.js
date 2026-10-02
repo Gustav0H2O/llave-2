@@ -42,7 +42,7 @@ if (!errores.length) {
   process.exit(0);
 }
 
-const partes = ['⛔ Restricciones del proyecto violadas (ver AGENTS.md):', ''];
+const partes = ['⛔ Restricciones del proyecto violadas (ver DECISIONES.md):', ''];
 for (const r of errores) {
   partes.push(`• ${r.id}`);
   partes.push(`  ${r.porque}`);

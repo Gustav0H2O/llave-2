@@ -36,7 +36,7 @@ const PASOS = [
       'test/unit/pure.test.js', 'test/unit/domain.test.js', 'test/unit/catalog.test.js', 'test/unit/db-adapter.test.js',
       /* 4.2/4.4: los módulos nuevos de src/ entran en la puerta de `verify`. */
       'test/unit/config.test.js', 'test/unit/chat.test.js',
-      /* La herramienta que impone el autor único (AGENTS.md §8b): su detección
+      /* La herramienta que impone el autor único (DECISIONES.md §12): su detección
          tiene que tener red, o la regla depende de que nadie la rompa. */
       'test/unit/git-identidad.test.js',
       'test/qa/invariants.test.js', 'test/qa/security.test.js', 'test/qa/data-quality.test.js',
@@ -101,7 +101,7 @@ function main() {
 
   if (fallidos.length) {
     console.log(`\n❌ VERIFICACIÓN FALLIDA en ${total}s — no des el cambio por terminado.\n`);
-    console.log('   Reglas del proyecto: AGENTS.md');
+    console.log('   Reglas del proyecto: DECISIONES.md');
     console.log('   Informe de calidad:  quality/REPORT.md\n');
     return 1;
   }

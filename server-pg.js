@@ -24,6 +24,7 @@ const { montarNotes } = require('./src/routes/notes');
 const { montarCash } = require('./src/routes/cash');
 const { montarOrders } = require('./src/routes/orders');
 const { montarInspections } = require('./src/routes/inspections');
+const { montarLabor } = require('./src/routes/labor');
 const { montarDocuments } = require('./src/routes/documents');
 const { montarSuppliers } = require('./src/routes/suppliers');
 const { montarCatalog } = require('./src/routes/catalog');
@@ -391,6 +392,9 @@ async function createApp(dbOverride, statsOverride) {
   /* Inspecciones de entrada/salida — después de montarOrders porque dependen
      de las órdenes (y orders.js lee su plantilla para bloquear la entrega). */
   montarInspections(app, { db, requireWorkshop, idDe, str, toInt, errorAccionable, enTransaccion });
+
+  /* Tiempos de mano de obra — catálogo por taller (antes era fijo en datos.js) */
+  montarLabor(app, { db, requireWorkshop, idDe, str, errorAccionable, enTransaccion });
 
   /* Documentos (notas de entrega y presupuestos) — movido a src/routes/documents.js (4.8).
      DOC_KINDS/DOC_STATUS viven ahí; el respaldo (src/routes/backup.js) los importa

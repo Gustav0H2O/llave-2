@@ -8,7 +8,7 @@ process.env.NODE_ENV = 'test';
    NUNCA se llama a un proveedor real: se levanta un proveedor falso en
    localhost y se apunta la configuración a él. La base tampoco es real: los
    dobles de `db`/`statsDb` son objetos con las mismas tres operaciones, así que
-   ninguna prueba abre una base de datos (AGENTS.md §5).
+   ninguna prueba abre una base de datos (DECISIONES.md §7).
    ========================================================================= */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');

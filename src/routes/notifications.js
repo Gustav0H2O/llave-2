@@ -7,7 +7,7 @@
 
    POR QUÉ AQUÍ Y NO EN lib/
    Esto habla con la base de datos y con express: es servidor, no regla del
-   taller (AGENTS.md §3). lib/ sigue siendo puro.
+   taller (DECISIONES.md §3). lib/ sigue siendo puro.
 
    CÓMO SE MONTA
    server-pg.js llama montarNotifications(app, { ... }) en la MISMA posición en la que

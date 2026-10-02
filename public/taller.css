@@ -17,23 +17,6 @@
    podía tematizar desde CSS y en tema oscuro arrastraba valores escritos a
    mano. Traerlas aquí deja el marcado más corto y el color en su sitio.
    --------------------------------------------------------------------------- */
-.pf-card {
-  padding: 10px 12px; background: var(--panel); border: 1px solid var(--border);
-  border-radius: var(--r-sm, 8px); margin-bottom: 8px;
-}
-.pf-card-lg { padding: 14px; margin-bottom: 16px; }
-.pf-row { display: flex; justify-content: space-between; align-items: center; }
-.pf-grp { display: flex; gap: 6px; align-items: center; }
-.pf-lbl { color: var(--text-alt); font-size: 9.5px; display: block; }
-.pf-key {
-  display: block; padding: 10px 12px; background: var(--card);
-  border: 1px solid var(--border-hi); border-radius: var(--r-sm, 8px);
-}
-.pf-meta { font-size: 10px; color: var(--text-alt); }
-.pf-badge {
-  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
-  border-radius: var(--r-full, 999px); font: 700 11.5px var(--font); color: var(--accent);
-}
 
 /* ---------------------------------------------------------------------------
    Botón «ver más» de las listas largas (useVerMas en microapps.js).
@@ -132,26 +115,8 @@
 .micro-shell-nested { padding: 0; }
 
 /* Botones de acción de la sección taller (reemplazan a los enlaces de texto). */
-.accion-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  min-height: 44px; padding: 10px 14px; border: 1px solid var(--border);
-  border-radius: var(--r, 8px); background: var(--panel2, var(--panel));
-  color: var(--ink); font: 600 13px var(--font); cursor: pointer;
-  transition: background .14s, border-color .14s;
-}
-.accion-btn.principal { background: var(--accent); border-color: var(--accent); color: #fff; }
-.accion-btn.peligro { color: var(--danger, #b91c1c); }
-.accion-btn:disabled { opacity: .5; cursor: not-allowed; }
-.accion-btn:active { transform: translateY(1px); }
-.fila-acciones { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
 /* Tarjetas de la operación diaria (agenda, mecánicos, alertas, cortes). */
-.op-card {
-  border: 1px solid var(--border); border-radius: var(--r, 8px);
-  background: var(--panel2, var(--panel)); padding: 12px; margin-bottom: 8px;
-}
-.op-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.op-card-meta { color: var(--muted); font-size: 12px; }
 
 /* Botón de Google ya pulsado. Vive aquí y no en index.html porque el CSS global
    está contra su tope de presupuesto y esto lo agrega el fix del canje repetido.
@@ -197,12 +162,10 @@
 .tw-head {
   display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px;
 }
-.tw-head-txt { flex: 1 1 auto; min-width: 0; }
 .tw-head h1, .tw-head h2 {
   margin: 0; font: 800 24px/1.15 var(--font); letter-spacing: -.01em;
   color: var(--ink);
 }
-.tw-head-sub { margin: 3px 0 0; font: 500 13px var(--font); color: var(--muted); }
 .tw-head-act {
   flex: 0 0 auto; align-self: center; min-height: 40px; padding: 9px 14px;
   border: 1px solid transparent; border-radius: var(--r-full, 999px);
@@ -286,9 +249,6 @@
   color: var(--ink); white-space: nowrap;
 }
 .tw-card-total.zero { color: var(--muted); font-weight: 700; }
-.tw-card-body {
-  border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px;
-}
 
 /* ---------- píldora de estado ---------- */
 .tw-pill {
@@ -361,14 +321,23 @@
 
 /* ---------- botón flotante ---------- */
 .tw-fab {
-  position: absolute; right: 14px; bottom: 14px; z-index: 3;
+  /* Fijo al viewport, no al contenedor. Estaba en `absolute` contra
+     .tw-shell-has-fab, cuya altura la manda el contenido: con la lista vacía
+     el ancla caía a media pantalla y el buscador pegajoso de la cabecera
+     (.micro-shell-body > .styled-input:first-child, z-index 30) quedaba JUSTO
+     encima, así que el toque del "+" abría el desplegable de al lado en vez
+     del formulario. Un botón flotante que no recibe el toque no es un botón.
+     Se respetan el safe-area de Android y la barra inferior del móvil. */
+  position: fixed; right: 16px; z-index: 35;
+  bottom: calc(80px + env(safe-area-inset-bottom));
   width: 56px; height: 56px; border: 0; border-radius: 50%;
   background: var(--accent); color: var(--accent-ink, #fff);
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   box-shadow: var(--shadow-lg, 0 12px 32px rgba(0, 0, 0, .35));
 }
 .tw-fab:active { transform: translateY(1px); }
-.tw-shell-has-fab { position: relative; padding-bottom: 72px; }
+/* El hueco de abajo evita que la última tarjeta quede bajo el botón. */
+.tw-shell-has-fab { position: relative; padding-bottom: 88px; }
 
 /* ---------- barra de progreso ---------- */
 .tw-prog { margin-top: 10px; }
@@ -414,7 +383,6 @@
   background: var(--danger-soft); border-radius: 0 6px 6px 0;
   font: 600 13px var(--font); color: var(--danger);
 }
-.tw-point-photos { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
 
 /* ---------- stepper +/− ---------- */
 .tw-step {
@@ -434,6 +402,22 @@
   min-width: 56px; text-align: center; font: 800 17px var(--font);
   color: var(--ink); letter-spacing: -.01em;
 }
+/* La cantidad se teclea, no solo se pulsa. Mantiene el aspecto de número
+   grande del stepper (que es lo que se lee de un vistazo) pero es un campo
+   real: admite 12 de una vez y admite decimales (3.75 horas de mano de obra,
+   2.5 litros de aceite), que antes eran imposibles.
+   Los 56px de ancho mínimo son los mismos del <span> que sustituye, así que
+   la fila no cambia de tamaño. */
+.tw-step-in {
+  width: 56px; min-width: 56px; text-align: center;
+  font: 800 17px var(--font); color: var(--ink); letter-spacing: -.01em;
+  background: none; border: 1px solid transparent; border-radius: 6px;
+  padding: 2px 0; outline: none; -moz-appearance: textfield;
+}
+.tw-step-in::-webkit-outer-spin-button,
+.tw-step-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.tw-step-in:focus { border-color: var(--accent-dim); background: var(--panel); }
+.tw-step-in:hover { border-color: var(--border); }
 
 /* línea de partida (quote / documents): nombre, stepper, importe */
 .tw-line {
@@ -468,6 +452,35 @@ input.tw-line-amt { text-align: right; font-weight: 800; font-size: 16px; color:
   display: flex; align-items: center; justify-content: center;
 }
 .tw-line-del:hover { background: var(--danger-soft); color: var(--danger); }
+
+/* El campo de precio de una partida.
+   El JSX le pone la clase "w-24", que NO EXISTE en ninguna hoja de este
+   proyecto: su única aparición en todo public/ era ese uso. Sin regla que la
+   defina, el input heredaba el `width: 100%` de .styled-input y se declaraba
+   dueño de todo el ancho de la fila.
+   Consecuencia medida en un móvil de 390 px: quedaban 88 px útiles para la
+   descripción Y el precio; como el recorte de flexbox se reparte según el
+   flex-basis, el precio (basis 100%) absorbía ~89 % del encogimiento y
+   .tw-line-info caía a ~10 px. El nombre de la partida y el selector de
+   almacén quedaban ilegibles justo donde más se usan: el celular del taller.
+   Aquí se le da el ancho real que "w-24" pretendía (24 × 4 px = 96 px) y se
+   le quita el encogimiento, para que el que ceda sea el texto y no el campo. */
+.tw-line-price {
+  flex: 0 0 96px; width: 96px; min-width: 0;
+  text-align: right; font-weight: 800;
+}
+/* En pantallas estrechas la fila pasa a dos renglones explícitos —qué es
+   arriba; cuánto y borrar abajo— en vez de comprimir cuatro controles en
+   310 px. Es el mismo arreglo que ya documentaba .quote-line en index.html
+   para el cotizador viejo, que nunca llegó a esta fila. */
+@media (max-width: 560px) {
+  .tw-line {
+    display: grid; grid-template-columns: 1fr auto auto; gap: 8px;
+    align-items: center;
+  }
+  .tw-line-info { grid-column: 1 / -1; }
+  .tw-line-price { justify-self: end; }
+}
 
 /* botón de icono suelto (fijar una nota, cerrar un panel) */
 .tw-icbtn {
@@ -601,11 +614,6 @@ input.tw-line-amt { text-align: right; font-weight: 800; font-size: 16px; color:
 }
 .tw-menu-i:last-child { border-bottom: 0; }
 .tw-menu-i:hover { background: var(--accent-soft); }
-.tw-menu-ic {
-  flex: 0 0 auto; width: 40px; height: 40px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--accent-soft); color: var(--accent);
-}
 .tw-menu-t { flex: 1 1 auto; min-width: 0; }
 .tw-menu-n {
   display: block; font: 700 15px var(--font); color: var(--ink);
@@ -615,17 +623,7 @@ input.tw-line-amt { text-align: right; font-weight: 800; font-size: 16px; color:
   display: block; margin-top: 2px; font: 500 13px var(--font);
   color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.tw-menu-badge {
-  flex: 0 0 auto; min-width: 22px; height: 22px; padding: 0 6px;
-  display: inline-flex; align-items: center; justify-content: center;
-  border-radius: var(--r-full, 999px);
-  background: var(--danger); color: #fff; font: 800 12px var(--font);
-}
 .tw-menu-go { flex: 0 0 auto; color: var(--muted); display: flex; }
-.tw-group-t {
-  margin: 18px 0 8px; font: 800 15px var(--font); color: var(--ink);
-  letter-spacing: -.01em;
-}
 
 /* ---------- avatar ---------- */.tw-av {
   flex: 0 0 auto; width: 56px; height: 56px; border-radius: 50%;
@@ -644,7 +642,6 @@ input.tw-line-amt { text-align: right; font-weight: 800; font-size: 16px; color:
 .tw-idcard-b { flex: 1 1 auto; min-width: 0; }
 .tw-idcard-n { margin: 0; font: 800 18px var(--font); color: var(--ink); }
 .tw-idcard-m { margin: 3px 0 0; font: 500 13px var(--font); color: var(--muted); }
-.tw-idcard-r { margin: 4px 0 0; font: 600 13px var(--font); color: var(--accent); }
 
 /* ---------- campos grandes (flujos de creación) ---------- */
 .tw-field {
@@ -669,11 +666,6 @@ input.tw-line-amt { text-align: right; font-weight: 800; font-size: 16px; color:
 .tw-field-2 > .tw-field { flex: 1 1 0; min-width: 0; }
 .tw-field-3 { display: flex; gap: 8px; }
 .tw-field-3 > .tw-field { flex: 1 1 0; min-width: 0; }
-.tw-req {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  margin-bottom: 12px;
-}
-.tw-req-l { font: 500 13px var(--font); color: var(--muted); }
 
 /* ---------- toggle (Sí/No, Día/Semana) ---------- */
 .tw-toggle {
@@ -710,18 +702,7 @@ input.tw-line-amt { text-align: right; font-weight: 800; font-size: 16px; color:
 .taller-nav-b.is-on svg { color: var(--accent-ink, #fff); }
 
 /* ---------- casilla de fotos ---------- */
-.tw-photos { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.tw-photo {
-  width: 62px; height: 62px; border: 1px dashed var(--border-hi);
-  border-radius: var(--r, 8px); background: var(--panel2, var(--panel));
-  color: var(--muted); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-}
-.tw-photo:hover { border-color: var(--accent); color: var(--accent); }
 .tw-photo.filled { border-style: solid; background: var(--accent-soft); color: var(--accent); }
-.tw-photos-h {
-  flex: 1 1 140px; font: 500 12px/1.45 var(--font); color: var(--muted); margin: 0;
-}
 
 /* ---------- aviso destacado ---------- */
 .tw-alert {
@@ -756,28 +737,11 @@ input.tw-line-amt { text-align: right; font-weight: 800; font-size: 16px; color:
 }
 
 /* ---------- puntos de dificultad ---------- */
-.tw-diff { display: inline-flex; gap: 3px; }
-.tw-diff i {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--neutral-soft-3, rgba(0, 0, 0, .11)); display: block;
-}
 .tw-diff i.on { background: var(--accent); }
 .tw-diff.warn i.on { background: var(--amber); }
 .tw-diff.bad i.on { background: var(--danger); }
 
 /* ---------- lista de actividad (perfil) ---------- */
-.tw-act-list { border-top: 1px solid var(--border); }
-.tw-act-row {
-  display: flex; align-items: center; gap: 10px; width: 100%;
-  padding: 11px 2px; border: 0; border-bottom: 1px solid var(--border);
-  background: transparent; text-align: left; cursor: pointer;
-}
-.tw-act-row:hover { background: var(--accent-soft); }
-.tw-act-row:last-child { border-bottom: 0; }
-.tw-act-b { flex: 1 1 auto; min-width: 0; }
-.tw-act-t { display: block; font: 600 14px var(--font); color: var(--ink); }
-.tw-act-m { display: block; font: 500 12px var(--font); color: var(--muted); margin-top: 1px; }
-.tw-act-amt { font: 800 14px var(--font); color: var(--ink); white-space: nowrap; }
 
 /* ---------- estado vacío ---------- */
 .tw-empty {
@@ -858,3 +822,55 @@ input.tw-line-amt { text-align: right; font-weight: 800; font-size: 16px; color:
 .th-mini{display:flex;align-items:center;gap:10px;min-height:52px;padding:10px 12px;border:1px solid var(--border);border-radius:14px;background:var(--panel2,var(--panel));color:var(--text);font:600 13px var(--font);cursor:pointer}
 .th-mini svg{color:var(--muted)}
 @media(min-width:720px){.th-stats{grid-template-columns:repeat(4,1fr)}.th-herr{display:grid;grid-template-columns:repeat(2,1fr)}.th-gest{grid-template-columns:repeat(3,1fr)}}
+
+/* ---------- teléfono con código de país ----------
+   Dos campos que se leen como uno: el prefijo es un desplegable corto y el
+   número ocupa el resto. En el celular del taller el número va primero en
+   tamaño porque es lo que se teclea; el país casi nunca cambia. */
+.cli-tel { display: flex; gap: 6px; align-items: stretch; grid-column: 1 / -1; }
+.cli-tel-pais { flex: 0 0 auto; width: auto; min-width: 128px; max-width: 46%; }
+.cli-tel-num { flex: 1 1 auto; min-width: 0; }
+@media (max-width: 420px) {
+  .cli-tel-pais { min-width: 108px; }
+}
+
+/* ---------- checklist: secciones colapsables ----------
+   La lista pintaba hasta 200 puntos de golpe (~100 px cada uno: nombre + cuatro
+   botones de 44 px + nota), dentro de un contenedor sin altura máxima. El
+   resultado era un scroll larguísimo donde el mecánico perdía de vista dónde
+   estaba y qué le faltaba. Ahora cada sección es una cabecera pulsable con su
+   contador, y cerrada enseña el estado de sus puntos como una tira de marcas:
+   se ve el progreso completo de un vistazo y se abre solo lo que se revisa. */
+.tw-sec-toggle {
+  width: 100%; border: 0; background: none; cursor: pointer; text-align: left;
+  font: inherit; color: inherit; padding: 0; min-height: 44px;
+  display: flex; align-items: center; gap: 8px;
+}
+.tw-sec-toggle:active { transform: none; }
+.tw-sec-card.is-open { border-color: var(--accent-dim); }
+.tw-sec-card.has-bad { border-color: var(--danger-dim, var(--danger)); }
+.tw-sec-n.is-done { color: var(--accent); }
+.tw-sec-bad {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  background: var(--danger-soft); color: var(--danger);
+  font: 800 11px var(--font);
+}
+/* Tira de estado de una sección cerrada: un punto por punto de la inspección. */
+.tw-sec-mini { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.tw-sec-dot {
+  width: 12px; height: 12px; border-radius: 3px;
+  background: var(--neutral-soft-3, rgba(0, 0, 0, .11));
+  border: 1px solid transparent;
+}
+.tw-sec-dot.is-bueno { background: var(--accent); }
+.tw-sec-dot.is-regular { background: var(--amber); }
+.tw-sec-dot.is-malo { background: var(--danger); }
+.tw-sec-dot.is-no_aplica { background: var(--neutral-soft-2, rgba(0, 0, 0, .07)); border-color: var(--border-hi); }
+
+/* Botonera de exportación: tres botones pequeños juntos en la cabecera.
+   Van en fila y sin envolver: son acciones del mismo grupo y separarlas haría
+   que "Excel" quedara lejos de "PDF", que es justo el par que se compara. */
+.tw-export { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; }
+.tw-export .tw-head-act { padding: 6px 10px; }
+.tw-export .link-btn { white-space: nowrap; }

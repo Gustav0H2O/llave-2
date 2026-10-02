@@ -37,7 +37,7 @@ const PELIGROSAS = ['TURSO_URL', 'TURSO_AUTH_TOKEN', 'DATABASE_URL'];
    La primera versión de esto solo miraba process.env y daba el visto bueno…
    porque en ese instante estaba limpio. Lo que pasa después es la trampa:
    `db.js` carga dotenv, dotenv lee el `.env` del repo —que apunta a la base de
-   PRODUCCIÓN en Turso, tal cual avisa AGENTS.md §5— y la conexión se abre sola.
+   PRODUCCIÓN en Turso, tal cual avisa DECISIONES.md §7— y la conexión se abre sola.
    Lanzar el robot con `TURSO_URL= ...` por delante tampoco bastaba por sí solo:
    funcionaba de milagro, porque dotenv respeta las claves ya presentes.
 

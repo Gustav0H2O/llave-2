@@ -1,0 +1,90 @@
+/* ============================================================================
+   tinta.css — la capa visual de la AGENDA.
+
+   POR QUÉ ESTE ARCHIVO EXISTE
+   taller.css estaba contra su tope y la agenda completa (rejilla horaria,
+   vista de mes, panel de horario) no cabía: 9 KB de reglas nuevas contra 0,5 KB
+   de holgura. Mudarlas de piso es la misma salida que el proyecto ya usó cuando
+   index.html topó y nació taller.css.
+
+   El nombre no es nuevo: quality/budgets.json ya reservaba "public/tinta.css"
+   con 30 KB de presupuesto y sin archivo, como válvula para el día que hiciera
+   falta. Ese día es hoy, y así el archivo nace con su tope ya declarado en vez
+   de inventarlo después.
+
+   Carga DESPUÉS de taller.css (ver index.html): las reglas de aquí son la capa
+   de la agenda y deben poder ajustar lo genérico.
+   ========================================================================= */
+
+/* ============================================================================
+   AGENDA: rejilla horaria, vista de mes y horario del taller.
+
+   La agenda era una lista de citas por dia. Con duracion, mecanico y horario
+   del taller se puede dibujar una rejilla de verdad, que es lo que deja ver de
+   un vistazo que a las 10:00 no cabe nada mas. Los colores salen del tipo de
+   servicio, no del estado: el estado ya lo dice la pildora.
+   ========================================================================= */
+
+/* ---------- rejilla del dia ---------- */
+.ag-grid { border: 1px solid var(--border); border-radius: var(--r-card, 12px); overflow: hidden; }
+.ag-fila { display: grid; grid-template-columns: 56px 1fr; align-items: stretch; }
+.ag-fila + .ag-fila { border-top: 1px solid var(--border); }
+.ag-hora {
+  display: flex; align-items: flex-start; justify-content: center; padding: 8px 4px;
+  font: 700 11px var(--font); color: var(--muted); font-variant-numeric: tabular-nums;
+  border-right: 1px solid var(--border); background: var(--panel2, var(--panel));
+}
+.ag-celda { padding: 4px; display: flex; flex-direction: column; gap: 4px; min-height: 34px; }
+.ag-libre {
+  width: 100%; min-height: 26px; border: 1px dashed var(--border);
+  border-radius: 6px; background: transparent; color: var(--muted);
+  font: 600 11px var(--font); cursor: pointer;
+}
+.ag-libre:hover { border-color: var(--accent-dim); color: var(--accent); }
+.ag-bloque {
+  width: 100%; text-align: left; cursor: pointer;
+  border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: 6px; background: var(--panel); padding: 5px 8px;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.ag-bloque-h { font: 700 11px var(--font); color: var(--muted); }
+.ag-bloque-n { font: 700 13px var(--font); color: var(--ink); }
+.ag-bloque-s, .ag-bloque-m { font: 500 11px var(--font); color: var(--muted); }
+
+/* ---------- vista de mes ---------- */
+.ag-mes-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.ag-mes-head, .ag-mes { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.ag-mes-head { margin-bottom: 4px; }
+.ag-mes-head span { text-align: center; font: 700 10px var(--font); color: var(--muted); text-transform: uppercase; }
+.ag-celda {
+  aspect-ratio: 1 / 1; min-height: 44px; padding: 3px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--panel2, var(--panel)); cursor: pointer;
+}
+.ag-celda.off { opacity: .38; }
+.ag-celda.is-hoy { border-color: var(--accent); background: var(--accent-soft); }
+.ag-celda.is-sel { outline: 2px solid var(--accent-dim); outline-offset: -2px; }
+.ag-celda-n { font: 700 13px var(--font); color: var(--ink); }
+.ag-celda-pts { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; }
+.ag-pt { width: 5px; height: 5px; border-radius: 50%; display: block; }
+.ag-mas { font: 700 9px var(--font); color: var(--muted); }
+
+/* ---------- horario del taller ---------- */
+.ag-cfg { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.ag-dias { display: flex; gap: 6px; margin-top: 10px; }
+.ag-dia {
+  flex: 1 1 0; min-height: 40px; border: 1px solid var(--border); border-radius: 8px;
+  background: transparent; color: var(--muted); font: 700 13px var(--font); cursor: pointer;
+}
+.ag-dia.is-on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+/* Las tres pestañas de la agenda (Dia/Semana/Mes) mas el engranaje no caben a
+   390 px con el texto completo: "Semana" se partia en dos lineas y empujaba el
+   titulo. Se compacta el grupo en vez de encoger el tactil. */
+.tw-sec .tw-toggle-b { padding: 8px 10px; font-size: 12px; }
+.ag-mes-nav { margin-top: -4px; }
+
+.ag-cab { flex-wrap: wrap; gap: 8px; }
+.ag-cab .tw-sec-t { flex: 1 1 auto; }
+.ag-cab .tw-toggle { flex: 0 0 auto; }
