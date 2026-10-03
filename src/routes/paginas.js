@@ -232,7 +232,7 @@ function montarPaginas(app, deps) {
      lib/paginas.js (dato puro, probado en test/unit/paginas.test.js); aquí solo
      se le inyectan los valores del entorno. */
 
-  app.get('/:slug(acerca-de|contacto|privacidad|terminos)', async (req, res, next) => {
+  app.get('/:slug(acerca-de|contacto|aviso-legal|privacidad|terminos)', async (req, res, next) => {
     const pg = PAGES.find(x => x.slug === req.params.slug);
     if (!pg) return next();
     res.set('Cache-Control', 'public, max-age=3600');

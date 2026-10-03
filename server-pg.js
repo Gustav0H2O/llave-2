@@ -197,8 +197,8 @@ async function createApp(dbOverride, statsOverride) {
   // Imágenes OG disponibles (generadas por `npm run og`). Se leen una vez al arrancar.
   let OG_FILES = new Set();
   try { OG_FILES = new Set(fs.readdirSync(path.join(__dirname, 'public', 'og'))); } catch (e) { /* aún no hay imágenes OG */ }
-  const DEFAULT_OG = OG_FILES.has('default.png') ? '/og/default.png' : null;
-  const ogForVehicle = (id) => (OG_FILES.has(id + '.png') ? '/og/' + id + '.png' : null);
+  const DEFAULT_OG = OG_FILES.has('default.jpg') ? '/og/default.jpg' : null;
+  const ogForVehicle = (id) => (OG_FILES.has(id + '.jpg') ? '/og/' + id + '.jpg' : null);
 
   /* 4.8 (oleada 5): la maqueta de este HTML vive en src/views/shell.js; la
      usan las páginas y las pantallas de error, así que hay una sola definición.
@@ -233,7 +233,7 @@ async function createApp(dbOverride, statsOverride) {
 
   /* trust proxy configurable (TRUST_PROXY / TRUST_PROXY_CIDR) + canonicalización
      de host hacia BASE_URL. */
-  aplicarCanonico(app, { BASE_URL, trustProxy: process.env.TRUST_PROXY, trustProxyCidr: process.env.TRUST_PROXY_CIDR });
+  aplicarCanonico(app, { BASE_URL, PROD, trustProxy: process.env.TRUST_PROXY, trustProxyCidr: process.env.TRUST_PROXY_CIDR });
 
   /* 2.31 — helmet (CSP con hashes de los <script> inline y nonce por respuesta,
      sin 'unsafe-inline') + Permissions-Policy. Los orígenes de AdSense ya NO se

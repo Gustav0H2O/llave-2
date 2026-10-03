@@ -1,7 +1,7 @@
 // llave — Generador de imágenes Open Graph (1200×630) por vehículo.
 // Uso: node og-gen.js   (o: npm run og). Requiere Chrome de Puppeteer instalado:
 //   npx puppeteer browsers install chrome
-// Salida: public/og/<id>.png por vehículo + public/og/default.png
+// Salida: public/og/<id>.jpg por vehículo + public/og/default.jpg
 // Fuente: adaptador ./db (Turso > PostgreSQL vía DATABASE_URL > SQLite local),
 // así regenera las 208 imágenes desde cualquier backend sin tocar el script.
 const path = require('path');
@@ -66,7 +66,7 @@ function card({ title, sub, big, bigSmall, badge }) {
 async function render(page, html, out) {
   await page.setContent(html, { waitUntil: 'load', timeout: 20000 }).catch(() => {});
   try { await page.evaluate(() => document.fonts && document.fonts.ready); } catch (e) {}
-  await page.screenshot({ path: out, type: 'png' });
+  await page.screenshot({ path: out, type: 'jpeg', quality: 82 });
 }
 
 (async () => {
@@ -94,8 +94,8 @@ async function render(page, html, out) {
   await render(page, card({
     title: 'Catálogo de combustible', sub: 'Presión de riel · módulos · pilas de gasolina compatibles',
     big: '+140', bigSmall: 'vehículos de Latinoamérica', badge: 'Gratis · sin registro'
-  }), path.join(OUT, 'default.png'));
-  console.log('  default.png ✓');
+  }), path.join(OUT, 'default.jpg'));
+  console.log('  default.jpg ✓');
 
   let n = 0;
   for (const v of rows) {
@@ -104,7 +104,7 @@ async function render(page, html, out) {
       sub: `${v.year_from}-${v.year_to} · ${v.engine} · ${v.injection}`,
       big: `${v.pmin}–${v.pmax}`, bigSmall: `PSI (${bar(v.pmin)}–${bar(v.pmax)} bar)`,
       badge: 'Riel · Módulo · Pilas'
-    }), path.join(OUT, v.id + '.png'));
+    }), path.join(OUT, v.id + '.jpg'));
     if (++n % 20 === 0) console.log(`  ${n}/${rows.length}`);
   }
   console.log(`  ${rows.length}/${rows.length} ✓`);

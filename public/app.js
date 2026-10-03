@@ -1886,8 +1886,8 @@ function App() {
       ${/* Estilos en clase y no en línea: el enlace medía 179×14 px —imposible de
             acertar con el dedo— y el botón repetía a mano el relleno lima que ya
             existe como token. La clase le da el área tocable y el tema. */''}
-      ${showPrivacy && html`<div class="panel privacy-notice" role="region" aria-label="Aviso de privacidad">
-        <h3><${Icon} name="ShieldCheck" size=${16} color="var(--accent)" /> Privacidad y Cookies</h3>
+      ${showPrivacy && html`<div class="panel privacy-notice" role="region" aria-label="Aviso de cookies">
+        <h3><${Icon} name="ShieldCheck" size=${16} color="var(--accent)" /> Aviso de cookies y privacidad</h3>
         <p>
           Usamos almacenamiento local para tus preferencias, estadísticas anónimas (respetamos Do-Not-Track) y cookies de terceros —incluido Google— para mostrar y medir anuncios.
           Detalle y cómo desactivarlos en la <a href="/privacidad">política de privacidad y cookies</a>.

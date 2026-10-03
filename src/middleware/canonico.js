@@ -12,16 +12,31 @@
    viendo qué variables consume el servidor.
    ========================================================================= */
 function aplicarCanonico(app, deps) {
-  const { BASE_URL, trustProxy, trustProxyCidr } = deps;
+  const { BASE_URL, PROD, trustProxy, trustProxyCidr } = deps;
 
   app.set('trust proxy', trustProxy === '0' ? 0 : (trustProxyCidr || '127.0.0.1/8'));
 
   /* Canonicalización de host hacia BASE_URL: `www.` se redirige al dominio
-     canónico salvo que BASE_URL ya sea el `www.`. */
+     canónico salvo que BASE_URL ya sea el `www.`. Y si el trámite vino por HTTP
+     a producción, se devuelve al cliente la misma URL pero con HTTPS. */
   const BASE_HOST = (() => { try { return new URL(BASE_URL).host; } catch (e) { return ''; } })();
   app.use((req, res, next) => {
     const host = String(req.headers.host || '');
-    if (!host.startsWith('www.') || BASE_HOST.startsWith('www.')) return next();
+    if (!host.startsWith('www.') || BASE_HOST.startsWith('www.')) {
+      const forzar = (() => {
+        try {
+          const u = new URL(BASE_URL);
+          const petHost = String(req.headers.host || '').split(':')[0].toLowerCase();
+          const baseHost = u.hostname.toLowerCase();
+          return PROD && u.protocol === 'https:' && req.protocol === 'http' && petHost === baseHost;
+        } catch (e) { return false; }
+      })();
+      if (forzar) {
+        const destino = `https://${host || BASE_HOST}${req.originalUrl}`;
+        return res.redirect(301, destino);
+      }
+      return next();
+    }
     return res.redirect(301, BASE_URL + req.originalUrl);
   });
 }

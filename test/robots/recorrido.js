@@ -283,7 +283,7 @@ async function main() {
         try {
           /* Una muestra de cada familia de página servida. */
           const muestras = ['/guias', '/guia/presion-de-combustible-baja', '/acerca-de',
-            '/contacto', '/privacidad', '/terminos', '/vehiculos', `/taller/${perfil.slug}`];
+            '/contacto', '/privacidad', '/terminos', '/aviso-legal', '/vehiculos', `/taller/${perfil.slug}`];
           for (const ruta of muestras) {
             const servido = await traer(ctx.base, ruta);
             if (servido.status !== 200) continue;

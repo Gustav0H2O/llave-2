@@ -33,7 +33,8 @@ function versionDe(rel) {
 // Pie legal común: AdSense exige que privacidad y contacto sean accesibles desde cualquier página.
 const LEGAL_LINKS = [
   ['/acerca-de', 'Acerca de'], ['/contacto', 'Contacto'],
-  ['/privacidad', 'Privacidad y cookies'], ['/terminos', 'Términos y aviso técnico']
+  ['/privacidad', 'Privacidad y cookies'], ['/terminos', 'Términos y aviso técnico'],
+  ['/aviso-legal', 'Aviso legal']
 ];
 
 /* Construye `renderShell` con las constantes que ya se leyeron una vez al

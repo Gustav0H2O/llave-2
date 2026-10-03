@@ -21,8 +21,8 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { paginasDe, h2, p, ul } = require('../../lib/paginas');
 
-const SLUGS = ['acerca-de', 'contacto', 'privacidad', 'terminos'];
-const ETIQUETAS = ['Acerca de', 'Contacto', 'Privacidad', 'Términos y aviso técnico'];
+const SLUGS = ['acerca-de', 'contacto', 'aviso-legal', 'privacidad', 'terminos'];
+const ETIQUETAS = ['Acerca de', 'Contacto', 'Aviso legal', 'Privacidad', 'Términos y aviso técnico'];
 
 const DATOS = {
   esc: (s) => `[[${String(s)}]]`,
@@ -35,7 +35,7 @@ const DATOS = {
 test('lib/paginas.js — las cuatro páginas', async (t) => {
   const paginas = paginasDe(DATOS);
 
-  await t.test('son cuatro, en el orden del pie legal', () => {
+  await t.test('son cinco, en el orden del pie legal', () => {
     assert.deepEqual(paginas.map(pg => pg.slug), SLUGS);
     assert.deepEqual(paginas.map(pg => pg.label), ETIQUETAS);
   });

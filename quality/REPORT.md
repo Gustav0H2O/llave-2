@@ -1,17 +1,17 @@
 # Informe de calidad — FuelTech Master
 
-_Generado el 2026-10-02 14:38 por `npm run metrics`. No lo edites a mano._
+_Generado el 2026-10-03 00:01 por `npm run metrics`. No lo edites a mano._
 
-## ✅ Todos los presupuestos se cumplen
+## ❌ 1 presupuesto(s) roto(s)
 
-Nada que corregir.
+- 7 prueba(s) fallando
 
 ## Resumen
 
 | Métrica | Valor | Estado |
 | --- | --- | --- |
-| Pruebas que pasan | 917 / 917 | ✅ |
-| Duración de la suite | 127.4 s | ✅ |
+| Pruebas que pasan | 910 / 917 | ❌ |
+| Duración de la suite | 104.3 s | ✅ |
 | Reglas de restricción | 20 reglas, 0 violaciones | ✅ |
 | Rutas de API probadas | 100% de 148 | ✅ |
 | Deuda conocida aceptada | 5 de 5 | ✅ |
@@ -44,11 +44,11 @@ Nada que corregir.
 ```
 ✓ public/app.js              113.3 KB  de 114 KB
 ✓ public/microapps-agenda.js    39.4 KB  de 42 KB
-✓ public/microapps.js          290 KB  de 297 KB
+✓ public/microapps.js        290.2 KB  de 297 KB
 ✓ public/microapps-taller.js     110 KB  de 112 KB
 ✓ public/microapps-taller-2.js      51 KB  de 54 KB
 ✓ public/datos.js             31.4 KB  de 32 KB
-✓ public/index.html          215.6 KB  de 219 KB
+✓ public/index.html          203.8 KB  de 219 KB
 ✓ public/tinta.css             5.2 KB  de 12 KB
 ✓ public/three3d.js           65.2 KB  de 68 KB
 ✓ public/taller.css           42.6 KB  de 44 KB
@@ -61,7 +61,11 @@ Nada que corregir.
 **Mejoras:**
 
 - pruebas_total: 864 → 917
-- max_lineas_archivo: 4659 → 4623
+- max_lineas_archivo: 4659 → 4625
+
+**Retrocesos (bloquean):**
+
+- pruebas_fallidas: 0 → 7
 
 
 ## Deuda conocida pendiente de decisión

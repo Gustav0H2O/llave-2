@@ -45,7 +45,7 @@ async function startServer() {
   });
 }
 
-describe('FuelTech Master E2E', { timeout: 300_000, skip: !puppeteer && 'puppeteer no está disponible' }, () => {
+describe('llave E2E', { timeout: 300_000, skip: !puppeteer && 'puppeteer no está disponible' }, () => {
   let ctx, browser, page;
   const browserErrors = [];
 
@@ -87,15 +87,27 @@ describe('FuelTech Master E2E', { timeout: 300_000, skip: !puppeteer && 'puppete
     return p;
   }
 
-  // Espera a que React hidrate (h1 con FUELTECH y select de marca cargado)
+  // Espera a que React hidrate: h1 del hero y, cuando hace falta, abre el
+  // catálogo (antes la portada ERA el catálogo; ahora es una micro app separada).
   async function waitApp(page) {
     await page.waitForFunction(
-      () => document.querySelector('h1')?.textContent === 'FUELTECH',
+      () => {
+        const t = document.querySelector('h1')?.textContent || '';
+        return t.includes('Todo lo que') || t.includes('FUELTECH');
+      },
       { timeout: 15_000 }
     );
+    // Si el catálogo no está abierto, abrelo por el CTA del hero.
+    await page.evaluate(async () => {
+      if (document.querySelectorAll('#f-brand option').length > 1) return;
+      const btn = Array.from(document.querySelectorAll('button')).find(b => /Buscar mi veh/i.test(b.textContent));
+      if (btn) { btn.click(); return; }
+      const link = Array.from(document.querySelectorAll('a')).find(a => /Buscar|Veh/i.test(a.textContent));
+      if (link) link.click();
+    });
     await page.waitForFunction(
       () => document.querySelectorAll('#f-brand option').length > 1,
-      { timeout: 10_000 }
+      { timeout: 15_000 }
     );
   }
 

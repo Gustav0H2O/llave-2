@@ -555,7 +555,7 @@
                   <div class="rank-card-avatar-col">
                     <div class="rank-card-avatar-box" style=${{ background: `linear-gradient(180deg, ${cur.color}22 0%, ${cur.color}08 100%)`, borderColor: `${cur.color}45` }}>
                       <img class="rank-card-hero-img"
-                           src=${`/brand/hero-nivel-${cur.nivel}.png`}
+                           src=${`/brand/hero-nivel-${cur.nivel}.webp`}
                            alt=${`Héroe ${cur.nombre}`}
                            loading="lazy"
                            onError=${(e) => { e.target.style.opacity = '0.3'; }} />
@@ -872,7 +872,7 @@
       onOpen(a.id);
     };
 
-    const TABS = ['inicio', 'consulta', 'diag', 'taller'];
+    const TABS = ['inicio', 'consulta', 'taller', 'diag'];
     const [hoja, setHoja] = useState(false);
     const extras = NAV.filter(([id]) => !TABS.includes(id));
     useCapaBloqueante(hoja, () => setHoja(false));
@@ -1617,6 +1617,8 @@
               <a href="#comunidad-apoyo" onClick=${(e) => { e.preventDefault(); if (tab !== 'inicio') irA('inicio'); setTimeout(() => document.getElementById('comunidad-apoyo')?.scrollIntoView({ behavior: 'smooth' }), 60); }}>Comunidad y Aportes</a>
               <a href="/privacidad">Privacidad</a>
               <a href="/terminos">Términos</a>
+              <a href="/aviso-legal">Aviso legal</a>
+              <a href="${'https://api.whatsapp.com/send?text=' + encodeURIComponent('Hola, quiero info sobre llave')}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
               <a href="mailto:newpersonal98@gmail.com">Soporte</a>
               <a href="/contacto">Contacto</a>
             </nav>

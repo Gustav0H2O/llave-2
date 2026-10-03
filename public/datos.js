@@ -242,12 +242,12 @@
     binance: {
       payId: '975679652',
       url: 'https://app.binance.com/uni-qr/XptUERRm',
-      qr: '/media/qr-binance.jpeg',
+      qr: '/media/qr-binance.webp',
     },
     zinli: {
       email: 'newpersonal98@gmail.com',
       url: 'https://recargas.zinli.com/2B5nLjpBs9y3gdmgQpV9re',
-      qr: '/media/qr-zinli.jpeg',
+      qr: '/media/qr-zinli.webp',
     },
     contacto: {
       email: 'newpersonal98@gmail.com',
