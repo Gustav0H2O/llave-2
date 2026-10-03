@@ -14,7 +14,10 @@
 function aplicarCanonico(app, deps) {
   const { BASE_URL, PROD, trustProxy, trustProxyCidr } = deps;
 
-  app.set('trust proxy', trustProxy === '0' ? 0 : (trustProxyCidr || '127.0.0.1/8'));
+  /* TRUST_PROXY=1 (Render) significa un salto: sin esto solo se confia en
+     loopback y, si el trafico entra por otra IP, req.protocol siempre dice
+     http y la canonizacion a HTTPS se redirige a si misma en bucle. */
+  app.set('trust proxy', trustProxy === '0' ? 0 : (trustProxyCidr || Number(trustProxy) || '127.0.0.1/8'));
 
   /* Canonicalización de host hacia BASE_URL: `www.` se redirige al dominio
      canónico salvo que BASE_URL ya sea el `www.`. Y si el trámite vino por HTTP
