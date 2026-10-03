@@ -394,6 +394,11 @@ function montarAuth(app, deps) {
      real. En producción van los valores por defecto. */
   const GOOGLE_TOKEN_URL = process.env.GOOGLE_TOKEN_URL || 'https://oauth2.googleapis.com/token';
   const GOOGLE_USERINFO_URL = process.env.GOOGLE_USERINFO_URL || 'https://www.googleapis.com/oauth2/v2/userinfo';
+  /* Códigos ya vistos en el callback (solo su hash, nunca el código): un código
+     de Google es de un solo uso; si el mismo llega dos veces, la segunda muere
+     con invalid_grant. Sin este registro, un prefetch del navegador, un doble
+     clic o un refresh son indistinguibles de un fallo real. Solo diagnostica. */
+  const codigosVistos = new Map();
   /* El redirect_uri debe coincidir con las URI autorizadas en Google Console */
   const googleRedirectUri = (req) => {
     if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
@@ -427,6 +432,10 @@ function montarAuth(app, deps) {
       return res.redirect('/?login=google_unconfigured');
     }
     const GOOGLE_REDIRECT_URI = googleRedirectUri(req);
+    /* Se registra SIEMPRE (no es secreto): es la mitad que faltaba para comparar
+       contra la URI del intercambio. Si ambas coinciden y Google sigue diciendo
+       invalid_grant, el problema es el código (reutilizado/vencido), no la URI. */
+    console.log('[Google OAuth] autorizacion redirect_uri:', GOOGLE_REDIRECT_URI);
     // F5 (2.4): logs OAuth solo en no-PROD y sin PII (nunca email/token).
     if (!PROD) console.log('[Google OAuth] inicio flujo');
     const authMode = req.query.mode === 'register' ? 'register' : 'login';
@@ -474,6 +483,18 @@ function montarAuth(app, deps) {
     }
 
     if (!PROD) console.log('[Google OAuth] callback:', { code: code ? 'si' : 'no', stateValid: isStateValid });
+
+    /* Detector de código repetido (diagnóstico, no cambia el flujo): se guarda
+       el hash con su hora y se podan los viejos. Nunca el código en claro. */
+    const ahora = Date.now();
+    for (const [h, t] of codigosVistos) { if (ahora - t > 15 * 60e3) codigosVistos.delete(h); }
+    let codigoRepetido = false;
+    if (typeof code === 'string' && code) {
+      const h = crypto.createHash('sha256').update(code).digest('hex').slice(0, 16);
+      codigoRepetido = codigosVistos.has(h);
+      codigosVistos.set(h, ahora);
+      if (codigoRepetido) console.error('[Google OAuth] codigo repetido en callback: el intercambio se intentó ya (doble entrega, refresh o prefetch)');
+    }
 
     // Limpiar cookies de estado
     res.clearCookie('google_oauth_state', { path: '/' });

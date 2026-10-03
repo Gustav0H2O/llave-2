@@ -59,6 +59,12 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      # URI de retorno OAuth FIJADA (no secreta: viaja en la URL a Google).
+      # El servidor la deriva del Host si falta, y eso ya mato un login con
+      # invalid_grant: la URI del intercambio tiene que ser byte por byte la
+      # misma que la de autorizacion y la registrada en Google Console.
+      - key: GOOGLE_REDIRECT_URI
+        value: https://llave-d3me.onrender.com/api/auth/google/callback
       # Contraseña del panel /admin. Configúrala como SECRETO en el panel de Render.
       # Sin esta variable, el panel de administración queda DESACTIVADO (seguro por defecto).
       - key: ADMIN_PASSWORD

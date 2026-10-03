@@ -1273,7 +1273,9 @@ function App() {
   /* El id (`orders`) frente al nombre del componente (`OrdersApp`): la ruta
      habla de ids, así que hace falta recordar cuál está montado para saber si
      un popstate solo cambió de pestaña o cambió de herramienta. */
-  const microAppIdRef = useRef(null);
+   const microAppIdRef = useRef(null);
+   /* Volver = inicio: la salida deshace ?app= hasta agotarlo. */
+   const salidaRef = useRef(false);
   // ── Sesión del taller (cuenta de mecánico) ──
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -1643,7 +1645,7 @@ function App() {
        entrada colgando y el gesto de atrás reabriría la herramienta recién
        cerrada. Si se llegó por enlace directo (?app=… en la primera carga) no
        hay nada que deshacer: se limpia la URL en el sitio. */
-    if (window.FT_RUTA.leer().app && history.state && history.state.ft) { history.back(); return; }
+    if (window.FT_RUTA.leer().app && history.state && history.state.ft) { salidaRef.current = true; history.back(); return; }
     if (location.pathname !== '/') history.replaceState(null, '', '/');
     rutaEscribir({ app: null, sub: null }, 'replace');
     microAppIdRef.current = null;
@@ -1655,6 +1657,11 @@ function App() {
      menú de la app instalada en Android). */
   const aplicarRuta = React.useCallback(() => {
     const { app, sub } = window.FT_RUTA.leer();
+    /* Salida en cadena: seguir atrás mientras quede ?app=. */
+    if (salidaRef.current) {
+      if (app && app !== 'search' && history.state && history.state.ft) { history.back(); return; }
+      salidaRef.current = false;
+    }
     /* `search` (el catálogo) no es una ruta: un enlace viejo con ?app=search
        devolvía al catálogo al recargar en vez de al inicio. */
     if (!app || app === 'search') { setMicroApp(null); setViewState('home'); return; }

@@ -159,6 +159,7 @@
   const porDia = (dia) => citas.filter((c) => c.fecha === dia).sort((a, b) => String(a.hora || '').localeCompare(String(b.hora || '')));
   const delDia = porDia(sel);
   const sinConfirmar = citas.filter((c) => c.status === 'pendiente' && c.fecha >= hoy);
+  const [sinConfVis, MasSinConf] = useVerMas(sinConfirmar, 5, 'citas');
   const telefonoDe = (c) => (clients.find((x) => x.id === c.client_id) || {}).phone || '';
 
   const lineaWhatsApp = (c) => [
@@ -322,7 +323,7 @@
       </div>
     </div>`}
 
-    ${vista === 'dia' && slots && slots.huecos && slots.huecos.length ? html`<div class="ag-grid">
+    ${vista === 'dia' && slots && slots.huecos && slots.huecos.length ? html`<div class="ag-grid" style=${{ maxHeight: '52vh', overflowY: 'auto' }}>
       ${slots.huecos.map((h) => {
         const enHueco = slots.citas.filter((c) => {
           const [hh, mm] = String(c.hora || '').split(':').map(Number);
@@ -348,7 +349,7 @@
       })}
     </div>` : ''}
 
-    <div class="tw-days">
+    ${vista === 'dia' && html`<div class="tw-days">
       ${semana.map((d) => {
         const n = porDia(d).length;
         const f2 = new Date(d + 'T12:00:00');
@@ -359,9 +360,9 @@
           <span class=${'tw-day-dot' + (n ? '' : ' off')}></span>
         </button>`;
       })}
-    </div>
+    </div>`}
 
-    ${vista === 'dia' ? html`<div>
+    ${vista === 'dia' && !(slots && slots.huecos && slots.huecos.length) ? html`<div>
       ${delDia.length ? html`<div class="tw-time">
         ${sel === hoy && html`<div class="tw-now"><span>Ahora</span></div>`}
         ${delDia.map((c) => html`<div class=${'tw-item ' + (CLAVE_ESTADO[c.status] || '')} key=${c.id}>
@@ -417,7 +418,7 @@
 
     ${sinConfirmar.length > 0 && html`<div>
       <div class="tw-sec"><h3 class="tw-sec-t">Sin confirmar</h3><span class="tw-sec-c">${sinConfirmar.length}</span></div>
-      ${sinConfirmar.map((c) => html`<div class="tw-card is-focus" key=${'s' + c.id}>
+      ${sinConfVis.map((c) => html`<div class="tw-card is-focus" key=${'s' + c.id}>
         <div class="tw-card-top">
           <span class="tw-tag warn">${fechaLarga(c.fecha)}${c.hora ? ' · ' + c.hora : ''}</span>
         </div>
@@ -434,6 +435,7 @@
             <${CatIc} n="Check" s=${18} />Ya confirmó</button>
         </div>
       </div>`)}
+      <${MasSinConf} />
     </div>`}
 
     ${nueva && html`<div class="tw-card">
@@ -531,6 +533,9 @@
     const visibles = soloFavs
       ? filas.filter((x) => favs.includes(x.nombre))
       : filas.filter((x) => !t || (x.nombre + ' ' + x.sistema).toLowerCase().includes(t));
+    /* El catálogo se pintaba entero de golpe: paginado por tandas como el
+       resto del taller (misma ayuda que órdenes e inventario). */
+    const [tiemposVis, MasTiempos] = useVerMas(visibles, 15, 'tiempos');
 
     const abrir = (it) => {
       setSel(it);
@@ -653,7 +658,7 @@
         <button type="button" class="tw-cta sec" onClick=${() => setSel(null)}>Cerrar</button>
       </div>`}
 
-      ${visibles.map((it) => html`<div class="tw-card" key=${it.id}>
+      ${tiemposVis.map((it) => html`<div class="tw-card" key=${it.id}>
         <div class="tw-card-top">
           <span class="tw-tag">${it.sistema}</span>
           ${esFav(it.nombre) && html`<span class="tw-pill warn"><${CatIc} n="Star" s=${12} />Favorito</span>`}
@@ -677,6 +682,7 @@
             <${CatIc} n="Trash" s=${18} />Eliminar</button>`}
         </div>
       </div>`)}
+      <${MasTiempos} />
 
       ${!visibles.length && html`<div class="tw-empty">
         <${CatIc} n="History" s=${26} />
