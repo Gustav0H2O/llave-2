@@ -233,7 +233,7 @@ async function createApp(dbOverride, statsOverride) {
 
   /* trust proxy configurable (TRUST_PROXY / TRUST_PROXY_CIDR) + canonicalización
      de host hacia BASE_URL. */
-  aplicarCanonico(app, { BASE_URL, PROD, trustProxy: process.env.TRUST_PROXY, trustProxyCidr: process.env.TRUST_PROXY_CIDR });
+  aplicarCanonico(app, { BASE_URL, PROD, trustProxy: process.env.TRUST_PROXY, trustProxyCidr: process.env.TRUST_PROXY_CIDR, esRender: process.env.RENDER === 'true' });
 
   /* 2.31 — helmet (CSP con hashes de los <script> inline y nonce por respuesta,
      sin 'unsafe-inline') + Permissions-Policy. Los orígenes de AdSense ya NO se
