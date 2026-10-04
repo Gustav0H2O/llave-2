@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { StoreBD } = require('../services/rate-limit-store');
+const { cookieEsSegura } = require('../../lib/pure');
 
 function aplicarPeticiones(app, deps) {
   const { db, PROD, enTest, CSRF_COOKIE } = deps;
@@ -45,7 +46,11 @@ function aplicarPeticiones(app, deps) {
      administración, que lo recibe por `deps`. */
   app.use('/api', (req, res, next) => {
     const nonce = crypto.randomBytes(24).toString('base64url');
-    res.cookie(CSRF_COOKIE, nonce, { httpOnly: false, sameSite: 'strict', secure: PROD, path: '/' }).set('X-CSRF-Token', nonce);
+    /* `secure` por protocolo real, no por PROD: el panel /admin compara esta
+       cookie contra la cabecera X-CSRF-Token, así que si el navegador la
+       descartaba por venir con Secure sobre http://, todo POST del panel
+       respondía 403 csrf_invalid. */
+    res.cookie(CSRF_COOKIE, nonce, { httpOnly: false, sameSite: 'strict', secure: cookieEsSegura(req), path: '/' }).set('X-CSRF-Token', nonce);
     next();
   });
 }

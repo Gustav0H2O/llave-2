@@ -36,6 +36,7 @@
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { StoreBD } = require('../services/rate-limit-store');
+const { cookieEsSegura } = require('../../lib/pure');
 const {
   hashToken, hashPassword, verifyPassword, normEmail,
   WEAK_PASSWORDS, SESSION_COOKIE, CAMPOS_PERFIL, normalizaPerfil, escMail, enviarCorreo,
@@ -133,7 +134,7 @@ function montarAuth(app, deps) {
       throw e;
     }
     return res.set('Cache-Control', 'no-store')
-      .cookie(SESSION_COOKIE, token, tokenCookieOpts())
+      .cookie(SESSION_COOKIE, token, tokenCookieOpts(req))
       .status(201).json({ id, name, email, onboarding_completed: Boolean(onbDone) });
   });
 
@@ -226,7 +227,7 @@ function montarAuth(app, deps) {
     await db.run('UPDATE workshops SET last_login_at = ?, last_login_ip = ? WHERE id = ?',
       [new Date().toISOString(), safeIp, ws.id]).catch(() => {});
     res.set('Cache-Control', 'no-store')
-      .cookie(SESSION_COOKIE, token, tokenCookieOpts())
+      .cookie(SESSION_COOKIE, token, tokenCookieOpts(req))
       .json({ id: ws.id, name: ws.name, email: ws.email });
   });
 
@@ -399,16 +400,20 @@ function montarAuth(app, deps) {
      con invalid_grant. Sin este registro, un prefetch del navegador, un doble
      clic o un refresh son indistinguibles de un fallo real. Solo diagnostica. */
   const codigosVistos = new Map();
-  /* El redirect_uri debe coincidir con las URI autorizadas en Google Console */
+  /* El redirect_uri debe coincidir con la URI autorizada en Google Console */
   const googleRedirectUri = (req) => {
     if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
-    /* En producción vale el dominio CANÓNICO del sitio (BASE_URL), que es el que
-       se registra en Google Console. Derivarlo del Host de la petición hacía que
-       un alias distinto generara un redirect_uri no autorizado —el clásico
-       `redirect_uri_mismatch`— y el callback muriera en google_error. En local y
-       pruebas se sigue derivando de la petición, porque BASE_URL trae un
-       dominio de producción por defecto. */
-    if (PROD && BASE_URL) return `${BASE_URL}/api/auth/google/callback`;
+    /* Se deriva SIEMPRE de la petición, nunca de BASE_URL.
+       Antes, en PROD, se devolvía `${BASE_URL}/api/auth/google/callback`, y eso
+       rompía el desarrollo local: el .env y el shell del puesto traen
+       NODE_ENV=production, así que al arrancar en localhost se le mandaba a
+       Google la URI de PRODUCCIÓN. Google devolvía el callback a
+       llave-d3me.onrender.com —un host que nunca vio la cookie
+       google_oauth_state que se acababa de poner en localhost—, así que
+       savedState llegaba vacío y el callback moría en detalle=state.
+       Con el host real de la petición, en producción sale exactamente el mismo
+       valor que salía con BASE_URL (render.yaml además fija
+       GOOGLE_REDIRECT_URI, que manda sobre todo esto). */
     const host = req.headers.host || '';
     // Detrás de Render/Cloudflare el Host público viaja en X-Forwarded-Host
     const fwd = (req.headers['x-forwarded-host'] || '').split(',')[0].trim();
@@ -417,9 +422,11 @@ function montarAuth(app, deps) {
     if (h.startsWith('127.0.0.1')) {
       h = h.replace('127.0.0.1', 'localhost');
     }
-    const proto = req.headers['x-forwarded-proto']
-      ? String(req.headers['x-forwarded-proto']).split(',')[0].trim()
-      : (PROD ? 'https' : 'http');
+    /* req.protocol ya respeta el `trust proxy` que fija aplicarCanonico, así que
+       detrás de Render devuelve https con X-Forwarded-Proto. La cabecera se lee
+       además por si el proxy no llegara a configurarse. */
+    const xfp = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+    const proto = xfp || (req.protocol === 'https' ? 'https' : 'http');
     return `${proto}://${h}/api/auth/google/callback`;
   };
 
@@ -443,8 +450,17 @@ function montarAuth(app, deps) {
     const sig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${randState}_${authMode}`).digest('hex');
     const state = `${randState}_${authMode}_${sig}`;
     // Guardar state y modo en cookies temporales (path: '/' para todo el sitio)
-    res.cookie('google_oauth_state', state, { httpOnly: true, sameSite: 'lax', path: '/', secure: PROD, maxAge: 600_000 });
-    res.cookie('google_oauth_mode', authMode, { httpOnly: true, sameSite: 'lax', path: '/', secure: PROD, maxAge: 600_000 });
+    /* `secure` se decide por el PROTOCOLO de esta petición, no por NODE_ENV.
+       Antes era `secure: PROD`, y eso tumbaba el flujo en local: la máquina
+       arranca con NODE_ENV=production (lo heredan el .env y el shell), así que
+       la cookie salía con el atributo Secure sobre http://localhost. Secure solo
+       viaja por HTTPS, así que el navegador la descartaba sin guardarla y el
+       callback volvía sin state -> detalle=state. En producción, donde el
+       sitio es HTTPS, el valor sigue siendo true. */
+    const cookieSegura = cookieEsSegura(req);
+    const optsState = { httpOnly: true, sameSite: 'lax', path: '/', secure: cookieSegura, maxAge: 600_000 };
+    res.cookie('google_oauth_state', state, optsState);
+    res.cookie('google_oauth_mode', authMode, optsState);
     const params = new URLSearchParams({
       client_id: GOOGLE_CLIENT_ID,
       redirect_uri: GOOGLE_REDIRECT_URI,
@@ -655,7 +671,7 @@ function montarAuth(app, deps) {
       );
       if (!PROD) console.log('[Google OAuth] sesion creada');
 
-      res.cookie(SESSION_COOKIE, token, tokenCookieOpts());
+      res.cookie(SESSION_COOKIE, token, tokenCookieOpts(req));
       res.redirect(esCuentaNueva ? '/?login=google_registered' : '/?login=google_ok');
     } catch (err) {
       const detalle = err.oauthDetalle || 'interno';

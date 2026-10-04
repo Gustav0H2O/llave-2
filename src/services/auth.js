@@ -37,7 +37,7 @@
    ========================================================================= */
 
 const crypto = require('crypto');
-const { esc, extraerToken, calcularProgresoDonador } = require('../../lib/pure');
+const { esc, extraerToken, cookieEsSegura, calcularProgresoDonador } = require('../../lib/pure');
 
 /* Cookie de sesión del taller: una sola definición (la usan requireWorkshop,
    las rutas de auth y el chat, que la recibe por `deps`). */
@@ -164,9 +164,16 @@ function crearAuth({ db, PROD, SESSION_TTL_MS }) {
      timing-safe ve 850 vs 1700ms). Se lanza sin await a propósito. */
   getDummyHash().catch(() => {});
 
-  const tokenCookieOpts = () => ({
+  /* `secure` lo decide el PROTOCOLO real de la petición, no NODE_ENV. Con
+     `secure: PROD` la cookie de sesión quedaba inservible en local siempre que
+     la máquina arrancara con NODE_ENV=production (lo heredan el .env y el
+     shell): el navegador descarta las cookies Secure que llegan por http:// y
+     el login respondía 201 con una sesión que el navegador nunca guardaba.
+     Se pasa `req` (opcional) y, si no se puede saber el protocolo, se mantiene
+     la decisión por PROD para no aflojar la protección en producción. */
+  const tokenCookieOpts = (req) => ({
     httpOnly: true, sameSite: 'lax', path: '/',
-    secure: PROD, maxAge: SESSION_TTL_MS
+    secure: req ? cookieEsSegura(req) : PROD, maxAge: SESSION_TTL_MS
   });
 
   const requireWorkshop = async (req, res, next) => {
