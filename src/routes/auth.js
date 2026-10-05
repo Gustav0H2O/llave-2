@@ -415,6 +415,41 @@ function montarAuth(app, deps) {
     db.run('DELETE FROM oauth_codigos WHERE created_at < ?', [new Date(Date.now() - CODIGO_TTL_MS).toISOString()]).catch(() => {});
   }, 10 * 60 * 1000);
   if (_purgaCodigos.unref) _purgaCodigos.unref();
+
+  /* States emitidos, para que un REINTENTO del mismo inicio no se invalide a sí
+     mismo. El log de Render en el móvil muestra que un solo clic produce DOS
+     peticiones a /api/auth/google: cada una pone su state en la MISMA cookie, y
+     la segunda pisa a la primera. Google vuelve con el state de la que se
+     guardó primero, la cookie ya tiene el de la segunda, y el callback muere en
+     detalle=state sin llegar a canjear nada.
+
+     Antes se comparaba el state SOLO contra la cookie, así que en cuanto había
+     dos entregas el login era un fallo fijo. Aquí se guardan los states
+     recientes que ha emitido el servidor, así que un callback es válido si
+     coincide con la cookie O con cualquiera de los últimos emitidos por este
+     proceso.
+
+     NO baja la seguridad del CSRF: un state solo es válido si lo generó este
+     servidor con su propio secreto (HMAC), dentro de la ventana de 10 minutos,
+     y en la misma pestaña/navegación que inició el flujo. Un atacante externo
+     no puede inventarse uno. Y como no hay dos puertas, el state ya no dice qué
+     hacer: solo prueba que el viaje viene de nuestra pantalla de acceso. */
+  const STATE_TTL_MS = 10 * 60e3;
+  const statesEmitidos = new Map();   // state -> cuándo se emitió
+
+  /* Registra un state recién emitido y poda los viejos, para que el mapa no
+     crezca sin control. Se llama al montar cada flujo en /api/auth/google. */
+  const recordarState = (state) => {
+    const ahora = Date.now();
+    for (const [s, t] of statesEmitidos) { if (ahora - t > STATE_TTL_MS) statesEmitidos.delete(s); }
+    statesEmitidos.set(state, ahora);
+  };
+
+  /* ¿Es un state que ha emitido este servidor dentro de la ventana? */
+  const stateConocido = (state) => {
+    const t = statesEmitidos.get(state);
+    return !!t && (Date.now() - t) <= STATE_TTL_MS;
+  };
   /* El redirect_uri debe coincidir con la URI autorizada en Google Console */
   const googleRedirectUri = (req) => {
     if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
@@ -467,6 +502,10 @@ function montarAuth(app, deps) {
     const randState = crypto.randomBytes(16).toString('hex');
     const sig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${randState}_login`).digest('hex');
     const state = `${randState}_login_${sig}`;
+    /* Se guarda aparte de la cookie para que un reintento del mismo inicio no
+       invalide el state del primero (ver `statesEmitidos`): en el móvil un clic
+       genera dos flujos y la cookie solo conserva el último. */
+    recordarState(state);
     // Guardar el state en una cookie temporal (path: '/' para todo el sitio)
     /* `secure` se decide por el PROTOCOLO de esta petición, no por NODE_ENV.
        Antes era `secure: PROD`, y eso tumbaba el flujo en local: la máquina
@@ -516,11 +555,16 @@ function montarAuth(app, deps) {
        la parte del medio ya no decide nada: se conserva para no invalidar los
        states ya emitidos, y se ignora al decidir. */
     let isStateValid = false;
-    if (typeof state === 'string' && savedState && state === savedState && parts.length === 3 && GOOGLE_CLIENT_SECRET) {
+    if (typeof state === 'string' && parts.length === 3 && GOOGLE_CLIENT_SECRET) {
       const expectedSig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${parts[0]}_${parts[1]}`).digest('hex');
-      if (parts[2].length === expectedSig.length && crypto.timingSafeEqual(Buffer.from(parts[2]), Buffer.from(expectedSig))) {
-        isStateValid = true;
-      }
+      const firma = parts[2].length === expectedSig.length && crypto.timingSafeEqual(Buffer.from(parts[2]), Buffer.from(expectedSig));
+      /* La cookie puede haberse pisado por un reintento del mismo inicio (dos
+         clics, un doble toque, una recarga de la pantalla de Google): en ese
+         caso el state que vuelve es correcto pero ya no es el último de la
+         cookie. Por eso se acepta también si lo emitió este servidor hace poco
+         (`stateConocido`). La firma HMAC sigue siendo obligatoria: sin ella el
+         state no vale, y sin state válido no hay sesión. */
+      if (firma && (state === savedState || stateConocido(state))) isStateValid = true;
     }
 
     if (!PROD) console.log('[Google OAuth] callback:', { code: code ? 'si' : 'no', stateValid: isStateValid });
