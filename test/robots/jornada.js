@@ -6,8 +6,8 @@
    saltarse nada:
 
      1. Da de alta la cuenta POR HTTP y consigue su cookie de sesión. El acceso
-        es SOLO con Google y son DOS opciones separadas (la pestaña «Iniciar
-        sesión» va a mode=login y la «Crear cuenta» a mode=register), así que la
+        es SOLO con Google y ahora es UNA SOLA PUERTA (el botón es «Ingresar con
+        Google»: si la cuenta existe se entra y si no se crea), así que la
         pantalla de acceso no tiene formulario: la cookie `ftm_session` se inyecta
         en el navegador antes de cargar la página, que es el estado exacto en el
         que la deja el callback. Así se comprueba que la sesión sobrevive a la
@@ -258,8 +258,8 @@ async function main() {
     /* ----------------------------------------------------------------
        Fase B: alta por HTTP + sesión inyectada en el navegador
        ----------------------------------------------------------------
-       La pantalla de acceso es SOLO Google y son DOS puertas (mode=login y
-       mode=register), así que no hay ningún formulario que teclear. La cuenta se
+       La pantalla de acceso es SOLO Google y es UNA SOLA PUERTA (sin pestañas), así
+       que no hay ningún formulario que teclear. La cuenta se
        crea y se entra por HTTP —/api/auth/register y /api/auth/login siguen
        abiertos en el entorno de pruebas; en producción responden 403
        register_google_only y login_google_only— y la cookie `ftm_session` que
@@ -325,12 +325,11 @@ async function main() {
       cuentas.push({ pag, contexto, correo, nombre, i });
     }
 
-    /* La pantalla de acceso es SOLO Google, pero son DOS opciones separadas: la
-       pestaña «Iniciar sesión» (mode=login) y la «Crear cuenta» (mode=register).
-       Ninguna tiene un solo campo de texto —ni correo, ni contraseña— y cada una
-       ofrece SU botón, con el `mode` que le toca: el callback se niega a crear
-       una cuenta que ya existe y a entrar en una que no está. */
-    rep.seccion('B2. La pantalla de acceso son dos opciones, solo con Google y sin campos');
+    /* La pantalla de acceso es SOLO Google y ahora es UNA SOLA PUERTA: no hay
+       pestañas ni campos de texto —ni correo, ni contraseña— y hay un único
+       botón, sin `mode`: el callback entra si la cuenta existe y la crea si no,
+       así que no puede «negarse» a nada. */
+    rep.seccion('B2. La pantalla de acceso es una sola puerta, solo con Google y sin campos');
     {
       const pag = await navegador.newPage();
       await pag.setViewport({ width: o.ancho, height: 900 });
@@ -355,6 +354,7 @@ async function main() {
           pestanas: [...document.querySelectorAll('.login-tabs .login-tab')].map(t => t.textContent.trim()),
           activa: (document.querySelector('.login-tab.is-active')?.textContent || '').trim(),
           google: boton ? boton.getAttribute('href') : null,
+          textoBoton: boton ? boton.textContent.trim() : null,
         };
       });
 
@@ -363,32 +363,16 @@ async function main() {
       rep.comprobar(acceso.local || acceso.contrasenas === 0, 'la pantalla de acceso NO pide contraseña (fuera de desarrollo)', `hay ${acceso.contrasenas} campos de contraseña`);
       rep.comprobar(acceso.local || acceso.correos === 0, 'la pantalla de acceso NO pide correo (fuera de desarrollo)', `hay ${acceso.correos} campos de correo`);
       rep.comprobar(acceso.local || acceso.campos === 0, 'la pantalla de acceso no tiene campos fuera de desarrollo', `hay ${acceso.campos} campos`);
-      rep.comprobar(acceso.pestanas.length === 2
-        && acceso.pestanas[0] === 'Iniciar sesión' && acceso.pestanas[1] === 'Crear cuenta',
-        'la pantalla de acceso ofrece las dos pestañas, «Iniciar sesión» y «Crear cuenta»',
-        `pestañas: [${acceso.pestanas.join(', ')}]`);
-      rep.comprobar(acceso.activa === 'Iniciar sesión', 'arranca en la pestaña «Iniciar sesión»', `activa: «${acceso.activa}»`);
-      rep.comprobar(acceso.google === '/api/auth/google?mode=login',
-        'la pestaña «Iniciar sesión» ofrece su botón con mode=login', `href: ${acceso.google}`);
-
-      /* Pulsar la pestaña tiene que cambiar el href. Sin esto, quien quiere crear
-         su cuenta acaba en la puerta de acceso y el callback lo devuelve con
-         «ese correo ya tiene cuenta»: el callejón sin salida que esta pantalla
-         existe para evitar. */
-      rep.comprobar(await pag.evaluate(() => {
-        const t = [...document.querySelectorAll('.login-tabs .login-tab')]
-          .find(x => x.textContent.trim() === 'Crear cuenta');
-        if (!t) return false;
-        t.click();
-        return true;
-      }), 'se puede pulsar la pestaña «Crear cuenta»', 'no se encontró la pestaña');
-      await esperar(250);
-
-      const alta = await leer();
-      rep.comprobar(alta.local || alta.campos === 0, 'la pestaña «Crear cuenta» tampoco tiene campos fuera de desarrollo', `hay ${alta.campos} campos`);
-      rep.comprobar(alta.activa === 'Crear cuenta', 'al pulsarla, «Crear cuenta» queda activa', `activa: «${alta.activa}»`);
-      rep.comprobar(alta.google === '/api/auth/google?mode=register',
-        'la pestaña «Crear cuenta» ofrece su botón con mode=register, y cambió con la pestaña', `href: ${alta.google}`);
+      /* UNA SOLA PUERTA: ya no hay pestañas de «Iniciar sesión» / «Crear
+         cuenta». Con Google el correo viene verificado, así que el servidor
+         entra si la cuenta existe y la crea si no: no hay nada que decidir y,
+         por tanto, no hay rebote si se pulsa el «botón equivocado». */
+      rep.comprobar(acceso.pestanas.length === 0,
+        'la pantalla de acceso NO tiene pestañas (una sola puerta)', `pestañas: [${acceso.pestanas.join(', ')}]`);
+      rep.comprobar(acceso.google === '/api/auth/google',
+        'el botón apunta a la puerta única, sin mode', `href: ${acceso.google}`);
+      rep.comprobar(acceso.textoBoton === 'Ingresar con Google',
+        'el botón se llama «Ingresar con Google»', `texto: «${acceso.textoBoton}»`);
       await pag.close();
     }
 

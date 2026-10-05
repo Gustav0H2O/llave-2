@@ -1117,29 +1117,26 @@ function OnboardingModal({ user, onComplete, onLogout }) {
   `;
 }
 
-/* ---------- Acceso / alta del taller ---------- */
-function LoginScreen({ onBack, notice, tabInicial, onLoginSuccess }) {
+/* ---------- Acceso del taller (UNA SOLA PUERTA) ----------
+   No hay `mode`: antes el componente recibía `tabInicial` y separaba
+   «Iniciar sesión» de «Crear cuenta». Ya no hay nada que separar: el botón
+   es «Ingresar con Google» y el servidor entra si la cuenta existe y la crea si
+   no (ver src/routes/auth.js). El único login que queda con contraseña es el
+   formulario de desarrollo local, que no existe en producción. */
+function LoginScreen({ onBack, notice, onLoginSuccess }) {
   const [msg, setMsg] = useState('');
-  const [mode, setMode] = useState(tabInicial || 'login');
   const [activeNotice, setActiveNotice] = useState(notice || '');
   const [locEmail, setLocEmail] = useState('');
   const [locPass, setLocPass] = useState('');
   const [locName, setLocName] = useState('');
   const [locBusy, setLocBusy] = useState(false);
- const [googleBusy, setGoogleBusy] = useState(false);
- /* Guard síncrono del primer toque: un ref, no el estado, porque el estado
-    re-renderiza y el ref corta el segundo clic en el acto. */
- const googleYa = useRef(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  /* Guard síncrono del primer toque: un ref, no el estado, porque el estado
+     re-renderiza y el ref corta el segundo clic en el acto. */
+  const googleYa = useRef(false);
 
   useEffect(() => { setActiveNotice(notice || ''); }, [notice]);
-  useEffect(() => { if (tabInicial) setMode(tabInicial); }, [tabInicial]);
 
-  const cambiarModo = (m) => {
-    setMode(m); setMsg(''); setActiveNotice('');
-    /* Cambiar de pestaña devuelve el botón a la vida: si el primer toque no
-       llegó a navegar, nadie debe quedarse con un enlace muerto. */
-    googleYa.current = false; setGoogleBusy(false);
-  };
   /* Un solo toque, pero SIN matar el primero. El código de autorización de
      Google es de UN SOLO USO: si el enlace se activa dos veces, el primer canje
      crea la sesión y el segundo vuelve con `invalid_grant`, con un error que
@@ -1159,22 +1156,32 @@ function LoginScreen({ onBack, notice, tabInicial, onLoginSuccess }) {
     setGoogleBusy(true);
     window.setTimeout(() => { googleYa.current = false; setGoogleBusy(false); }, 8000);
   };
-  const esAlta = mode === 'register';
   const esDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || (activeNotice && activeNotice.includes('no está configurado'));
 
+  /* El login con contraseña es SOLO de desarrollo (esDev): en producción el
+     servidor lo cierra con 403 y la única puerta es Google. Como ya no hay
+     pestañas, el endpoint se elige probando: primero el acceso y, si el
+     servidor dice que la cuenta no existe, el alta. Así el formulario local
+     sigue sirviendo para trabajar sin credenciales de Google. */
   const submitLocal = async (e) => {
     e.preventDefault();
     if (!locEmail.trim() || !locPass) return;
     setLocBusy(true); setMsg('');
+    const correo = locEmail.trim();
     try {
-      const endpoint = esAlta ? '/api/auth/register' : '/api/auth/login';
-      const body = esAlta ? { email: locEmail.trim(), password: locPass, name: locName.trim() || 'Mi Taller' } : { email: locEmail.trim(), password: locPass };
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify(body),
+      const credenciales = { email: correo, password: locPass };
+      let res = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin', body: JSON.stringify(credenciales),
       });
+      /* Si no existe la cuenta, se da de alta con el mismo correo. */
+      if (res.status === 401) {
+        res = await fetch('/api/auth/register', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ ...credenciales, name: locName.trim() || 'Mi Taller' }),
+        });
+      }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Error al autenticar');
       if (onLoginSuccess) onLoginSuccess(); else location.reload();
@@ -1205,20 +1212,13 @@ function LoginScreen({ onBack, notice, tabInicial, onLoginSuccess }) {
           <img class="login-form-logo logo-img logo-img--light" src="/brand/logo-llave.svg" alt="llave" />
           <img class="login-form-logo logo-img logo-img--dark" src="/brand/logo-llave-light.svg" alt="" aria-hidden="true" />
 
-          <div class="login-tabs" role="tablist">
-            <button type="button" role="tab" aria-selected=${!esAlta} class=${'login-tab' + (esAlta ? '' : ' is-active')} onClick=${() => cambiarModo('login')}>Iniciar sesión</button>
-            <button type="button" role="tab" aria-selected=${esAlta} class=${'login-tab' + (esAlta ? ' is-active' : '')} onClick=${() => cambiarModo('register')}>Crear cuenta</button>
-          </div>
-
-          <h1 class="login-h1">${esAlta ? 'Crea la cuenta de tu taller' : 'Bienvenido de vuelta'}</h1>
-          <p class="login-h1-sub">${esAlta
-            ? 'Tu cuenta se abre con Google, sin contraseña que recordar. Si ya tienes una, entra desde la pestaña «Iniciar sesión».'
-            : 'Entra con la cuenta de Google de tu taller. Tu correo queda verificado y no hay contraseña que guardar.'}</p>
+          <h1 class="login-h1">Entra a tu taller</h1>
+          <p class="login-h1-sub">Usa tu cuenta de Google. Si es la primera vez, te creamos el taller aquí mismo; si ya tienes una, entras directamente. Sin contraseñas que recordar.</p>
 
           ${activeNotice && html`
             <div class="login-msg login-msg--top login-msg--warn"><span>${activeNotice}</span></div>`}
 
-          <a href=${'/api/auth/google?mode=' + mode}
+          <a href="/api/auth/google"
              class=${'login-google' + (googleBusy ? ' is-busy' : '')}
              role="button" tabindex=${googleBusy ? -1 : 0}
              aria-disabled=${googleBusy || undefined}
@@ -1229,7 +1229,7 @@ function LoginScreen({ onBack, notice, tabInicial, onLoginSuccess }) {
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
-            ${googleBusy ? 'Abriendo Google…' : (esAlta ? 'Crear cuenta con Google' : 'Iniciar sesión con Google')}
+            ${googleBusy ? 'Abriendo Google…' : 'Ingresar con Google'}
           </a>
 
           ${esDev && html`
@@ -1237,10 +1237,10 @@ function LoginScreen({ onBack, notice, tabInicial, onLoginSuccess }) {
               <div style=${{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', marginBottom: '8px' }}>
                 Acceso local (desarrollo sin Google OAuth)
               </div>
-              ${esAlta && html`<label class="login-field" style=${{ marginBottom: '6px' }}>
+              <label class="login-field" style=${{ marginBottom: '6px' }}>
                 <span>Nombre del taller</span>
                 <input type="text" class="styled-input" value=${locName} onChange=${e => setLocName(e.target.value)} placeholder="Taller Mecánico" />
-              </label>`}
+              </label>
               <label class="login-field" style=${{ marginBottom: '6px' }}>
                 <span>Correo</span>
                 <input type="email" class="styled-input" required value=${locEmail} onChange=${e => setLocEmail(e.target.value)} placeholder="taller@ejemplo.com" />
@@ -1250,7 +1250,7 @@ function LoginScreen({ onBack, notice, tabInicial, onLoginSuccess }) {
                 <input type="password" class="styled-input" required minlength="10" value=${locPass} onChange=${e => setLocPass(e.target.value)} placeholder="••••••••••" />
               </label>
               <button type="submit" class="tool-add-btn" style=${{ width: '100%' }} disabled=${locBusy}>
-                ${locBusy ? 'Verificando…' : (esAlta ? 'Crear cuenta local' : 'Entrar localmente')}
+                ${locBusy ? 'Verificando…' : 'Entrar o crear cuenta local'}
               </button>
             </form>
           `}
@@ -1311,7 +1311,8 @@ function App() {
     verifyTimer.current = texto ? setTimeout(() => setVerifyMsg(''), ms) : null;
   };
   useEffect(() => () => { if (verifyTimer.current) clearTimeout(verifyTimer.current); }, []);
-  const [loginTab, setLoginTab] = useState('login');   // pestaña con la que abre la pantalla de acceso
+  /* Ya no hay `loginTab`: con una sola puerta no hay pestañas que elegir
+     (ver LoginScreen y src/routes/auth.js). */
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'same-origin' })
        .then(r => { if (!r.ok) throw new Error('no-session'); return r.json(); })
@@ -1433,19 +1434,19 @@ function App() {
   }, []);
 
   /* Vuelta del flujo de Google: /?login=google_ok|google_registered|google_error|
-     google_suspended|google_locked|google_email_unverified|google_unconfigured|
-     google_not_registered|google_already_registered. google_ok y
-     google_registered ya dejan la cookie de sesión puesta —refrescar
+     google_suspended|google_locked|google_email_unverified|google_unconfigured.
+     google_ok y google_registered ya dejan la cookie de sesión puesta —refrescar
      /api/auth/me es lo que hace que la cuenta "aparezca" en la app—; el resto son
-     negativas y reabren la pantalla de acceso. Como el acceso y el alta son DOS
-     puertas distintas (`register` no entra en una cuenta que ya existe y `login`
-     no crea una nueva), la vuelta trae en `email` el correo culpable y el aviso
-     tiene que decir en QUÉ pestaña está el botón correcto: para eso se fija
-     `loginTab`, que es la pestaña con la que se monta LoginScreen. */
+     negativas y reabren la pantalla de acceso.
+
+     `google_not_registered` y `google_already_registered` ya no se emiten: con
+     UNA SOLA PUERTA el servidor entra si la cuenta existe y la crea si no, así
+     que no hay rebote. Sus textos se conservan abajo por si un despliegue viejo
+     los devolviera. Tampoco hay pestañas, así que no hay que elegir dónde abrir
+     la pantalla. */
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const p = urlParams.get('login');
-    const correo = urlParams.get('email') || '';
     /* Motivo corto que manda el callback (state, token_redirect_uri_mismatch…).
        Sin esto, un fallo de Google solo decía "prueba de nuevo" y no había por
        dónde empezar a mirar. */
@@ -1469,24 +1470,21 @@ function App() {
          pulsar de nuevo, un token inválido que le impedía volver a entrar.
          Basta con limpiar el estado LOCAL: si había una sesión de verdad, el
          /api/auth/me del arranque ya la trajo y se conserva. */
-      setUser(null);
-      /* La pestaña que corresponde al botón que hay que pulsar ahora. */
-      const pestana = {
-        google_not_registered: 'register',
-        google_already_registered: 'login',
-        login_google_only: 'login',
-      }[p];
-      if (pestana) setLoginTab(pestana);
-      const quien = correo ? `El correo ${correo}` : 'Ese correo';
+setUser(null);
+      /* Ya no hay dos puertas que elegir, así que no hay que abrir la pantalla
+         en ninguna pestaña concreta: se deja la que hubiera. Los avisos
+         `google_not_registered` y `google_already_registered` ya no los emite el
+         servidor (con una sola puerta siempre se entra o se crea), pero se
+         dejan los textos por si un despliegue viejo los devolviera. */
       const textos = {
         google_error: `No se pudo entrar con Google. Prueba de nuevo.${detalle ? ` (código: ${detalle} — envíalo a soporte si sigue)` : ''}`,
         google_suspended: 'Tu cuenta está suspendida. Contacta a soporte para reactivarla.',
         google_locked: 'Tu cuenta está bloqueada temporalmente por intentos fallidos. Intenta más tarde.',
         google_unconfigured: 'El acceso con Google no está configurado en este servidor. Avisa a soporte.',
         google_email_unverified: 'Google no pudo confirmar que ese correo sea tuyo, así que no se creó la cuenta. Prueba con otra cuenta de Google.',
-        google_not_registered: `${quien} todavía no tiene cuenta. Pulsa «Crear cuenta con Google», en esta pestaña.`,
-        google_already_registered: `${quien} ya tiene cuenta. Pulsa «Iniciar sesión con Google», en esta pestaña.`,
-        login_google_only: 'El acceso al taller es con Google. Pulsa «Iniciar sesión con Google».',
+        google_not_registered: 'Ese correo todavía no tiene cuenta. Vuelve a pulsar «Ingresar con Google» y la creamos al momento.',
+        google_already_registered: 'Esa cuenta ya existe. Vuelve a pulsar «Ingresar con Google» para entrar.',
+        login_google_only: 'El acceso al taller es con Google. Pulsa «Ingresar con Google».',
       };
       avisar(textos[p] || textos.google_error);
       setShowLogin(true);
@@ -1762,13 +1760,12 @@ function App() {
          para el anónimo (candados en las apps de taller, "$0 sin cuenta", specs
          públicas) y exigir sesión para verlo escondía el producto — incluido el
          <h1> del hero, que es lo que indexan los buscadores. */
-      /* El acceso es SOLO con Google y sale del navegador: el callback devuelve
-         la página entera con la cookie puesta, así que aquí no hay ningún
-         «después de entrar» que atender — esta pantalla solo vuelve al inicio.
-         `loginTab` es la pestaña («Iniciar sesión» o «Crear cuenta») con la que
-         abre: la fija el aviso de vuelta cuando el botón pulsado no era el de
-         esa puerta. */
-      if (showLogin) return html`<${LoginScreen} onBack=${() => setShowLogin(false)} notice=${verifyMsg} tabInicial=${loginTab} onLoginSuccess=${() => { refreshUser(); setShowLogin(false); }} />`;
+/* El acceso es SOLO con Google y sale del navegador: el callback devuelve
+          la página entera con la cookie puesta, así que aquí no hay ningún
+          «después de entrar» que atender — esta pantalla solo vuelve al inicio.
+          No se pasa ninguna pestaña: hay un solo botón («Ingresar con Google»)
+          y el servidor entra o crea según exista la cuenta. */
+      if (showLogin) return html`<${LoginScreen} onBack=${() => setShowLogin(false)} notice=${verifyMsg} onLoginSuccess=${() => { refreshUser(); setShowLogin(false); }} />`;
       return html`
         ${verifyMsg && html`<div class="toast-stack"><div class="toast" role="status">${verifyMsg}</div></div>`}
         <${FT.Home} onOpen=${openMicro} user=${user} onLogout=${logout} onLogin=${() => setShowLogin(true)} onUserChange=${refreshUser} />

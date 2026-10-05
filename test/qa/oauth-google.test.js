@@ -152,37 +152,42 @@ describe('Google OAuth — alta, login mixto y correo verificado', () => {
     assert.equal(r.sesion, null);
   });
 
-  it('son dos puertas: «entrar» con un correo sin cuenta manda a crearla, no la crea sola', async () => {
-    perfilGoogle = { email: 'sin-cuenta@prueba.test', verified_email: true };
+  it('una sola puerta: un correo sin cuenta se registra y entra, sin rebotar', async () => {
+    /* Ya no hay dos puertas (register/login). Con Google el correo viene
+       verificado, así que la pregunta «¿alta o acceso?» no tiene sentido: si la
+       cuenta no existe se crea y se entra. Antes esto devolvía
+       google_not_registered y el usuario tenía que pulsar el otro botón. */
+    perfilGoogle = { email: 'sin-cuenta@prueba.test', verified_email: true, name: 'Nuevo' };
     const r = await flujo('login');
-    assert.match(r.destino, /login=google_not_registered/, `debe mandar al alta: ${r.destino}`);
-    assert.equal(r.sesion, null, 'no debe emitirse sesión');
-    assert.equal(taller('sin-cuenta@prueba.test'), undefined, 'el botón de entrar no puede dar de alta');
+    assert.match(r.destino, /login=google_registered/, `debe crear y entrar: ${r.destino}`);
+    assert.ok(r.sesion, 'debe emitir sesión');
+    assert.ok(taller('sin-cuenta@prueba.test'), 'la cuenta debe haberse creado');
   });
 
-  it('una cookie de modo vieja no convierte un «entrar» en un alta', async () => {
-    /* El caso real: el usuario pulsó «Crear cuenta», se quedó en la pantalla de
-       Google y volvió atrás. La cookie `google_oauth_mode=register` se quedó
-       viva. Al pulsar «Iniciar sesión» con un correo SIN cuenta, el callback
-       miraba esa cookie y creaba la cuenta: el usuario acababa en el formulario
-       de identidad como si se hubiera registrado. El `state` firmado dice la
-       verdad, así que la cookie ya no puede cambiar la puerta. */
-    perfilGoogle = { email: 'cookie-vieja@prueba.test', verified_email: true };
+  it('una cookie de modo vieja ya no cambia nada (el modo no existe)', async () => {
+    /* La cookie `google_oauth_mode` quedó de intentos anteriores, cuando había
+       dos puertas. El servidor ya no la mira, así que mandarla no debe alterar
+       nada: el comportamiento es el de una sola puerta. */
+    perfilGoogle = { email: 'cookie-vieja@prueba.test', verified_email: true, name: 'Cookie Vieja' };
     const { state, cookie } = await empezar('login');
     const conCookieVieja = cookie.replace(/google_oauth_mode=[^;]*/, 'google_oauth_mode=register');
     const r = await volver({ state, cookie: conCookieVieja });
-    assert.match(r.destino, /login=google_not_registered/, `debe mandar al alta, no darla: ${r.destino}`);
-    assert.equal(r.sesion, null, 'no debe emitirse sesión');
-    assert.equal(taller('cookie-vieja@prueba.test'), undefined, 'el botón de entrar no puede dar de alta');
+    assert.match(r.destino, /login=google_registered/, `una sola puerta: ${r.destino}`);
+    assert.ok(r.sesion, 'debe emitir sesión');
+    assert.ok(taller('cookie-vieja@prueba.test'), 'la cuenta debe haberse creado');
   });
 
-  it('y «crear cuenta» con un correo que ya existe manda a entrar (no la duplica ni la pisa)', async () => {
+  it('un correo que ya existe entra directamente (no se duplica ni se pisa)', async () => {
+    /* La otra mitad de la puerta única: si la cuenta ya existe, se entra. Antes
+       el botón «Crear cuenta» rebotaba con google_already_registered y obligaba
+       a cambiar de pestaña. */
     ctx.db.prepare('INSERT INTO workshops (email, pass_hash, name, status) VALUES (?, ?, ?, ?)')
       .run('ya-existe@prueba.test', 'google_oauth', 'Ya Existe', 'active');
     perfilGoogle = { email: 'ya-existe@prueba.test', verified_email: true };
-    const r = await flujo('register');
-    assert.match(r.destino, /login=google_already_registered/, `debe mandar al acceso: ${r.destino}`);
-    assert.equal(r.sesion, null, 'no debe emitirse sesión: le toca entrar por su puerta');
+    const r = await flujo('login');
+    assert.match(r.destino, /login=google_ok/, `debe entrar: ${r.destino}`);
+    assert.ok(r.sesion, 'debe emitir sesión');
+    assert.equal(taller('ya-existe@prueba.test').name, 'Ya Existe', 'no debe pisar la cuenta existente');
   });
 
   it('sin state válido no hay sesión (CSRF del callback)', async () => {

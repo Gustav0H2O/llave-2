@@ -460,11 +460,14 @@ function montarAuth(app, deps) {
     console.log('[Google OAuth] autorizacion redirect_uri:', GOOGLE_REDIRECT_URI);
     // F5 (2.4): logs OAuth solo en no-PROD y sin PII (nunca email/token).
     if (!PROD) console.log('[Google OAuth] inicio flujo');
-    const authMode = req.query.mode === 'register' ? 'register' : 'login';
+    /* El state ya NO lleva el modo: es UNA SOLA PUERTA (si la cuenta existe se
+       entra, si no se crea). Se conservan las tres partes porque es lo que se
+       firma con HMAC para el CSRF; la del medio queda fija en `login`, así que
+       los states ya emitidos en vuelo siguen validando y no se rompe nada. */
     const randState = crypto.randomBytes(16).toString('hex');
-    const sig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${randState}_${authMode}`).digest('hex');
-    const state = `${randState}_${authMode}_${sig}`;
-    // Guardar state y modo en cookies temporales (path: '/' para todo el sitio)
+    const sig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${randState}_login`).digest('hex');
+    const state = `${randState}_login_${sig}`;
+    // Guardar el state en una cookie temporal (path: '/' para todo el sitio)
     /* `secure` se decide por el PROTOCOLO de esta petición, no por NODE_ENV.
        Antes era `secure: PROD`, y eso tumbaba el flujo en local: la máquina
        arranca con NODE_ENV=production (lo heredan el .env y el shell), así que
@@ -475,7 +478,11 @@ function montarAuth(app, deps) {
     const cookieSegura = cookieEsSegura(req);
     const optsState = { httpOnly: true, sameSite: 'lax', path: '/', secure: cookieSegura, maxAge: 600_000 };
     res.cookie('google_oauth_state', state, optsState);
-    res.cookie('google_oauth_mode', authMode, optsState);
+    /* Ya no se guarda `google_oauth_mode`: ese cookie, cuando el usuario
+       abandonaba la pantalla de Google, se quedaba vivo y podía cambiar el
+       sentido del siguiente intento. Con una sola puerta no hay modo que
+       confundir, así que se limpia por si quedó de un intento anterior. */
+    res.clearCookie('google_oauth_mode', { path: '/' });
     const params = new URLSearchParams({
       client_id: GOOGLE_CLIENT_ID,
       redirect_uri: GOOGLE_REDIRECT_URI,
@@ -495,16 +502,19 @@ function montarAuth(app, deps) {
     // cookie del state se guardó con res.cookie() en /api/auth/google.
     const savedState = leerCookie(req, 'google_oauth_state');
     const parts = (state || '').split('_');
-    /* Qué botón pulsó el usuario. Se mira SOLO el `state`, que va firmado con
-       HMAC: es la única fuente en la que se puede confiar y ya trae el modo.
-       Antes, si el `state` no decía «register», se caía a la cookie
-       `google_oauth_mode` —y esa cookie puede quedar de un intento de alta que
-       el usuario abandonó en la pantalla de Google (nunca vuelve al callback,
-       así que no se limpia)—. Resultado: pulsar «Iniciar sesión» con un correo
-       sin cuenta DABA DE ALTA la cuenta y abría el formulario de identidad. El
-       `state` válido siempre tiene tres partes, así que esa cookie de respaldo
-       solo podía actuar en la dirección peligrosa. */
-    const oauthMode = parts.length === 3 && parts[1] === 'register' ? 'register' : 'login';
+    /* UNA SOLA PUERTA (decisión 4.8 → unificada): antes el `state` llevaba el
+       modo (register/login) y el callback decidía entre DOS comportamientos:
+       dar de alta un correo nuevo o rechazar el acceso si la cuenta no
+       existía. Eso obligaba al usuario a acertar el botón correcto, y cuando
+       pulsaba el equivocado el servidor lo rebotaba
+       (?login=google_not_registered / google_already_registered): el «alta» no
+       creaba nada y el «acceso» no entraba. Con Google, el correo ya está
+       verificado, así que la pregunta «¿es alta o es acceso?» no tiene
+       sentido: si la cuenta existe se entra, y si no, se crea.
+
+       El `state` sigue teniendo tres partes porque es la firma anti-CSRF, pero
+       la parte del medio ya no decide nada: se conserva para no invalidar los
+       states ya emitidos, y se ignora al decidir. */
     let isStateValid = false;
     if (typeof state === 'string' && savedState && state === savedState && parts.length === 3 && GOOGLE_CLIENT_SECRET) {
       const expectedSig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${parts[0]}_${parts[1]}`).digest('hex');
@@ -632,31 +642,14 @@ function montarAuth(app, deps) {
       // Buscar si ya existe la cuenta
       let ws = await db.get('SELECT * FROM workshops WHERE email = ?', email);
 
-      /* Son DOS puertas y cada una avisa si te equivocaste de botón: la de alta
-         rebota a quien ya tiene cuenta y la de acceso a quien no la tiene. No es
-         un callejón sin salida —el aviso deja el botón correcto a un clic— pero
-         evita que un alta silenciosa le cambie el sentido a lo que el usuario
-         pidió hacer.
-         Una cuenta con contraseña del mismo correo entra por la puerta de
-         acceso: Google ya verificó que el correo es suyo (comprobación de
-         arriba), así que no hay suplantación posible, y se le CONSERVA la
-         contraseña. */
-
-      // Pidió CREAR cuenta y ya la tiene: se le manda a iniciar sesión.
-      if (ws && oauthMode === 'register') {
-        /* Se registra también en producción: es el rastro que dice por qué puerta
-           entró un usuario. Sin PII. */
-        console.warn('[Google OAuth] puerta de alta con una cuenta que ya existe; se le manda a entrar');
-        return res.redirect(`/?login=google_already_registered&email=${encodeURIComponent(email)}`);
-      }
-
-      // Pidió ENTRAR y no tiene cuenta: se le manda a crearla.
-      if (!ws && oauthMode === 'login') {
-        /* Se registra también en producción: es el rastro que dice por qué puerta
-           entró un usuario. Sin PII. */
-        console.warn('[Google OAuth] puerta de acceso con un correo sin cuenta; se le manda a crear la cuenta');
-        return res.redirect(`/?login=google_not_registered&email=${encodeURIComponent(email)}`);
-      }
+      /* UNA SOLA PUERTA: ya no hay rebotes. Antes, pulsar el botón equivocado
+         devolvía google_not_registered o google_already_registered y el
+         usuario tenía que volver a pulsar el otro botón para entrar; con el
+         móvil, donde el botón es el punto de partida de todo, eso se
+         traducía en «no entra». Ahora, si la cuenta existe se entra y si no se
+         crea, siempre. El correo ya está verificado por Google (comprobación
+         de arriba), así que no hay suplantación posible al reclamar una
+         cuenta existente por correo. */
 
       let esCuentaNueva = false;
       if (!ws) {
