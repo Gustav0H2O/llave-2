@@ -1053,9 +1053,27 @@ function OnboardingModal({ user, onComplete, onLogout }) {
     finally { setBusy(false); }
   };
 
+  /* El modal (OnboardingModal) es lo que se dibuja encima de TODO tras el alta
+     con Google: position:fixed + inset:0 + zIndex 99999. `alignItems: center`
+     con `overflowY: auto` es el clásico fallo de scroll de un modal: si el
+     contenido es MÁS ALTO que la pantalla, al centrarlo sobran scroll por arriba
+     y por abajo a la vez, y el navegador recorta la parte de arriba SIN dejar
+     forma de llegar a ella (el recorrido empieza desplazado).
+
+     Medido en un iPhone SE (375x667): el formulario mide 898px, así que el
+     botón «Verificar y activar mi taller» quedaba a 793px, FUERA del viewport.
+     elementFromPoint decía que no había nada pulsable en esa posición: la
+     pantalla quedaba tapada y el usuario no podía entrar ni leer el formulario.
+
+     `flex-start` en el contenedor + `margin: auto` en la caja centra igual
+     cuando el contenido SÍ cabe (margin:auto lo centra) y, cuando no cabe,
+     deja que empiece arriba del todo y se pueda desplazar hasta el final. El
+     `maxHeight` con scroll propio evita además que el fondo de la página se
+     mueva detrás. `100dvh` (altura dinámico) es lo correcto en móvil: `100vh`
+     en iOS mide la ventana sin la barra de direcciones y deja el botón fuera. */
   return html`
-    <div style=${{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', overflowY: 'auto', boxSizing: 'border-box' }} role="dialog" aria-modal="true" onKeyDown=${(e) => { if (e.key === 'Escape') e.preventDefault(); }}>
-      <div style=${{ background: 'var(--panel, #18181b)', border: '1px solid var(--border-hi, #3f3f46)', borderRadius: '16px', width: '100%', maxWidth: '540px', padding: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)', margin: 'auto', boxSizing: 'border-box' }}>
+    <div style=${{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '16px', overflowY: 'auto', boxSizing: 'border-box' }} role="dialog" aria-modal="true" onKeyDown=${(e) => { if (e.key === 'Escape') e.preventDefault(); }}>
+      <div style=${{ background: 'var(--panel, #18181b)', border: '1px solid var(--border-hi, #3f3f46)', borderRadius: '16px', width: '100%', maxWidth: '540px', padding: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)', margin: 'auto', boxSizing: 'border-box', maxHeight: 'calc(100dvh - 32px)', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <div style=${{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '99px', background: 'rgba(16,185,129,0.12)', color: '#10b981', fontSize: '11.5px', fontWeight: 700, marginBottom: '10px' }}>
           <${Icon} name="ShieldCheck" size=${15} /> Verificación Antifraude Obligatoria
         </div>
