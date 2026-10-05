@@ -1441,8 +1441,17 @@ function App() {
       setShowLogin(false);
       avisar(p === 'google_registered' ? 'Cuenta creada con Google. Bienvenido' : 'Sesión iniciada con Google');
     } else {
+      /* Un resultado NEGATIVO de Google NO significa que haya que cerrar la
+         sesión, y por eso aquí ya no se llama a /api/auth/logout.
+         Ese logout borraba la fila de la sesión en la base (DELETE FROM
+         sessions) mientras la cookie SEGUÍA viva en el navegador. Quedaba
+         entonces cookie + cero filas, así que el siguiente /api/auth/me
+         respondía auth_invalid («token inválido») y la cuenta desaparecía de
+         la pantalla: el usuario veía «Sesión iniciada» y, al recargar o al
+         pulsar de nuevo, un token inválido que le impedía volver a entrar.
+         Basta con limpiar el estado LOCAL: si había una sesión de verdad, el
+         /api/auth/me del arranque ya la trajo y se conserva. */
       setUser(null);
-      fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
       /* La pestaña que corresponde al botón que hay que pulsar ahora. */
       const pestana = {
         google_not_registered: 'register',
