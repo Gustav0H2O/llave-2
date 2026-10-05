@@ -17,6 +17,7 @@ module.exports = {
     require('./012-documento-fiscal'),
     require('./013-inventario-tipo'),
     require('./014-documento-folio-unico'),
+    require('./015-oauth-codigos-canjeados'),
   ],
   stats: [
     require('./stats-001-esquema'),

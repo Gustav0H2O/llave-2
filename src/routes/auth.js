@@ -395,24 +395,26 @@ function montarAuth(app, deps) {
      real. En producción van los valores por defecto. */
   const GOOGLE_TOKEN_URL = process.env.GOOGLE_TOKEN_URL || 'https://oauth2.googleapis.com/token';
   const GOOGLE_USERINFO_URL = process.env.GOOGLE_USERINFO_URL || 'https://www.googleapis.com/oauth2/v2/userinfo';
-  /* Códigos ya canjeados CON ÉXITO: hash del código → hash de la sesión que
-     emitió (más cuándo). Un código de Google es de UN SOLO USO: la segunda vez
-     que llega el mismo, Google responde invalid_grant y el login moría con
-     «No se pudo entrar con Google».
+/* Registro de códigos YA CANJEADOS: una tabla, no un Map del proceso.
+     `codigosCanjeados` en memoria no servía: Render (plan free) apaga el
+     servicio tras unos minutos sin tráfico y lo vuelve a levantar, así que si
+     el móvil entregaba el callback dos veces con el proceso intermedio ya
+     reiniciado, el Map estaba vacío y el segundo canjeo volvía a dar
+     invalid_grant. En la base sobrevive al reinicio (migración 015).
 
-     Por qué ocurre tanto en el móvil: al volver de Google el navegador
-     entrega el callback más de una vez —el gesto «atrás», una recarga, el
-    reenvío de la PWA, o la repetición de la navegación— y el código ya está
-     gastado. Antes esto solo lo registraba para diagnósticos (codigosVistos) y
-     el segundo intento se tapiaba como error.
+     Guardamos solo el hash del código (nunca el código) y el hash del token de
+     la sesión que emitió, con su state y la hora. La purga lo borra a los 30
+     minutos: un código de Google caduca en minutos, así que más allá solo
+     ocuparía sitio. */
+  const CODIGO_TTL_MS = 30 * 60e3;
+  const hashCodeOAuth = (code) => crypto.createHash('sha256').update(String(code)).digest('hex').slice(0, 32);
 
-     Con este registro, la segunda entrega NO vuelve a canjear: si el estado es
-     válido y ese código ya emitió una sesión, se reutiliza esa misma sesión
-     (se vuelve a poner su cookie) en vez de fallar. El resultado es el mismo
-     que el del primer canjeo —mismo usuario, misma sesión—, así que repetir
-     el callback es seguro. Solo se guarda el hash del código, nunca el código,
-     y caduca a los 15 min para no crecer. */
-  const codigosCanjeados = new Map();
+  /* Purga periódica: mismo criterio que la de sesiones (src/services/auth.js),
+     un setInterval sin await con unref para no sujetar el proceso. */
+  const _purgaCodigos = setInterval(() => {
+    db.run('DELETE FROM oauth_codigos WHERE created_at < ?', [new Date(Date.now() - CODIGO_TTL_MS).toISOString()]).catch(() => {});
+  }, 10 * 60 * 1000);
+  if (_purgaCodigos.unref) _purgaCodigos.unref();
   /* El redirect_uri debe coincidir con la URI autorizada en Google Console */
   const googleRedirectUri = (req) => {
     if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
@@ -513,18 +515,16 @@ function montarAuth(app, deps) {
 
     if (!PROD) console.log('[Google OAuth] callback:', { code: code ? 'si' : 'no', stateValid: isStateValid });
 
-    /* Registro de códigos ya canjeados (esto SÍ cambia el flujo, a diferencia del
-       viejo detector que solo diagnosticaba): hash del código → { token de la
-       sesión que emitió, state, hora }. Nunca se guarda el código en claro; el
-       token vive solo en memoria y en este proceso. */
-    const ahora = Date.now();
-    for (const [h, v] of codigosCanjeados) { if (ahora - v.t > 15 * 60e3) codigosCanjeados.delete(h); }
-    let codigoRepetido = false;
+    /* Se busca si este código ya se canjeó con éxito (migración 015). Vive en la
+       base, así que sobrevive a un reinicio del proceso —que es justo lo que
+       pasaba en Render y hacía volver el invalid_grant—. Solo se guarda el
+       hash del código, nunca el código. */
     let sesionPrevia = null;
     if (typeof code === 'string' && code) {
-      const h = crypto.createHash('sha256').update(code).digest('hex').slice(0, 16);
-      codigoRepetido = codigosCanjeados.has(h);
-      if (codigoRepetido) sesionPrevia = codigosCanjeados.get(h);
+      sesionPrevia = await db.get(
+        'SELECT token_hash, state FROM oauth_codigos WHERE code_hash = ?',
+        hashCodeOAuth(code)
+      ).catch(() => null);
     }
 
     // Limpiar cookies de estado
@@ -538,21 +538,32 @@ function montarAuth(app, deps) {
       return res.redirect('/?login=google_error&detalle=state');
     }
 
-    /* Callback repetido con el MISMO state (el móvil lo reenvía: gesto «atrás»,
-       recarga o repetición de la navegación). El código de Google ya está
-       gastado, así que canjearlo otra vez daría invalid_grant. Como el state
-       es válido y coincide con el del canjeo anterior, se devuelve al usuario
-       con la MISMA sesión que emitió el primero: mismo taller, mismos datos.
-       Solo si esa sesión sigue viva; si ya no, se cae al canjeo normal, que con
-       el código gastado responderá invalid_grant (la respuesta correcta). */
-    if (codigoRepetido && sesionPrevia && sesionPrevia.state === state) {
+/* Callback repetido con el MISMO state: el móvil entrega el callback más de
+       una vez (gesto «atrás», recarga, repetición de la navegación) y el código
+       de Google ya está gastado, así que canjearlo otra vez daría
+       invalid_grant. Si el state es válido y coincide con el del canjeo
+       anterior, se entra directamente con el taller de esa sesión, sin volver a
+       llamar a Google. */
+    if (sesionPrevia && sesionPrevia.state === state) {
+      /* La fila de `sessions` sigue viva: ese taller tiene una sesión abierta.
+         No hace falta (ni se puede) recuperar el token viejo —en `sessions` solo
+         se guarda su hash, por seguridad—, así que se emite una sesión NUEVA
+         para ese mismo taller. El resultado para el usuario es idéntico al del
+         primer canjeo —entra en su cuenta, con sus mismos datos—, y como el
+         state es válido y coincide con el del canjeo anterior, esta es de
+         verdad la MISMA entrega del mismo inicio, no un intento distinto. */
       const sigueViva = await db.get(
         'SELECT workshop_id FROM sessions WHERE token_hash = ?',
-        hashToken(sesionPrevia.token)
+        sesionPrevia.token_hash
       );
       if (sigueViva) {
-        console.log('[Google OAuth] callback repetido del mismo inicio: se reutiliza la sesion ya creada');
-        res.cookie(SESSION_COOKIE, sesionPrevia.token, tokenCookieOpts(req));
+        const nuevo = crypto.randomBytes(32).toString('base64url');
+        await db.run(
+          'INSERT INTO sessions (token_hash, workshop_id, expires_at) VALUES (?, ?, ?)',
+          [hashToken(nuevo), sigueViva.workshop_id, new Date(Date.now() + SESSION_TTL_MS).toISOString()]
+        );
+        console.log('[Google OAuth] callback repetido del mismo inicio: se emite sesion para el mismo taller');
+        res.cookie(SESSION_COOKIE, nuevo, tokenCookieOpts(req));
         return res.redirect('/?login=google_ok');
       }
     }
@@ -705,14 +716,15 @@ function montarAuth(app, deps) {
       );
       if (!PROD) console.log('[Google OAuth] sesion creada');
 
-      /* Se apunta qué sesión emitió este código, para que si el navegador
-         vuelve a entregar el MISMO callback (el móvil lo hace con el gesto
-         «atrás» o al recargar) se reutilice esta sesión en vez de canjear un
-         código ya gastado (invalid_grant). Solo en memoria, caduca a 15 min. */
-      codigosCanjeados.set(
-        crypto.createHash('sha256').update(code).digest('hex').slice(0, 16),
-        { token, state, t: Date.now() }
-      );
+      /* Se registra qué sesión emitió este código, para que si el navegador vuelve a
+         entregar el MISMO callback (el móvil lo hace con el gesto «atrás» o al
+         recargar) se entre directamente con ese taller en vez de canjear un
+         código ya gastado (invalid_grant). Solo el hash del código, y en la
+         base para que sobreviva a un reinicio del proceso (migración 015). */
+      db.run(
+        'INSERT INTO oauth_codigos (code_hash, token_hash, state, created_at) VALUES (?, ?, ?, ?)',
+        [hashCodeOAuth(code), hashToken(token), state, new Date().toISOString()]
+      ).catch(() => { /* si la tabla no está, el flujo sigue igual */ });
 
       res.cookie(SESSION_COOKIE, token, tokenCookieOpts(req));
       res.redirect(esCuentaNueva ? '/?login=google_registered' : '/?login=google_ok');
