@@ -37,6 +37,7 @@ const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { StoreBD } = require('../services/rate-limit-store');
 const { invalidarMetaCache, invalidarPumpsCache, invalidarCatalogos } = require('../services/caches');
+const { cookieEsSegura } = require('../../lib/pure');
 
 /* 2.30 — Token de admin (vida 1 h, con `jti` revocable) y helpers CSRF (2.32).
    La contraseña se lee del entorno aquí (antes en server-pg.js, misma posición
@@ -110,7 +111,18 @@ function montarAdmin(app, deps) {
     const headerToken = auth.startsWith('Bearer ') ? auth.slice(7) : '';
     const viaCookie = !headerToken && !!leerCookie(req, ADMIN_COOKIE);
     const token = extraerToken(req, ADMIN_COOKIE);
-    if (!verifyAdminToken(token)) return res.status(401).json({ error: 'No autorizado' });
+    if (!verifyAdminToken(token)) {
+      /* Mismo motivo que en la sesión del taller (src/services/auth.js): la
+         cookie es HttpOnly, así que el JS no puede borrarla. Un ft_admin
+         caducado se quedaba reenviado para siempre y el panel respondía 401
+         sin dar salida. Aquí se resetea en el mismo 401. */
+      if (leerCookie(req, ADMIN_COOKIE)) {
+        try {
+          res.clearCookie(ADMIN_COOKIE, { httpOnly: true, sameSite: 'strict', path: '/', secure: cookieEsSegura(req) });
+        } catch { /* cabecera ya escrita */ }
+      }
+      return res.status(401).json({ error: 'No autorizado' });
+    }
     /* 2.32: mutar por cookie exige CSRF; Bearer va exento (no lo manda el navegador solo). */
     if (viaCookie && METODOS_MUTANTES.has(req.method)
       && !igualDeFormaSegura(req.headers['x-csrf-token'], leerCookie(req, CSRF_COOKIE))) {

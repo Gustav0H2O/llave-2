@@ -37,7 +37,7 @@
    ========================================================================= */
 
 const crypto = require('crypto');
-const { esc, extraerToken, cookieEsSegura, calcularProgresoDonador } = require('../../lib/pure');
+const { esc, extraerToken, leerCookie, cookieEsSegura, calcularProgresoDonador } = require('../../lib/pure');
 
 /* Cookie de sesión del taller: una sola definición (la usan requireWorkshop,
    las rutas de auth y el chat, que la recibe por `deps`). */
@@ -176,6 +176,31 @@ function crearAuth({ db, PROD, SESSION_TTL_MS }) {
     secure: req ? cookieEsSegura(req) : PROD, maxAge: SESSION_TTL_MS
   });
 
+  /* Resetea la cookie de sesión en el navegador. Se usa cuando el token que
+     llega ya no corresponde a ninguna fila de `sessions`: sin esto, esa cookie
+     se quedaba viva para siempre.
+
+     POR QUÉ HACÍA FALTA: la cookie es HttpOnly, así que el JavaScript de la
+     página no puede borrarla (`document.cookie` ni la ve), y el servidor
+     respondía 401 pero la dejaba puesta. El navegador la reenviaba en cada
+     petición, cada ruta protegida volvía a responder auth_invalid y el
+     usuario quedaba atascado en «token inválido» sin poder limpiar nada a
+     mano. Borrándola en el mismo 401, el estado queda limpio y el siguiente
+     intento entra de verdad.
+
+     Se conservan los atributos de la cookie original (path y secure) porque
+     para que el navegador la borre deben COINCIDIR: una cookie sin `secure` no
+     borra a una que sí lo tenía. */
+  const borrarCookieSesion = (req, res) => {
+    if (!res.clearCookie) return;
+    try {
+      res.clearCookie(SESSION_COOKIE, {
+        httpOnly: true, sameSite: 'lax', path: '/',
+        secure: cookieEsSegura(req),
+      });
+    } catch { /* cabecera ya escrita: no es critico */ }
+  };
+
   const requireWorkshop = async (req, res, next) => {
     /* 4.6: token Bearer o cookie ftm_session, con el helper único de lib/pure. */
     const token = extraerToken(req, SESSION_COOKIE);
@@ -184,9 +209,16 @@ function crearAuth({ db, PROD, SESSION_TTL_MS }) {
       `SELECT workshop_id, expires_at FROM sessions WHERE token_hash = ?`,
       hashToken(token)
     );
-    if (!sess) return res.status(401).json({ code: 'auth_invalid', error: 'Sesión inválida. Inicia sesión de nuevo.' });
+    /* Sin fila para ese token: se responde 401 Y se borra la cookie. El token
+       puede haber llegado por cabecera Bearer (y entonces no hay cookie que
+       borrar), así que solo se limpia si venía en la cookie. */
+    if (!sess) {
+      if (leerCookie(req, SESSION_COOKIE)) borrarCookieSesion(req, res);
+      return res.status(401).json({ code: 'auth_invalid', error: 'Sesión inválida. Inicia sesión de nuevo.' });
+    }
     if (new Date(sess.expires_at).getTime() < Date.now()) {
       await db.run('DELETE FROM sessions WHERE token_hash = ?', hashToken(token));
+      if (leerCookie(req, SESSION_COOKIE)) borrarCookieSesion(req, res);
       return res.status(401).json({ code: 'auth_expired', error: 'Tu sesión expiró. Inicia sesión de nuevo.' });
     }
     req.workshopId = sess.workshop_id;
@@ -281,7 +313,7 @@ function crearAuth({ db, PROD, SESSION_TTL_MS }) {
     return `${raiz}-${Date.now().toString(36)}`;
   }
 
-  return { requireWorkshop, tokenCookieOpts, getDummyHash, lockoutLogin, slugLibre };
+  return { requireWorkshop, tokenCookieOpts, getDummyHash, lockoutLogin, slugLibre, borrarCookieSesion };
 }
 
 module.exports = {
