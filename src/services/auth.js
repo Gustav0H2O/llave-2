@@ -202,6 +202,7 @@ function crearAuth({ db, PROD, SESSION_TTL_MS }) {
   };
 
   const requireWorkshop = async (req, res, next) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     /* 4.6: token Bearer o cookie ftm_session, con el helper único de lib/pure. */
     const token = extraerToken(req, SESSION_COOKIE);
     if (!token) return res.status(401).json({ code: 'auth_required', error: 'Inicia sesión primero' });

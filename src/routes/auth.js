@@ -415,6 +415,7 @@ function montarAuth(app, deps) {
     db.run('DELETE FROM oauth_codigos WHERE created_at < ?', [new Date(Date.now() - CODIGO_TTL_MS).toISOString()]).catch(() => {});
   }, 10 * 60 * 1000);
   if (_purgaCodigos.unref) _purgaCodigos.unref();
+  db.run('ALTER TABLE oauth_codigos ADD COLUMN workshop_id INTEGER').catch(() => {});
 
   /* States emitidos, para que un REINTENTO del mismo inicio no se invalide a sí
      mismo. El log de Render en el móvil muestra que un solo clic produce DOS
@@ -500,8 +501,9 @@ function montarAuth(app, deps) {
        firma con HMAC para el CSRF; la del medio queda fija en `login`, así que
        los states ya emitidos en vuelo siguen validando y no se rompe nada. */
     const randState = crypto.randomBytes(16).toString('hex');
-    const sig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${randState}_login`).digest('hex');
-    const state = `${randState}_login_${sig}`;
+    const ts = Date.now();
+    const sig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${randState}_${ts}_login`).digest('hex');
+    const state = `${randState}_${ts}_login_${sig}`;
     /* Se guarda aparte de la cookie para que un reintento del mismo inicio no
        invalide el state del primero (ver `statesEmitidos`): en el móvil un clic
        genera dos flujos y la cookie solo conserva el último. */
@@ -555,16 +557,27 @@ function montarAuth(app, deps) {
        la parte del medio ya no decide nada: se conserva para no invalidar los
        states ya emitidos, y se ignora al decidir. */
     let isStateValid = false;
-    if (typeof state === 'string' && parts.length === 3 && GOOGLE_CLIENT_SECRET) {
-      const expectedSig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${parts[0]}_${parts[1]}`).digest('hex');
-      const firma = parts[2].length === expectedSig.length && crypto.timingSafeEqual(Buffer.from(parts[2]), Buffer.from(expectedSig));
-      /* La cookie puede haberse pisado por un reintento del mismo inicio (dos
-         clics, un doble toque, una recarga de la pantalla de Google): en ese
-         caso el state que vuelve es correcto pero ya no es el último de la
-         cookie. Por eso se acepta también si lo emitió este servidor hace poco
-         (`stateConocido`). La firma HMAC sigue siendo obligatoria: sin ella el
-         state no vale, y sin state válido no hay sesión. */
-      if (firma && (state === savedState || stateConocido(state))) isStateValid = true;
+    if (typeof state === 'string' && GOOGLE_CLIENT_SECRET) {
+      if (parts.length === 4) {
+        // Formato con marca de tiempo: randState_ts_login_sig
+        const [randPart, tsPart, actPart, sigPart] = parts;
+        const ts = Number(tsPart);
+        const diff = Date.now() - ts;
+        if (Number.isFinite(ts) && diff >= -60_000 && diff <= STATE_TTL_MS) {
+          const expectedSig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${randPart}_${tsPart}_${actPart}`).digest('hex');
+          if (sigPart.length === expectedSig.length && crypto.timingSafeEqual(Buffer.from(sigPart), Buffer.from(expectedSig))) {
+            isStateValid = true;
+          }
+        }
+      } else if (parts.length === 3) {
+        // Formato previo de 3 partes: randState_login_sig
+        const expectedSig = crypto.createHmac('sha256', GOOGLE_CLIENT_SECRET).update(`${parts[0]}_${parts[1]}`).digest('hex');
+        if (parts[2].length === expectedSig.length && crypto.timingSafeEqual(Buffer.from(parts[2]), Buffer.from(expectedSig))) {
+          if (state === savedState || stateConocido(state)) {
+            isStateValid = true;
+          }
+        }
+      }
     }
 
     if (!PROD) console.log('[Google OAuth] callback:', { code: code ? 'si' : 'no', stateValid: isStateValid });
@@ -576,14 +589,20 @@ function montarAuth(app, deps) {
     let sesionPrevia = null;
     if (typeof code === 'string' && code) {
       sesionPrevia = await db.get(
-        'SELECT token_hash, state FROM oauth_codigos WHERE code_hash = ?',
+        'SELECT token_hash, state, workshop_id FROM oauth_codigos WHERE code_hash = ?',
         hashCodeOAuth(code)
-      ).catch(() => null);
+      ).catch(async () => {
+        return await db.get(
+          'SELECT token_hash, state FROM oauth_codigos WHERE code_hash = ?',
+          hashCodeOAuth(code)
+        ).catch(() => null);
+      });
     }
 
-    // Limpiar cookies de estado
-    res.clearCookie('google_oauth_state', { path: '/' });
-    res.clearCookie('google_oauth_mode', { path: '/' });
+    // Limpiar cookies de estado con los mismos atributos con que se emitieron
+    const cookieSegura = cookieEsSegura(req);
+    res.clearCookie('google_oauth_state', { path: '/', secure: cookieSegura, sameSite: 'lax' });
+    res.clearCookie('google_oauth_mode', { path: '/', secure: cookieSegura, sameSite: 'lax' });
 
     if (!code || !state || !isStateValid) {
       /* El state vive en una cookie; si el navegador no la mandó (o caducó) no
@@ -592,33 +611,37 @@ function montarAuth(app, deps) {
       return res.redirect('/?login=google_error&detalle=state');
     }
 
-/* Callback repetido con el MISMO state: el móvil entrega el callback más de
+    /* Callback repetido con el MISMO state y código: el móvil entrega el callback más de
        una vez (gesto «atrás», recarga, repetición de la navegación) y el código
        de Google ya está gastado, así que canjearlo otra vez daría
-       invalid_grant. Si el state es válido y coincide con el del canjeo
+       invalid_grant. Si el state coincide con el del canjeo
        anterior, se entra directamente con el taller de esa sesión, sin volver a
        llamar a Google. */
     if (sesionPrevia && sesionPrevia.state === state) {
-      /* La fila de `sessions` sigue viva: ese taller tiene una sesión abierta.
-         No hace falta (ni se puede) recuperar el token viejo —en `sessions` solo
-         se guarda su hash, por seguridad—, así que se emite una sesión NUEVA
-         para ese mismo taller. El resultado para el usuario es idéntico al del
-         primer canjeo —entra en su cuenta, con sus mismos datos—, y como el
-         state es válido y coincide con el del canjeo anterior, esta es de
-         verdad la MISMA entrega del mismo inicio, no un intento distinto. */
-      const sigueViva = await db.get(
-        'SELECT workshop_id FROM sessions WHERE token_hash = ?',
-        sesionPrevia.token_hash
-      );
-      if (sigueViva) {
-        const nuevo = crypto.randomBytes(32).toString('base64url');
-        await db.run(
-          'INSERT INTO sessions (token_hash, workshop_id, expires_at) VALUES (?, ?, ?)',
-          [hashToken(nuevo), sigueViva.workshop_id, new Date(Date.now() + SESSION_TTL_MS).toISOString()]
+      let workshopId = sesionPrevia.workshop_id || null;
+      if (!workshopId && sesionPrevia.token_hash) {
+        const sigueViva = await db.get(
+          'SELECT workshop_id FROM sessions WHERE token_hash = ?',
+          sesionPrevia.token_hash
         );
-        console.log('[Google OAuth] callback repetido del mismo inicio: se emite sesion para el mismo taller');
-        res.cookie(SESSION_COOKIE, nuevo, tokenCookieOpts(req));
-        return res.redirect('/?login=google_ok');
+        if (sigueViva) workshopId = sigueViva.workshop_id;
+      }
+      if (workshopId) {
+        const wsPrev = await db.get('SELECT id, status, locked_until FROM workshops WHERE id = ?', workshopId);
+        if (wsPrev) {
+          if (wsPrev.status && wsPrev.status !== 'active') return res.redirect('/?login=google_suspended');
+          if (wsPrev.locked_until && new Date(wsPrev.locked_until).getTime() > Date.now()) {
+            return res.redirect('/?login=google_locked');
+          }
+          const nuevo = crypto.randomBytes(32).toString('base64url');
+          await db.run(
+            'INSERT INTO sessions (token_hash, workshop_id, expires_at) VALUES (?, ?, ?)',
+            [hashToken(nuevo), workshopId, new Date(Date.now() + SESSION_TTL_MS).toISOString()]
+          );
+          console.log('[Google OAuth] callback repetido del mismo inicio: se emite sesion para el mismo taller', workshopId);
+          res.cookie(SESSION_COOKIE, nuevo, tokenCookieOpts(req));
+          return res.redirect('/?login=google_ok');
+        }
       }
     }
 
@@ -753,15 +776,20 @@ function montarAuth(app, deps) {
       );
       if (!PROD) console.log('[Google OAuth] sesion creada');
 
-      /* Se registra qué sesión emitió este código, para que si el navegador vuelve a
+      /* Se registra qué sesión y taller emitió este código, para que si el navegador vuelve a
          entregar el MISMO callback (el móvil lo hace con el gesto «atrás» o al
          recargar) se entre directamente con ese taller en vez de canjear un
          código ya gastado (invalid_grant). Solo el hash del código, y en la
          base para que sobreviva a un reinicio del proceso (migración 015). */
       db.run(
-        'INSERT INTO oauth_codigos (code_hash, token_hash, state, created_at) VALUES (?, ?, ?, ?)',
-        [hashCodeOAuth(code), hashToken(token), state, new Date().toISOString()]
-      ).catch(() => { /* si la tabla no está, el flujo sigue igual */ });
+        'INSERT INTO oauth_codigos (code_hash, token_hash, state, workshop_id, created_at) VALUES (?, ?, ?, ?, ?)',
+        [hashCodeOAuth(code), hashToken(token), state, ws.id, new Date().toISOString()]
+      ).catch(() => {
+        db.run(
+          'INSERT INTO oauth_codigos (code_hash, token_hash, state, created_at) VALUES (?, ?, ?, ?)',
+          [hashCodeOAuth(code), hashToken(token), state, new Date().toISOString()]
+        ).catch(() => { /* si la tabla no está, el flujo sigue igual */ });
+      });
 
       res.cookie(SESSION_COOKIE, token, tokenCookieOpts(req));
       res.redirect(esCuentaNueva ? '/?login=google_registered' : '/?login=google_ok');

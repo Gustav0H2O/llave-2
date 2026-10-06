@@ -1151,10 +1151,12 @@ function LoginScreen({ onBack, notice, onLoginSuccess }) {
      siguientes. Si el navegador no llega a navegar —red caída, gesto cancelado,
      pestaña restaurada— el botón se rearma solo a los pocos segundos. */
   const googleGo = (e) => {
-    if (googleYa.current) { e.preventDefault(); e.stopPropagation(); return; }
+    e.preventDefault();
+    if (googleYa.current) return;
     googleYa.current = true;
     setGoogleBusy(true);
     window.setTimeout(() => { googleYa.current = false; setGoogleBusy(false); }, 8000);
+    window.location.assign('/api/auth/google');
   };
   const esDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || (activeNotice && activeNotice.includes('no está configurado'));
 
@@ -1311,14 +1313,24 @@ function App() {
     verifyTimer.current = texto ? setTimeout(() => setVerifyMsg(''), ms) : null;
   };
   useEffect(() => () => { if (verifyTimer.current) clearTimeout(verifyTimer.current); }, []);
-  /* Ya no hay `loginTab`: con una sola puerta no hay pestañas que elegir
-     (ver LoginScreen y src/routes/auth.js). */
-  useEffect(() => {
-    fetch('/api/auth/me', { credentials: 'same-origin' })
-       .then(r => { if (!r.ok) throw new Error('no-session'); return r.json(); })
-      .then(setUser).catch(() => setUser(null))
-      .finally(() => setAuthChecked(true));
-  }, []);
+  const fetchCurrentUser = async () => {
+    try {
+      const r = await fetch('/api/auth/me', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
+      if (!r.ok) throw new Error('no-session');
+      const u = await r.json();
+      setUser(u);
+      return u;
+    } catch {
+      setUser(null);
+      return null;
+    } finally {
+      setAuthChecked(true);
+    }
+  };
   /* Espejo de LECTURA de los datos de negocio. Se escribe solo desde el servidor
      (syncFromBackend) y se borra al cerrar sesión, para que la siguiente cuenta
      en este navegador no vea datos de la anterior. */
@@ -1350,9 +1362,21 @@ function App() {
         }
       });
   };
-  const refreshUser = () => {
-    fetch('/api/auth/me', { credentials: 'same-origin' })
-      .then(r => r.ok ? r.json() : null).then(u => u && setUser(u)).catch(() => {});
+  const refreshUser = async () => {
+    try {
+      const r = await fetch('/api/auth/me', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
+      if (r.ok) {
+        const u = await r.json();
+        if (u) { setUser(u); return u; }
+      }
+      return null;
+    } catch {
+      return null;
+    }
   };
   /* apiFetch: wrapper para llamadas al backend autenticadas. Si el server
      responde 401 con código de sesión expirada/inválida, limpia la sesión local
@@ -1447,54 +1471,43 @@ function App() {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const p = urlParams.get('login');
-    /* Motivo corto que manda el callback (state, token_redirect_uri_mismatch…).
-       Sin esto, un fallo de Google solo decía "prueba de nuevo" y no había por
-       dónde empezar a mirar. */
     const detalle = urlParams.get('detalle') || '';
-    /* `login_google_only` no sale de este callback —lo responde la API cuando en
-       producción alguien intenta entrar con correo y contraseña—, pero si un
-       redirect lo trajera, su aviso tiene que estar. */
-    if (!p || (!p.startsWith('google_') && p !== 'login_google_only')) return;
-    if (p === 'google_ok' || p === 'google_registered') {
-      refreshUser();
-      setShowLogin(false);
-      avisar(p === 'google_registered' ? 'Cuenta creada con Google. Bienvenido' : 'Sesión iniciada con Google');
-    } else {
-      /* Un resultado NEGATIVO de Google NO significa que haya que cerrar la
-         sesión, y por eso aquí ya no se llama a /api/auth/logout.
-         Ese logout borraba la fila de la sesión en la base (DELETE FROM
-         sessions) mientras la cookie SEGUÍA viva en el navegador. Quedaba
-         entonces cookie + cero filas, así que el siguiente /api/auth/me
-         respondía auth_invalid («token inválido») y la cuenta desaparecía de
-         la pantalla: el usuario veía «Sesión iniciada» y, al recargar o al
-         pulsar de nuevo, un token inválido que le impedía volver a entrar.
-         Basta con limpiar el estado LOCAL: si había una sesión de verdad, el
-         /api/auth/me del arranque ya la trajo y se conserva. */
-setUser(null);
-      /* Ya no hay dos puertas que elegir, así que no hay que abrir la pantalla
-         en ninguna pestaña concreta: se deja la que hubiera. Los avisos
-         `google_not_registered` y `google_already_registered` ya no los emite el
-         servidor (con una sola puerta siempre se entra o se crea), pero se
-         dejan los textos por si un despliegue viejo los devolviera. */
-      const textos = {
-        google_error: `No se pudo entrar con Google. Prueba de nuevo.${detalle ? ` (código: ${detalle} — envíalo a soporte si sigue)` : ''}`,
-        google_suspended: 'Tu cuenta está suspendida. Contacta a soporte para reactivarla.',
-        google_locked: 'Tu cuenta está bloqueada temporalmente por intentos fallidos. Intenta más tarde.',
-        google_unconfigured: 'El acceso con Google no está configurado en este servidor. Avisa a soporte.',
-        google_email_unverified: 'Google no pudo confirmar que ese correo sea tuyo, así que no se creó la cuenta. Prueba con otra cuenta de Google.',
-        google_not_registered: 'Ese correo todavía no tiene cuenta. Vuelve a pulsar «Ingresar con Google» y la creamos al momento.',
-        google_already_registered: 'Esa cuenta ya existe. Vuelve a pulsar «Ingresar con Google» para entrar.',
-        login_google_only: 'El acceso al taller es con Google. Pulsa «Ingresar con Google».',
-      };
-      avisar(textos[p] || textos.google_error);
-      setShowLogin(true);
-    }
-    const url = new URL(location.href);
-    url.searchParams.delete('login');
-    /* `email` solo venía para identificar el correo del aviso anterior. */
-    url.searchParams.delete('email');
-    url.searchParams.delete('detalle');
-    history.replaceState(null, '', url);
+
+    (async () => {
+      const currentUser = await fetchCurrentUser();
+
+      if (!p || (!p.startsWith('google_') && p !== 'login_google_only')) return;
+
+      if (p === 'google_ok' || p === 'google_registered') {
+        if (currentUser) {
+          setShowLogin(false);
+          avisar(p === 'google_registered' ? 'Cuenta creada con Google. Bienvenido' : 'Sesión iniciada con Google');
+        } else {
+          setShowLogin(true);
+          avisar('No se pudo verificar la sesión de Google. Intenta nuevamente.');
+        }
+      } else {
+        setUser(null);
+        const textos = {
+          google_error: `No se pudo entrar con Google. Prueba de nuevo.${detalle ? ` (código: ${detalle} — envíalo a soporte si sigue)` : ''}`,
+          google_suspended: 'Tu cuenta está suspendida. Contacta a soporte para reactivarla.',
+          google_locked: 'Tu cuenta está bloqueada temporalmente por intentos fallidos. Intenta más tarde.',
+          google_unconfigured: 'El acceso con Google no está configurado en este servidor. Avisa a soporte.',
+          google_email_unverified: 'Google no pudo confirmar que ese correo sea tuyo, así que no se creó la cuenta. Prueba con otra cuenta de Google.',
+          google_not_registered: 'Ese correo todavía no tiene cuenta. Vuelve a pulsar «Ingresar con Google» y la creamos al momento.',
+          google_already_registered: 'Esa cuenta ya existe. Vuelve a pulsar «Ingresar con Google» para entrar.',
+          login_google_only: 'El acceso al taller es con Google. Pulsa «Ingresar con Google».',
+        };
+        avisar(textos[p] || textos.google_error);
+        setShowLogin(true);
+      }
+
+      const url = new URL(location.href);
+      url.searchParams.delete('login');
+      url.searchParams.delete('email');
+      url.searchParams.delete('detalle');
+      history.replaceState(null, '', url);
+    })();
   }, []);
   const garage = useGarage();
   /* Ubicación del pie según resolución (en móvil encima de resultados, en desktop al final). */
